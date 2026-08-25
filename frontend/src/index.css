@@ -1,0 +1,35 @@
+@import "tailwindcss";
+
+/* Design tokens -- C26. Colours, spacing and typography are variables consumed
+   everywhere; no literal values in components.
+
+   What is deliberately NOT here: the density scale. C21 requires grid screens to
+   use it and OD-35 has not established it, so the tokens do not exist yet and
+   nothing may invent them. The rule is active now: new spacing in a grid screen
+   is raised, not invented. There are no grid screens yet. */
+@theme {
+  --color-surface: oklch(100% 0 0);
+  --color-surface-muted: oklch(97% 0.005 250);
+  --color-border: oklch(90% 0.008 250);
+  --color-ink: oklch(25% 0.015 250);
+  --color-ink-muted: oklch(52% 0.012 250);
+  --color-accent: oklch(52% 0.14 250);
+  --color-danger: oklch(52% 0.18 25);
+
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", "Cascadia Mono", monospace;
+}
+
+/* C27. Every numeric column uses tabular figures. Applied as a token rather than
+   sprinkled through screens: without it, amount columns shift horizontally from
+   one row to the next, and a column of money that moves is a column that is hard
+   to read down. */
+@utility tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+body {
+  background: var(--color-surface-muted);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+}

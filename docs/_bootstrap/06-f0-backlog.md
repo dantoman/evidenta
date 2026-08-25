@@ -951,7 +951,7 @@ agenții invocați, ambele suite de izolare verzi, nicio decizie deschisă înch
   invizibil, interogarea nu întoarce nimic, iar excepția e aceeași ca pentru un identificator
   niciodată emis — nu există ramură în care codul află că rândul există și apoi decide ce spune.
 
-### F0.10.3 — Schelet frontend
+### F0.10.3 — Schelet frontend — **TERMINAT** (2026-08-25)
 
 - **Obiectiv:** aplicația React pornește, rezolvă tenantul din subdomeniu, autentifică și afișează
   un layout de bază.
@@ -961,8 +961,22 @@ agenții invocați, ambele suite de izolare verzi, nicio decizie deschisă înch
 - **Review:** —
 - **Terminat:** un utilizator se autentifică și vede layout-ul; erorile API se afișează după codul
   stabil, nu după mesaj; formatarea numerelor și datelor e cea pentru RM.
-- **Blocat de:** OD-19, OD-35 *(`DN-01` închisă prin ADR-014 și ADR-016; `OD-20` stă pe F0.3.5, care
-  precedă)*
+- **Blocat de:** ~~OD-19~~ *(închisă prin [ADR-031](../decisions/031-stack-frontend.md))*;
+  `OD-35` **rămâne deschisă** și nu blochează scheletul: `C21` privește ecranele cu grile, iar
+  scheletul n-are niciunul. Regula e activă de acum — spațierea într-un ecran cu grilă se ridică,
+  nu se inventează, iar tokenii de densitate lipsesc **deliberat** din `index.css`.
+- **Livrat și verificat pe lanțul real:** Vite + React 19 pe Node 24, `alpha.evidenta.localhost`
+  → proxy → Django. Măsurat, nu presupus: `GET /` 200, `whoami` **401 fără sesiune**, login cu cod
+  TOTP real 200, `whoami` **200 cu sesiunea**, întorcând tenantul și utilizatorul corecte. Cookie-ul
+  observat pe fir: `HttpOnly; Path=/; SameSite=Lax`, **fără `Domain`** — granița de tenant și cea de
+  cookie sunt aceeași linie.
+- **`C16` are gardian și e probat în ambele sensuri:** ESLint refuză `@tanstack/react-table` într-un
+  ecran și îl acceptă în `src/shared/DataGrid/`.
+- **Formatarea e măsurată, nu presupusă:** `Intl.NumberFormat('ro-MD')` formatează exact un **șir**
+  cu 30 de cifre — `123.456.789.012.345.678.901.234.567.890,12` — pe care un `float` nu-l poate
+  ține. De aceea modulul primește șiruri, nu numere: serverul trimite `numeric` ca șir tocmai ca
+  valoarea să nu treacă prin virgulă mobilă, iar parsarea la afișare ar desface asta la ultimul pas.
+- **Job de CI propriu** (`frontend`): tipuri, lint și build, fără bază de date și fără backend.
 
 ---
 

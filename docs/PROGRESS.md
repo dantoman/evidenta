@@ -649,12 +649,13 @@ preced orice model.
         rotunjirea vine din registrul fiscal după data perioadei — nu există `round_money()`
   - [x] F0.9.2 — `exchange_rate` global, `UNIQUE (currency, rate_date, rate_type)`,
         scriere doar prin calea privilegiată P-3
-- [ ] F0.10 — Convenții API și schelet frontend    ← ÎN CURS
+- [x] F0.10 — Convenții API și schelet frontend
   - [x] F0.10.1 — convenții API: coduri de eroare stabile prin middleware, `Idempotency-Key`
         cerut și validat (replay-ul stă pe evenimentul contabil, F1.2)
   - [x] F0.10.2 — autentificare la nivel de API: IZ-04 adăugat ca **convenție** (404, niciodată
         403); IZ-05/36/37 erau acoperite de F0.3.7c. `DN-09` era blocaj expirat — ADR-021
-  - [ ] F0.10.3 — schelet frontend *(blocat de OD-19, OD-35)*
+  - [x] F0.10.3 — schelet frontend: React 19 + Vite pe Node 24, autentificare prin proxy,
+        formatare `ro-MD`, `C16` impus prin ESLint. Verificat pe lanțul real
 
 Descompunerea în 49 de sarcini de dimensiunea unei sesiuni, cu dependențe, agenți de review și
 criterii de terminare: `_bootstrap/06-f0-backlog.md`.

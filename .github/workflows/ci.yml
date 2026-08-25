@@ -174,3 +174,46 @@ jobs:
           print(f'suites ran as {user} (superuser={is_super}, bypassrls={bypass})')
           assert user == 'evidenta_app' and not is_super and not bypass
           "
+
+  # Frontend. Its own job rather than a step in `quality`: it needs Node, not
+  # Python, and a Python-only change must not wait on an npm install to go green.
+  #
+  # No database and no backend. The three checks here are the ones that can be
+  # true without one -- types, the C16 grid rule, and a build that actually
+  # bundles.
+  frontend:
+    name: Frontend types, lint, build
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v6
+        with:
+          # Node 24 LTS, fixed by ADR-005. `.nvmrc` is the single place the
+          # version lives, so a local shell and this job cannot drift.
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install from the lock file
+        working-directory: frontend
+        # `npm ci`, not `npm install`: it refuses to resolve anything the lock
+        # file does not already pin. A build that quietly resolved a new version
+        # would not be the build anybody tested.
+        run: npm ci
+
+      - name: Types
+        working-directory: frontend
+        run: npx tsc -b --noEmit
+
+      - name: Lint
+        working-directory: frontend
+        # Includes C16 -- no screen imports @tanstack/react-table directly. The
+        # rule has been checked in both directions: it refuses the import in a
+        # screen and accepts it inside DataGrid.
+        run: npx eslint .
+
+      - name: Build
+        working-directory: frontend
+        run: npx vite build

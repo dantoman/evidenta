@@ -150,8 +150,27 @@ reset-db: ## Șterge și reconstruiește baza locală (DISTRUCTIV — cere CONFI
 # --- rulare ------------------------------------------------------------------
 
 .PHONY: run
-run: ## Pornește serverul de dezvoltare (deocamdată fără rute — urlpatterns e gol până la F0.10)
+run: ## Pornește serverul de dezvoltare
 	cd backend && uv run python manage.py runserver $(BACKEND_PORT)
+
+# Frontend. Node se ia din `.nvmrc` — 24 LTS, fixat prin ADR-005 — ca shell-ul local și jobul de CI
+# să nu poată diverge. `npm ci`, nu `npm install`: refuză să rezolve ce lockfile-ul nu pinuiește deja.
+NPM := cd frontend && npm
+
+.PHONY: web-install
+web-install: ## Instalează dependențele frontend din lockfile
+	$(NPM) ci
+
+.PHONY: web
+web: ## Pornește Vite pe evidenta.localhost:5173 (tenantul vine din subdomeniu — ADR-025)
+	@echo "Deschide http://<subdomeniu>.evidenta.localhost:5173 — de ex. http://alpha.evidenta.localhost:5173"
+	$(NPM) run dev
+
+.PHONY: web-check
+web-check: ## Tipuri, lint (inclusiv C16) și build, exact ce rulează CI
+	$(NPM) run typecheck
+	$(NPM) run lint
+	$(NPM) run build
 
 .PHONY: worker
 worker: ## Pornește workerul Celery
