@@ -1,8 +1,82 @@
+import { createHmac } from 'node:crypto'
 import { fileURLToPath, URL } from 'node:url'
 
-import { defineConfig, loadEnv } from 'vite'
+import { defineConfig, loadEnv, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
+
+/**
+ * The second factor, typed for you -- development server only.
+ *
+ * This is not an MFA bypass and cannot become one. ADR-021 makes the second
+ * factor mandatory for everyone and `authenticate()` has no branch that returns
+ * a session without one, so what this endpoint hands the login form is an
+ * ordinary TOTP code that the backend verifies exactly as it verifies a code
+ * read off a phone. What disappears is the typing, and with it the failure the
+ * owner actually hit: a code copied out of a terminal expires during the walk to
+ * the browser, and the form then reports it as wrong.
+ *
+ * `apply: 'serve'` keeps it out of every build, and the plugin is only
+ * registered when `DEV_TOTP_SECRET` is set -- so a checkout without that
+ * variable has no such route at all.
+ */
+function devTotpEndpoint(secret: string): Plugin {
+  const STEP_SECONDS = 30
+
+  return {
+    name: 'evidenta-dev-totp',
+    apply: 'serve',
+    configureServer(server) {
+      server.middlewares.use('/__dev/totp', (_request, response) => {
+        const now = Math.floor(Date.now() / 1000)
+        response.setHeader('Content-Type', 'application/json')
+        // The answer is stale within the half minute. A cached one is the bug
+        // this endpoint exists to remove.
+        response.setHeader('Cache-Control', 'no-store')
+        response.end(
+          JSON.stringify({
+            code: totp(secret, now, STEP_SECONDS),
+            valid_for: STEP_SECONDS - (now % STEP_SECONDS),
+          }),
+        )
+      })
+    },
+  }
+}
+
+/** RFC 4648 base32, the encoding every authenticator app takes a secret in. */
+function base32Decode(input: string): Buffer {
+  const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567'
+  const bytes: number[] = []
+  let buffer = 0
+  let bits = 0
+
+  // Padding and grouping spaces are both things a pasted secret arrives with.
+  for (const character of input.replace(/[\s=]/g, '').toUpperCase()) {
+    const index = alphabet.indexOf(character)
+    if (index < 0) throw new Error(`DEV_TOTP_SECRET is not base32: ${character}`)
+    buffer = (buffer << 5) | index
+    bits += 5
+    if (bits >= 8) {
+      bits -= 8
+      bytes.push((buffer >> bits) & 0xff)
+    }
+  }
+
+  return Buffer.from(bytes)
+}
+
+/** RFC 6238, six digits, SHA-1 -- what `pyotp.TOTP(...).now()` computes. */
+function totp(secret: string, seconds: number, step: number): string {
+  const counter = Buffer.alloc(8)
+  counter.writeBigUInt64BE(BigInt(Math.floor(seconds / step)))
+
+  const digest = createHmac('sha1', base32Decode(secret)).update(counter).digest()
+  const offset = digest[digest.length - 1]! & 0x0f
+  const truncated = digest.readUInt32BE(offset) & 0x7fffffff
+
+  return String(truncated % 1_000_000).padStart(6, '0')
+}
 
 export default defineConfig(({ mode }) => {
   // The backend port is configurable in the repo's `.env` (`BACKEND_PORT`), so
@@ -22,7 +96,12 @@ export default defineConfig(({ mode }) => {
   const apiTarget = env.VITE_API_TARGET ?? `http://127.0.0.1:${env.BACKEND_PORT || '8000'}`
 
   return {
-    plugins: [react(), tailwindcss()],
+    plugins: [
+      react(),
+      tailwindcss(),
+      // Absent unless the secret is configured -- see `.env.example`.
+      ...(env.DEV_TOTP_SECRET ? [devTotpEndpoint(env.DEV_TOTP_SECRET)] : []),
+    ],
     resolve: {
       // Declared in both places on purpose: tsconfig teaches the type checker and
       // the editor, this teaches the bundler. Only one of the two is checked by

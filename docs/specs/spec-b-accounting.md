@@ -290,6 +290,10 @@ mare (`R21`), iar adăugarea unei coloane pe ea, mai târziu, nu mai e migrare i
 
 ## 2. Planul de conturi SNC
 
+> **Reconciliat cu implementarea F1.1 (2026-08-25).** Structura e livrată; conținutul nu (`OD-23`).
+> Trei diferențe față de forma scrisă aici sunt consemnate mai jos, la locul lor, cu motivul —
+> nu absorbite tăcut în text.
+
 ### 2.1 Structura pe două niveluri
 
 ```
@@ -344,8 +348,13 @@ sus este suficientă pentru a-l încărca atunci când există dintr-o sursă ci
 
 ### 2.3 `company_chart` și `company_account`
 
-`company_chart`: `id`, `tenant_id`, `company_id` (UNIQUE), `template_id`, `template_version`,
-`instantiated_at`, `last_propagation_at`.
+`company_chart`: `id`, `tenant_id`, `company_id` (UNIQUE), `template_id`, `instantiated_at`,
+`last_propagation_at`.
+
+> **`template_version` a ieșit la implementarea F1.1.** `coa_template` e unic pe `(code, version)`, deci
+> `template_id` identifică deja versiunea; copia șirului ar fi a doua sursă pentru aceeași întrebare, iar
+> cele două pot diverge fără ca ceva să observe. Nu e simplificare de implementare — coloana nu avea ce
+> să răspundă în plus.
 
 `company_account`:
 
@@ -359,6 +368,7 @@ sus este suficientă pentru a-l încărca atunci când există dintr-o sursă ci
 | `template_account_id` | uuid | NULL — NOT NULL când `origin='system'` |
 | `name_ro` | text | NOT NULL |
 | `account_class`, `normal_balance` | text | NOT NULL |
+| `allows_subaccounts` | boolean | NOT NULL, DEFAULT false — **adăugată la F1.1**; vezi nota de sub tabel |
 | `currency_tracking`, `quantity_tracking` | boolean | NOT NULL |
 | `required_dimensions` | text[] | NOT NULL |
 | `is_blocked` | boolean | NOT NULL, DEFAULT false — blocat la postare, vizibil în rapoarte |
@@ -367,6 +377,11 @@ sus este suficientă pentru a-l încărca atunci când există dintr-o sursă ci
 
 `UNIQUE (company_id, account_code)`. Indici: `(company_id, valid_from, valid_to)`;
 `(company_id, is_blocked)`.
+
+> **De ce `allows_subaccounts` există și pe companie, nu doar pe șablon.** §2.4 cere ca un subcont să stea
+> „sub un cont care permite subconturi". Pentru un cont creat de companie nu există rând de șablon de
+> întrebat — deci fără coloana asta regula nu se putea impune deloc, nici măcar pentru cazul de sistem, unde
+> ar fi cerut un `JOIN` la fiecare validare. Găsită la implementarea F1.1, nu la scrierea specificației.
 
 ### 2.4 Conturi de sistem vs. subconturi
 
@@ -381,6 +396,11 @@ sus este suficientă pentru a-l încărca atunci când există dintr-o sursă ci
 **Nimic nu se șterge.** O linie de jurnal poate referi contul (fără cheie străină, 1.3), iar
 ledgerul este append-only: un cont dispărut face imposibilă citirea istoricului. Închiderea unui
 cont este `valid_to`; interzicerea postării este `is_blocked`.
+
+**`origin` nu se scrie de mână: derivă din `coa_template_account.is_system` la instanțiere.** §2.2 pune
+steagul pe șablon, tabelul de mai sus contrastează aceleași două feluri pe companie — un singur fapt, cu un
+singur autor. Necablat, `is_system` ar fi rămas a treia coloană pe care n-o citește nimeni, tiparul deja
+prins o dată la F0.2.4 cu `covers_all_companies`.
 
 ### 2.5 Propagarea modificărilor legislative
 
@@ -475,6 +495,12 @@ cere deployment, iar regulile specifice unei companii devin cod condiționat.
 
 Amendamentul §A.4 rezolvă întrebarea pentru *conformitate* (parametri = date, logică = cod). Nu o
 rezolvă pentru regulile de postare, care nu sunt nici una, nici alta.
+
+**Propunerea scrisă:** [ADR-036](../decisions/036-forma-postarii.md) alege (C), cu granița trasată
+explicit — forma postării (câte linii, ce semn, din ce câmp derivă suma) în cod, o singură versiune pentru
+toți tenanții; conturile, dimensiunile, politicile și șabloanele de note manuale în date, per tenant. Cât ADR-ul
+e `Propus`, tabelele de mai sus rămân forma opțiunii (A); la `Acceptat`, `amount_expression` și numărul de linii
+ies din date și trec în handler.
 
 ### 3.3 Rezoluția contului
 
@@ -718,7 +744,32 @@ se află de la un client.
 
 ## 6. Perioade
 
+> **Reconciliat cu implementarea F1.5 (2026-08-25).** `fiscal_year` și `period` există, cu politici,
+> servicii și 25 de teste sub rolul de aplicație. Trei diferențe față de forma scrisă mai jos, toate
+> consemnate la locul lor: exercițiul e **entitate**, nu coloană; stările sunt **trei**, nu patru; iar
+> `period_module_lock` nu există, fiindcă `DNB-07` e deschisă.
+
 ### 6.1 `period`
+
+> **Exercițiul este o entitate, nu o coloană.** Tabelul de mai jos are `fiscal_year` ca `smallint`;
+> [ADR-039](../decisions/039-valuta-si-perioade.md) §6 este ulterior, `Acceptat`, și cere
+> `start_date`/`end_date` explicite — un `smallint` nu poate spune că exercițiul ține din aprilie
+> până în martie, iar art. 24 alin. (1) lit. b) face exact asta situația normală pentru filiala unei
+> companii-mamă străine. Implementarea are `fiscal_year_id` ca cheie străină; `UNIQUE (company_id,
+> fiscal_year, period_no)` devine `UNIQUE (company_id, fiscal_year_id, period_no)`.
+>
+> **Trei stări, nu patru.** `closing` nu e implementată: ADR-039 §8 enumeră `open`, `closed`,
+> `locked`, iar §6.2 de mai jos e singurul loc care descrie a patra. Întrebarea e înregistrată ca
+> `OD-58`, și nu e scumpă — adăugarea unei stări e migrare aditivă. Ce nu se face este inventarea
+> semanticii ei în cod.
+>
+> **Ce s-a adăugat și nu era aici:** perioada e **exact o lună calendaristică**, impus prin `CHECK`
+> în bază (ADR-039 §7 spune „strict lunară", specificația nu o impunea nicăieri); exercițiul nu
+> poate depăși douăsprezece luni (ADR-039 §6); iar `locked` e terminală **prin trigger**, nu doar
+> prin serviciu — importatorul 1C și migrările de date sunt exact căile pe care un exercițiu depus
+> s-ar redeschide tăcut. `end_date` este **inclusiv** (ultima zi), spre deosebire de ferestrele
+> `[valid_from, valid_to)` din parametrii fiscali și din registrul de handlere: diferența e o zi pe
+> an și se găsește la un client dacă nu e scrisă.
 
 | Câmp | Tip | Note |
 |---|---|---|
@@ -748,6 +799,8 @@ se află de la un client.
 `locked` este terminală. Corecția unei perioade `locked` se face exclusiv prin storno în perioada
 curentă deschisă (9.3).
 
+*Tranzițiile care implică `closing` nu sunt implementate — vezi nota de la §6.1 și `OD-58`. Cele trei care există (`open → closed`, `closed → open` cât exercițiul e deschis, `closed → locked` la închiderea exercițiului) sunt fiecare acoperite de un test, iar a patra — orice ieșire din `locked` — e refuzată și de trigger, nu doar de serviciu.*
+
 ### 6.3 Refuzul la postare
 
 Verificarea stă în Posting Engine, nu în interfață (R12). Concret: rezoluția regulii se face
@@ -757,6 +810,8 @@ Verificarea stă în Posting Engine, nu în interfață (R12). Concret: rezoluț
 A doua barieră, la nivel de bază de date: un trigger `BEFORE INSERT` pe `journal_entry` care
 citește starea perioadei. Motivul pentru care nu e suficientă doar prima: importul 1C, migrările de
 date și orice `INSERT` direct ocolesc motorul.
+
+*Prima barieră există din F1.5: `periods.services.resolution.assert_postable(company_id, accounting_date)` întoarce perioada sau refuză cu `periods.period_not_open` / `periods.period_locked` — două coduri, fiindcă una se poate redeschide și cealaltă niciodată. A doua barieră aparține lui F1.2.1, unde se creează tabela pe care stă triggerul; până atunci refuzul se poate ocoli, ceea ce e scris aici și în modulul care îl implementează.*
 
 **`DECIZIE NECESARĂ (DNB-07)` — granularitatea perioadei și blocarea per modul.**
 (A) Perioada lunară, o singură stare pentru tot. Simplu, dar închiderea TVA-ului și închiderea
@@ -830,6 +885,11 @@ validă este cea pe care o validează sistemul lor, oricare ar fi ea.
 `DNB-08` rămâne deschisă și este **blocată pe obținerea ghidului de integrare SFS** (`OD-24`), nu pe
 o dezbatere internă. Ce cere deblocarea: semnătură electronică, entitate de test, descărcarea
 ghidului.
+
+Axele rămase de decis, sarcinile de verificare și motivul pentru care întârzierea lor lovește direct
+în milestone-ul F1 stau în [ADR-037](../decisions/037-conventii-de-platforma.md) (`Propus`). Nuanță găsită
+acolo: din cele patru verificări, doar schema XML depinde de accesul SFS — formularul tipizat și Codul fiscal
+sunt publice.
 
 **Ce se fixează acum, fără risc:**
 
@@ -1051,11 +1111,11 @@ o stare „suspectat duplicat" pe document și un flux de rezolvare.
 | DNB-01 | Cine deține vocabularul de `event_type` | F1.3 | arhitectură |
 | ~~DNB-02~~ | Dimensiuni definite de utilizator — **închisă** prin ADR-029: cinci sloturi generice per companie | — | — |
 | DNB-03 | Politica de propagare a template-ului planului de conturi *(= OD-03)* | F1.1 | contabil + produs |
-| DNB-04 | Reprezentarea regulilor de postare: date, cod, sau hibrid | F1.4 | arhitectură |
+| DNB-04 | Reprezentarea regulilor de postare: date, cod, sau hibrid. **Propunere scrisă:** [ADR-036](../decisions/036-forma-postarii.md) — hibrid în straturi, forma postării în cod. `Propus`: cazurile `C1`–`C5` cer SNC citat | F1.4 | arhitectură + contabil, pentru `C1`–`C5` |
 | DNB-05 | Granularitatea postării de payroll | F2, volumul lui `journal_line` | contabil + arhitectură |
 | DNB-06 | Forma parametrilor fiscali care nu sunt scalari (grile, tranșe) | F0.8 | arhitectură |
 | DNB-07 | Granularitatea perioadei și blocarea per modul | F1.5 | contabil |
-| DNB-08 | Precizia, regula de rotunjire, locul rotunjirii TVA. **Invariantele sunt fixate** (§7.4); valorile așteaptă ghidul de integrare SFS (`OD-24`) | F1 calcule | **SFS**, nu dezbatere internă |
+| DNB-08 | Precizia, regula de rotunjire, locul rotunjirii TVA. **Invariantele sunt fixate** (§7.4); valorile așteaptă ghidul de integrare SFS (`OD-24`). Axele și sarcinile de verificare: [ADR-037](../decisions/037-conventii-de-platforma.md), `Propus` — `V1` și `V3` **nu** depind de accesul SFS | F1 calcule; **precondiție a milestone-ului F1** | **SFS**, nu dezbatere internă |
 | ~~DNB-09~~ | Împărțită: structura în [ADR-006](../decisions/006-reversal-two-dates.md) (`Acceptat`), politica în [ADR-007](../decisions/007-reversal-period.md) (`Propus`) | — | **contabil**, pentru ADR-007 |
 | DNB-10 | Fereastra de reținere a cheilor de idempotență în API | F1.3 | arhitectură |
 | DNB-11 | Cheile naturale de deduplicare per tip de document | F2 | contabil + investigație |

@@ -159,7 +159,9 @@ NPM := cd frontend && npm
 
 .PHONY: dev-code
 dev-code: ## Codul TOTP curent pentru utilizatorul de dezvoltare (dev@example.md)
-	@cd backend && uv run python -c "import pyotp, time; t=pyotp.TOTP('JBSWY3DPEHPK3PXP'); \
+	@test -n "$(DEV_TOTP_SECRET)" || { \
+	  echo "DEV_TOTP_SECRET nu este setat în .env — model în .env.example"; exit 1; }
+	@cd backend && uv run python -c "import pyotp, time; t=pyotp.TOTP('$(DEV_TOTP_SECRET)'); \
 	print(t.now(), '— valabil', 30 - int(time.time()) % 30, 'secunde')"
 
 .PHONY: web-install

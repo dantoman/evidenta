@@ -7,13 +7,269 @@
 
 ## Faza curentă
 
-**F0 — Fundament.** Inițializarea s-a terminat; implementarea a început cu **F0.1 — roluri de bază
-de date și infrastructură RLS**.
+**F1 — Accounting Core.** F0 este închisă (criteriul de ieșire îndeplinit, mai jos). Livrate:
+**F1.1** (planul de conturi, structura fără conținut) cu API-ul lui, **F1.3** (evenimentele),
+**F1.5** (perioadele) și **F1.2** (registrul). Trei sesiuni lucrează în paralel în același checkout.
 
 Descompunerea completă: `_bootstrap/08-f1-backlog.md` — patru fire care pot merge în paralel, cu
 `F1.2.1` ca singur punct de sincronizare timpuriu, și tabelul de blocaje la final.
 
 ## Ultima sesiune
+
+**2026-08-25, F1.2.4 — stornoul, plus suprafața publică pe care o uitasem:**
+
+- **Stornoul e livrat** (`ledger/services/reversal.py`): mirror image al înregistrării postate, cu
+  **cele două legături** ale lui `R14` — spre evenimentul care a cerut corecția și spre
+  înregistrarea anulată. Refuzuri cu cod stabil: ciornă (nu s-a înregistrat nimic, deci n-are ce
+  anula), al doilea storno al aceleiași înregistrări (aproape mereu aceeași corecție cerută de două
+  ori, iar rezultatul e un registru care anulează de două ori). Stornoul unui storno e permis, cu
+  lanțul navigabil în ambele sensuri. **9 teste noi**
+- **Liniile se inversează, nu se neagă.** O linie negativă strică rulajele: rulajul debitor al lunii
+  ar *scădea* cu corecția în loc să crească, iar balanța ar înceta să arate activitatea reală. Spec
+  B §9.2 o cere, iar `journal_line_one_side_only` o face oricum imposibil de scris
+- **Cursul stornoului este cel original, nu cel de azi**, și e cazul cel mai ușor de greșit: un curs
+  proaspăt ar lăsa diferența în urmă ca derivă tăcută de sold — iar aceea e diferență de curs,
+  eveniment economic propriu cu tratament propriu, nu artefact de rotunjire al unei corecții. Test
+  pe o linie în EUR
+- **Perioada stornoului rămâne a apelantului.** `ADR-007` e `Propus`, cu trei întrebări de tratament
+  contabil nerăspunse, iar Spec B §9.3 spune explicit că F1.2 se poate construi pe structura din
+  `ADR-006` cât timp serviciul care *alege* perioada rămâne nescris. Un implicit aici ar fi răspuns
+  tăcut la o decizie deschisă
+- **`ledger` n-avea nicio suprafață publică — lipsă reală, semnalată de `evidenta-2f`.** Avea
+  modele, migrare și teste, dar niciun mod prin care alt modul să facă saltul `linie → înregistrare`
+  fără să importe modelele mele, ceea ce `D6` interzice (excepția de compunere de schemă acoperă
+  doar `models`, nu `services`). Adăugat `services/lineage.py`: `origin_of_line` face **două
+  salturi într-o citire**, fiindcă întrebarea următoare e mereu „și ce eveniment a produs
+  înregistrarea". **Întoarce date, niciodată modele** — un `JournalEntry` predat peste granița de
+  modul e chiar cuplajul pe care `D6` îl oprește, ajuns printr-un serviciu în loc de un import
+- **26 de teste de registru**, suita completă **469 trece**, 1 sărit; `ruff`, `mypy` și gardienii
+  curați. **Nimic nu e comis:** `origin/main` e la `cac570f`, iar `coa/`, `ledger/`, `periods/` și
+  `platform/api/authentication.py` sunt toate netrackate. „Verde local" și „verde pe main" arată
+  identic din interiorul unei sesiuni, iar `git status` nu spune nimic despre ce e împins — de aceea
+  se scrie aici
+
+**2026-08-25, F1.2 — registrul, și un trigger amânat care nu face ce pare că face:**
+
+- **Livrat ca o singură migrare: F1.2.1, F1.2.2 și F1.2.3.** Nu comasare de comoditate — toate trei
+  sunt *forma lui `journal_line`*, iar aceea e tabelă append-only de volum mare: cele trei date
+  (ADR-039 §9), cele patru câmpuri de valută (ADR-039 §3) și cele cincisprezece coloane de
+  dimensiuni (ADR-029) există de la primul rând tocmai fiindcă adăugarea lor ulterioară e migrarea
+  pe care nimeni n-o vrea. Trei migrări succesive peste aceeași tabelă ar fi fost exact ce regulile
+  există să prevină. **458 de teste trec** (15 proprii); `ruff`, `mypy` și gardienii curați
+- **Trei mecanisme în bază, niciunul exprimabil în Django:** echilibrul verificat la commit,
+  imutabilitatea după postare, refuzul de a posta într-o perioadă închisă. Plus lipsa `DELETE`
+  pentru rolul aplicației pe ambele tabele — corecția e storno, nu ștergere
+- **Constatarea care contează, găsită rulând, nu citind:** un `CONSTRAINT TRIGGER` amânat **nu
+  rulează o dată la commit — rulează pentru fiecare eveniment din coadă**, cu `NEW` înghețat la
+  momentul lui. Liniile se inserează una câte una, deci coada conține și starea de după prima linie,
+  dezechilibrată prin construcție. Scris cu `NEW`, mecanismul din Spec B §1.6 respinge la commit
+  exact înregistrările **corecte**, iar amânarea nu rezolvă nimic. Funcția **recitește rândul**;
+  atunci toate evenimentele din coadă văd starea finală. A picat pe prima linie a primului test
+- **Spec B se contrazice, și §1.6 câștigă.** §1.2 listează `CHECK (total_debit = total_credit)` pe
+  `journal_entry`. Un `CHECK` imediat se declanșează la prima actualizare a totalurilor și face
+  imposibil de scris o înregistrare corectă — măsurat, nu dedus. Constrângerea **nu s-a construit**;
+  triggerul amânat este mecanismul, iar `CHECK`-ul ar fi fost o a doua copie a lui, care nu poate
+  funcționa
+- **Clauza de îngustare din ADR-004 e pe toate trei tabelele noi**, cu test care arată că îngustează
+  în fapt: două companii ale aceluiași apelant, context îngustat pe una, liniile celeilalte pur și
+  simplu nu sunt acolo. Pe tabele **noi** nu există motiv de abatere — costul azi e zero, iar
+  adăugarea ei mai târziu pe `journal_line` ar fi migrare pe cea mai mare tabelă din sistem.
+  `OD-57` rămâne, pentru cele vechi
+- **Am rupt arborele pentru trei sesiuni, cu o linie.** `models.Index(fields=["company", ...])` pe
+  `JournalLine`, care are `company_id` fiindcă `R21` îi interzice cheile străine — registrul de
+  aplicații Django cădea la import, deci **fiecare** test din arbore, nu doar ale mele. Cauza nu e
+  linia, e cum a ajuns acolo: convertisem patru indecși cu înlocuiri de șir, **trei aveau `assert`
+  că șirul căutat există și a patra nu**, iar între timp `ruff format` reflowase exact acea
+  declarație pe o singură linie. Înlocuirea a trecut tăcut. Aceeași clasă cu
+  `{entry["name"]: entry}` din gardieni: pierde tăcut și raportează succes
+- **Și a doua jumătate a aceleiași greșeli:** reparat modelul, `manage.py check` a spus „no issues"
+  — fiindcă **`check` nu încarcă migrările**, iar copia greșită rămăsese în migrarea generată din
+  model. Proprietatea e deja scrisă în `platform/rls/sql.py`, notată acolo pentru checksum-uri. Ca
+  poartă după o editare de model, `check` nu e suficientă; `makemigrations --check` sau o rulare de
+  teste este
+- **Funcțiile din schema `rls` se creează prin `SET LOCAL ROLE evidenta_rls`**, tiparul din `0014`
+  și `0032`: schema aparține acelui rol, iar owner-ul are doar `USAGE`. Le crease ca owner, iar
+  migrarea pica cu „permission denied for schema rls". Și `evidenta_rls` n-are niciun privilegiu de
+  tabelă implicit — se acordă punctual, altfel triggerele cad la prima linie inserată
+- **`_TRIGGER_STATE` din `tests/isolation/conftest.py` acoperă acum și `accounting_event_no_delete`**
+  — și regula generală, pe care o scrisesem greșit prima dată, e acum lângă listă. Nu „tabela era
+  goală": modulul care deține `accounting_event` **inserează** evenimente în testele lui, dar prin
+  ORM, în tranzacția testului, care se derulează înapoi — deci rândurile nu se comit niciodată,
+  curățenia următoare nu potrivește nimic și un trigger `FOR EACH ROW` nu se declanșează pe zero
+  rânduri. `seed()` scrie pe conexiunea de administrare cu `autocommit`, deci rândurile lui
+  supraviețuiesc. **Regula utilă: o tabelă are nevoie de intrare în `_TRIGGER_STATE` dacă are
+  trigger care refuză `DELETE` *și* e seedată prin `seed()`.** Cine scrie doar teste prin ORM n-o
+  descoperă niciodată — motiv pentru care tabela și triggerul au putut intra în același commit fără
+  ca nimic să se plângă. Măsurat de `evidenta-2f`, care a scos linia și a rulat cele 27 de teste ale
+  lui, verzi în ambele feluri
+
+**2026-08-25, F1.5 — perioadele și exercițiul, plus jumătatea de criteriu care nu se putea închide:**
+
+- **Ce s-a livrat:** `accounting/periods` — `fiscal_year` și `period`, `0035_periods.{up,down}.sql`,
+  serviciile de deschidere, închidere, redeschidere și blocare, plus primitiva pe care o va apela
+  motorul. **25 de teste sub rolul de aplicație**; suita completă **427 trec**, `ruff` și `mypy`
+  curate
+- **De ce F1.5 și nu F1.2.1, deși backlogul o numea „singurul punct de sincronizare":** `journal_entry`
+  are `period_id` **și** `accounting_event_id` `NOT NULL REFERENCES`, iar `journal_entry` **nu** e în
+  `infra/schema/append_only.toml` — deci FK-urile lui sunt reale, spre deosebire de cele ale liniei.
+  Ordinea e inversă față de diagramă: `period` + `accounting_event` → `journal_entry`. Trei sesiuni au
+  ajuns la aceeași concluzie independent, iar backlogul a fost corectat în `f070e32`
+- **Exercițiul aprilie–martie e testul implicit, nu cazul exotic.** O suită scrisă pe
+  ianuarie–decembrie ar trece cu presupunerea calendaristică intactă, ceea ce e chiar defectul pe care
+  ADR-039 §6 îl evită. Periodele sunt **generate** din exercițiu, deci nimeni nu tastează o lună;
+  `period_no` numără în interiorul exercițiului, deci perioada 1 e aprilie, nu luna a patra
+- **Ce s-a impus în bază, nu doar în serviciu:** perioada e **exact o lună calendaristică** (`CHECK`);
+  exercițiul nu depășește douăsprezece luni; exercițiile și perioadele nu se suprapun (`EXCLUDE USING
+  gist`); `locked` e **terminală prin trigger**; iar rolul aplicației **nu are `DELETE`**. Motivul e
+  unul singur, scris în migrare: importatorul 1C și migrările de date ocolesc serviciul, iar acelea
+  sunt exact căile pe care un exercițiu depus s-ar redeschide tăcut
+- **Criteriul F1.5.1 se închide pe jumătate, și partea lipsă e numită.** „Postarea într-o perioadă
+  închisă e refuzată **de motor**" nu se poate demonstra fără motor. S-a livrat în schimb
+  `assert_postable(company_id, accounting_date)`, cu **două** coduri de refuz — `period_not_open` și
+  `period_locked` — fiindcă una se poate redeschide și cealaltă niciodată. Triggerul `BEFORE INSERT`
+  din Spec B §6.3 aparține lui F1.2.1, unde există tabela pe care stă
+- **`OD-58` nouă:** Spec B §6.1 listează patru stări, ADR-039 §8 listează trei. Implementate trei, cum
+  cere regula din backlog („ADR-ul câștigă"); a inventa semantica lui `closing` ar fi fost o decizie de
+  flux de lucru luată în cod. Adăugarea unei stări rămâne migrare aditivă
+- **`OD-57` nouă, măsurată peste toate migrările:** șablonul din ADR-004 are **patru** clauze, iar a
+  patra — îngustarea pe `app.current_company_id()` — apare în **patru politici din unsprezece**;
+  `capability_activation` e singura care scrie de ce nu o are. Cealaltă jumătate: `middleware.py:95`
+  construiește contextul **fără** `company_id`, deci un task Celery poate îngusta și o cerere HTTP nu.
+  Semnalată de sesiunea paralelă, verificată aici. `period` și `fiscal_year` o poartă — costul e zero
+  azi și o migrare peste o tabelă citită de motor mâine
+- **`DNB-07` rămâne deschisă și se vede în ce lipsește:** niciun `period_module_lock`, nicio coloană de
+  modul. Comportamentul de azi *este* varianta (A), iar asta e scris în modul, nu lăsat să fie
+  descoperit la F1.5.4
+- **Două corecturi în backlog, găsite de sesiunea care a livrat F1.1:** conținutul planului de conturi
+  e `OD-23`, nu `OD-22`; iar „scriere doar prin `P-4`" nu se putea îndeplini — `P-4` inserează
+  parametri fiscali, iar planul de conturi nu e parametru fiscal. Exact `OD-56`
+- **Ce nu s-a rulat:** lanțul de review cu agenți (`schema-reviewer`, `tenancy-guard`) — sesiunea are
+  agenții dezactivați. Ce a rulat: gardianul de model, gardianul de dependențe, suita de izolare și
+  cea de penetrare, toate verzi
+- **Nu s-a construit F1.5.3** (perioada fiscală TVA). Are entitate proprie prin ADR-039 §7 și rămâne
+  sarcină proprie: în F1 n-are încă niciun cititor, iar o tabelă fără cititor e chiar tiparul prins de
+  două ori aici
+
+**2026-08-25, API-ul planului de conturi — și un mecanism decis, construit pe sfert:**
+
+- **Cerut explicit de proprietar**, după ce frontend-ul a fost respins ca următor pas: un ecran de
+  plan de conturi este ecran cu grilă, iar `OD-35` (scara de densitate) e „înainte de primul ecran",
+  `C16`/`C17` cer `DataGrid`/`EntryGrid`, care sunt `F1.G1`/`F1.G2` și vin după F1.2. Sarcina nu
+  există în backlogul F1 — acesta nu conține nicio sarcină de API
+- **Livrat:** `/api/v1/accounting/coa/` — `templates`, `companies/{id}/chart`,
+  `companies/{id}/accounts` (cu `?on=` pentru conturile postabile la o dată), `accounts/{id}`
+  pentru redenumire, blocare și închidere. **Nicio scriere prin serializator:** fiecare mutație
+  trece prin servicii, unde stau regulile Spec B §2.4; un `ModelSerializer.save()` ar fi fost a doua
+  cale pe lângă toate trei
+- **Convenția DRF care lipsea, pusă unde îi e locul.** `REST_FRAMEWORK` avea `IsAuthenticated` și
+  **zero clase de autentificare**, deci orice endpoint DRF ar fi răspuns 401 pentru exact cookie-ul
+  cu care endpointurile Django simple răspundeau normal. `platform/api/authentication.py` adoptă
+  identitatea stabilită de middleware — nu rezolvă sesiunea a doua oară, fiindcă două locuri care
+  decid cine e apelantul ajung să se contrazică. Plus randare JSON: API-ul navigabil cere
+  `rest_framework` în `INSTALLED_APPS` și transformă o eroare de negociere într-un 200 cu HTML
+- **Compania stă în cale, tenantul niciodată** (`C8`). Iar asta a scos la iveală o gaură care nu e a
+  acestei sesiuni: **corpul cererii putea muta scrierea în altă companie.** Ambele companii fiind
+  ale apelantului, RLS le permite pe amândouă — deci `parent_id` din corp ar fi câștigat tăcut în
+  fața căii. Refuzat acum în view, cu test care arată că subcontul nu apare nicăieri
+- **`app.company_id` este decis, și construit pe sfert.** [ADR-004](decisions/004-company-context.md)
+  dă șablonul cu patru clauze, ultima fiind
+  `(app.current_company_id() IS NULL OR company_id = app.current_company_id())`. **Patru din
+  unsprezece** tabele company-scoped o poartă — numărătoare peste `infra/migrations/*.up.sql`,
+  făcută de sesiunea paralelă. *Prima mea cifră, „una din șase", era greșită și cauza contează: o
+  luasem din `pg_policy` în baza de dezvoltare, care driftase de la migrări — vezi mai jos.*
+  Iar calea de request **nu setează niciodată** `app.company_id`: `tenancy/middleware.py` construiește
+  contextul fără el; singurul loc care îl trimite e decoratorul Celery (`rls/tasks.py`). Deci un task
+  poate îngusta pe o companie, iar îngustarea se aplică la o tabelă din șase; o cerere HTTP nu poate
+  îngusta deloc. **Nu am reparat două tabele din șase** — jumătate de îngustare e o capcană mai rea
+  decât absența ei uniformă: cineva vede că merge pe conturi și presupune că merge peste tot.
+  Aparține unei migrări proprii, peste toate șase, cu decizie în spate
+- **Baza de dezvoltare nu mai corespunde migrărilor, și nimic n-ar fi spus-o.** Șapte tabele
+  business în `evidenta` — `document`, `document_event`, `numbering_counter`, `numbering_template`,
+  `fiscal_parameter`, `fiscal_parameter_source`, `fiscal_logic_version` — au **RLS oprit** și zero
+  politici, adică exact conținutul lui `0024_documents.up.sql` și `0027_fiscal.up.sql`, deși
+  migrările Django sunt marcate aplicate. Cu `relrowsecurity = f`, rolul aplicației vede acolo
+  rândurile tuturor tenanților. **Gardianul nu poate vedea asta:** `tests/schema_guard/` rulează pe
+  baza de test, construită de la zero la fiecare rulare, unde totul e corect prin construcție. Nimic
+  nu verifică vreodată baza împotriva căreia se dezvoltă efectiv; `make rls-report` există fix
+  pentru asta și nu-l rulează nimeni. **Nereparat**: `make reset-db` e distructiv și baza e
+  partajată de trei sesiuni — cere cuvântul proprietarului
+- **`0033_coa.up.sql` cita un ADR inexistent** — `041`, numărul pe care decisesem să nu-l iau după
+  ce am găsit intrările deja în `exceptions.toml`. Citările rămăseseră. Semnalat de sesiunea
+  paralelă cât fișierul era încă editabil; înlocuite cu sursa reală, verificat prin `diff` peste
+  liniile non-comentariu că **nicio instrucțiune SQL nu s-a schimbat**, checksum recalculat
+- **Trei sesiuni în același checkout.** `0033` al meu, `0034_accounting_events` al unei a treia
+  sesiuni, `0035_periods` al celei de documentație. Baza de test **`test_evidenta` a fost ștearsă
+  sub o rulare a mea** de harness-ul altei sesiuni (`DROP DATABASE ... WITH (FORCE)`); rulat mai
+  departe cu `POSTGRES_DB=evidenta_s86`. Nota există deja în `tests/conftest.py`, lângă `DROP`
+- **12 teste proprii**, toate prin lanțul real: gazdă → tenant, cookie → sesiune, middleware →
+  context. Niciunul nu construiește un `TenantContext` de mână — serviciile fuseseră probate într-un
+  context primit, iar astea probează că el chiar ajunge. Suita întreagă: **427 trec**, 1 sărit, pe
+  arborele comun al celor trei sesiuni; `ruff`, `mypy` și gardienii curați
+- **Eroarea de dependențe inversată în backlog, semnalată:** `F1.3.1` și `F1.5.1` declară „Depinde
+  de: `F1.2.1`", iar diagrama spune că firele C și D îl așteaptă. În realitate **`F1.2.1` le
+  așteaptă pe ele** — `journal_entry` **nu** e în `append_only.toml`, deci `period_id` și
+  `accounting_event_id` sunt chei străine reale. Recomandasem greșit contrariul înainte de a verifica
+
+**2026-08-25, F1.1 — planul de conturi, și o coloană care ar fi rămas necitită:**
+
+- **Nu s-a început cu F1.2, și motivul nu e o decizie deschisă, ci o cheie străină.** `journal_entry`
+  are `period_id` și `accounting_event_id` amândouă `NOT NULL REFERENCES` (Spec B §1.2), iar
+  `period` este F1.5 și `accounting_event` este F1.3. Ledgerul nu poate fi prima tabelă din fază.
+  F1.1 nu depinde de nimic neconstruit în afară de `company`
+- **Livrat:** `accounting/coa` — `coa_template`, `coa_template_account` (globale, citire liberă),
+  `company_chart`, `company_account` (la nivel de companie), `0033_coa.{up,down}.sql`, serviciile
+  de instanțiere și de întreținere a planului, **26 de teste proprii**. Total **327 → 354**;
+  al 27-lea vine de la gardianul ADR-028, parametrizat per app — `coa` a intrat în el fără
+  să fie nevoie de nimic, fiindcă app-ul chiar declară ceva;
+  `ruff`, `mypy`, gardianul de dependențe și cel de model, curate
+- **Niciun cont.** Nici un cod, nici o denumire — conținutul planului este `OD-23` și cere ordinul
+  citat. Aceeași disciplină ca `fiscal_parameter` la F0.8, care n-are nicio cotă. Fixture-ul de
+  test folosește coduri pe care niciun plan publicat nu le are (`T1`, `T11`, `T2`), tocmai ca
+  primul care îl citește să nu le ia drept SNC
+- **Propagarea rămâne nescrisă** (`OD-03` = `DNB-03`). Schema poartă ce cere oricare dintre cele
+  patru variante: `valid_from`/`valid_to` pe contul companiei, deci o reclasificare se poate data
+  în loc să fie suprascrisă (§2.5, punctul 2)
+- **`OD-56` nouă, găsită la implementare:** publicarea unei versiuni de plan de conturi **nu are
+  cale privilegiată**. Enumerarea din Spec A §6.2 nu conține niciuna care s-o acopere — `P-4` este
+  „inserează parametri fiscali și versiuni de logică", iar planul de conturi e act normativ
+  contabil. Blochează încărcarea, nu structura. Înregistrată de sesiunea paralelă, care ține
+  registrul
+- **Ce nu se șterge, nu se poate șterge.** Rolul aplicației **nu are `DELETE`** pe `company_account`
+  și `company_chart`. Un refuz doar în serviciu ar fi ocolit exact de căile pe care un plan de
+  conturi se strică: importatorul 1C și migrările de date. Două teste îl demonstrează, sub rolul de
+  aplicație
+- **Gardianul de dependențe a prins ceea ce citirea n-a prins.** Serviciul de instanțiere importa
+  `Company` din `platform.tenancy.models` ca să afle tenantul — `D6`, și chiar cazul pe care regula
+  îl vizează („`services/` care importă modelele altui modul"). Reparat prin
+  `tenancy.services.access.company_visible_in_context`, perechea lui `tenant_visible_in_context`:
+  întoarce un boolean, nu rândul, fiindcă un helper care întoarce `Company` ar face cuplajul să
+  reintre printr-un serviciu. Tenantul vine acum din context, unde politica îl cere oricum
+- **Trei reconcilieri cu Spec B §2, scrise, nu făcute tăcut:** (1) `company_chart.template_version`
+  **nu s-a construit** — `template_id` identifică deja versiunea, fiindcă `coa_template` e unic pe
+  `(code, version)`; o copie a șirului dă o a doua sursă pentru aceeași întrebare, iar copia e cea
+  care derivează; (2) `company_account.allows_subaccounts` **s-a adăugat** — §2.4 cere ca un subcont
+  să apară „sub un cont care permite subconturi", iar pentru un cont creat de companie nu există
+  rând de șablon de întrebat, deci fără coloană regula nu se putea impune deloc; (3)
+  `coa_template_account.is_system` **a primit un cititor** — este sursa lui `origin` de pe contul
+  companiei. §2.2 pune steagul pe șablon, §2.4 contrastează aceleași două feluri pe companie: e un
+  singur fapt scris în două locuri. Necablat, ar fi fost a treia coloană pe care n-o citește nimeni
+- **Ce e livrat este schema și serviciile — niciun apelant.** Măsurat, nu presupus: `instantiate_chart`
+  apare de zece ori, toate în teste. O companie creată azi **nu primește niciun plan de conturi**, și
+  nici nu poate: nu există cale de producție care creează o companie (`P-9`, ADR-040, nescrisă).
+  Modulul n-are suprafață de API și niciun ecran; următoarele lucruri care îl ating din producție
+  sunt onboarding-ul și rezoluția contului din Posting Engine (F1.4)
+- **O coloană scrisă de nimic, livrată conștient și numită ca atare:** `company_chart.last_propagation_at`.
+  Există fiindcă toate cele patru variante de propagare o cer și niciuna nu-i schimbă înțelesul — dar
+  este exact tiparul `covers_all_companies` de la F0.2.4, deci se numește aici în loc să fie descoperită
+  a doua oară. Primește cititor odată cu `OD-03`
+- **ADR-036 §13.1 („versiune de șablon + strat de suprascriere, nu copie derivată") nu se poate lua
+  literal**, și motivul e ledgerul, nu o preferință: `journal_line.account_id` are nevoie de un
+  identificator stabil pe viața companiei. Într-un strat pur de suprascriere, un cont de sistem ar
+  fi identificat de rândul **global** până la prima redenumire și de un rând de companie după — deci
+  identitatea contului s-ar schimba sub o tabelă append-only care deja o referă. Ce urmărește ADR-ul
+  supraviețuiește: `template_account_id` plus indexul lui fac propagarea o actualizare peste rânduri
+  identificate, nu o migrare de date. ADR-036 e `Propus`, deci nu s-a construit peste el ca peste o
+  decizie închisă
 
 **2026-08-25, două decizii de F1 depuse ca ADR — și trei reconcilieri găsite la depunere:**
 
@@ -817,6 +1073,32 @@ shell. Harness-ul de test rulează sub rolul de aplicație și **refuză să por
 
 **106 de teste pytest trec**, sub `evidenta_app`. Probele manuale Python au fost retrase în aceeași
 schimbare care le-a înlocuit; a rămas doar cea SQL, care așteaptă tabelele de tenancy din F0.3.
+
+### F1 — Accounting Core (în curs)
+
+Ordinea din `_input/evidenta-implementation-spec.md` nu este ordinea în care se poate construi:
+`journal_entry` are chei străine `NOT NULL` către `period` (F1.5) și `accounting_event` (F1.3), deci
+F1.2 nu poate fi prima. Ordinea reală se notează aici, pe măsură ce se stabilește.
+
+- [x] F1.1 — Plan de conturi SNC: **structura**, patru tabele, politici, granturi fără `DELETE`,
+      instanțiere în două treceri, subconturi, blocare, închidere; 26 de teste.
+      **Fără conținut** (`OD-23`) și **fără propagare** (`OD-03`)
+- [ ] F1.5 — Perioade și exercițiu fiscal *(înainte de F1.2 — `journal_entry.period_id` e
+      `NOT NULL`; forma e fixată de [ADR-039](decisions/039-valuta-si-perioade.md) partea II)*
+- [ ] F1.3 — Accounting Events *(înainte de F1.2, din același motiv; vocabularul e închis prin
+      [ADR-038](decisions/038-vocabularul-de-evenimente.md))*
+- [ ] F1.2 — Ledger: `journal_entry`, `journal_line`, `company_dimension`, echilibrul verificat în
+      bază *(structura stornoului: [ADR-006](decisions/006-reversal-two-dates.md); cele trei date ale
+      liniei și câmpurile de valută: [ADR-039](decisions/039-valuta-si-perioade.md))*
+- [ ] F1.4 — Posting Engine *(blocat pe `OD-55`, deschisă de [ADR-036](decisions/036-forma-postarii.md),
+      care e `Propus`)*
+- [ ] F1.6 — Logică fiscală, primul strat
+- [ ] F1.7 — Note contabile manuale și solduri inițiale
+- [ ] F1.8 — Rapoarte contabile
+- [ ] F1.9 — Importator 1C, fundament *(`OD-28`)*
+- [ ] F1.10 — Corpus de regresie fiscală
+- [ ] F1.G0, F1.G1 (`DataGrid`), F1.G2 (`EntryGrid`) — `_bootstrap/07-f1-grile.md`;
+      `EntryGrid` cere întâi `OD-36`
 
 ## Blocaje active
 
