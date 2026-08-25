@@ -17,3 +17,16 @@ os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings.dev")
 app = Celery("evidenta")
 app.config_from_object("django.conf:settings", namespace="CELERY")
 app.autodiscover_tasks()
+
+
+@app.on_after_configure.connect
+def _check_event_registry(sender: object, **_: object) -> None:
+    """Same check as the web process, for the same reason -- ADR-038 section 5.
+
+    A worker is where a posting most often happens, and where an unserviceable
+    registry would be least visible: a task that fails quietly retries, and the
+    queue grows while nothing says why.
+    """
+    from evidenta.accounting.events.registry import check_registry
+
+    check_registry()

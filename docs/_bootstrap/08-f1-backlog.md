@@ -139,7 +139,7 @@ redeschide. Unde o sarcină pare să ceară altceva, ADR-ul câștigă și sarci
   tranziție rămasă deschisă — `superseded`, și doar a stării: un eveniment înlocuit rămâne, fiindcă
   rămâne și registrul pe care l-a produs.
 
-### F1.3.2 — Registrul de `event_type`
+### F1.3.2 — Registrul de `event_type` — **TERMINAT** (2026-08-25)
 
 - **Obiectiv:** vocabularul e închis și fiecare tip are handler.
 - **Depinde de:** F1.3.1
@@ -148,6 +148,11 @@ redeschide. Unde o sarcină pare să ceară altceva, ADR-ul câștigă și sarci
   unde ar cădea și `migrate`; intervalele de valabilitate ale handlerelor unui tip nu se suprapun și
   nu lasă goluri. Vezi [ADR-038](../decisions/038-vocabularul-de-evenimente.md) §3–§5.
 - **Blocat de:** —
+- **Livrat:** verificarea rulează în `config/wsgi.py` și la configurarea Celery, **nu** în
+  `AppConfig.ready()`. Golul dintre două handlere e raportat separat de suprapunere, fiindcă e mai
+  rău: suprapunerea refuză la postare, în fața cuiva; golul e tăcut până cade un document în el,
+  poate ani după ce s-a scris înregistrarea. Registrul e gol azi — un vocabular gol e servibil, iar
+  testul e cel care va refuza prima înregistrare fără handler, la F1.4.4.
 
 ### F1.3.3 — Lineage complet
 
