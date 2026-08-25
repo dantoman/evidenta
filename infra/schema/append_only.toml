@@ -1,0 +1,59 @@
+# Tabelele append-only de volum mare — sursa unică de adevăr pentru R21 și R22.
+#
+# Autoritate:  _input/evidenta-master-plan-v2-amendament-1.md §B.3
+#              CLAUDE.md R21, R22
+# Consumator:  backend/tests/schema_guard/
+#
+# Modificarea acestei liste este ADR: adăugarea unei tabele aici o scoate de sub disciplina
+# cheilor străine pentru totdeauna, iar scoaterea unei tabele de aici o supune unei discipline
+# pe care schema ei poate să nu o îndeplinească.
+#
+# De ce contează, în ordinea în care doare:
+#
+#   1. Nicio cheie străină nu arată spre ele. O tabelă fără FK-uri intrând se repartiționează;
+#      una cu zece FK-uri intrând nu se repartiționează, se redesenează.
+#   2. Coloana naturală de partiționare există NOT NULL de la început — oricum necesară.
+#   3. Indecșii încep cu contextul de tenant și companie.
+#
+# Decizia de partiționare propriu-zisă rămâne deschisă (OD-01) și se ia după modelul de volum.
+# Disciplina de mai jos o face posibilă; absența ei ar face-o un proiect de rescriere.
+
+schema_version = 1
+updated = "2026-08-24"
+
+[[table]]
+name = "journal_line"
+partition_column = "accounting_date"
+phase = "F1.2"
+
+[[table]]
+name = "inventory_movement"
+partition_column = "occurred_at"
+phase = "F4"
+
+[[table]]
+name = "audit_event"
+partition_column = "occurred_at"
+phase = "F0.4"
+note = "Primul candidat real la partiționare — volum mare de scriere, valoare care scade rapid cu vechimea, partiții vechi arhivabile. Nu journal_line."
+
+[[table]]
+name = "document_event"
+partition_column = "occurred_at"
+phase = "F0.6"
+
+[[table]]
+name = "efactura_payload_archive"
+partition_column = "occurred_at"
+phase = "F2"
+
+[[table]]
+name = "bank_statement_archive"
+partition_column = "occurred_at"
+phase = "F2"
+
+[[table]]
+name = "privileged_access_log"
+partition_column = "occurred_at"
+phase = "F0.1"
+note = "Nu apare în lista din amendament, dar are aceeași formă: crește nelimitat, se scrie o dată, se citește rar. Spec A §6.3 o declară append-only fără chei străine intrând."

@@ -1,0 +1,183 @@
+"""The model guard, and proof that it can fail.
+
+A guard that only ever reports "no findings" is indistinguishable from a guard
+that checks nothing. The live schema currently has no business tables, so
+``test_live_schema_is_clean`` passes trivially -- and would keep passing if the
+audit were broken.
+
+So every rule gets a companion test that builds a deliberately non-compliant
+table and asserts the rule fires. Those are the tests that keep this file honest
+until there are real tables to check.
+"""
+
+from __future__ import annotations
+
+from collections.abc import Iterator
+
+import pytest
+from django.db import connections
+
+from tests.schema_guard.audit import Finding, audit
+
+pytestmark = pytest.mark.django_db(databases=["default", "migration"])
+
+
+@pytest.fixture
+def owner_cursor() -> Iterator[object]:
+    """DDL runs as the owner; the surrounding test transaction rolls it back."""
+    with connections["migration"].cursor() as cursor:
+        yield cursor
+
+
+def rules(findings: list[Finding], table: str) -> set[str]:
+    return {finding.rule for finding in findings if finding.table == table}
+
+
+def compliant_table(cursor: object, name: str, extra_columns: str = "") -> None:
+    """A table that satisfies every rule, as the baseline for one-change tests."""
+    cursor.execute(  # type: ignore[attr-defined]
+        f"""
+        CREATE TABLE {name} (
+            id uuid PRIMARY KEY,
+            tenant_id uuid NOT NULL
+            {extra_columns}
+        );
+        ALTER TABLE {name} ENABLE ROW LEVEL SECURITY;
+        ALTER TABLE {name} FORCE  ROW LEVEL SECURITY;
+        CREATE POLICY {name}_access ON {name} FOR ALL TO evidenta_app
+            USING (true) WITH CHECK (true);
+        """
+    )
+
+
+def test_live_schema_is_clean(owner_cursor: object) -> None:
+    assert audit(owner_cursor) == []
+
+
+def test_detects_missing_tenant_column(owner_cursor: object) -> None:
+    owner_cursor.execute(  # type: ignore[attr-defined]
+        """
+        CREATE TABLE probe_no_tenant (id uuid PRIMARY KEY);
+        ALTER TABLE probe_no_tenant ENABLE ROW LEVEL SECURITY;
+        ALTER TABLE probe_no_tenant FORCE  ROW LEVEL SECURITY;
+        CREATE POLICY p ON probe_no_tenant FOR ALL TO evidenta_app
+            USING (true) WITH CHECK (true);
+        """
+    )
+    assert "IZ-70" in rules(audit(owner_cursor), "probe_no_tenant")
+
+
+def test_detects_rls_not_enabled(owner_cursor: object) -> None:
+    owner_cursor.execute(  # type: ignore[attr-defined]
+        "CREATE TABLE probe_no_rls (id uuid PRIMARY KEY, tenant_id uuid NOT NULL)"
+    )
+    assert "IZ-71" in rules(audit(owner_cursor), "probe_no_rls")
+
+
+def test_detects_missing_force_row_level_security(owner_cursor: object) -> None:
+    """Without FORCE, the owner bypasses every policy and RLS is decorative."""
+    owner_cursor.execute(  # type: ignore[attr-defined]
+        """
+        CREATE TABLE probe_no_force (id uuid PRIMARY KEY, tenant_id uuid NOT NULL);
+        ALTER TABLE probe_no_force ENABLE ROW LEVEL SECURITY;
+        CREATE POLICY p ON probe_no_force FOR ALL TO evidenta_app
+            USING (true) WITH CHECK (true);
+        """
+    )
+    assert "IZ-72" in rules(audit(owner_cursor), "probe_no_force")
+
+
+def test_detects_write_policy_without_with_check(owner_cursor: object) -> None:
+    """A write path with no WITH CHECK writes rows that vanish on commit."""
+    owner_cursor.execute(  # type: ignore[attr-defined]
+        """
+        CREATE TABLE probe_no_check (id uuid PRIMARY KEY, tenant_id uuid NOT NULL);
+        ALTER TABLE probe_no_check ENABLE ROW LEVEL SECURITY;
+        ALTER TABLE probe_no_check FORCE  ROW LEVEL SECURITY;
+        CREATE POLICY p ON probe_no_check FOR ALL TO evidenta_app USING (true);
+        """
+    )
+    assert "IZ-73" in rules(audit(owner_cursor), "probe_no_check")
+
+
+def test_detects_name_column_forced_to_byte_order(owner_cursor: object) -> None:
+    compliant_table(owner_cursor, "probe_bad_name", ', name text COLLATE "C"')
+    assert "C34" in rules(audit(owner_cursor), "probe_bad_name")
+
+
+def test_detects_code_column_left_on_linguistic_collation(owner_cursor: object) -> None:
+    compliant_table(owner_cursor, "probe_bad_code", ", account_code text")
+    assert "C34" in rules(audit(owner_cursor), "probe_bad_code")
+
+
+def test_accepts_correct_collation_on_both(owner_cursor: object) -> None:
+    compliant_table(
+        owner_cursor, "probe_good_collation", ', name text, account_code text COLLATE "C"'
+    )
+    assert rules(audit(owner_cursor), "probe_good_collation") == set()
+
+
+def test_detects_incoming_foreign_key_on_append_only_table(owner_cursor: object) -> None:
+    """R21. The rule that decides whether partitioning stays a maintenance task.
+
+    Uses ``document_event`` rather than ``audit_event``: the latter is a real
+    table now, and a probe that collided with it would test the collision.
+    """
+    owner_cursor.execute(  # type: ignore[attr-defined]
+        """
+        CREATE TABLE document_event (
+            id bigint PRIMARY KEY,
+            tenant_id uuid NOT NULL,
+            occurred_at timestamptz NOT NULL
+        );
+        ALTER TABLE document_event ENABLE ROW LEVEL SECURITY;
+        ALTER TABLE document_event FORCE  ROW LEVEL SECURITY;
+        CREATE POLICY p ON audit_event FOR ALL TO evidenta_app
+            USING (true) WITH CHECK (true);
+
+        CREATE TABLE probe_referrer (
+            id uuid PRIMARY KEY,
+            tenant_id uuid NOT NULL,
+            document_event_id bigint REFERENCES document_event(id)
+        );
+        ALTER TABLE probe_referrer ENABLE ROW LEVEL SECURITY;
+        ALTER TABLE probe_referrer FORCE  ROW LEVEL SECURITY;
+        CREATE POLICY p2 ON probe_referrer FOR ALL TO evidenta_app
+            USING (true) WITH CHECK (true);
+        """
+    )
+    assert "IZ-77" in rules(audit(owner_cursor), "document_event")
+
+
+def test_detects_nullable_partition_column(owner_cursor: object) -> None:
+    owner_cursor.execute(  # type: ignore[attr-defined]
+        """
+        CREATE TABLE document_event (
+            id bigint PRIMARY KEY,
+            tenant_id uuid NOT NULL,
+            occurred_at timestamptz
+        );
+        ALTER TABLE document_event ENABLE ROW LEVEL SECURITY;
+        ALTER TABLE document_event FORCE  ROW LEVEL SECURITY;
+        CREATE POLICY p ON audit_event FOR ALL TO evidenta_app
+            USING (true) WITH CHECK (true);
+        """
+    )
+    assert "IZ-77" in rules(audit(owner_cursor), "document_event")
+
+
+def test_detects_contract_drifting_from_the_schema(owner_cursor: object) -> None:
+    """IZ-76. An exception nobody needs any more is worse than no contract."""
+    owner_cursor.execute(  # type: ignore[attr-defined]
+        """
+        CREATE TABLE fiscal_parameter (
+            id uuid PRIMARY KEY,
+            tenant_id uuid NOT NULL
+        );
+        ALTER TABLE fiscal_parameter ENABLE ROW LEVEL SECURITY;
+        ALTER TABLE fiscal_parameter FORCE  ROW LEVEL SECURITY;
+        CREATE POLICY p ON fiscal_parameter FOR ALL TO evidenta_app
+            USING (true) WITH CHECK (true);
+        """
+    )
+    assert "IZ-76" in rules(audit(owner_cursor), "fiscal_parameter")

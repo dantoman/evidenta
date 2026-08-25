@@ -1,0 +1,197 @@
+# Contractul RLS — sursa unică de adevăr pentru gardianul de model (suita 2).
+#
+# Autoritate:  docs/decisions/003-rls-tenancy-tables.md
+#              docs/specs/spec-a-tenancy.md §5.4
+# Consumator:  backend/tests/schema_guard/
+#
+# Modificarea acestui fișier este ADR. Nu se duplică în documentație: documentele trimit aici.
+#
+# Două lucruri distincte se declară mai jos, și confuzia dintre ele este exact greșeala pe care
+# fișierul o previne:
+#
+#   tenant_column = false   — excepție de la R1 (tabela nu are coloană de context de tenant)
+#   policy_shape  ≠ "tenant_scoped"
+#                           — tabela ARE politică RLS, dar de altă formă decât șablonul
+#
+# O tabelă poate fi în a doua categorie fără să fie în prima. `membership` are `tenant_id`, deci nu
+# este excepție de la R1 — dar politica ei este `user_id = app.current_user_id()`, nu șablonul.
+#
+# Gardianul de model NU sare peste tabelele de aici. Verifică forma declarată. O tabelă cu politică
+# lipsă eșuează chiar dacă e listată; o tabelă cu politică de altă formă decât cea declarată
+# eșuează la fel.
+
+schema_version = 1
+updated = "2026-08-25"
+
+# ── Forme de politică recunoscute ────────────────────────────────────────────
+#
+# tenant_scoped       șablonul din spec-a §2.5 — implicit, nu se declară
+# company_scoped      șablonul din spec-a §2.6 (tenant + companie)
+# self_row            rândurile propriului utilizator: user_id = app.current_user_id()
+# tenant_predicate    rls.has_tenant_access(<coloana de identitate a tenantului>)
+# engagement_parties  rls.can_see_engagement(client_tenant_id, firm_id)
+# firm_parties        membru al tenantului firmei, sau tenant cu engagement viu asupra firmei
+# global_read_only    citire liberă rolului de aplicație; scriere doar prin cale privilegiată
+# readmodel_firm      filtrare pe firm_id (spec-a §7.3); rolul de aplicație are doar SELECT
+# system              tabelă de infrastructură, în afara domeniului RLS
+
+# ── Globale: nu au proprietar ────────────────────────────────────────────────
+
+[[table]]
+name = "user"
+tenant_column = false
+policy_shape = "self_row"
+reason = "Identitate globală: un contabil are un singur cont pentru toți clienții. Tabela nu conține niciun câmp de business — vezi spec-a §1.5."
+source = "V2 §4.1; ADR-003"
+
+[[table]]
+name = "counterparty_registry"
+tenant_column = false
+policy_shape = "global_read_only"
+reason = "Registru public după IDNO, alimentat din surse publice. Scriere prin calea privilegiată P-5."
+source = "Amendament §C.1"
+
+[[table]]
+name = "fiscal_parameter"
+tenant_column = false
+policy_shape = "global_read_only"
+reason = "Aceeași lege pentru toți. Scriere prin calea privilegiată P-4."
+source = "Amendament §B.1; R15"
+
+[[table]]
+name = "fiscal_parameter_source"
+tenant_column = false
+policy_shape = "global_read_only"
+reason = "Proveniența parametrilor: act normativ, Monitorul Oficial, dată publicare."
+source = "Amendament §B.1"
+
+[[table]]
+name = "fiscal_logic_version"
+tenant_column = false
+policy_shape = "global_read_only"
+reason = "Registrul de selecție a implementărilor după dată efectivă."
+source = "Amendament §A.4; R17"
+
+[[table]]
+name = "exchange_rate"
+tenant_column = false
+policy_shape = "global_read_only"
+reason = "Curs BNM. Scriere prin calea privilegiată P-3."
+source = "V2 §4.3"
+
+[[table]]
+name = "coa_template"
+tenant_column = false
+policy_shape = "global_read_only"
+reason = "Template legislativ al planului de conturi SNC, versionat. Instanțiat per companie."
+source = "V2 §4.3, §7.1"
+
+[[table]]
+name = "coa_template_account"
+tenant_column = false
+policy_shape = "global_read_only"
+reason = "Conturile template-ului. Instanțele companiilor sunt tenant-scoped."
+source = "V2 §7.1"
+
+[[table]]
+name = "plan"
+tenant_column = false
+policy_shape = "global_read_only"
+reason = "Catalogul comercial, versionat. Abonamentele care îl referă sunt tenant-scoped."
+source = "spec-a §10.2"
+
+[[table]]
+name = "feature_flag"
+tenant_column = false
+policy_shape = "global_read_only"
+reason = "Catalog tehnic. Atribuirea către tenant este `feature_flag_override`, tenant-scoped."
+source = "spec-a §10.5"
+
+[[table]]
+name = "release_ring"
+tenant_column = false
+policy_shape = "global_read_only"
+reason = "Catalog tehnic. Atribuirea este `tenant_release_ring`, tenant-scoped."
+source = "spec-a §10.5"
+
+[[table]]
+name = "privileged_access_log"
+tenant_column = false
+policy_shape = "global_read_only"
+reason = "Jurnalul căilor privilegiate. Acoperă mai mulți tenanți prin construcție; citire rezervată administrării platformei."
+source = "spec-a §6.3"
+
+# ── Rădăcina de tenancy ──────────────────────────────────────────────────────
+
+[[table]]
+name = "tenant"
+tenant_column = false
+policy_shape = "tenant_predicate"
+identity_column = "id"
+reason = "Este propriul context: nu poate avea un `tenant_id` care să refere altceva decât pe sine."
+source = "ADR-003"
+
+# ── Tabele care leagă doi tenanți ────────────────────────────────────────────
+
+[[table]]
+name = "firm"
+tenant_column = true
+policy_shape = "firm_parties"
+reason = "Firma are tenant propriu, unde își ține propria contabilitate (spec-a §1.3), deci ARE tenant_id. Nu este excepție de la R1 — dar politica nu este șablonul: `firm` se vede și tenanților clienți cu engagement viu, nu doar membrilor tenantului ei."
+source = "V2 §4.1; spec-a §1.3; corectat la F0.3.3 — vezi OD-45"
+
+[[table]]
+name = "engagement"
+tenant_column = false
+policy_shape = "engagement_parties"
+reason = "Rândul leagă tenantul client de tenantul firmei. Niciunul dintre cele două nu e „contextul” lui; ambele părți îl văd."
+source = "ADR-003"
+
+# ── Au `tenant_id`, dar politică de altă formă ───────────────────────────────
+
+[[table]]
+name = "engagement_company_scope"
+tenant_column = "client_tenant_id"
+policy_shape = "tenant_predicate"
+reason = "Poartă tenantul CLIENT, denormalizat, ca politica să decidă fără JOIN pe engagement — un JOIN acolo ar readuce recursiunea ruptă de ADR-003. Numele `tenant_id` ar sugera că rândul aparține tenantului din context, ceea ce nu înseamnă."
+source = "spec-a §1.4; adăugat la F0.3.3 — vezi OD-45"
+
+[[table]]
+name = "engagement_module_scope"
+tenant_column = false
+policy_shape = "engagement_parties"
+reason = "Atribut pur al engagementului: nu are tenant propriu, pentru că engagementul însuși leagă doi tenanți. Politica îl urmează prin EXISTS pe rândul părinte, care este el însuși protejat."
+source = "spec-a §1.4; adăugat la F0.3.3 — vezi OD-45"
+
+[[table]]
+name = "membership"
+tenant_column = true
+policy_shape = "self_row"
+reason = "Citită de predicatele de acces. Politica e strict `user_id = app.current_user_id()`, neîncrucișată, ca să nu recurseze. Consecință: listarea membrilor unui tenant nu se face prin ORM — OD-37."
+source = "ADR-003"
+
+[[table]]
+name = "company_access"
+tenant_column = true
+policy_shape = "self_row"
+reason = "Idem `membership`."
+source = "ADR-003"
+
+# ── Read models ──────────────────────────────────────────────────────────────
+
+[[table_pattern]]
+pattern = "rm_*"
+tenant_column = true
+policy_shape = "readmodel_firm"
+app_role_privileges = ["SELECT"]
+reason = "Singurul strat unde interogarea cross-tenant e permisă. Filtrează pe `firm_id`, nu pe `tenant_id`. Scriere exclusiv prin calea privilegiată P-6."
+source = "Amendament §A.10; spec-a §7.3"
+
+# ── Infrastructură ───────────────────────────────────────────────────────────
+
+[[table_pattern]]
+pattern = "django_*"
+tenant_column = false
+policy_shape = "system"
+reason = "Tabele de sistem Django: migrații, content types, sesiuni. Nu conțin date de business."
+source = "implementation-spec §1.1"

@@ -1,0 +1,96 @@
+# Producție și paritate cu producția. **Nu este calea de dezvoltare locală.**
+#
+# Local se rulează nativ: PostgreSQL și Redis sunt servicii pe mașină, iar comenzile din `Makefile`
+# (`make setup`, `make test`, `make run`) merg direct la ele. Containerele intră în joc la deploy și
+# în CI, unde reproductibilitatea contează mai mult decât viteza buclei de lucru.
+#
+# backend și frontend sunt declarate sub profilul `app`, pentru că Dockerfile-urile lor se adaugă la
+# F0.0.3, respectiv F0.10 — până atunci `docker compose up` pornește doar infrastructura.
+#
+# Valorile marcate SCHELET sunt alegeri implicite reversibile, nu decizii de arhitectură.
+# Versiunile exacte ale stack-ului sunt decizie deschisă — vezi docs/decisions/000-open-decisions.md.
+
+name: evidenta
+
+services:
+  postgres:
+    # PostgreSQL 18 — fixat prin docs/decisions/005-stack-versions.md.
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-evidenta}
+      POSTGRES_USER: ${POSTGRES_USER:-evidenta_owner}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-evidenta}
+      # Colația: ADR-015. `ro`, nu `ro-x-icu` — al doilea e numele obiectului de colație.
+      # Este decizie „la creare": schimbarea ulterioară cere reconstruirea indecșilor pe text.
+      POSTGRES_INITDB_ARGS: "--locale-provider=icu --icu-locale=ro --encoding=UTF8 --locale=C.UTF-8"
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - ./.data/postgres:/var/lib/postgresql/data
+      # Rolul de migrare (owner) și rolul de aplicație se creează din SQL manual, la F0.1.
+      # Vezi backend/config/db_roles.sql și infra/migrations/.
+      - ./infra/migrations:/opt/evidenta/migrations:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-evidenta_owner} -d ${POSTGRES_DB:-evidenta}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine   # SCHELET
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  backend:
+    profiles: ["app"]       # se activează la F0.1, când există infra/docker/backend.Dockerfile
+    build:
+      context: .
+      dockerfile: infra/docker/backend.Dockerfile
+    environment:
+      DJANGO_SETTINGS_MODULE: config.settings.dev
+      DATABASE_URL: postgresql://${APP_DB_USER:-evidenta_app}:${APP_DB_PASSWORD:-evidenta_app}@postgres:5432/${POSTGRES_DB:-evidenta}
+      REDIS_URL: redis://redis:6379/0
+    ports:
+      - "${BACKEND_PORT:-8000}:8000"
+    volumes:
+      - ./backend:/app
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  worker:
+    profiles: ["app"]       # Celery; se activează odată cu backend
+    build:
+      context: .
+      dockerfile: infra/docker/backend.Dockerfile
+    command: celery -A config worker -l info
+    environment:
+      DJANGO_SETTINGS_MODULE: config.settings.dev
+      DATABASE_URL: postgresql://${APP_DB_USER:-evidenta_app}:${APP_DB_PASSWORD:-evidenta_app}@postgres:5432/${POSTGRES_DB:-evidenta}
+      REDIS_URL: redis://redis:6379/0
+    volumes:
+      - ./backend:/app
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  frontend:
+    profiles: ["app"]       # se activează la F0.10
+    build:
+      context: .
+      dockerfile: infra/docker/frontend.Dockerfile
+    ports:
+      - "${FRONTEND_PORT:-5173}:5173"
+    volumes:
+      - ./frontend:/app
+    depends_on:
+      - backend

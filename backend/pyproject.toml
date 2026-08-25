@@ -1,0 +1,146 @@
+# Evidenta.md — backend
+#
+# Versiunile decise:      docs/decisions/005-stack-versions.md
+# Tooling decis:          docs/decisions/011-tooling-python.md
+#
+# Aici stau doar constrângerile DECISE. Pinul exact este `uv.lock`, care se comite.
+# Un planșeu de versiune adăugat mai jos este un act deliberat, nu o obișnuință.
+
+[project]
+name = "evidenta"
+version = "0.0.0"
+description = "Platformă contabilă și ERP pentru Republica Moldova"
+# 3.13, nu 3.14: NU pentru că ecosistemul nu ar suporta 3.14 — Django 5.2.8, psycopg 3.3
+# și Celery 5.6 îl suportă. Motivul real și condiția de trecere: ADR-013.
+requires-python = "==3.13.*"
+
+dependencies = [
+    "django>=5.2,<5.3",   # LTS; suport până în aprilie 2028 (ADR-005)
+    "djangorestframework",
+    "psycopg[binary]",
+    "celery",
+    "redis",
+]
+
+[dependency-groups]
+dev = [
+    "ruff",
+    "mypy",
+    "django-stubs[compatible-mypy]",
+    "djangorestframework-stubs",
+    "pytest",
+    "pytest-django",
+]
+
+[tool.uv]
+package = false
+
+# =============================================================================
+# ruff — lint și formatare
+# =============================================================================
+
+[tool.ruff]
+line-length = 100
+target-version = "py313"
+extend-exclude = ["*/migrations/*"]   # migrațiile sunt generate, nu scrise
+
+[tool.ruff.lint]
+select = [
+    "F",    # pyflakes
+    "E",    # pycodestyle
+    "W",
+    "I",    # isort
+    "N",    # pep8-naming
+    "UP",   # pyupgrade
+    "B",    # bugbear
+    "SIM",  # simplificări
+    "DJ",   # specific Django
+    "RUF",
+]
+ignore = [
+    # DJ001 cere '' în loc de NULL pe coloane text. Într-un sistem contabil,
+    # „nu s-a completat" și „s-a completat cu gol" sunt fapte diferite, iar
+    # conflatarea lor pierde informație pe care un audit o poate cere. NULL
+    # rămâne, deliberat.
+    "DJ001",
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["evidenta", "config"]
+
+# Două reguli dezactivate deliberat pe modele, cu motiv — nu ca să tacă linterul.
+[tool.ruff.lint.per-file-ignores]
+# RUF012: `constraints` și `indexes` din `class Meta` sunt liste prin contractul
+#         Django. Adnotarea lor cu ClassVar ar fi zgomot care nu schimbă nimic.
+"**/models.py" = ["RUF012"]
+
+[tool.ruff.lint.flake8-bugbear]
+extend-immutable-calls = []
+
+# =============================================================================
+# mypy — strict DOAR pe platform și accounting (ADR-011)
+#
+# Flagurile se enumeră în loc de `strict = true`: documentația mypy avertizează că
+# lista acoperită de `strict` se schimbă între versiuni, iar un upgrade nu are voie
+# să modifice tăcut ce se impune.
+#
+# `fiscal` NU este aici. Este candidatul evident la extindere, la F0.8 — o linie,
+# adăugată atunci, nu acum.
+#
+# Măsurat: nu toate flagurile de strictețe se acceptă per-modul. `warn_redundant_casts`
+# e global-only, iar mypy îl refuză într-o secțiune `[[tool.mypy.overrides]]`. Restul
+# celor enumerate mai jos trec — verificat pe mypy 2.3.1.
+# =============================================================================
+
+[tool.mypy]
+python_version = "3.13"
+plugins = ["mypy_django_plugin.main"]
+# Flaguri care mypy le acceptă DOAR global — verificat: le refuză în secțiuni per-modul.
+warn_unused_configs = true
+warn_redundant_casts = true
+exclude = ['.*/migrations/.*']
+
+[tool.django-stubs]
+django_settings_module = "config.settings.dev"
+
+# Celery ships no py.typed marker. We do not type-check Celery internals; we do
+# type-check our own use of it, which this still allows.
+[[tool.mypy.overrides]]
+module = ["celery.*"]
+ignore_missing_imports = true
+
+# `evidenta.accounting.*` does not exist yet, so mypy notes the section as unused.
+# That note is correct and expected until F1. Do not "fix" it by deleting the
+# override -- it would then be missing exactly when accounting code appears.
+[[tool.mypy.overrides]]
+module = ["evidenta.platform.*", "evidenta.accounting.*"]
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+disallow_untyped_calls = true
+disallow_untyped_decorators = true
+disallow_any_generics = true
+disallow_subclassing_any = true
+check_untyped_defs = true
+warn_return_any = true
+warn_unused_ignores = true
+no_implicit_reexport = true
+strict_equality = true
+extra_checks = true
+
+# =============================================================================
+# pytest
+# =============================================================================
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "config.settings.dev"
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+markers = [
+    "isolation: suita 1 — penetrare între tenanți",
+    "schema_guard: suita 2 — gardian de model",
+    "fiscal_regression: corpus de regresie fiscală",
+]
+
+# Testele de izolare rulează sub rolul de APLICAȚIE, niciodată ca superuser sau
+# owner de tabelă (CLAUDE.md, T1). Harness-ul care impune asta se scrie la F0.2.1
+# și refuză să ruleze dacă rolul efectiv nu e cel corect.
