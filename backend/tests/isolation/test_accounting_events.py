@@ -27,6 +27,7 @@ from django.db.utils import IntegrityError, InternalError, ProgrammingError
 from evidenta.accounting.events import registry as reg
 from evidenta.accounting.events.models import AccountingEvent, EventStatus, SourceModule
 from evidenta.accounting.events.registry import EventType, UnknownEventTypeError, register
+from evidenta.accounting.events.services import lifecycle
 from evidenta.accounting.events.services.emission import (
     DeprecatedEventTypeError,
     IdempotencyConflictError,
@@ -83,6 +84,7 @@ def emit_one(
     *,
     key: str = "test-key-0001",
     amount: str = "100.00",
+    accounting_date: date = date(2026, 3, 7),
 ) -> tuple[AccountingEvent, bool]:
     return emit(
         tenant_id=world["tenant_a"],
@@ -92,7 +94,7 @@ def emit_one(
         source_document_type="sales_invoice",
         source_document_id=uuid.UUID("00000000-0000-0000-0000-0000000000f1"),
         occurred_at=datetime(2026, 3, 7, 10, 0, tzinfo=UTC),
-        accounting_date=date(2026, 3, 7),
+        accounting_date=accounting_date,
         idempotency_key=key,
         payload={"amount": amount, "currency": "MDL"},
         capability_snapshot={"vat": True},
@@ -406,3 +408,113 @@ def test_a_registered_type_with_no_handler_still_emits(
         event, created = emit_one(world, company, key="no-handler-yet")
     assert created is True
     assert event.status == EventStatus.PENDING
+
+
+# --- What happens after emission: the queue ----------------------------------
+
+
+def test_a_failed_event_stays_retryable(
+    company: uuid.UUID, context: TenantContext, world: dict[str, uuid.UUID]
+) -> None:
+    """`failed` is not terminal, and that is the point of it being a state.
+
+    The usual cause of a failure is a missing handler or an unbound account
+    role -- both closed by a deployment, not by the emitting module. Retrying
+    must not require the source to emit again, because re-emitting would collide
+    with its own idempotency key.
+    """
+    with tenant_context(context):
+        event, _ = emit_one(world, company)
+        lifecycle.mark_failed(event.id, code="accounting.no_handler")
+        reloaded = AccountingEvent.objects.get(pk=event.id)
+        assert reloaded.status == EventStatus.FAILED
+        assert reloaded.posting_error["code"] == "accounting.no_handler"
+
+        lifecycle.mark_posted(event.id)
+        assert AccountingEvent.objects.get(pk=event.id).status == EventStatus.POSTED
+
+
+def test_posting_clears_the_previous_error(
+    company: uuid.UUID, context: TenantContext, world: dict[str, uuid.UUID]
+) -> None:
+    """A posted event carrying a stale failure would read as a posting that
+    failed -- and would be counted as one by any query over `posting_error`.
+    """
+    with tenant_context(context):
+        event, _ = emit_one(world, company)
+        lifecycle.mark_failed(event.id, code="accounting.no_handler")
+        lifecycle.mark_posted(event.id)
+        assert AccountingEvent.objects.get(pk=event.id).posting_error is None
+
+
+def test_a_posted_event_cannot_go_back_to_pending(
+    company: uuid.UUID, context: TenantContext, world: dict[str, uuid.UUID]
+) -> None:
+    """Immutability starts at `posted`. The matrix is the readable half of the
+    rule the database trigger enforces.
+    """
+    with tenant_context(context):
+        event, _ = emit_one(world, company)
+        lifecycle.mark_posted(event.id)
+        with pytest.raises(lifecycle.IllegalEventTransitionError):
+            lifecycle.mark_failed(event.id, code="accounting.no_handler")
+
+
+def test_a_failure_without_a_code_is_refused(
+    company: uuid.UUID, context: TenantContext, world: dict[str, uuid.UUID]
+) -> None:
+    with tenant_context(context):
+        event, _ = emit_one(world, company)
+        with pytest.raises(ValueError):
+            lifecycle.mark_failed(event.id, code="")
+
+
+def test_the_queue_is_ordered_by_accounting_date(
+    company: uuid.UUID, context: TenantContext, world: dict[str, uuid.UUID]
+) -> None:
+    """A late document for an earlier period posts before a later one.
+
+    Ordering by creation instead would let a period be closed over a gap: the
+    earlier document is still in the queue when the month is shut.
+    """
+    with tenant_context(context):
+        late, _ = emit(
+            tenant_id=world["tenant_a"],
+            company_id=company,
+            event_type="sales.invoice_issued",
+            source_module=SourceModule.SALES,
+            source_document_type="sales_invoice",
+            source_document_id=uuid.uuid4(),
+            occurred_at=datetime(2026, 4, 5, 9, 0, tzinfo=UTC),
+            accounting_date=date(2026, 3, 28),
+            idempotency_key="late-march",
+            payload={"amount": "1.00", "currency": "MDL"},
+            capability_snapshot={},
+            actor_user_id=world["user_a"],
+            request_id="req",
+        )
+        recent, _ = emit_one(world, company, key="early-april", accounting_date=date(2026, 4, 2))
+
+        queued = list(lifecycle.pending_queue(company))
+
+    assert [e.id for e in queued] == [late.id, recent.id]
+    assert queued[0].accounting_date < queued[1].accounting_date
+
+
+def test_the_queue_holds_failed_events_too(
+    company: uuid.UUID, context: TenantContext, world: dict[str, uuid.UUID]
+) -> None:
+    """A failure that fell out of the queue is work nobody is going to finish."""
+    with tenant_context(context):
+        event, _ = emit_one(world, company)
+        lifecycle.mark_failed(event.id, code="accounting.no_handler")
+        assert list(lifecycle.pending_queue(company)) == [event]
+
+
+def test_a_posted_event_leaves_the_queue(
+    company: uuid.UUID, context: TenantContext, world: dict[str, uuid.UUID]
+) -> None:
+    with tenant_context(context):
+        event, _ = emit_one(world, company)
+        lifecycle.mark_posted(event.id)
+        assert list(lifecycle.pending_queue(company)) == []

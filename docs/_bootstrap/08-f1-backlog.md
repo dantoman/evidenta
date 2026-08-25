@@ -41,9 +41,19 @@ redeschide. Unde o sarcină pare să ceară altceva, ADR-ul câștigă și sarci
 - **Review:** `schema-reviewer`, `tenancy-guard`, `fiscal-reviewer`
 - **Terminat:** `coa_template` și `coa_template_account` există ca tabele globale, în lista de
   excepții; `UNIQUE (code, version)`; neîntrepătrundere pe `(code, daterange)` pentru versiunile
-  `published`; scriere doar prin calea privilegiată `P-4`. **Niciun cont încărcat.**
-- **Blocat de:** — *(structura; **conținutul** e `OD-22` — niciun cod de cont nu intră fără
+  `published`; scrierea **retrasă explicit** de la rolul aplicației. **Niciun cont încărcat.**
+- **Blocat de:** — *(structura; **conținutul** e `OD-23` — niciun cod de cont nu intră fără
   trimitere la Planul general de conturi și la ordinul care îl aprobă)*
+
+> **Două corecturi față de forma inițială, găsite la implementarea F1.1** *(sesiunea care a livrat
+> planul de conturi; consemnate aici de sesiunea care ține registrul)*. **(1)** Conținutul planului
+> este `OD-23`, nu `OD-22` — `OD-22` sunt valorile fiscale: cote, plafoane, scutiri. **(2)** „Scriere
+> doar prin calea privilegiată `P-4`" **nu se putea îndeplini**: `P-4` este „aplicarea regulilor
+> fiscale noi — inserează parametri fiscali și versiuni de logică", iar planul de conturi e act
+> normativ contabil, nu parametru fiscal. Nicio cale din enumerarea Spec A §6.2 nu acoperă
+> publicarea unei versiuni de plan de conturi — de aceea `OD-56`, deschisă la implementare. Livrat
+> cu `GRANT SELECT` plus `REVOKE INSERT, UPDATE, DELETE`, care e starea corectă până când calea
+> există.
 
 ### F1.1.2 — Instanța per companie
 
@@ -154,6 +164,23 @@ redeschide. Unde o sarcină pare să ceară altceva, ADR-ul câștigă și sarci
   poate ani după ce s-a scris înregistrarea. Registrul e gol azi — un vocabular gol e servibil, iar
   testul e cel care va refuza prima înregistrare fără handler, la F1.4.4.
 
+### F1.3.4 — Ciclul de viață al evenimentului și coada de repostare — **TERMINAT** (2026-08-25)
+
+- **Obiectiv:** un eveniment care n-a putut fi postat este muncă pe care cineva o poate termina.
+- **Depinde de:** F1.3.1
+- **Terminat:** matrice de tranziții ca **date**, nu lanț de `if`-uri; `failed` **nu e terminal** —
+  cauza obișnuită e un handler lipsă sau un rol de cont nelegat, iar amândouă se închid printr-un
+  deployment, nu prin re-emitere din modulul sursă (re-emiterea s-ar ciocni de propria cheie de
+  idempotență). Coada se ordonează după `accounting_date`, nu după data creării: un document
+  întârziat pentru o perioadă anterioară se postează înaintea unuia mai nou, altfel perioada se
+  poate închide peste un gol.
+- **Blocat de:** —
+
+> **Sarcină apărută la implementare, nu în descompunere.** Commitul care lega emiterea de registru
+> descria comportamentul cozii — `status = 'failed'` cu `posting_error`, „operatorul are o coadă din
+> care să lucreze" — iar nimic nu-l implementa. Un docstring care descrie o coadă inexistentă e o
+> promisiune, nu documentație.
+
 ### F1.3.3 — Lineage complet
 
 - **Obiectiv:** `R13` navigabil în ambele sensuri.
@@ -213,16 +240,33 @@ redeschide. Unde o sarcină pare să ceară altceva, ADR-ul câștigă și sarci
 ### F1.5.1 — Perioada contabilă
 
 - **Obiectiv:** stările și refuzul la nivel de motor.
-- **Depinde de:** F1.2.1
+- **Depinde de:** — *(nu F1.2.1: `journal_entry.period_id` arată spre `period`, deci ordinea e
+  inversă — vezi nota de la F1.2.1)*
 - **Terminat:** `open` / `closed` / `locked`, cu redeschidere posibilă doar cât exercițiul e deschis,
   cu motivare și urmă în audit; după `locked`, niciodată. **Postarea într-o perioadă închisă e
   refuzată de motor, nu de interfață** (`R12`).
 - **Blocat de:** —
 
-### F1.5.2 — Exercițiul fiscal
+> **Livrat parțial la 2026-08-25, și partea care lipsește e numită.** Tabelele, stările, cele trei
+> tranziții, refuzul de a ieși din `locked` — și în serviciu, și prin trigger — plus auditul cu
+> motivarea redeschiderii: **25 de teste sub rolul de aplicație**. Ce **nu** se poate demonstra încă
+> este chiar jumătatea din criteriu care spune „de motor": nu există motor. În locul ei s-a livrat
+> primitiva pe care motorul o va apela — `assert_postable(company_id, accounting_date)`, care
+> întoarce perioada sau refuză cu `periods.period_not_open` / `periods.period_locked`. A doua
+> barieră din Spec B §6.3, triggerul `BEFORE INSERT` pe `journal_entry`, aparține lui **F1.2.1**,
+> unde se creează tabela pe care stă. Până atunci refuzul se poate ocoli printr-un `INSERT` direct.
+>
+> Deschis pe drum: **`OD-58`** (a patra stare, `closing`, pe care Spec B §6.1 o listează și ADR-039
+> §8 nu) și **`OD-57`** (clauza de îngustare pe companie din ADR-004, prezentă în patru politici din
+> unsprezece). `DNB-07` **rămâne deschisă**: nu există `period_module_lock` și nici coloană de
+> modul, deci nici varianta (B) nu e închisă tacit — dar comportamentul de azi *este* varianta (A),
+> iar asta e spus în modul, nu lăsat să fie descoperit.
+
+### F1.5.2 — Exercițiul fiscal — **livrat 2026-08-25**
 
 - **Obiectiv:** `start_date`/`end_date` explicite, implicit calendaristic.
-- **Depinde de:** F1.5.1
+- **Depinde de:** F1.5.1 *(livrat împreună: exercițiul generează perioadele, deci nimeni nu tastează
+  o lună și presupunerea calendaristică nu are pe unde intra)*
 - **Terminat:** presupunerea „douăsprezece luni, ianuarie–decembrie" **nu apare nicăieri** în
   închidere, agregare sau raportare — verificat prin test cu un exercițiu aprilie–martie, care este
   cazul normal pentru subsidiarele cu proprietar străin (art. 24 alin. (1) lit. b).
