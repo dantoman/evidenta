@@ -21,7 +21,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: astral-sh/setup-uv@v5
+      # Pinned to an immutable tag, not a major one: astral-sh/setup-uv stopped
+      # publishing major and minor tags at v8, so `@v5` was both five majors
+      # behind and a form the project no longer maintains.
+      - uses: astral-sh/setup-uv@v10.0.1
         with:
           enable-cache: true
           cache-dependency-glob: backend/uv.lock
@@ -85,7 +88,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: astral-sh/setup-uv@v5
+      # Pinned to an immutable tag, not a major one: astral-sh/setup-uv stopped
+      # publishing major and minor tags at v8, so `@v5` was both five majors
+      # behind and a form the project no longer maintains.
+      - uses: astral-sh/setup-uv@v10.0.1
         with:
           enable-cache: true
           cache-dependency-glob: backend/uv.lock
