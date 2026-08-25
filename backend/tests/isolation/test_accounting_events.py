@@ -428,6 +428,7 @@ def test_a_failed_event_stays_retryable(
         lifecycle.mark_failed(event.id, code="accounting.no_handler")
         reloaded = AccountingEvent.objects.get(pk=event.id)
         assert reloaded.status == EventStatus.FAILED
+        assert reloaded.posting_error is not None
         assert reloaded.posting_error["code"] == "accounting.no_handler"
 
         lifecycle.mark_posted(event.id)
