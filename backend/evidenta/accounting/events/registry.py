@@ -23,6 +23,7 @@ cannot hold any other way.
 
 from __future__ import annotations
 
+import logging
 import re
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
@@ -344,6 +345,28 @@ def _ordered_problems(name: str, handlers: list[HandlerVersion]) -> list[str]:
     return problems
 
 
+logger = logging.getLogger(__name__)
+
+
+def unverified_roles(registry: Mapping[str, EventType] | None = None) -> set[str]:
+    """Roles the audit could not check, because the catalogue is empty.
+
+    Separate from `audit()` on purpose: this is not a problem and must not refuse
+    a boot -- the module that fills the catalogue does not exist yet. But it must
+    not be silent either.
+
+    "Passes while the catalogue is empty" is the exact shape of every defect
+    found in this codebase today: green because nothing shouted. Somebody reading
+    a startup log a month from now should be able to tell "the check ran and
+    passed" from "the check could not run", and those look identical unless one
+    of them says so.
+    """
+    registry = REGISTRY if registry is None else registry
+    if ACCOUNT_ROLES:
+        return set()
+    return {role for event_type in registry.values() for role in event_type.account_roles}
+
+
 class RegistryInvalidError(RuntimeError):
     """The registered vocabulary cannot be served."""
 
@@ -360,4 +383,15 @@ def check_registry() -> None:
     if problems:
         raise RegistryInvalidError(
             "the event_type registry is not serviceable:\n  " + "\n  ".join(problems)
+        )
+
+    unchecked = unverified_roles()
+    if unchecked:
+        logger.warning(
+            "event_type registry: the account role catalogue is empty, so %d "
+            "role(s) went unverified (%s). Not a failure -- the module that "
+            "fills the catalogue does not exist yet -- but the check did not "
+            "run, and that reads the same as passing unless it is said.",
+            len(unchecked),
+            ", ".join(sorted(unchecked)),
         )

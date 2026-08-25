@@ -537,3 +537,62 @@ def test_an_empty_catalogue_checks_nothing() -> None:
         )
     }
     assert audit(probe) == []
+
+
+def test_an_empty_catalogue_says_which_roles_it_could_not_check() -> None:
+    """Not a failure, and not silent either.
+
+    "Passes while the catalogue is empty" is the shape of every defect found in
+    this codebase today: green because nothing shouted. A reader of the startup
+    log has to be able to tell "the check ran and passed" from "the check could
+    not run", and those are identical unless one of them says so.
+    """
+    HANDLERS["probe.v1"] = probe_handler
+    probe = {
+        "purchases.invoice_received": EventType(
+            "purchases.invoice_received",
+            (),
+            account_roles=("TVA_DEDUCTIBIL", "DATORII_FURNIZORI"),
+            handlers=(HandlerVersion("probe.v1", date(2020, 1, 1)),),
+        )
+    }
+    assert audit(probe) == []
+    assert reg.unverified_roles(probe) == {"TVA_DEDUCTIBIL", "DATORII_FURNIZORI"}
+
+
+def test_a_filled_catalogue_leaves_nothing_unverified() -> None:
+    """The control. Without it, `unverified_roles` could return everything always
+    and the test above would still pass.
+    """
+    reg.ACCOUNT_ROLES.update({"TVA_DEDUCTIBIL"})
+    try:
+        probe = {
+            "purchases.invoice_received": EventType(
+                "purchases.invoice_received", (), account_roles=("TVA_DEDUCTIBIL",)
+            )
+        }
+        assert reg.unverified_roles(probe) == set()
+    finally:
+        reg.ACCOUNT_ROLES.clear()
+
+
+def test_the_boot_check_warns_rather_than_passing_quietly(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """The disclosure reaches a log, which is where somebody will read it."""
+    register(
+        EventType(
+            name="purchases.invoice_received",
+            payload_fields=(),
+            account_roles=("TVA_DEDUCTIBIL",),
+            handlers=(HandlerVersion("probe.v1", date(2020, 1, 1)),),
+        )
+    )
+    HANDLERS["probe.v1"] = probe_handler
+    # Named explicitly: Django's logging configuration can leave the root logger
+    # without a handler, and `at_level` alone then captures nothing -- a test
+    # that would pass on a warning nobody emits.
+    with caplog.at_level("WARNING", logger="evidenta.accounting.events.registry"):
+        check_registry()
+    assert "TVA_DEDUCTIBIL" in caplog.text
+    assert "unverified" in caplog.text
