@@ -276,6 +276,7 @@ def engage(seed: Callable[..., None]) -> Callable[..., uuid.UUID]:
         status: str = "active",
         valid_from: str = "2020-01-01",
         valid_to: str | None = None,
+        covers_all_companies: bool = True,
     ) -> uuid.UUID:
         now = datetime.now(UTC)
         engagement_id = uuid.uuid4()
@@ -286,12 +287,13 @@ def engage(seed: Callable[..., None]) -> Callable[..., uuid.UUID]:
             " covers_all_companies, valid_from, valid_to, initiated_by,"
             " invited_by_user_id, invited_at, accepted_at, revoked_at,"
             " created_at, updated_at)"
-            " VALUES (%s, %s, %s, %s, true, %s, %s, 'firm', %s, %s, %s, %s, %s, %s)",
+            " VALUES (%s, %s, %s, %s, %s, %s, %s, 'firm', %s, %s, %s, %s, %s, %s)",
             [
                 engagement_id,
                 firm_id,
                 client_tenant_id,
                 status,
+                covers_all_companies,
                 valid_from,
                 valid_to,
                 invited_by,

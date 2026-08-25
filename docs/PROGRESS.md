@@ -12,6 +12,49 @@ de date și infrastructură RLS**.
 
 ## Ultima sesiune
 
+**2026-08-25, F0.2.4 — și coloana care nu era citită de nimeni:**
+
+- **Constatarea, înainte de orice cod:** `covers_all_companies` apărea de **zero ori** în tot
+  `infra/`. Era scrisă de serviciul de ciclu de viață și citită de nimic, deci un engagement
+  declarat ca acoperind toate companiile acoperea, în fapt, exact companiile pentru care cineva
+  inserase manual un rând `company_access`. Coloana promitea o regulă pe care n-o impunea nimeni.
+  La fel `engagement_company_scope` — politică pe ea însăși, niciun predicat care s-o consulte — și
+  `permission_level`, cu `CHECK` și fără cititor
+- **Livrat:** `0032_engagement_provisioning`, oglinda revocării din `0014`. O cale privilegiată
+  îngustă care întinde accesele derivate dintr-un engagement asupra unei companii apărute după
+  semnare — dar numai când engagementul chiar acoperă toate companiile. Aceeași condiție de
+  siguranță ca la revocare: fără ea, un uuid ar fi fost de ajuns ca să întinzi accesele altui tenant
+- **Ce nu face, și de ce contează:** nu acordă accesul inițial. Cine servește un client este
+  `OD-42`, deschisă — iar o provizionare „la acceptare, tuturor membrilor firmei" ar fi răspuns
+  tacit la ea și ar fi dat unei firme cu 40 de contabili acces la fiecare companie a fiecărui client
+- două defecte găsite rulând, niciunul vizibil la citire: `evidenta_rls` n-avea `SELECT` pe
+  `company`, deci funcția nu-și putea rezolva tenantul; iar refuzul abortează tranzacția, deci
+  testul care îl aștepta avea nevoie de savepoint, altfel ieșirea din context devenea o eroare
+  fără legătură
+- **`IZ-28` și `IZ-29` amânate la F2, cu motiv scris:** scope-ul de modul și `permission_level` n-au
+  ce refuza cât nu există niciun modul de business. `IZ-28` cere „se cere un modul din afara
+  scope-ului"; nu există modul de cerut
+- **`OD-53` înregistrată:** nicio cale de producție nu creează o companie — politica pe `company`
+  cere `has_company_access(id)` și în `WITH CHECK`, deci `INSERT`-ul prin rolul aplicației e
+  imposibil. Azi companiile apar doar din fixture-uri, ca superuser. Când calea se scrie, trebuie să
+  apeleze provizionarea în aceeași tranzacție
+- **306 teste trec** pe o bază construită de la zero; `ruff`, `mypy` și gardianul de dependențe
+  curate. Jobul rapid de CI rulează acum ambele suite statice
+
+## Unde stă F0
+
+**Patru din cinci criterii de ieșire sunt îndeplinite.** Suitele rulează verde în CI sub rolul de
+aplicație; cele patru combinații de acces se comportă corect; un task Celery fără context eșuează în
+loc să returneze zero rânduri; gardianul de model eșuează la o tabelă fără `tenant_id`.
+
+**Al cincilea nu se poate închide în cod:** modelul de volum de date (`F0.11`) cere un extras real
+dintr-o bază 1C — `OD-30`. Volumul se poate simula; structura nu. Este singurul criteriu rămas, și
+depinde de o firmă de contabilitate colaboratoare, nu de o sarcină.
+
+Rămân, în afara criteriului: `F0.0.3` livrat **scris, nerulat** (docker nu e instalat pe mașina de
+lucru), `F0.6.3` parțial (`OD-52` — fără provider S3, deci fără cale de încărcare), `F0.7.5` și
+`F0.7.6` (`OD-11` închisă prin ADR-028; `DNB-02`), și `IZ-28`/`IZ-29` amânate la F2.
+
 **2026-08-25, F0.2.5 și două reparații de gardian** — continuarea sesiunii de F0.0.5:
 
 - **F0.2.5 livrat.** Cele 12 teste care existau probau mecanismul contextului — se setează, se
@@ -595,8 +638,8 @@ preced orice model.
   - [x] F0.2.3 — penetrare: toate cele opt scenarii SQL au echivalent pytest care trece
   - [x] F0.2.6 — suitele în CI, sub rolul de aplicație; proba SQL retrasă
   - [x] F0.2.5 — task-uri Celery: IZ-40…IZ-45, cu trei scenarii pe date reale
-  - [ ] F0.2.4 — cazurile de scope *(scope-ul nu e impus nicăieri; impunerea la
-        provizionare e decisă, nescrisă)*
+  - [x] F0.2.4 — cazurile de scope: IZ-25…IZ-27 pe provizionare; IZ-28 și IZ-29
+        amânate la F2, fiindcă n-au ce refuza fără module de business
 - [x] F0.3 — Tenancy și identitate
   - [x] F0.3.1 — `Tenant`, `Company`, `CompanyVatRegistration` + politici, într-o migrare
   - [x] F0.3.2 — `User`, `Membership`; `tenant` interogabil pe calea de membru

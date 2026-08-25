@@ -393,13 +393,29 @@ agenții invocați, ambele suite de izolare verzi, nicio decizie deschisă înch
   tenancy, deci **F0.3**.
 - **Blocat de:** —
 
-### F0.2.4 — Suita 1, cazurile de engagement
+### F0.2.4 — Suita 1, cazurile de engagement ✔ *(parțial: IZ-28 și IZ-29 amânate)*
 
 - **Obiectiv:** engagementul expirat, revocat sau cu scope restrâns nu dă acces.
 - **Fișiere:** `backend/tests/isolation/test_engagement_access.py`, `test_engagement_scope.py`
 - **Depinde de:** F0.2.3, F0.3.3, F0.3.4
 - **Review:** `tenancy-guard`
-- **Terminat:** acoperă IZ-10…IZ-21 și IZ-25…IZ-29, toate verzi.
+- **Terminat:** acoperă IZ-10…IZ-21 și IZ-25…IZ-27, toate verzi.
+- **Ce s-a găsit scriind:** modelul de scope era în schemă și impus nicăieri.
+  `covers_all_companies` apărea de **zero ori** în tot `infra/` — scris de serviciul de ciclu de
+  viață, citit de nimic. Un engagement declarat ca acoperind toate companiile acoperea, în fapt,
+  exact companiile pentru care cineva inserase manual un rând `company_access`
+- **Livrat:** `0032_engagement_provisioning` — oglinda revocării din `0014`: o cale privilegiată
+  îngustă care întinde accesele derivate dintr-un engagement asupra unei companii apărute după
+  semnare, dar numai când engagementul chiar acoperă toate companiile. Plus
+  `engagement/services/provisioning.py` și 5 teste
+- **Ce NU face, deliberat:** nu acordă accesul inițial. Cine servește un client este `OD-42`, care
+  e deschisă — funcția doar propagă accesele existente, deci nu poate răspunde tacit la ea
+- **IZ-28 și IZ-29 amânate la F2**, cu motiv, nu din scăpare: scope-ul de modul și
+  `permission_level` nu au ce refuza cât nu există niciun modul de business. `IZ-28` cere „se cere un
+  modul din afara scope-ului" — nu există modul de cerut. Se scriu odată cu primul modul care
+  citește scope-ul
+- **`OD-53`:** nicio cale de producție nu creează o companie, deci provizionarea este testată prin
+  apel direct, nu prin calea reală. Când calea se scrie, trebuie să o apeleze
 - **Blocat de:** — *(`DN-06` prin [ADR-018](../decisions/018-engagementuri-multiple.md), `DN-07` prin [ADR-019](../decisions/019-vocabular-scope.md))*
 
 ### F0.2.5 — Suita 1, task-uri Celery ✔
@@ -1001,7 +1017,7 @@ agenții invocați, ambele suite de izolare verzi, nicio decizie deschisă înch
 Din `_input/evidenta-implementation-spec.md` §6.1, cu sarcina care îl acoperă:
 
 - [x] Ambele suite de izolare rulează verde în CI, sub rolul de aplicație — *F0.2.6*
-- [ ] Se pot crea doi tenanți, o firmă și un engagement, iar accesul se comportă corect în toate
+- [x] Se pot crea doi tenanți, o firmă și un engagement, iar accesul se comportă corect în toate
       cele patru combinații (membru, engagement activ, engagement revocat, niciunul) — *F0.2.4*
 - [x] Un task Celery fără context explicit eșuează, nu returnează date — *F0.2.5*
 - [x] Gardianul de model eșuează dacă se adaugă o tabelă fără `tenant_id` — *F0.2.2*

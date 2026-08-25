@@ -51,9 +51,9 @@ jobs:
       # In the fast job on purpose: the guard reads files, never the database
       # (ADR-024). A static check that needed Postgres to run would be a static
       # check that runs late.
-      - name: Dependency contract (D1-D6)
+      - name: Architecture guards (D1-D6, and no empty apps)
         working-directory: backend
-        run: uv run pytest tests/deps_guard -q
+        run: uv run pytest tests/deps_guard tests/architecture -q
 
       - name: No undeclared model changes
         working-directory: backend
