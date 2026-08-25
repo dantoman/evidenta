@@ -73,22 +73,32 @@ def test_a_password_alone_never_produces_a_session(
     password still does not authenticate -- it routes to enrolment instead.
     """
     with tenant_context(account), pytest.raises(MfaRequiredError):
-        authenticate("a@example.md", PASSWORD)
+        authenticate("a@example.md", PASSWORD, account.tenant_id, request_id="test")
     assert UserSession.objects.count() == 0
 
 
 def test_password_and_totp_produce_a_session(account: TenantContext) -> None:
     with tenant_context(account):
         secret = enrolled(account)
-        session = authenticate("a@example.md", PASSWORD, totp_code=pyotp.TOTP(secret).now())
-        assert is_live(session)
+        issued = authenticate(
+            "a@example.md",
+            PASSWORD,
+            account.tenant_id,
+            request_id="test",
+            totp_code=pyotp.TOTP(secret).now(),
+        )
+        assert is_live(UserSession.objects.get(pk=issued.session_id))
+        # The token is returned once and stored only as a fingerprint. A row
+        # holding the token itself would make a database dump a set of live
+        # sessions.
+        assert not UserSession.objects.filter(token_hash=issued.token).exists()
 
 
 def test_an_enrolled_user_still_needs_a_code(account: TenantContext) -> None:
     with tenant_context(account):
         enrolled(account)
         with pytest.raises(AuthenticationError) as caught:
-            authenticate("a@example.md", PASSWORD)
+            authenticate("a@example.md", PASSWORD, account.tenant_id, request_id="test")
     assert caught.value.code == "auth.mfa_code_required"
 
 
@@ -96,7 +106,9 @@ def test_a_wrong_code_is_refused(account: TenantContext) -> None:
     with tenant_context(account):
         enrolled(account)
         with pytest.raises(AuthenticationError) as caught:
-            authenticate("a@example.md", PASSWORD, totp_code="000000")
+            authenticate(
+                "a@example.md", PASSWORD, account.tenant_id, request_id="test", totp_code="000000"
+            )
     assert caught.value.code == "auth.invalid_mfa_code"
 
 
@@ -111,7 +123,7 @@ def test_unknown_user_and_wrong_password_fail_identically(
             ("nimeni@example.md", PASSWORD),
         ):
             with pytest.raises(AuthenticationError) as caught:
-                authenticate(email, password)
+                authenticate(email, password, account.tenant_id, request_id="test")
             codes.append(caught.value.code)
     assert codes[0] == codes[1] == "auth.invalid_credentials"
 
@@ -124,7 +136,13 @@ def test_an_unconfirmed_enrolment_does_not_authenticate(
         enrolment = enrol_totp(account.user_id, label="phone")
         secret = pyotp.parse_uri(enrolment.provisioning_uri).secret  # type: ignore[union-attr]
         with pytest.raises(MfaRequiredError):
-            authenticate("a@example.md", PASSWORD, totp_code=pyotp.TOTP(secret).now())
+            authenticate(
+                "a@example.md",
+                PASSWORD,
+                account.tenant_id,
+                request_id="test",
+                totp_code=pyotp.TOTP(secret).now(),
+            )
 
 
 def test_a_backup_code_works_once(account: TenantContext) -> None:
@@ -139,11 +157,15 @@ def test_a_backup_code_works_once(account: TenantContext) -> None:
         confirm_totp(enrolment.method_id, pyotp.TOTP(secret).now())
 
         code = enrolment.backup_codes[0]
-        session = authenticate("a@example.md", PASSWORD, backup_code=code)
-        assert is_live(session)
+        issued = authenticate(
+            "a@example.md", PASSWORD, account.tenant_id, request_id="test", backup_code=code
+        )
+        assert is_live(UserSession.objects.get(pk=issued.session_id))
 
         with pytest.raises(AuthenticationError) as caught:
-            authenticate("a@example.md", PASSWORD, backup_code=code)
+            authenticate(
+                "a@example.md", PASSWORD, account.tenant_id, request_id="test", backup_code=code
+            )
     assert caught.value.code == "auth.invalid_backup_code"
 
 
@@ -166,7 +188,13 @@ def test_regenerating_codes_invalidates_the_old_ones(account: TenantContext) -> 
         regenerate_backup_codes(account.user_id)
 
         with pytest.raises(AuthenticationError):
-            authenticate("a@example.md", PASSWORD, backup_code=first.backup_codes[0])
+            authenticate(
+                "a@example.md",
+                PASSWORD,
+                account.tenant_id,
+                request_id="test",
+                backup_code=first.backup_codes[0],
+            )
 
 
 def test_enrolment_refuses_without_a_key(
@@ -194,7 +222,13 @@ def test_sessions_are_private_to_their_user(
 ) -> None:
     with tenant_context(account):
         secret = enrolled(account)
-        authenticate("a@example.md", PASSWORD, totp_code=pyotp.TOTP(secret).now())
+        authenticate(
+            "a@example.md",
+            PASSWORD,
+            account.tenant_id,
+            request_id="test",
+            totp_code=pyotp.TOTP(secret).now(),
+        )
 
     other = TenantContext(tenant_id=world["tenant_b"], user_id=world["user_b"], request_id="auth")
     with tenant_context(other):
@@ -214,11 +248,12 @@ def test_revoking_an_engagement_ends_the_firms_sessions(
     engage(firm_world["firm"], firm_world["tenant_b"], firm_world["user_f"])
     now = datetime.now(UTC)
     seed(
-        "INSERT INTO user_session (id, user_id, tenant_id, actor_firm_id,"
-        " created_at, expires_at) VALUES (%s, %s, %s, %s, %s, %s)",
+        "INSERT INTO user_session (id, user_id, token_hash, tenant_id, actor_firm_id,"
+        " created_at, expires_at) VALUES (%s, %s, %s, %s, %s, %s, %s)",
         [
             uuid.uuid4(),
             firm_world["user_f"],
+            "seeded-session-fingerprint",
             firm_world["tenant_b"],
             firm_world["firm"],
             now,

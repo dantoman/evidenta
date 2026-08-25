@@ -66,15 +66,39 @@ INSTALLED_APPS: list[str] = [
 MIDDLEWARE: list[str] = [
     "django.middleware.security.SecurityMiddleware",
     "django.middleware.common.CommonMiddleware",
+    # Order is the contract, not a preference. Authentication resolves the
+    # session and attaches an identity; the tenant context middleware refuses
+    # the request if there is none. Swapped, every request would be refused
+    # before the cookie was ever read.
+    "evidenta.platform.identity.middleware.SessionAuthenticationMiddleware",
     "evidenta.platform.rls.middleware.TenantContextMiddleware",
 ]
 
-# Resolves the tenant for a request. Unset means the default resolver, which
-# refuses -- see middleware.refuse_all. The subdomain resolver (F0.3.5) lives in
-# platform.tenancy but is not wired here: it takes a base domain in its
-# constructor, so it needs a factory and a setting, and it refuses until
-# authentication supplies a user (F0.3.7).
-RLS_CONTEXT_RESOLVER: str | None = None
+# Names a zero-argument **factory** returning the resolver, not the resolver
+# itself: SubdomainTenantResolver takes the base domain in its constructor, and a
+# dotted path cannot carry an argument. Unset means the default resolver, which
+# refuses -- see middleware.refuse_all.
+RLS_CONTEXT_RESOLVER: str | None = "evidenta.platform.tenancy.middleware.subdomain_resolver"
+
+# The domain tenant subdomains hang off: `alpha.evidenta.md` is the tenant
+# `alpha` only when this says `evidenta.md`. No default here on purpose -- a
+# default would be wrong in every environment except the one it was written for,
+# and wrong here means requests attributed to the wrong tenant or to none.
+# ADR-025 fixes the local value.
+TENANT_BASE_DOMAIN: str | None = None
+
+# The only paths served without a tenant context. Exact paths, never prefixes: a
+# prefix would silently exempt every route added under it later. What keeps the
+# exemption honest is the query guard -- with no context, an exempt view cannot
+# touch business data at all, only the privileged authentication path.
+TENANT_CONTEXT_EXEMPT_PATHS: tuple[str, ...] = ("/api/v1/auth/login",)
+
+# The session cookie. Host-only and HttpOnly are not configurable; see
+# evidenta.platform.identity.cookie for why. `Secure` is, because local
+# development has no TLS to require -- and it defaults to on, so an environment
+# that forgets to think about it gets the safe answer.
+AUTH_COOKIE_NAME = "evidenta_session"
+AUTH_COOKIE_SECURE = True
 
 ROOT_URLCONF = "config.urls"
 WSGI_APPLICATION = "config.wsgi.application"

@@ -27,6 +27,7 @@ from cryptography.fernet import Fernet, InvalidToken
 from django.contrib.auth.hashers import check_password, make_password
 from django.db import transaction
 
+from evidenta.platform.identity import privileged
 from evidenta.platform.identity.models import (
     MfaBackupCode,
     MfaMethod,
@@ -34,6 +35,9 @@ from evidenta.platform.identity.models import (
     User,
     UserSession,
 )
+from evidenta.platform.identity.services import sessions
+from evidenta.platform.rls.context import TenantContext, tenant_context
+from evidenta.platform.tenancy.services.access import tenant_visible_in_context
 
 #: How long an issued session lives before it must be renewed.
 SESSION_LIFETIME = timedelta(hours=12)
@@ -122,7 +126,7 @@ def confirm_totp(method_id: uuid.UUID, code: str) -> None:
     nothing.
     """
     method = MfaMethod.objects.get(pk=method_id)
-    if not _totp_matches(method, code):
+    if not _totp_matches(method.method_type, bytes(method.secret_encrypted), code):
         raise AuthenticationError("mfa.invalid_code")
 
     now = datetime.now(UTC)
@@ -133,64 +137,143 @@ def confirm_totp(method_id: uuid.UUID, code: str) -> None:
     User.objects.filter(pk=method.user_id).update(mfa_enabled=True, updated_at=now)
 
 
+@dataclass(frozen=True)
+class IssuedSession:
+    """The result of a successful authentication.
+
+    ``token`` is the only time the session secret exists outside the browser --
+    it is stored as a fingerprint, so it cannot be read back from anywhere.
+    """
+
+    session_id: uuid.UUID
+    token: str
+    expires_at: datetime
+
+
 def authenticate(
     email: str,
     password: str,
+    tenant_id: uuid.UUID,
     *,
+    request_id: str,
     totp_code: str | None = None,
     backup_code: str | None = None,
-    tenant_id: uuid.UUID | None = None,
     actor_firm_id: uuid.UUID | None = None,
     ip_address: str | None = None,
     user_agent: str | None = None,
-) -> UserSession:
+) -> IssuedSession:
     """Verify password and second factor, then issue a session.
 
     There is no argument that skips the second factor, and no branch that returns
     a session without one.
+
+    ``tenant_id`` is required rather than optional: the tenant comes from the
+    subdomain the request arrived on (C8), and a session not bound to one could
+    never serve a request -- every policy would refuse it. An optional argument
+    here would only produce sessions that authenticate nothing.
+
+    Everything up to the second factor runs on the privileged path, because it
+    precedes the identity a policy would need. Everything after it runs inside a
+    context, through ordinary policies -- including the write of the session row.
     """
-    user = User.objects.filter(email=email, is_active=True).first()
+    material = privileged.lookup_user(email)
 
-    # The same failure for "no such user" and "wrong password". Distinguishing
-    # them turns the login form into a list of who has an account.
-    if user is None or not user.password_hash:
+    # The same failure for "no such user", "deactivated" and "wrong password".
+    # Distinguishing them turns the login form into a list of who has an account.
+    if material is None or not material.password_hash:
         raise AuthenticationError("auth.invalid_credentials")
-    if not check_password(password, user.password_hash):
+    if not check_password(password, material.password_hash):
         raise AuthenticationError("auth.invalid_credentials")
 
-    methods = list(MfaMethod.objects.filter(user_id=user.id, confirmed_at__isnull=False))
-    if not methods:
+    factors = privileged.mfa_methods(material.user_id)
+    if not factors:
         # Not a failure of the credentials: the user must enrol before they can
         # reach any data. Raised as its own type so the caller can route to
         # enrolment rather than showing "wrong password".
         raise MfaRequiredError("auth.mfa_enrolment_required")
 
     if totp_code:
-        if not any(_totp_matches(method, totp_code) for method in methods):
+        if not any(
+            _totp_matches(factor.method_type, factor.secret_encrypted, totp_code)
+            for factor in factors
+        ):
             raise AuthenticationError("auth.invalid_mfa_code")
     elif backup_code:
-        _consume_backup_code(user.id, backup_code)
+        _consume_backup_code(material.user_id, backup_code)
     else:
         raise AuthenticationError("auth.mfa_code_required")
 
-    now = datetime.now(UTC)
-    User.objects.filter(pk=user.id).update(last_login_at=now, updated_at=now)
-    return UserSession.objects.create(
-        user_id=user.id,
+    return _open_session(
+        user_id=material.user_id,
         tenant_id=tenant_id,
+        request_id=request_id,
         actor_firm_id=actor_firm_id,
-        expires_at=now + SESSION_LIFETIME,
-        last_seen_at=now,
         ip_address=ip_address,
         user_agent=user_agent,
     )
 
 
-def _totp_matches(method: MfaMethod, code: str) -> bool:
-    if method.method_type != MfaMethodType.TOTP:
+def _open_session(
+    *,
+    user_id: uuid.UUID,
+    tenant_id: uuid.UUID,
+    request_id: str,
+    actor_firm_id: uuid.UUID | None,
+    ip_address: str | None,
+    user_agent: str | None,
+) -> IssuedSession:
+    """Both factors are verified; from here the ordinary policies apply.
+
+    The access check is the interesting line. It goes through `tenancy`'s public
+    service rather than its models -- `D6` -- and that service asks the database
+    rather than recomputing the rule, so the question here is the same one every
+    later query will ask.
+
+    Without it, a correct password and a correct second factor would produce a
+    session for a tenant the user has nothing to do with. Every query would
+    return nothing, which is safe and reads to the user as the product being
+    broken.
+    """
+    now = datetime.now(UTC)
+    token = sessions.new_token()
+    expires_at = now + SESSION_LIFETIME
+    context = TenantContext(
+        tenant_id=tenant_id,
+        user_id=user_id,
+        request_id=request_id,
+        actor_firm_id=actor_firm_id,
+    )
+
+    with tenant_context(context):
+        if not tenant_visible_in_context(tenant_id):
+            raise AuthenticationError("auth.no_access_to_tenant")
+
+        User.objects.filter(pk=user_id).update(last_login_at=now, updated_at=now)
+        session = UserSession.objects.create(
+            user_id=user_id,
+            token_hash=sessions.fingerprint(token),
+            tenant_id=tenant_id,
+            actor_firm_id=actor_firm_id,
+            expires_at=expires_at,
+            last_seen_at=now,
+            ip_address=ip_address,
+            user_agent=user_agent,
+        )
+
+    return IssuedSession(session_id=session.id, token=token, expires_at=expires_at)
+
+
+def _totp_matches(method_type: str, secret_encrypted: bytes, code: str) -> bool:
+    """Takes the two fields rather than a model instance.
+
+    During authentication the factor arrives from the privileged path as a plain
+    row; afterwards, at enrolment, it is an ORM object. One function either way --
+    two would be two places for the tolerance window to be set differently.
+    """
+    if method_type != MfaMethodType.TOTP:
         return False
     try:
-        secret = _cipher().decrypt(bytes(method.secret_encrypted)).decode()
+        secret = _cipher().decrypt(secret_encrypted).decode()
     except InvalidToken:
         # The stored secret cannot be read with the current key. Treating this as
         # "code does not match" would silently lock every user out after a key
@@ -218,16 +301,16 @@ def _consume_backup_code(user_id: uuid.UUID, code: str) -> None:
 
     Codes are checked one by one because they are hashed with a salt each -- there
     is no lookup by value, which is the same property that makes a dump useless.
+
+    The spend itself is one statement in the database (``used_at IS NULL`` in the
+    same UPDATE that sets it), so two requests presenting the same code have one
+    winner. Doing it here, read-then-write, would have had two.
     """
-    now = datetime.now(UTC)
-    with transaction.atomic():
-        for candidate in MfaBackupCode.objects.select_for_update().filter(
-            user_id=user_id, used_at__isnull=True
+    for candidate in privileged.backup_codes(user_id):
+        if check_password(code, candidate.code_hash) and privileged.spend_backup_code(
+            candidate.code_id
         ):
-            if check_password(code, candidate.code_hash):
-                candidate.used_at = now
-                candidate.save(update_fields=["used_at"])
-                return
+            return
     raise AuthenticationError("auth.invalid_backup_code")
 
 

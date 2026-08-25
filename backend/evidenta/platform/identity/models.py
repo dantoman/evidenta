@@ -458,6 +458,15 @@ class UserSession(models.Model):
     user = models.ForeignKey(
         User, on_delete=models.PROTECT, db_column="user_id", related_name="sessions"
     )
+
+    # The secret the browser holds, kept only as a SHA-256. The primary key
+    # identifies the session; this authenticates it, and the two must not be the
+    # same value -- a primary key travels through logs, error messages and
+    # references, none of which are places for a bearer credential.
+    #
+    # A code, not a name: byte ordering (C34), applied in the accompanying SQL.
+    token_hash = models.TextField(unique=True)
+
     tenant_id = models.UUIDField(null=True, blank=True)
     actor_firm_id = models.UUIDField(null=True, blank=True)
 

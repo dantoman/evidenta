@@ -92,6 +92,7 @@ def test_resolution_works_before_any_context_exists(
 def test_full_resolution_produces_the_context(world: dict[str, uuid.UUID]) -> None:
     request = RequestFactory().get("/", headers={"host": "alpha.evidenta.md"})
     request.authenticated_user_id = world["user_a"]  # type: ignore[attr-defined]
+    request.authenticated_tenant_id = world["tenant_a"]  # type: ignore[attr-defined]
     context = SubdomainTenantResolver(BASE)(request)
     assert context.tenant_id == world["tenant_a"]
 
@@ -161,13 +162,29 @@ def test_a_matching_client_stated_tenant_is_accepted(
         f"/?tenant_id={world['tenant_a']}", headers={"host": "alpha.evidenta.md"}
     )
     request.authenticated_user_id = world["user_a"]  # type: ignore[attr-defined]
+    request.authenticated_tenant_id = world["tenant_a"]  # type: ignore[attr-defined]
     assert SubdomainTenantResolver(BASE)(request).tenant_id == world["tenant_a"]
 
 
 @pytestmark_db
 def test_no_authenticated_user_is_refused(world: dict[str, uuid.UUID]) -> None:
-    """Fail-closed until F0.3.7. A resolver that defaulted to some user would
-    work in development and be a hole in production."""
+    """Fail-closed. A resolver that defaulted to some user would work in
+    development and be a hole in production."""
     request = RequestFactory().get("/", headers={"host": "alpha.evidenta.md"})
     with pytest.raises(TenantResolutionError, match="authenticated"):
         SubdomainTenantResolver(BASE)(request)
+
+
+@pytestmark_db
+def test_a_session_of_another_tenant_is_refused(world: dict[str, uuid.UUID]) -> None:
+    """The identity is real; the tenant it was issued for is not this host's.
+
+    RLS alone would answer with an empty result set -- correct, and
+    indistinguishable from a tenant that has no data. The refusal names it.
+    """
+    request = RequestFactory().get("/", headers={"host": "alpha.evidenta.md"})
+    request.authenticated_user_id = world["user_b"]  # type: ignore[attr-defined]
+    request.authenticated_tenant_id = world["tenant_b"]  # type: ignore[attr-defined]
+    with pytest.raises(TenantResolutionError) as caught:
+        SubdomainTenantResolver(BASE)(request)
+    assert caught.value.code == "auth.session_tenant_mismatch"

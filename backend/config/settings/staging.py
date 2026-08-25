@@ -10,3 +10,6 @@ from config.settings.base import env
 DEBUG = False
 SECRET_KEY = env("DJANGO_SECRET_KEY")
 ALLOWED_HOSTS = env("DJANGO_ALLOWED_HOSTS").split(",")
+
+
+TENANT_BASE_DOMAIN = env("TENANT_BASE_DOMAIN")
