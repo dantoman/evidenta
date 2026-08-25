@@ -123,8 +123,33 @@ def supersede(event_id: uuid.UUID) -> AccountingEvent:
     return event
 
 
-def pending_queue(company_id: uuid.UUID) -> Any:
-    """Everything waiting to be posted, oldest first.
+#: Failure codes that another attempt cannot resolve.
+#:
+#: An event whose period closed is refused identically on every retry -- the
+#: state of a period does not change by itself. Left in the retry queue it would
+#: be picked up for ever, and **silently**: a repeated failure with the same code
+#: is indistinguishable from a fresh one, so the queue keeps a constant length
+#: and the events that could have posted are lost among them.
+#:
+#: Named by stable code rather than by importing `periods`. That is what C10's
+#: stable codes are for -- the coupling is a string that may not change, instead
+#: of a dependency between two modules of one layer. `accounting.events` does not
+#: need to know how periods work, only that these two answers are final until a
+#: person acts.
+BLOCKING_CODES: frozenset[str] = frozenset(
+    {
+        # The period closed between emission and the retry. Reopening is possible
+        # while the fiscal year is open, with a reason and an audit trail -- a
+        # decision, not a retry.
+        "periods.period_not_open",
+        # The fiscal year is closed. Not reopenable at all.
+        "periods.period_locked",
+    }
+)
+
+
+def _queue(company_id: uuid.UUID) -> Any:
+    """Everything not yet posted, oldest accounting date first.
 
     Ordered by `accounting_date` rather than by creation: a late-arriving
     document for an earlier period should be posted before a later one, so that
@@ -138,3 +163,26 @@ def pending_queue(company_id: uuid.UUID) -> Any:
         company_id=company_id,
         status__in=(EventStatus.PENDING, EventStatus.FAILED),
     ).order_by("accounting_date", "occurred_at")
+
+
+def pending_queue(company_id: uuid.UUID) -> Any:
+    """Work another attempt can actually finish.
+
+    Excludes events blocked on a closed period. Retrying those changes nothing
+    and hides them.
+    """
+    return _queue(company_id).exclude(posting_error__code__in=list(BLOCKING_CODES))
+
+
+def blocked_queue(company_id: uuid.UUID) -> Any:
+    """Work waiting on a person, not on another attempt.
+
+    Separate rather than hidden. ADR-039 section 9 says a posting falls in the
+    open period in which it is recorded, so an event whose period closed needs
+    one of three things, and all three are decisions: re-dating it with
+    `document_date` preserved, reopening the period, or superseding it so the
+    source module emits a new one. Which of those the product does is open --
+    what is not open is that the queue must stop pretending it will resolve
+    itself.
+    """
+    return _queue(company_id).filter(posting_error__code__in=list(BLOCKING_CODES))

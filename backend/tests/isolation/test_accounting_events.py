@@ -519,3 +519,77 @@ def test_a_posted_event_leaves_the_queue(
         event, _ = emit_one(world, company)
         lifecycle.mark_posted(event.id)
         assert list(lifecycle.pending_queue(company)) == []
+
+
+# --- A retry that cannot succeed is not queue work ---------------------------
+
+
+def test_an_event_blocked_on_a_closed_period_leaves_the_retry_queue(
+    company: uuid.UUID, context: TenantContext, world: dict[str, uuid.UUID]
+) -> None:
+    """The defect this split exists for.
+
+    The state of a period does not change by itself, so an event refused with
+    `periods.period_not_open` is refused identically on every retry. Left in the
+    retry queue it is picked up for ever, and silently: a repeated failure with
+    the same code is indistinguishable from a fresh one, so the queue keeps a
+    constant length and the events that *could* have posted are lost among them.
+    """
+    with tenant_context(context):
+        blocked, _ = emit_one(world, company, key="closed-period")
+        retryable, _ = emit_one(
+            world, company, key="missing-handler", accounting_date=date(2026, 4, 2)
+        )
+        lifecycle.mark_failed(blocked.id, code="periods.period_not_open")
+        lifecycle.mark_failed(retryable.id, code="accounting.no_handler")
+
+        assert list(lifecycle.pending_queue(company)) == [retryable]
+        assert list(lifecycle.blocked_queue(company)) == [blocked]
+
+
+def test_a_locked_period_blocks_too_and_for_a_stronger_reason(
+    company: uuid.UUID, context: TenantContext, world: dict[str, uuid.UUID]
+) -> None:
+    """`period_not_open` can be reopened while the fiscal year is open;
+    `period_locked` cannot be reopened at all. Both are final until a person
+    acts, which is what puts them in the same queue.
+    """
+    with tenant_context(context):
+        event, _ = emit_one(world, company, key="locked-year")
+        lifecycle.mark_failed(event.id, code="periods.period_locked")
+        assert list(lifecycle.pending_queue(company)) == []
+        assert list(lifecycle.blocked_queue(company)) == [event]
+
+
+def test_a_pending_event_is_retryable_even_though_it_never_failed(
+    company: uuid.UUID, context: TenantContext, world: dict[str, uuid.UUID]
+) -> None:
+    """The control for the exclusion.
+
+    `posting_error` is NULL on a pending event, and a filter written carelessly
+    over a JSON field drops NULL rows -- which would empty the queue of
+    everything that had never been tried.
+    """
+    with tenant_context(context):
+        event, _ = emit_one(world, company)
+        assert list(lifecycle.pending_queue(company)) == [event]
+        assert list(lifecycle.blocked_queue(company)) == []
+
+
+def test_reopening_is_expressed_by_retrying_not_by_a_new_state(
+    company: uuid.UUID, context: TenantContext, world: dict[str, uuid.UUID]
+) -> None:
+    """After a person reopens the period, the same event posts.
+
+    No extra status is needed for "unblocked": the block is a property of the
+    last recorded failure, so a successful posting clears it along with the
+    error.
+    """
+    with tenant_context(context):
+        event, _ = emit_one(world, company)
+        lifecycle.mark_failed(event.id, code="periods.period_not_open")
+        assert list(lifecycle.blocked_queue(company)) == [event]
+
+        lifecycle.mark_posted(event.id)
+        assert list(lifecycle.blocked_queue(company)) == []
+        assert list(lifecycle.pending_queue(company)) == []
