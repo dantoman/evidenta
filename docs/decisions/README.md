@@ -108,6 +108,7 @@ Acte normative, secțiuni din documentele de intrare, benchmark-uri, discuții.
 | [035](035-fara-delegare-tranzitiva.md) | Delegarea nu este tranzitivă | Acceptat | 2026-08-25 | — *(deschide `OD-54`)* |
 | [038](038-vocabularul-de-evenimente.md) | Nucleul deține vocabularul de `event_type`; handlerul se selectează după dată | Acceptat | 2026-08-25 | `DNB-01` |
 | [039](039-valuta-si-perioade.md) | Moneda funcțională MDL, exercițiu cu date explicite, trei date pe linia de jurnal | Acceptat | 2026-08-25 | `DN-04`, `DN-05` |
+| [040](040-crearea-tenantului-si-a-companiei.md) | Crearea unui tenant și a unei companii este cale privilegiată (`P-9`) | Acceptat | 2026-08-25 | `OD-53` |
 
 *Indexul se actualizează la fiecare ADR nou. Un ADR care nu apare aici este invizibil.*
 

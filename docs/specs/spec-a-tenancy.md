@@ -953,6 +953,7 @@ iar o greșeală de configurare dă acces la tot.
 | **P-6** | Construirea read models | Citește date operaționale ale mai multor tenanți pentru a produce agregate | Prin definiție cross-tenant (7) | rând per rulare, cu tenanții atinși |
 | **P-7** | Suportul platformei | Acces temporar la datele unui tenant pentru diagnostic | Necesar operațional | vezi `DN-18` |
 | **P-8** | Offboarding și export | Produce exportul complet al unui tenant, inclusiv date pe care niciun rol de utilizator nu le citește într-o singură interogare | Operațiune de platformă | rând per export, cu cine l-a cerut |
+| **P-9** | Provizionarea unui tenant sau a unei companii | Creează rândul rădăcină și acordă accesul creatorului, în aceeași tranzacție | Crearea precede contextul: `tenant` e rădăcina contextului, iar politica pe `company` cere `has_company_access(id)` și în `WITH CHECK` — o companie nu poate avea acces la ea însăși înainte să existe | rând per creare, cu creatorul și subdomeniul sau IDNO-ul |
 
 **`DECIZIE NECESARĂ (DN-18)` — accesul de suport (P-7).** Este singura cale prin care un angajat
 al platformei vede datele unui client. Opțiuni: (A) nu există — diagnosticul se face exclusiv din
@@ -1465,7 +1466,13 @@ Reguli:
 
 ## 11. DECIZII NECESARE — lista completă
 
-25 de puncte. Trei au fost închise ulterior prin ADR-uri (DN-11, DN-12, DN-22 parțial); restul de 22 rămân deschise și **nu au fost alese în această specificație**. Coloana **Blochează** spune ce nu
+**28 de puncte** — 25 la scrierea specificației, plus `DN-26`–`DN-28`, apărute odată cu §12 și §13.
+
+Închise ulterior prin ADR-uri: `DN-01` (ADR-014, ADR-016), `DN-04` și `DN-05`
+([ADR-039](../decisions/039-valuta-si-perioade.md)), `DN-06` și `DN-07` (ADR-018, ADR-019), `DN-08`
+(ADR-020), `DN-09` (ADR-021), `DN-11` (ADR-003), `DN-12` (ADR-004), `DN-16`
+([ADR-030](../decisions/030-atasamente.md)), `DN-22` parțial. Restul **nu au fost alese în această
+specificație**. Coloana **Blochează** spune ce nu
 poate fi implementat până la închidere; coloana **Unde** trimite la blocul cu opțiuni, când acesta
 e dezvoltat în text.
 
@@ -1474,8 +1481,8 @@ e dezvoltat în text.
 | ~~DN-01~~ | **ÎNCHISĂ.** Rusa e strat de prezentare exclusiv; contabilitatea se ține în română prin lege (nr. 287/2017, art. 7). Denumirile de referință rămân valoare unică | — | [ADR-014](../decisions/014-limba-rusa.md), [ADR-016](../decisions/016-limba-contabilitatii.md) |
 | DN-02 | Subdomeniu: se poate schimba? se eliberează pentru realocare? | F0.3 | 11.2 |
 | DN-03 | IDNO: unic global între tenanți, sau doar per tenant? | F0.3 | 11.3 |
-| DN-04 | Moneda funcțională: fixă `MDL` per companie, sau configurabilă? | F0.9, F1 | 11.4 |
-| DN-05 | Anul fiscal: întotdeauna calendaristic? | F1.5 | 11.5 |
+| ~~DN-04~~ | **ÎNCHISĂ.** `MDL` fix; linia poartă valută din ziua 1, cu numele din Spec B și cu `rate_date` | — | [ADR-039](../decisions/039-valuta-si-perioade.md) |
+| ~~DN-05~~ | **ÎNCHISĂ.** Nu — exercițiul are `start_date`/`end_date` explicite; perioada TVA e entitate distinctă de perioada contabilă | — | [ADR-039](../decisions/039-valuta-si-perioade.md) |
 | ~~DN-06~~ | **ÎNCHISĂ.** Da — mai multe firme, separate prin scope de module. Unicitatea rămâne per pereche firmă–tenant; un `module_key` aparține unui singur engagement viu | — | [ADR-018](../decisions/018-engagementuri-multiple.md) |
 | ~~DN-07~~ | **ÎNCHISĂ.** `module_key` = numele modulului de business din harta §4.1; drepturi `read`/`write`, `write` include `read`; lista impusă prin `CHECK` | — | [ADR-019](../decisions/019-vocabular-scope.md) |
 | DN-08 | Vocabularul de roluri pentru `Membership` și `CompanyAccess` | F0.3, RBAC | 11.8 |
@@ -1496,6 +1503,9 @@ e dezvoltat în text.
 | DN-23 | Formatul exportului complet | F3 | 11.23 |
 | DN-24 | Moneda de facturare și tratamentul TVA pe abonament | F3 | 11.24 |
 | DN-25 | Ce se întâmplă cu `billing_account` la revocarea engagementului wholesale | F3 | §10.4 |
+| DN-26 | Cine poate crea un tenant: autoservire, invitație, sau exclusiv prin firmă | Onboarding | §12.3 |
+| DN-27 | Tenantul creat de o firmă și niciodată acceptat de client: ce `status` primește, după cât timp, cine îl plătește | Onboarding | §12.3 |
+| DN-28 | Granițele exacte ale ferestrei de îngheț și procesul de excepție | Prima lansare | §13.4 |
 
 ### 11.1 DN-01 — limba rusă
 
@@ -1649,7 +1659,166 @@ efect asupra structurii `billing_account` și `subscription`.
 
 ---
 
-## 12. Ce urmează după această specificație
+## 12. Onboarding
+
+Secțiunea aceasta lipsea, iar lipsa ei nu era de text: `OD-53` a arătat că **nicio cale de producție
+nu creează un tenant sau o companie**. Politicile fail-closed o interzic prin construcție, iar
+[ADR-040](../decisions/040-crearea-tenantului-si-a-companiei.md) răspunde cu calea privilegiată
+`P-9`. Ce urmează descrie ce se întâmplă pe acea cale și în ce ordine.
+
+Onboarding-ul e locul unde produsul ia **cele mai puțin reversibile decizii ale sale**, într-un
+moment în care utilizatorul știe cel mai puțin despre produs. Asta e tensiunea pe care secțiunea o
+tratează; restul e formular.
+
+### 12.1 Ce este ireversibil, și de ce
+
+| Alegere | De ce nu se mai schimbă | Unde e fixat |
+|---|---|---|
+| **Subdomeniul** | Este singura sursă a contextului de tenant (`C8`). Se poate schimba administrativ, dar cel vechi nu se eliberează pentru realocare | 1.1, `DN-02` |
+| **Prima perioadă contabilă** | După postarea soldurilor inițiale și închiderea ei, registrul are conținut anterior oricărei alte date. Ledgerul e append-only (`R10`): nu există „mut începutul cu o lună" | [ADR-039](../decisions/039-valuta-si-perioade.md) §11 |
+| **Exercițiul fiscal** | `start_date`/`end_date` determină perioada fiscală la impozitul pe venit. Se schimbă doar prin cazurile din art. 24 alin. (1) | [ADR-039](../decisions/039-valuta-si-perioade.md) §6 |
+| **IDNO-ul companiei** | Cheie naturală de business; apare pe documente emise, deci pe artefacte care au ieșit din sistem | 1.2 |
+
+**Regula de prezentare:** o alegere din tabelul de mai sus nu se afișează ca un câmp printre altele.
+Are ecran propriu, spune ce se întâmplă dacă e greșită, și cere o confirmare separată. Un dropdown
+care schimbă permanent conținutul unui registru contabil este un defect de produs, nu o economie de
+click-uri.
+
+### 12.2 Ordinea, și de ce este exact aceasta
+
+```
+1. utilizatorul                    →  identitate globală, fără tenant (1.5)
+2. al doilea factor                →  obligatoriu, înainte de orice sesiune (ADR-021)
+3. tenantul                        →  P-9: subdomeniu + membership de administrare
+4. compania                        →  P-9: IDNO, denumire legală, exercițiu fiscal
+5. capabilitățile                  →  activări cu dată efectivă (R25), nu bifе
+6. planul de conturi               →  instanțiere din șablonul versionat
+7. prima perioadă                  →  ALEGERE IREVERSIBILĂ
+8. soldurile inițiale              →  opening.balance.posted
+```
+
+Trei lucruri din ordinea asta sunt constrângeri, nu preferințe:
+
+- **(2) precede (3).** `ADR-021` face al doilea factor obligatoriu pentru toți, iar `ADR-026` arată
+  că autentificarea precede contextul. Un tenant creat de un utilizator neînrolat ar fi un tenant cu
+  un administrator care nu se poate autentifica. *Aici se lovește de `OD-48`: înrolarea MFA n-are
+  încă o cale de request. Onboarding-ul este primul consumator real al acelei decizii.*
+- **(6) precede (7).** Soldurile inițiale se postează pe conturi; conturile trebuie să existe.
+- **(7) precede (8), și amândouă preced orice altceva.** Nu există „începem să lucrăm și punem
+  soldurile mai târziu": o postare într-o perioadă anterioară soldurilor inițiale face ca soldurile
+  să nu mai fie inițiale.
+
+### 12.3 Cele trei căi de intrare
+
+| Cale | Cine apelează `P-9` | Ce diferă |
+|---|---|---|
+| **Autoservire** | Viitorul administrator al tenantului | Creatorul devine membru cu rol de administrare; facturarea merge pe grila directă (10.1) |
+| **Firmă care aduce un client** | Un membru al tenantului firmei | Tenantul se creează **cu un engagement în stare `invited`**, nu activ: clientul acceptă, altfel firma și-ar acorda singură acces (4.2) |
+| **Migrare din alt sistem** | Ca autoservirea, plus importul | Soldurile inițiale vin din `import.*` ([ADR-038](../decisions/038-vocabularul-de-evenimente.md) §7.3): suma din sursă e autoritativă, nu recalculată |
+
+A doua cale este cea care merită atenție. Un tenant creat de o firmă rămâne **al clientului** —
+`INV-7`, datele n-au fost niciodată ale firmei. Engagementul `invited` nu produce niciun acces până
+la acceptare, ceea ce e chiar comportamentul din 4.2. Iar dacă clientul nu acceptă niciodată,
+tenantul rămâne un tenant fără membri activi: caz real, nu ipotetic, și care are nevoie de o politică
+de expirare.
+
+> **`DECIZIE NECESARĂ (DN-26)` — cine poate crea un tenant.** Autoservire deschisă, invitație, sau
+> exclusiv prin firmă. Consecințele sunt comerciale și interacționează cu cele două canale de
+> facturare din 10.1: autoservirea deschisă cere protecție anti-abuz și verificarea IDNO, invitația
+> reduce fricțiunea de vânzare la zero pentru firme dar închide creșterea organică. `P-9`
+> funcționează pentru oricare — funcția verifică ce i se cere, iar cine are voie s-o apeleze e o
+> decizie de deasupra ei.
+
+> **`DECIZIE NECESARĂ (DN-27)` — tenantul neacceptat.** Un tenant creat de o firmă și niciodată
+> acceptat de client: se șterge, expiră, sau rămâne? Ștergerea fizică nu există în această
+> specificație (1), deci întrebarea reală e ce `status` primește și după cât timp. Atinge și
+> facturarea: cine plătește un tenant pe care nimeni nu l-a acceptat.
+
+### 12.4 Ce nu face onboarding-ul
+
+- **Nu creează utilizatori pentru alții.** Un administrator invită; invitatul își face parola și al
+  doilea factor. Altfel platforma ar cunoaște, măcar o clipă, credențialele cuiva.
+- **Nu presupune că un tenant are o singură companie.** Modelul le separă de la început (1.2), iar
+  onboarding-ul creează prima, nu singura.
+- **Nu activează capabilități de conformitate ca opțiune.** `R24`: TVA, e-Factura și raportarea SNC
+  funcționează indiferent de plan. Ecranul de capabilități nu le afișează ca bife.
+
+---
+
+## 13. Lansare, release rings și ferestrele de îngheț
+
+Nici această secțiune nu exista, iar absența ei a fost vizibilă: o propunere de decizie a citat
+„fereastra de îngheț propusă în Spec A" ca pe un lucru deja scris. Nu era. Se scrie aici.
+
+### 13.1 Constrângerea, care nu e a produsului
+
+Codul fiscal, art. 115: declarația TVA se depune și taxa se plătește **până la data de 25** a lunii
+următoare celei în care s-a încheiat perioada fiscală. Perioada fiscală e luna, pentru toți, fără
+variantă trimestrială (art. 114 alin. (1)).
+
+Consecința operațională: **între 1 și 25 ale fiecărei luni, fiecare contabil din baza de clienți
+lucrează la același termen, simultan.** Nu e un vârf de trafic, e un vârf de consecință — o schimbare
+de interfață care încetinește introducerea cu treizeci de secunde per document se înmulțește cu tot
+volumul unei luni și cu presiunea unui termen legal.
+
+Un produs contabil nu are utilizatori distribuiți uniform în timp. Are un calendar, și calendarul e
+al statului.
+
+### 13.2 Fereastra de îngheț
+
+**Între 1 și 25 ale lunii nu se livrează schimbări de interfață și nu se schimbă comportamentul de
+introducere.**
+
+Ce rămâne livrabil oricând, fără excepție:
+
+| Categorie | De ce nu e îngheț |
+|---|---|
+| Corecturi de defecte | Un defect în perioada de raportare e mai scump decât orice schimbare |
+| Schimbări legislative | `R15`–`R18`: parametrii sunt date, iar o cotă nouă intră prin `INSERT`, nu prin deploy. Când cere totuși cod, termenul legal bate fereastra |
+| Securitate | Fără discuție |
+| Performanță, fără schimbare vizuală | Ajută exact în fereastră |
+
+Ce se amână la după 25: redesign, mutarea comenzilor, câmpuri noi în ecrane de introducere,
+schimbări de ordine de tabulare sau de comportament al tastaturii (`OD-36`).
+
+**Distincția care face regula aplicabilă:** îngheață *ce vede și ce atinge contabilul*, nu *ce
+livrăm*. Un backend refăcut integral, cu aceeași interfață, nu încalcă fereastra.
+
+### 13.3 Cum se impune — prin release rings, nu prin disciplină
+
+`R23` interzice ramuri sau versiuni per tenant; diferențierea se face prin feature flags și release
+rings (10.5). Fereastra de îngheț folosește același mecanism:
+
+- o schimbare de interfață se livrează **în cod** oricând, dezactivată prin flag;
+- activarea trece prin inele, iar inelele au calendar: nimic nu ajunge în inelul general între 1 și
+  25;
+- un tenant poate cere explicit inelul devreme — un cabinet care vrea funcționalitatea nouă și
+  acceptă riscul.
+
+Consecință: fereastra **nu blochează dezvoltarea**. Blochează activarea. Diferența e ce face regula
+sustenabilă — o echipă care nu poate livra trei săptămâni din patru va găsi motive să facă excepții,
+iar excepțiile golesc regula.
+
+### 13.4 Prima lansare
+
+Prima companie reală nu intră în producție într-o fereastră de îngheț. Nu din superstiție: o
+instalare nouă produce în primele săptămâni defecte care cer corecturi rapide, iar suprapunerea peste
+un termen legal pune produsul și clientul în conflict direct la primul contact.
+
+> **`DECIZIE NECESARĂ (DN-28)` — granițele exacte și cine acordă excepții.** Ziua 25 e din lege, dar
+> restul e politică: fereastra începe pe 1 sau la închiderea lunii precedente? Se aplică inelului de
+> early adopters? Cine aprobă o excepție și pe ce criteriu? Întrebările par mici și nu sunt: o
+> fereastră fără un proces de excepție scris devine, la a treia urgență, o fereastră care nu există.
+
+### 13.5 Ce nu decide această secțiune
+
+Cadența de release, procesul de deploy, mediile și strategia de rollback. Sunt decizii de
+infrastructură, iar `F0.0.3` le-a lăsat explicit deschise: imaginile de container sunt scrise și
+niciodată rulate, fiindcă docker nu e instalat pe mașina de dezvoltare.
+
+---
+
+## 14. Ce urmează după această specificație
 
 1. **Review uman**, cu atenție la punctele rămase din secțiunea 11. Cele trei care blocau sarcini
    F0 — DN-11, DN-12, DN-22 — sunt închise prin ADR-003, ADR-004 și ADR-008.

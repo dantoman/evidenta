@@ -12,6 +12,67 @@ de date și infrastructură RLS**.
 
 ## Ultima sesiune
 
+**2026-08-25, două decizii de F1 depuse ca ADR — și trei reconcilieri găsite la depunere:**
+
+- **[ADR-036](decisions/036-forma-postarii.md) — forma postării stă în cod**, restul configurării
+  stă în date, pe cinci straturi cu destinație diferențiată. Răspunde `DNB-04` (Spec B §3.2) cu
+  opțiunea (C), dar cu granița trasată: „forma postării" = câte linii, ce semn, din ce câmp derivă
+  suma. Atât. `Propus` — cazurile `C1`–`C5` (metoda de cost, amortizarea, CTA, diferențele de curs,
+  repartizarea indirectelor) sunt clasificate pe **presupuneri**, iar `CLAUDE.md` §4 nu le acceptă
+  fără SNC citat
+- **[ADR-037](decisions/037-conventii-de-platforma.md) — convențiile de platformă** (rotunjire,
+  zecimale, granularitatea postării). `Propus`, blocat pe `V1`–`V4`. Ce s-a găsit la depunere:
+  **`V1` și `V3` nu depind de accesul SFS** — formularul tipizat (Ordinul MF 118/2017) și Codul
+  fiscal sunt publice, deci `DNB-08` era înregistrată ca blocată pe `OD-24` mai mult decât e
+- **Trei reconcilieri, consemnate în ADR-uri, nu rezolvate tăcut:** (1) „subconturi definibile de
+  client, orice număr rezonabil" contrazicea [ADR-029](decisions/029-dimensiuni-analitice.md),
+  `Acceptat` — sloturile *sunt* mecanismul, iar plafonul de cinci există fiindcă dimensiunile sunt
+  coloane pe `journal_line`, tabelă `R21`; (2) trimiterea la „setul închis de chei de context"
+  citea o versiune anterioară a deciziei — a devenit `OD-55`, fiindcă chei extensibile înseamnă
+  evaluator de expresii, adică DSL-ul respins în același ADR; (3) „rămâne de fixat forma stornoului"
+  e deja fixată structural de ADR-006, iar politica stă în ADR-007
+- **Ce se schimbă în specificație la `Acceptat`, nu acum:** Spec B §3.2 descrie `posting_rule_line`
+  cu `amount_expression jsonb` — forma opțiunii (A). Pointerul e pus; rescrierea așteaptă
+- **Nimic implementat.** Sesiune de decizie, nu de cod: două ADR-uri, indexul, registrul (`OD-55`
+  nouă, `T2` reordonată), patru trimiteri în Spec B
+
+**2026-08-25, limba și delegarea: trei decizii scrise, două invariante care nu erau numite:**
+
+- **A pornit dintr-o întrebare, nu dintr-o sarcină:** tabloul consolidat al cabinetului — „este
+  actualizat deja?" Da, în specificație: Spec A §7 descrie read models aproape cuvânt cu cuvânt —
+  agregate și identificatori, `firm_id` denormalizat, politică pe firmă, scriere doar prin `P-6`,
+  ștergere la revocare, `IZ-63`…`IZ-67`. **Nu există cod:** `platform/readmodels` nu există,
+  tabelele `rm_*` sunt F3
+- **Ce lipsea din același paragraf** a intrat acum: bannerul permanent de context, în Spec A §7.1,
+  cu auditul pe ambele identități; lista nominală a persoanelor care ating datele clientului este
+  `OD-54`, **nouă**, și depinde de `OD-51` — azi clientul nu poate citi nici numele firmei sale
+- **ADR-033 — limba la generare.** `C33` spunea *ce* nu are voie să se întâmple, nimic nu spunea
+  *cine împiedică*. Măsurat înainte de a scrie regula: `formats.date_format` dă `7 Martie 2026` cu
+  `ro` activ și forma rusă cu `ru`; iar limba activată **rămâne activă pe firul respectiv după
+  unitatea de lucru care a setat-o** — un worker refolosit o duce în următoarea sarcină. Riscul nu
+  e activ azi (serverul nu activează nicio limbă, implicitul e `ro`), și exact de asta regula costă
+  zero acum. → `C38` plus gardă în `tests/architecture/test_document_language.py`, cu probă că poate
+  eșua
+- **ADR-034 — denumire legală și denumire internă** pe `item` și `partner`. `OD-40` **rămâne
+  deschisă**: e întrebare juridică, nu de produs. Ce se schimbă e că răspunsul ei nu mai poate cere
+  retastarea nomenclatoarelor. Respins explicit: `CHECK` pe alfabet — denumirea juridică a unui
+  furnizor ucrainean chiar este în chirilice, iar art. 11 alin. (11) o acceptă. → `C39`; migrarea
+  este `F0.7.7`, **nescrisă**: cere lanțul de review de migrare, deci sesiune proprie
+- **ADR-035 — delegarea nu este tranzitivă.** Proprietatea era adevărată **din forma predicatului**,
+  pe care nimic n-o numea și niciun test n-o acoperea — exact genul de cod care se „extinde" pentru
+  un motiv plauzibil. Acum e `R27`, cu `IZ-68` și `IZ-69`, fiecare cu aserțiune de control care
+  demonstrează că primul salt chiar există
+- **`IZ-22`, angajatul care pleacă din cabinet:** aserțiunea care contează este ultima — rândul
+  `company_access` derivat din engagement rămâne pe loc și nu mai dă nimic, fiindcă politica
+  company-scoped cere și acces la tenant, iar acela se reevaluează la fiecare interogare
+- **323 de teste trec** (fără `tests/volume/`, care aparține sesiunii paralele); `ruff` și `mypy`
+  curate
+- **Două ciocniri din lucru în paralel, ambele consemnate:** `032` fusese luat de cheia de
+  partiționare, deci ADR-urile de aici sunt `033`–`035`; iar harness-ul de test face
+  `DROP DATABASE ... WITH (FORCE)` la pornire, deci două rulări simultane se distrug reciproc —
+  75 de erori care nu aveau nicio legătură cu codul. Rulat cu `POSTGRES_DB=evidenta_s2`, bază
+  separată. Nota e acum în `tests/conftest.py`, lângă `DROP`
+
 **2026-08-25, F0.11 — și un index găsit prin măsurătoare, nu prin citire:**
 
 - **`OD-30` nu cerea ce părea că cere.** Blocajul spunea „firma de contabilitate colaboratoare nu
