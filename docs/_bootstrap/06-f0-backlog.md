@@ -780,15 +780,18 @@ agenții invocați, ambele suite de izolare verzi, nicio decizie deschisă înch
   loturilor să existe; conversiile între unități funcționează și sunt testate.
 - **Blocat de:** —
 
-### F0.7.5 — `Warehouse`
+### ~~F0.7.5~~ — `Warehouse` → **retrasă** ([ADR-028](../decisions/028-modelat-in-f0.md))
 
-- **Obiectiv:** depozitul există ca model, fără funcționalitate.
-- **Fișiere:** `backend/evidenta/masterdata/warehouses/models.py`, migrații, politici
-- **Depinde de:** F0.3.1
-- **Review:** `tenancy-guard`, `schema-reviewer`
-- **Terminat:** modelul există și trece suita 2; niciun serviciu de mișcări de stoc.
-- **Blocat de:** **OD-11** *(harta îl dă la F4, sarcina F0.7 îl cere în F0; regula „fără app-uri
-  goale" nu spune unde locuiește)*
+- **Obiectiv (retras):** depozitul există ca model, fără funcționalitate.
+- **De ce se retrage:** criteriul „modelul există și trece suita 2" contrazice `CLAUDE.md` §4, care
+  interzice app-uri pentru module din faze viitoare și are prioritate declarată. „Modelat în F0"
+  este obligație **negativă**: nimic din structura F0 nu face modulul viitor imposibil. Se
+  verifică, nu se construiește.
+- **Verificarea, făcută:** nicio tabelă din F0 nu referă un depozit, și niciuna n-ar trebui să
+  piardă o coloană ca să poată referi unul. `journal_line` nu există încă (F1.2); când există,
+  `warehouse_id` e cheie **ieșind**, deci `R21` nu se opune.
+- **Rezultat:** `masterdata/warehouses` rămâne F4. `X-5` se rezolvă în favoarea hărții. `OD-11` e
+  închisă. Regula §4 a primit un gardian: `backend/tests/architecture/test_no_empty_apps.py`.
 
 ### F0.7.6 — Dimensiunile analitice: consemnare, nu implementare
 

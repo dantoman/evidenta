@@ -98,6 +98,7 @@ Acte normative, secțiuni din documentele de intrare, benchmark-uri, discuții.
 | [025](025-subdomeniu-in-dezvoltare.md) | Subdomeniul tenantului în dezvoltare locală: `*.evidenta.localhost` | Acceptat | 2026-08-25 | OD-20 |
 | [026](026-autentificare-inainte-de-context.md) | Autentificarea precede contextul, deci trece prin căi privilegiate înguste | Acceptat | 2026-08-25 | — *(deschide OD-48)* |
 | [027](027-fiscal-ca-strat-de-schema.md) | `fiscal` intră în lista straturilor de compunere de schemă | Acceptat | 2026-08-25 | — |
+| [028](028-modelat-in-f0.md) | Ce înseamnă „modelat în F0”; nu se creează app-uri pentru faze viitoare | Acceptat | 2026-08-25 | OD-11 |
 
 *Indexul se actualizează la fiecare ADR nou. Un ADR care nu apare aici este invizibil.*
 

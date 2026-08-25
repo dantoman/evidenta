@@ -12,6 +12,26 @@ de date și infrastructură RLS**.
 
 ## Ultima sesiune
 
+**2026-08-25, ADR-028 — ce înseamnă „modelat în F0". `OD-11` închisă, `F0.7.5` retrasă:**
+
+- **decizia era deja luată** și stătea într-o regulă cu prioritate declarată. `CLAUDE.md` §4:
+  „Nu se creează app-uri Django goale pentru module din faze viitoare. «Modelat în F0» înseamnă că
+  structura din faza curentă nu face imposibil modulul viitor, nu că app-ul există acum." Prima
+  variantă din `OD-11` e exclusă direct; a doua — model găzduit într-un app părinte — e aceeași
+  lucrare sub alt nume, și e chiar acumularea pe care `C1` o interzice
+- **„modelat în F0" este obligație negativă.** Nu cere să scrii ceva, cere ca nimic din ce scrii să
+  nu facă modulul viitor imposibil. Se verifică. Verificarea, făcută: nicio tabelă din F0 nu referă
+  un depozit, `journal_line` nu există încă, iar când va exista `warehouse_id` e cheie **ieșind**,
+  deci `R21` nu se opune
+- **`X-5` se rezolvă în favoarea hărții:** `warehouses` rămâne F4, `dimensions` F1
+- **regula §4 n-avea gardian** și un app gol ar fi trecut de toate suitele — gardianul de dependențe
+  raportează `D0` doar pentru un pachet cu strat nedeclarat, iar `masterdata/warehouses` **ar fi**
+  într-un strat declarat. Acum are: `tests/architecture/test_no_empty_apps.py`, fără bază de date,
+  cu probă care cade
+- **273 de teste trec**
+
+## Sesiunea anterioară
+
 **2026-08-25, F0.6.5 — notificări.** Închide conflictul X-9: modulul era marcat F0 în hartă și în
 V2 §10, dar n-avea sarcină în §6.1.
 
@@ -39,7 +59,7 @@ V2 §10, dar n-avea sarcină în §6.1.
   pe `unavailable`, nu pe `pending`: numărabile, spre deosebire de o notificare pierdută tăcut
 - **253 de teste trec**
 
-## Sesiunea anterioară
+## Sesiuni mai vechi
 
 **2026-08-25, F0.0.3 — imagini de container.** Livrată **scrisă, nerulată**, și asta e o stare
 declarată, nu o bifă:
@@ -541,7 +561,8 @@ preced orice model.
   - [x] F0.7.2 — `Partner`, nivel tenant, unic pe IDNO
   - [x] F0.7.3 — `CompanyPartner`, configurare per companie
   - [x] F0.7.4 — `Item`, `ItemCategory`, `UnitOfMeasure`, `UnitConversion`
-  - [ ] F0.7.5 — `Warehouse` *(blocat de OD-11)*
+  - [x] ~~F0.7.5~~ — `Warehouse` **retrasă** prin ADR-028: „modelat în F0" e obligație negativă,
+        verificată, nu construită. `masterdata/warehouses` rămâne F4; `OD-11` închisă
   - [ ] F0.7.6 — dimensiuni: ADR, nu cod *(blocat de DNB-02)*
 - [x] F0.8 — Parametri fiscali și registru
   - [x] F0.8.1 — `fiscal_parameter` și proveniența: sursa obligatorie, aprobarea obligatorie
