@@ -104,6 +104,11 @@ def _run_bootstrap(dbname: str) -> None:
         )
 
     default = settings.DATABASES["default"]
+    # Each role gets its own password. Passing the application password for both
+    # silently reset the owner's password to the wrong value -- invisible while
+    # the two happened to be equal, which they were in every local run. CI used
+    # different values and found it in the first minute.
+    owner = settings.DATABASES["migration"]
     env = os.environ.copy()
     password = _admin_password()
     if password is None:
@@ -119,7 +124,7 @@ def _run_bootstrap(dbname: str) -> None:
             "-v",
             "ON_ERROR_STOP=1",
             "-v",
-            f"owner_password={default['PASSWORD']}",
+            f"owner_password={owner['PASSWORD']}",
             "-v",
             f"app_password={default['PASSWORD']}",
             "-h",
