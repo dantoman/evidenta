@@ -118,6 +118,21 @@ REGISTRY: dict[str, EventType] = {}
 #: table; it never loads from anywhere.
 HANDLERS: dict[str, Callable[..., Any]] = {}
 
+#: The account roles a handler may ask for -- the catalogue ADR-038 section 5
+#: point 3 requires the boot check to validate against.
+#:
+#: It existed as a promise and not as code: `EventType.account_roles` was free
+#: text, so a typo became a role nothing could ever bind, discovered at posting
+#: rather than at startup. Registered by the module that owns the binding of
+#: roles to accounts, on the same pattern as `HANDLERS` -- declared in code, never
+#: loaded from a row.
+#:
+#: **Empty means "do not check".** A catalogue nobody has filled yet must not
+#: refuse every registration; the same choice the type registry makes, and for the
+#: same reason -- a guard that fires before the thing it guards exists teaches
+#: people to switch it off.
+ACCOUNT_ROLES: set[str] = set()
+
 #: Types deprecated: no longer emittable, handlers kept so history stays
 #: interpretable. There is no "deleted" -- a type ever emitted stays for good.
 DEPRECATED: set[str] = set()
@@ -251,6 +266,15 @@ def audit(registry: Mapping[str, EventType] | None = None) -> list[str]:
                 f"{name}: registered with no handler. A type that can be emitted "
                 f"and not posted is a document that goes missing silently."
             )
+        if ACCOUNT_ROLES:
+            unknown = sorted(set(event_type.account_roles) - ACCOUNT_ROLES)
+            if unknown:
+                problems.append(
+                    f"{name}: asks for account role(s) {', '.join(unknown)}, which "
+                    f"are not in the catalogue. A role nothing can bind is a "
+                    f"posting that fails on a live document."
+                )
+
         for handler in event_type.handlers:
             if handler.implementation_ref not in HANDLERS:
                 problems.append(

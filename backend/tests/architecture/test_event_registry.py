@@ -45,6 +45,7 @@ def clean_registry():
     saved_registry = dict(reg.REGISTRY)
     saved_handlers = dict(HANDLERS)
     saved_deprecated = set(reg.DEPRECATED)
+    saved_roles = set(reg.ACCOUNT_ROLES)
     yield
     reg.REGISTRY.clear()
     reg.REGISTRY.update(saved_registry)
@@ -52,6 +53,8 @@ def clean_registry():
     HANDLERS.update(saved_handlers)
     reg.DEPRECATED.clear()
     reg.DEPRECATED.update(saved_deprecated)
+    reg.ACCOUNT_ROLES.clear()
+    reg.ACCOUNT_ROLES.update(saved_roles)
 
 
 def probe_handler(**_: object) -> list[object]:
@@ -471,3 +474,66 @@ def test_a_strict_superset_wins_over_the_general_treatment() -> None:
         "sales.invoice_issued", date(2026, 1, 1), frozenset({"vat", "inventory"})
     )
     assert chosen is HANDLERS["probe.vat_inventory"]
+
+
+# --- The account-role catalogue (ADR-038 section 5, point 3) ------------------
+
+
+def test_an_unknown_account_role_is_reported() -> None:
+    """The promise the ADR made and the code did not keep until now.
+
+    `account_roles` was free text, so a typo became a role nothing could bind --
+    found at posting, on a live document, rather than at startup.
+    """
+    reg.ACCOUNT_ROLES.update({"TVA_DEDUCTIBIL", "DATORII_FURNIZORI"})
+    try:
+        probe = {
+            "purchases.invoice_received": EventType(
+                "purchases.invoice_received",
+                (),
+                account_roles=("TVA_DEDUCTABIL",),  # one letter wrong
+                handlers=(HandlerVersion("probe.v1", date(2020, 1, 1)),),
+            )
+        }
+        HANDLERS["probe.v1"] = probe_handler
+        problems = audit(probe)
+        assert any("TVA_DEDUCTABIL" in p for p in problems), problems
+    finally:
+        reg.ACCOUNT_ROLES.clear()
+
+
+def test_a_known_role_passes() -> None:
+    reg.ACCOUNT_ROLES.update({"TVA_DEDUCTIBIL"})
+    try:
+        HANDLERS["probe.v1"] = probe_handler
+        probe = {
+            "purchases.invoice_received": EventType(
+                "purchases.invoice_received",
+                (),
+                account_roles=("TVA_DEDUCTIBIL",),
+                handlers=(HandlerVersion("probe.v1", date(2020, 1, 1)),),
+            )
+        }
+        assert audit(probe) == []
+    finally:
+        reg.ACCOUNT_ROLES.clear()
+
+
+def test_an_empty_catalogue_checks_nothing() -> None:
+    """Deliberate, and the same choice the type registry makes.
+
+    The catalogue is populated by the module that binds roles to accounts, which
+    does not exist yet. A guard that refused every registration until then would
+    be switched off before it ever caught anything.
+    """
+    assert set() == reg.ACCOUNT_ROLES
+    HANDLERS["probe.v1"] = probe_handler
+    probe = {
+        "purchases.invoice_received": EventType(
+            "purchases.invoice_received",
+            (),
+            account_roles=("ANYTHING_AT_ALL",),
+            handlers=(HandlerVersion("probe.v1", date(2020, 1, 1)),),
+        )
+    }
+    assert audit(probe) == []
