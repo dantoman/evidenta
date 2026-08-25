@@ -64,6 +64,7 @@ INSTALLED_APPS: list[str] = [
     "evidenta.platform.notifications.apps.NotificationsConfig",
     "evidenta.platform.attachments.apps.AttachmentsConfig",
     "evidenta.accounting.currency.apps.CurrencyConfig",
+    "evidenta.accounting.events.apps.AccountingEventsConfig",
 ]
 
 MIDDLEWARE: list[str] = [

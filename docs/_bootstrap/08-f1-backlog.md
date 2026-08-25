@@ -76,7 +76,8 @@ redeschide. Unde o sarcină pare să ceară altceva, ADR-ul câștigă și sarci
 
 - **Obiectiv:** registrul există, append-only, cu echilibrul impus în bază.
 - **Fișiere:** `backend/evidenta/accounting/ledger/models.py`, migrații, politici
-- **Depinde de:** F1.1.2
+- **Depinde de:** F1.1.2, **F1.3.1** *(`accounting_event_id NOT NULL`)*, **F1.5.1**
+  *(`period_id NOT NULL`)*
 - **Review:** `schema-reviewer`, `accounting-reviewer`, `tenancy-guard`
 - **Terminat:** `debit` și `credit` separate, `NOT NULL DEFAULT 0`, cu
   `CHECK ((debit = 0) <> (credit = 0))`; `Σ debit = Σ credit` prin trigger de constrângere amânată
@@ -119,11 +120,11 @@ redeschide. Unde o sarcină pare să ceară altceva, ADR-ul câștigă și sarci
 
 ## F1.3 — Evenimentele contabile
 
-### F1.3.1 — `accounting_event` și idempotența
+### F1.3.1 — `accounting_event` și idempotența — **TERMINAT** (2026-08-25)
 
 - **Obiectiv:** stratul dintre modulele business și ledger, idempotent pe eveniment.
 - **Fișiere:** `backend/evidenta/accounting/events/`, migrații, politici
-- **Depinde de:** F1.2.1
+- **Depinde de:** — *(doar tenant și companie; Spec B §1.1)*
 - **Review:** `accounting-reviewer`, `schema-reviewer`
 - **Terminat:** `UNIQUE (company_id, idempotency_key)` — inima lui `R19`; aceeași cheie cu același
   payload întoarce rezultatul primei execuții fără efect nou; **aceeași cheie cu payload diferit
@@ -131,6 +132,12 @@ redeschide. Unde o sarcină pare să ceară altceva, ADR-ul câștigă și sarci
   l-ar ascunde.
 - **Blocat de:** — *(`DNB-10`, fereastra de reutilizare a cheii **din API**, nu blochează: pe
   eveniment unicitatea e permanentă)*
+- **Livrat:** unicitatea e **per companie**, nu globală — două companii ale unui tenant pot folosi
+  legitim aceeași cheie, fiind seturi de registre separate. Amprenta payloadului se ia cu
+  `sort_keys`, fiindcă ordinea cheilor JSON nu e semantică și o reordonare inofensivă ar fi
+  raportată apelantului drept bug al lui. Evenimentul postat e imutabil prin trigger, cu o singură
+  tranziție rămasă deschisă — `superseded`, și doar a stării: un eveniment înlocuit rămâne, fiindcă
+  rămâne și registrul pe care l-a produs.
 
 ### F1.3.2 — Registrul de `event_type`
 
@@ -343,13 +350,21 @@ Patru fire independente. Niciunul nu așteaptă o decizie deschisă:
 
 ```
 Firul A   F1.1.1 → F1.1.2 → F1.1.3        planul de conturi (structura)
-Firul B   F1.2.1 → F1.2.2 → F1.2.3        ledgerul
-Firul C   F1.3.1 → F1.3.2 → F1.3.3        evenimentele            (după F1.2.1)
-Firul D   F1.5.1 → F1.5.2 → F1.5.3        perioadele              (după F1.2.1)
+Firul B   F1.3.1 → F1.3.2 → F1.3.3        evenimentele contabile
+Firul C   F1.5.1 → F1.5.2 → F1.5.3        perioadele
+                    ↓ toate trei
+Firul D   F1.2.1 → F1.2.2 → F1.2.3 → F1.2.4    ledgerul
 ```
 
-`F1.2.1` este singurul punct de sincronizare timpuriu: firele C și D îl așteaptă. Firul A e complet
-independent de el.
+> **Corectură, făcută prin citirea schemei, nu prin raționament.** Prima versiune a acestei secțiuni
+> spunea că `F1.2.1` e punctul de sincronizare pe care îl așteaptă celelalte fire. **Este exact
+> invers.** `journal_entry` are `period_id NOT NULL REFERENCES period` și
+> `accounting_event_id NOT NULL REFERENCES accounting_event` (Spec B §1.2), plus `account_id` către
+> `company_account` — deci ledgerul le așteaptă pe toate trei. `accounting_event`, în schimb,
+> depinde doar de tenant și companie (§1.1), la fel perioada.
+>
+> Greșeala a durat un commit. Merită păstrată aici fiindcă e chiar clasa de eroare pe care
+> descompunerea trebuie s-o prindă: o ordine plauzibilă, dedusă din nume în loc de din coloane.
 
 **Ce nu poate începe, și de ce e util să fie vizibil:** F1.4.4 (handlerele concrete) așteaptă
 `C1`–`C5` cu SNC citat; F1.5.4 și F1.6 așteaptă `OD-22`; F1.8 așteaptă `OD-35`; F1.9 și grilele
