@@ -120,6 +120,13 @@ acolo unde sunt: `OD-*` mai sus, `DN-*` în `../specs/spec-a-tenancy.md` §11, `
 
 Trebuie închise pentru a termina faza. Sarcina blocată e în `../_bootstrap/06-f0-backlog.md`.
 
+> **Tabela asta derivă și se strică într-o singură direcție.** Când o decizie se închide, registrul
+> se actualizează și tabela nu — deci lista se umflă cu blocaje expirate, niciodată invers. Efectul
+> nu e cosmetic: o listă de blocaje pe care nimeni n-o curăță încetează să fie o listă de blocaje și
+> devine un motiv de a nu începe. Măturată la 2026-08-25, când trei intrări expirate au ieșit la
+> iveală într-o singură zi — inclusiv `DN-08` și `DN-09`, închise prin ADR-020 și ADR-021 și
+> neapărute deloc în tabela de decizii închise.
+
 | Sarcină | Decizii |
 |---|---|
 | F0.1 (căi privilegiate) | `OD-09` = `DN-17` |
@@ -127,14 +134,14 @@ Trebuie închise pentru a termina faza. Sarcina blocată e în `../_bootstrap/06
 | F0.3.2 | `OD-37` |
 | F0.3.5 | ~~`OD-20`~~ — închisă prin ADR-025 |
 | F0.3.6 | `DN-13`, `DN-14`, `DN-15` |
-| F0.3.7 | `DN-08`, `DN-09` |
+| F0.3.7 | ~~`DN-08`~~ ADR-020, ~~`DN-09`~~ ADR-021 |
 | F0.4.3 | `DN-20` |
 | F0.5.1 | `DN-10` |
-| F0.6.2 | `OD-02` |
-| F0.6.3 | `DN-16` |
+| F0.6.2 | ~~`OD-02`~~ — închisă prin ADR-022 |
+| F0.6.3 | ~~`DN-16`~~ ADR-030; rămâne `OD-52` *(providerul, semnarea, limitele)* |
 | F0.7.1 | `OD-12` |
 | F0.8.1 | `DNB-06` |
-| F0.10.3 | `OD-19`, `OD-35` *(`OD-34` — ADR-009; `DN-01`/`OD-13` — ADR-014 și ADR-016, închise)* |
+| F0.10.3 | ~~`OD-19`~~ ADR-031; `OD-35` *(nu blochează scheletul — `C21` privește ecranele cu grile)* |
 | F0.11 | `OD-30` |
 
 ### T2 — Blochează F1
@@ -186,6 +193,8 @@ Se decid la momentul lor. `OD-04` *(înainte de F2)*, `OD-05` *(după F3)*, `OD-
 | **DNB-02** | **Dimensiuni definite de utilizator: lista închisă rămâne, plus cinci sloturi generice** (`dim_1_id` … `dim_5_id`), cu semnificația configurată per companie în `company_dimension`. Obligativitatea se impune ca la restul, prin `company_account.required_dimensions`; indexarea rămâne B-tree. Varianta `jsonb` s-a respins fiindcă pierde exact obligativitatea și integritatea, iar varianta cu subconturi fiindcă două axe simultane produc produsul cartezian al conturilor. Limita de cinci e deliberată și vizibilă | [ADR-029](029-dimensiuni-analitice.md) | 2026-08-25 |
 | **DN-16** | **Metadatele de atașament stau la nivel de companie**, nu de tenant. Aceeași graniță ca documentul pe care îl însoțesc (Spec A §5.3), iar accesul se acordă per companie: la nivel de tenant, un contabil cu acces la o singură companie a unui holding ar vedea atașamentele celorlalte — calea de scurgere pe care `company_access` există s-o închidă. Prețul acceptat: același fișier urcat la două companii se stochează de două ori | [ADR-030](030-atasamente.md) | 2026-08-25 |
 | **OD-19** | **Stack frontend minimal:** TanStack Query pentru starea de server, React Router pentru rutare, `fetch` învelit subțire care ridică erori după codul stabil din `C10`, `Intl` cu `ro-MD` într-un singur modul de formatare (`C18`), șiruri în fișiere de resurse (`C32`) fără bibliotecă i18n până când rusa devine reală. **Fără bibliotecă de stare globală:** într-un ERP aproape toată starea este stare de server, iar un store devine a doua sursă de adevăr pentru aceleași date | [ADR-031](031-stack-frontend.md) | 2026-08-25 |
+| **DN-08** | **Rolurile sunt date compozabile**, peste un catalog fix de permisiuni: un administrator al tenantului cu permisiunea necesară poate crea și modifica roluri, iar cele de sistem sunt protejate prin trigger | [ADR-020](020-roluri-ca-date.md) | 2026-08-25 |
+| **DN-09** | **Al doilea factor este obligatoriu pentru toți.** Fără opțiune de dezactivare: `authenticate()` refuză cu `auth.mfa_enrolment_required` un utilizator fără factor confirmat | [ADR-021](021-mfa-obligatoriu.md) | 2026-08-25 |
 | **OD-20** | Subdomeniul în dezvoltare locală: `*.evidenta.localhost`, cu `TENANT_BASE_DOMAIN` implicit doar în `dev.py` și obligatoriu din mediu în staging și producție. Browserele rezolvă orice `*.localhost` la loopback fără intrare în `hosts`, deci un tenant nou de dezvoltare nu costă nimic. `http://localhost:8000/` răspunde **404** și așa rămâne: o gazdă fără subdomeniu nu are tenant | [ADR-025](025-subdomeniu-in-dezvoltare.md) | 2026-08-25 |
 | **OD-11** | **Nu se creează app-uri pentru module din faze viitoare.** Decizia era deja luată de `CLAUDE.md` §4, care are prioritate declarată asupra backlogului: „modelat în F0" este o obligație **negativă** — nimic din structura fazei curente nu face modulul viitor imposibil — și se **verifică**, nu se construiește. `masterdata/warehouses` și `masterdata/dimensions` rămân la F4, respectiv F1. `X-5` se rezolvă în favoarea hărții. Regula a primit și un gardian, cu probă care cade | [ADR-028](028-modelat-in-f0.md) | 2026-08-25 |
 | **OD-17** | Contractele de dependență se impun printr-un **gardian propriu, în suită** — parcurgere AST, contract în `infra/modules/dependencies.toml`, fiecare regulă cu probă că poate eșua. `import-linter` a fost evaluat și respins: un contract de straturi nu poate exprima `D6` (comunicare prin modelele altui modul), nu distinge `accounting.events` de `accounting.ledger` (`D3`), și tace despre pachetul pe care nimeni n-a știut să-l declare | [ADR-024](024-gardian-de-dependente.md) | 2026-08-25 |

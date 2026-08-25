@@ -112,7 +112,7 @@ agenții invocați, ambele suite de izolare verzi, nicio decizie deschisă înch
 - **Review:** —
 - **Terminat:** un commit de probă declanșează pipeline-ul; jobul de izolare eșuează explicit cu
   „suite absente", nu tăcut.
-- **Blocat de:** OD-16
+- **Blocat de:** ~~OD-16~~ — închisă prin [ADR-023](../decisions/023-ci-github-actions.md)
 
 ### F0.0.5 — Contracte de dependență între module ✔
 
@@ -429,7 +429,7 @@ agenții invocați, ambele suite de izolare verzi, nicio decizie deschisă înch
 - **Terminat:** `make isolation-check` rulează ambele suite și raportează separat; pipeline-ul
   eșuează dacă oricare eșuează. **Toate cele opt scenarii din proba SQL au echivalent Python care
   trece**, iar `infra/rls/smoke_test.sql` și `smoke_fixture.sql` se șterg în acest commit.
-- **Blocat de:** OD-16
+- **Blocat de:** ~~OD-16~~ — închisă prin [ADR-023](../decisions/023-ci-github-actions.md)
 
 ---
 
@@ -706,7 +706,7 @@ agenții invocați, ambele suite de izolare verzi, nicio decizie deschisă înch
 - **Review:** `tenancy-guard`, `schema-reviewer`
 - **Terminat:** alocarea concurentă a două numere nu produce duplicate (test cu tranzacții
   paralele); comportamentul la anulare este cel decis, nu cel implicit.
-- **Blocat de:** **OD-02** *(per companie sau per filială — și „filiala" nu e o entitate definită)*
+- **Blocat de:** ~~**OD-02**~~ — închisă prin [ADR-022](../decisions/022-numerotare-sabloane.md): șabloane per companie, general sau per tip de document. Filiala **nu** se modelează — `prefix` acoperă nevoia.
 
 ### F0.6.3 — Atașamente — **PARȚIAL** (2026-08-25)
 
