@@ -4,10 +4,10 @@ The middleware does two things and refuses everything else: it resolves the
 context for the request, and it holds it for the whole response cycle inside one
 transaction.
 
-Resolution is pluggable and, until F0.3.5, refuses by default. That is not a
-placeholder -- it is the fail-closed position. A middleware that shipped with a
-permissive default resolver would work in development and leak in production, and
-the moment to notice is now, not then.
+Resolution is pluggable and refuses by default. That is not a placeholder -- it
+is the fail-closed position. A middleware that shipped with a permissive default
+resolver would work in development and leak in production, and the moment to
+notice is now, not then.
 """
 
 from __future__ import annotations
@@ -29,14 +29,16 @@ class TenantResolutionError(RuntimeError):
 def refuse_all(request: HttpRequest) -> TenantContext:
     """Default resolver: refuse.
 
-    Replaced at F0.3.5 by subdomain resolution (C8). Until a Tenant table exists
-    there is nothing to resolve, and answering anything other than "no" would be
-    inventing an answer.
+    The replacement exists -- ``tenancy.SubdomainTenantResolver``, F0.3.5 -- but
+    nothing points ``RLS_CONTEXT_RESOLVER`` at it. Two things are missing: a base
+    domain to measure hosts against, and the authenticated user the resolver
+    refuses without (F0.3.7). Until both land, refusing is the whole answer.
     """
     raise TenantResolutionError(
-        "No tenant context resolver is configured. Set RLS_CONTEXT_RESOLVER once "
-        "subdomain resolution exists (F0.3.5). Until then the application has no "
-        "request path to tenant data, by design."
+        "No tenant context resolver is configured. The subdomain resolver exists "
+        "(tenancy.SubdomainTenantResolver) but nothing points RLS_CONTEXT_RESOLVER "
+        "at it, and it would refuse anyway until authentication lands (F0.3.7). "
+        "The application has no request path to tenant data, by design."
     )
 
 
@@ -58,22 +60,3 @@ class TenantContextMiddleware:
             # queries with no context -- and the guard would refuse them, which is
             # the correct outcome, not a limitation to work around.
             return response
-
-
-def resolver_for_testing(request: HttpRequest) -> TenantContext:
-    """Resolver used by the isolation suites before F0.3.5 exists.
-
-    Reads the context from request headers. Never configured outside tests; if it
-    ever appears in a non-test settings module, that is a critical finding.
-    """
-    tenant = request.headers.get("X-Test-Tenant")
-    user = request.headers.get("X-Test-User")
-    if not tenant or not user:
-        raise TenantResolutionError("X-Test-Tenant and X-Test-User are required")
-    firm = request.headers.get("X-Test-Firm")
-    return TenantContext(
-        tenant_id=uuid.UUID(tenant),
-        user_id=uuid.UUID(user),
-        request_id=getattr(request, "request_id", "test"),
-        actor_firm_id=uuid.UUID(firm) if firm else None,
-    )

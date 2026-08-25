@@ -60,7 +60,10 @@ MIDDLEWARE: list[str] = [
 ]
 
 # Resolves the tenant for a request. Unset means the default resolver, which
-# refuses -- see middleware.refuse_all. Subdomain resolution arrives at F0.3.5.
+# refuses -- see middleware.refuse_all. The subdomain resolver (F0.3.5) lives in
+# platform.tenancy but is not wired here: it takes a base domain in its
+# constructor, so it needs a factory and a setting, and it refuses until
+# authentication supplies a user (F0.3.7).
 RLS_CONTEXT_RESOLVER: str | None = None
 
 ROOT_URLCONF = "config.urls"

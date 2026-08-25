@@ -94,6 +94,6 @@ def test_management_command_path_is_guarded() -> None:
 
 
 def test_default_resolver_refuses() -> None:
-    """Fail-closed until subdomain resolution exists (F0.3.5)."""
+    """Fail-closed while no resolver is configured."""
     with pytest.raises(TenantResolutionError):
         refuse_all(None)  # type: ignore[arg-type]

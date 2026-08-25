@@ -12,6 +12,25 @@ de date și infrastructură RLS**.
 
 ## Ultima sesiune
 
+**2026-08-25, corecții pe stratul de rezoluție** — mesaje care trimiteau la o fază terminată:
+
+- `refuse_all` și comentariul din `settings/base.py` spuneau amândouă „la F0.3.5", dar F0.3.5 e
+  livrat. Spun acum ce lipsește de fapt: `RLS_CONTEXT_RESOLVER` e un dotted path către un callable,
+  iar `SubdomainTenantResolver` cere `base_domain` în constructor — deci cablarea cere o setare și o
+  factory, nu o linie de settings. Plus utilizatorul autentificat, fără de care rezolvatorul refuză
+  oricum (F0.3.7b)
+- **de urmărit**: F0.3.5 e bifat, dar rezolvatorul nu e pe calea de request a niciunui mediu. Se
+  exercită doar prin suita de izolare, care îl instanțiază direct. Bifa nu spune asta
+- `resolver_for_testing` șters din `platform/rls/middleware.py`: zero referințe în repo, iar ce
+  făcea era să deducă tenantul din anteturi `X-Test-*` — calea pe care `C8` o interzice. Cod mort
+  care citește identitatea dintr-un antet este exact ce se cablează din greșeală mai târziu
+- **`makemigrations` nu rulează** sub gardă: `check_consistent_history()` citește
+  `django_migrations` pe conexiunea aplicației și garda refuză — aceeași clasă de problemă ca la
+  `runserver`, dar fără exemptare declarată. Spre deosebire de `runserver`, verificarea e apelată
+  inline în `handle()`, deci un `makemigrations` propriu ar trebui să declare `unguarded()` peste
+  toată comanda, nu peste o singură interogare. Nedecis; până atunci comanda cade
+- suita completă verde la măsurătoare: **121 de teste**, `ruff` și `mypy` curate
+
 **2026-08-25, poziție consemnată** — răspunderea pentru un asistent automat (`OD-43`):
 
 - registrul avea `OD-41` și `OD-42` folosite fiecare pentru **două** decizii diferite, din lucru
