@@ -31,6 +31,46 @@ de date și infrastructură RLS**.
   toată comanda, nu peste o singură interogare. Nedecis; până atunci comanda cade
 - suita completă verde la măsurătoare: **121 de teste**, `ruff` și `mypy` curate
 
+**2026-08-25, F0.3.7a** — modelul de roluri, ADR-020 aplicat:
+
+- `permission` (catalog global, cheie primară naturală, alimentat din cod prin migrare), `role` și
+  `role_permission` per tenant; `membership.role` și `company_access.role` au devenit chei străine
+- **cheile străine compuse** sunt ce nu se putea exprima în Django: `(tenant_id, role_id)` pe
+  membership și company_access, iar pe `role_permission` una singură — `(tenant_id, role_id, scope)`
+  → `role (tenant_id, id, level)` — care ține două invariante deodată: același tenant și același
+  nivel. Un rol de tenant nu poate primi o permisiune de companie, iar baza o refuză
+- **triggere** pentru cele două ștergeri care ar bloca un tenant în afara lui însuși: rolul de
+  sistem nu se șterge, și nu poate pierde `tenant.manage_roles`
+- **serviciul** a intrat direct în `OD-37` — găsit de `tenancy-guard` la review, nu de mine la
+  scris: `membership` are politica `user_id = app.current_user_id()`, deci o sesiune își vede un
+  singur rând. Două consecințe, ambele acum refuzate cu cod stabil în loc să pară că funcționează:
+  `assign_role` nu poate muta rolul altui membru (rândul e invizibil, iar ORM-ul ar fi raportat
+  „nu există", ceea ce e alt fapt), iar regula anti-blocare din ADR-020 nu poate fi **verificată**,
+  fiindcă a demonstra că mai există un administrator înseamnă a citi alte membership-uri. Garda
+  scrisă inițial ar fi găsit mereu zero și ar fi trecut testele exact ca una care funcționează
+- catalogul are 8 chei, fiecare cu calea de cod care o impune scrisă lângă ea — o permisiune fără
+  punct de impunere ar citi ca protecție într-un ecran și n-ar bloca nimic
+- două defecte găsite rulând, nu citind: `RunPython` scria pe conexiunea implicită (tabela nici nu
+  era vizibilă, iar aplicația n-are grant de scriere pe catalog), iar triggerul de protecție
+  bloca chiar curățarea fixture-urilor — harness-ul îl dezactivează acum explicit, pentru curățare
+- **121 de teste trec**; `ruff` și `mypy` curate; migrarea aplicată și pe baza de dezvoltare
+- `tenancy-guard` a dat două CRITICAL, ambele reale și ambele reparate. Peste ele, un test care
+  arată că refuzul este o **limită**, nu regula cerută: cu doi administratori activi în tenant,
+  răspunsul e același. Fără el, testul anterior trecea din motivul greșit
+- `schema-reviewer` a dat un CRITICAL, tot real: protecția rolurilor de sistem se declanșa **doar
+  pe DELETE**, iar aplicația are `UPDATE`. Două instrucțiuni obișnuite o ocoleau complet —
+  `UPDATE role SET is_system = false` urmat de `DELETE`, sau rescrierea lui `permission_key` fără
+  ca vreun rând să dispară. Testele probau ștergerea, adică fix calea acoperită. Închis prin
+  `0020_roles_hardening` (fișier nou, nu editarea lui `0019`, care e aplicat — C31), cu probă
+  pentru fiecare dintre cele două căi
+- două corecții mai mici din același review: `role_permission.permission_key` nu avea `COLLATE "C"`
+  deși e cod (C34) — cu efect vizibil, un index în plus creat de Django ca să compenseze; și
+  `GRANT SELECT ON permission` era fără efect, fiindcă privilegiile implicite din bootstrap dau deja
+  CRUD. Comentariul promitea două straturi acolo unde exista unul; `0021` adaugă `REVOKE`-ul
+- **123 de teste trec.** Rămase de decis, nu tăcute: `module_key` (F0.3.3) are aceeași lipsă de
+  colație; gardianul de model nu poate prinde niciuna, fiindcă `CODE_COLUMN_SUFFIXES` nu conține
+  `key`; cheile străine cu o singură coloană generate de Django dublează inutil cele compuse
+
 **2026-08-25, poziție consemnată** — răspunderea pentru un asistent automat (`OD-43`):
 
 - registrul avea `OD-41` și `OD-42` folosite fiecare pentru **două** decizii diferite, din lucru
@@ -255,14 +295,16 @@ preced orice model.
   - [x] F0.2.2 — gardianul de model; 11 teste, fiecare regulă cu probă că poate eșua
   - [x] F0.2.3 — penetrare: toate cele opt scenarii SQL au echivalent pytest care trece
   - [x] F0.2.6 — suitele în CI, sub rolul de aplicație; proba SQL retrasă
-- [ ] F0.3 — Tenancy și identitate    ← ÎN CURS
+- [x] F0.3 — Tenancy și identitate
   - [x] F0.3.1 — `Tenant`, `Company`, `CompanyVatRegistration` + politici, într-o migrare
   - [x] F0.3.2 — `User`, `Membership`; `tenant` interogabil pe calea de membru
   - [x] F0.3.3 — `Firm`, `Engagement`, scope-uri; a doua cale de acces, 9 teste
   - [x] F0.3.4 — `CompanyAccess`, `company` interogabilă, revocare în cascadă; 6 teste
   - [x] F0.3.5 — rezoluția subdomeniului, cale privilegiată îngustă; 15 teste
   - [x] F0.3.6 — ciclul de viață: matrice de tranziții ca date, coduri stabile; 12 teste
-  - [ ] F0.3.7 — autentificare *(deblocată: DN-08 prin ADR-020, DN-09 prin ADR-021)*
+  - [x] F0.3.7a — modelul de roluri (ADR-020): catalog fix în cod, roluri ca date per tenant,
+        chei străine compuse, triggere pe rolurile de sistem; 12 teste
+  - [x] F0.3.7b — autentificare și MFA obligatoriu, coduri de rezervă, sesiuni; 13 teste
   - [x] F0.3.3b — ADR-018 și ADR-019 aplicate: vocabular `module_key` cu `CHECK`, regula de
         nesuprapunere impusă prin index unic parțial + triggere de sincronizare; 4 teste
         (`CHECK`, listă într-un singur loc) și regula de arbitraj *fără suprapunere*, în bază
@@ -270,7 +312,7 @@ preced orice model.
   - [x] F0.4.1 — `audit_event` append-only, fără chei străine, `occurred_at NOT NULL`
   - [x] F0.4.2 — captare explicită din servicii, fără signals; engagement cablat
   - [x] F0.4.3 — corelatorul `request_id` și enumerarea efectelor (Spec A §9.3)
-- [ ] F0.5 — Capabilități și feature flags
+- [ ] F0.5 — Capabilități și feature flags    ← ÎN CURS
 - [ ] F0.6 — Document core, numerotare, atașamente *(numerotarea deblocată prin ADR-022)*
 - [ ] F0.7 — Master data
 - [ ] F0.8 — Parametri fiscali și registru

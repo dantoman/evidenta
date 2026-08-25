@@ -45,6 +45,13 @@ reason = "Identitate globală: un contabil are un singur cont pentru toți clien
 source = "V2 §4.1; ADR-003"
 
 [[table]]
+name = "permission"
+tenant_column = false
+policy_shape = "global_read_only"
+reason = "Catalogul fix de permisiuni, același pentru toți: clientul compune roluri, nu permisiuni. Fără coloană de tenant tocmai pentru că nu aparține nimănui — vezi ADR-020."
+source = "ADR-020; excepția este sancționată chiar de decizia care creează tabela"
+
+[[table]]
 name = "counterparty_registry"
 tenant_column = false
 policy_shape = "global_read_only"
@@ -162,6 +169,27 @@ tenant_column = false
 policy_shape = "engagement_parties"
 reason = "Atribut pur al engagementului: nu are tenant propriu, pentru că engagementul însuși leagă doi tenanți. Politica îl urmează prin EXISTS pe rândul părinte, care este el însuși protejat."
 source = "spec-a §1.4; adăugat la F0.3.3 — vezi OD-45"
+
+[[table]]
+name = "mfa_method"
+tenant_column = false
+policy_shape = "self_row"
+reason = "Al doilea factor apartine utilizatorului, nu tenantului: identitatea e globala (ADR-003), deci un contabil are un singur cont si un singur al doilea factor pentru toti clientii. Secretul e criptat cu o cheie din afara bazei."
+source = "ADR-021; spec-a §1.5"
+
+[[table]]
+name = "mfa_backup_code"
+tenant_column = false
+policy_shape = "self_row"
+reason = "Idem: codurile de recuperare apartin contului, nu unei relatii cu un tenant. Stocate ca hash — un dump al bazei nu trebuie sa fie o lista de treceri peste al doilea factor."
+source = "ADR-021"
+
+[[table]]
+name = "user_session"
+tenant_column = true
+policy_shape = "self_row"
+reason = "ARE tenant_id, dar nu pentru izolare: politica e `self_row`, iar coloana exista ca revocarea unui engagement sa poata gasi sesiunile firmei pentru ACEL client (IZ-20). Izolarea sesiunii vine din apartenenta la utilizator, nu din context."
+source = "ADR-021; spec-a §4.3"
 
 [[table]]
 name = "membership"

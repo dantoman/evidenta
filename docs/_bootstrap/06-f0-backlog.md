@@ -550,7 +550,19 @@ agenții invocați, ambele suite de izolare verzi, nicio decizie deschisă înch
 - **Review:** `tenancy-guard`
 - **Terminat:** conturile cu drept de revocare a engagementului sau de redeschidere a perioadei nu
   pot funcționa fără MFA; rate limiting activ pe autentificare.
-- **Blocat de:** DN-09, DN-08 *(rolurile)*
+- **Blocat de:** — *(`DN-08` prin [ADR-020](../decisions/020-roluri-ca-date.md), `DN-09` prin
+  [ADR-021](../decisions/021-mfa-obligatoriu.md))*
+
+> **Împărțită în două, fiindcă ADR-020 aduce un model întreg înaintea autentificării:**
+>
+> **F0.3.7a — modelul de roluri ✔.** `permission` (catalog global, alimentat din cod), `role` și
+> `role_permission` per tenant; `membership.role` și `company_access.role` au devenit chei străine.
+> Trei protecții, fiecare acolo unde nu poate fi ocolită: chei străine **compuse** pentru granița de
+> tenant și potrivirea de nivel, triggere pentru rolurile de sistem, serviciu pentru ultimul
+> administrator. 12 teste noi.
+>
+> **F0.3.7b — autentificare și MFA.** Parolă, TOTP, coduri de rezervă, recuperare prin al doilea
+> administrator, rate limiting, regula „ultimul `owner` nu poate rămâne fără MFA" (ADR-021).
 
 ---
 

@@ -20,6 +20,11 @@ dependencies = [
     "psycopg[binary]",
     "celery",
     "redis",
+    # TOTP and symmetric encryption for the MFA secret (ADR-021). No version
+    # floor: the lock is the exact pin, and a floor here would be a second
+    # constraint that drifts from it.
+    "pyotp",
+    "cryptography",
 ]
 
 [dependency-groups]

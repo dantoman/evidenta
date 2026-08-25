@@ -77,10 +77,10 @@ def test_suspended_membership_grants_nothing(world: dict[str, uuid.UUID], seed: 
         [user_c, now, now],
     )
     seed(  # type: ignore[operator]
-        "INSERT INTO membership (id, tenant_id, user_id, role, status, invited_at,"
+        "INSERT INTO membership (id, tenant_id, user_id, role_id, status, invited_at,"
         " created_at, updated_at)"
-        " VALUES (%s, %s, %s, 'viewer', 'suspended', %s, %s, %s)",
-        [uuid.uuid4(), world["tenant_a"], user_c, now, now, now],
+        " VALUES (%s, %s, %s, %s, 'suspended', %s, %s, %s)",
+        [uuid.uuid4(), world["tenant_a"], user_c, world["role_owner_a"], now, now, now],
     )
     with tenant_context(as_user(world["tenant_a"], user_c)):
         assert query("SELECT subdomain FROM tenant") == []

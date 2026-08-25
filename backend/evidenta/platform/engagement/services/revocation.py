@@ -22,6 +22,9 @@ from evidenta.platform.engagement.services.lifecycle import (
     TenantSide,
     check_transition,
 )
+from evidenta.platform.identity.services.sessions import (
+    invalidate_sessions_for_engagement,
+)
 
 
 class RevocationError(RuntimeError):
@@ -32,6 +35,7 @@ class RevocationError(RuntimeError):
 class RevocationResult:
     engagement_id: uuid.UUID
     company_access_revoked: int
+    sessions_ended: int = 0
 
 
 #: Revocation is terminal, and reachable only from a live relationship. Getting
@@ -62,10 +66,10 @@ def revoke_engagement(
     Audit events are recorded here, sharing the request_id of the caller, so the
     revocation is enumerable as one act rather than as scattered rows (Spec A 9.3).
 
-    Still not done, and deliberately not silently skipped: **session
-    invalidation**. There is no session store yet (F0.3.7). Without it the firm's
-    open interface keeps making requests that now fail -- RLS refuses them either
-    way, so this is a usability gap, not a security one.
+    Sessions of the firm acting for this tenant are ended in the same
+    transaction. RLS already refuses their queries, so this is the usability half
+    of revocation rather than the security half -- the firm's interface ends
+    cleanly instead of failing one request at a time.
     """
     with transaction.atomic():
         engagement = Engagement.objects.select_for_update().get(pk=engagement_id)
@@ -98,6 +102,12 @@ def revoke_engagement(
             cursor.execute("SELECT rls.revoke_engagement_company_access(%s)", [str(engagement_id)])
             revoked = cursor.fetchone()[0]
 
+        sessions_ended = invalidate_sessions_for_engagement(
+            engagement.client_tenant_id,
+            engagement.firm_id,
+            reason=f"engagement {engagement_id} revoked",
+        )
+
         record(
             action="engagement.revoked",
             entity_type="engagement",
@@ -107,7 +117,12 @@ def revoke_engagement(
                 "status": EngagementStatus.REVOKED,
                 "reason": reason,
                 "company_access_revoked": revoked,
+                "sessions_ended": sessions_ended,
             },
         )
 
-    return RevocationResult(engagement_id=engagement_id, company_access_revoked=revoked)
+    return RevocationResult(
+        engagement_id=engagement_id,
+        company_access_revoked=revoked,
+        sessions_ended=sessions_ended,
+    )
