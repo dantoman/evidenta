@@ -17,7 +17,7 @@ from collections.abc import Iterator
 import pytest
 from django.db import connections
 
-from tests.schema_guard.audit import Finding, audit
+from tests.schema_guard.audit import Contract, Finding, audit
 
 pytestmark = pytest.mark.django_db(databases=["default", "migration"])
 
@@ -27,6 +27,16 @@ def owner_cursor() -> Iterator[object]:
     """DDL runs as the owner; the surrounding test transaction rolls it back."""
     with connections["migration"].cursor() as cursor:
         yield cursor
+
+
+#: A contract that exists only for the append-only probes below. Declaring the
+#: probe here rather than in infra/schema/append_only.toml keeps the guard's
+#: self-tests independent of what the product happens to have built.
+APPEND_ONLY_PROBE = Contract(
+    tables=[],
+    patterns=[],
+    append_only=[{"name": "probe_append_only", "partition_column": "occurred_at"}],
+)
 
 
 def rules(findings: list[Finding], table: str) -> set[str]:
@@ -120,25 +130,26 @@ def test_accepts_correct_collation_on_both(owner_cursor: object) -> None:
 def test_detects_incoming_foreign_key_on_append_only_table(owner_cursor: object) -> None:
     """R21. The rule that decides whether partitioning stays a maintenance task.
 
-    Uses ``document_event`` rather than ``audit_event``: the latter is a real
-    table now, and a probe that collided with it would test the collision.
+    The probe runs against a synthetic contract, so its name cannot collide with
+    a table the product actually builds. Naming probes after real contract
+    entries broke this test twice as those tables became real.
     """
     owner_cursor.execute(  # type: ignore[attr-defined]
         """
-        CREATE TABLE document_event (
+        CREATE TABLE probe_append_only (
             id bigint PRIMARY KEY,
             tenant_id uuid NOT NULL,
             occurred_at timestamptz NOT NULL
         );
-        ALTER TABLE document_event ENABLE ROW LEVEL SECURITY;
-        ALTER TABLE document_event FORCE  ROW LEVEL SECURITY;
+        ALTER TABLE probe_append_only ENABLE ROW LEVEL SECURITY;
+        ALTER TABLE probe_append_only FORCE  ROW LEVEL SECURITY;
         CREATE POLICY p ON audit_event FOR ALL TO evidenta_app
             USING (true) WITH CHECK (true);
 
         CREATE TABLE probe_referrer (
             id uuid PRIMARY KEY,
             tenant_id uuid NOT NULL,
-            document_event_id bigint REFERENCES document_event(id)
+            probe_id bigint REFERENCES probe_append_only(id)
         );
         ALTER TABLE probe_referrer ENABLE ROW LEVEL SECURITY;
         ALTER TABLE probe_referrer FORCE  ROW LEVEL SECURITY;
@@ -146,24 +157,24 @@ def test_detects_incoming_foreign_key_on_append_only_table(owner_cursor: object)
             USING (true) WITH CHECK (true);
         """
     )
-    assert "IZ-77" in rules(audit(owner_cursor), "document_event")
+    assert "IZ-77" in rules(audit(owner_cursor, APPEND_ONLY_PROBE), "probe_append_only")
 
 
 def test_detects_nullable_partition_column(owner_cursor: object) -> None:
     owner_cursor.execute(  # type: ignore[attr-defined]
         """
-        CREATE TABLE document_event (
+        CREATE TABLE probe_append_only (
             id bigint PRIMARY KEY,
             tenant_id uuid NOT NULL,
             occurred_at timestamptz
         );
-        ALTER TABLE document_event ENABLE ROW LEVEL SECURITY;
-        ALTER TABLE document_event FORCE  ROW LEVEL SECURITY;
+        ALTER TABLE probe_append_only ENABLE ROW LEVEL SECURITY;
+        ALTER TABLE probe_append_only FORCE  ROW LEVEL SECURITY;
         CREATE POLICY p ON audit_event FOR ALL TO evidenta_app
             USING (true) WITH CHECK (true);
         """
     )
-    assert "IZ-77" in rules(audit(owner_cursor), "document_event")
+    assert "IZ-77" in rules(audit(owner_cursor, APPEND_ONLY_PROBE), "probe_append_only")
 
 
 def test_detects_contract_drifting_from_the_schema(owner_cursor: object) -> None:

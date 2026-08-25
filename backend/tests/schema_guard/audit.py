@@ -51,17 +51,33 @@ def _load(path: Path) -> dict[str, Any]:
 
 
 class Contract:
-    """The declared shape of the schema."""
+    """The declared shape of the schema.
 
-    def __init__(self) -> None:
-        rls = _load(RLS_CONTRACT)
-        self.tables: dict[str, dict[str, Any]] = {
-            entry["name"]: entry for entry in rls.get("table", [])
-        }
-        self.patterns: list[dict[str, Any]] = rls.get("table_pattern", [])
-        append_only = _load(APPEND_ONLY_CONTRACT)
+    Loads from the contract files by default, and accepts explicit data instead.
+    The second form exists for the guard's own self-tests: each rule is proved by
+    building a deliberately non-compliant table, and naming that probe after a
+    real contract entry meant the probe collided with the real table the moment
+    that table was built. It happened three times -- audit_event, then
+    document_event -- before the collision was treated as the bug rather than the
+    name.
+    """
+
+    def __init__(
+        self,
+        tables: list[dict[str, Any]] | None = None,
+        patterns: list[dict[str, Any]] | None = None,
+        append_only: list[dict[str, Any]] | None = None,
+    ) -> None:
+        if tables is None and patterns is None and append_only is None:
+            rls = _load(RLS_CONTRACT)
+            tables = rls.get("table", [])
+            patterns = rls.get("table_pattern", [])
+            append_only = _load(APPEND_ONLY_CONTRACT).get("table", [])
+
+        self.tables: dict[str, dict[str, Any]] = {entry["name"]: entry for entry in (tables or [])}
+        self.patterns: list[dict[str, Any]] = patterns or []
         self.append_only: dict[str, dict[str, Any]] = {
-            entry["name"]: entry for entry in append_only.get("table", [])
+            entry["name"]: entry for entry in (append_only or [])
         }
 
     def declaration_for(self, table: str) -> dict[str, Any] | None:
@@ -100,9 +116,9 @@ class Contract:
         return bool(declaration and declaration.get("policy_shape") == "system")
 
 
-def audit(cursor: Any) -> list[Finding]:
+def audit(cursor: Any, contract: Contract | None = None) -> list[Finding]:
     """Return every way the live schema departs from the contracts."""
-    contract = Contract()
+    contract = contract or Contract()
     findings: list[Finding] = []
 
     cursor.execute(

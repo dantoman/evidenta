@@ -35,6 +35,10 @@ from tests.conftest import admin_dsn
 
 # Order matters: children before parents.
 SEEDED_TABLES = (
+    "document_event",
+    "document",
+    "numbering_counter",
+    "numbering_template",
     "feature_flag_override",
     "tenant_release_ring",
     "feature_flag",

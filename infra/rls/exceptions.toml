@@ -192,6 +192,13 @@ reason = "ARE tenant_id, dar nu pentru izolare: politica e `self_row`, iar coloa
 source = "ADR-021; spec-a §4.3"
 
 [[table]]
+name = "document_event"
+tenant_column = true
+policy_shape = "tenant_predicate"
+reason = "Istoricul de stari al documentelor. Append-only prin absenta grantului, ca `audit_event`: nu exista tranzitie legitima de modificat pe un rand de istoric. Distinct de audit — acela raspunde „cine ce a facut in sistem\", acesta „ce s-a intamplat cu acest document\"."
+source = "R21; spec-a §1; infra/schema/append_only.toml"
+
+[[table]]
 name = "membership"
 tenant_column = true
 policy_shape = "self_row"

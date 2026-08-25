@@ -53,6 +53,8 @@ INSTALLED_APPS: list[str] = [
     "evidenta.platform.audit.apps.AuditConfig",
     "evidenta.platform.capabilities.apps.CapabilitiesConfig",
     "evidenta.platform.flags.apps.FlagsConfig",
+    "evidenta.platform.numbering.apps.NumberingConfig",
+    "evidenta.platform.documents.apps.DocumentsConfig",
 ]
 
 MIDDLEWARE: list[str] = [

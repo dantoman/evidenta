@@ -317,7 +317,12 @@ preced orice model.
         nesuprapunere pe `COALESCE(company_id, tenant_id)`; R24 impus prin `CHECK`
   - [x] F0.5.2 — feature flags și release rings; override cu motiv și expirare
         obligatorii; flagurile de conformitate refuzate la suprascriere, prin trigger
-- [ ] F0.6 — Document core, numerotare, atașamente *(numerotarea deblocată prin ADR-022)*
+- [ ] F0.6 — Document core, numerotare, atașamente    ← ÎN CURS
+  - [x] F0.6.1 — `Document` cu tip discriminator, stări generice și matrice de tranziții
+  - [x] F0.6.2 — numerotare pe șabloane (ADR-022): contor blocat, unicitate în bază
+  - [x] F0.6.4 — `document_event`, append-only, disciplina R21/R22
+  - [ ] F0.6.3 — atașamente *(blocat de DN-16 și de providerul S3)*
+  - [ ] F0.6.5 — notificări
 - [ ] F0.7 — Master data
 - [ ] F0.8 — Parametri fiscali și registru
 - [ ] F0.9 — Multi-valută
