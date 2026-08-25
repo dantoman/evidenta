@@ -8,6 +8,10 @@ becomes expensive to change once clients depend on it:
 * an operation with a financial effect refuses a request with no
   `Idempotency-Key` (C9).
 
+The fourth convention, IZ-04 -- a resource of another tenant answers 404 and
+never 403 -- is proved in `tests/isolation/test_lookup.py`, where the two-tenant
+fixtures live.
+
 The refusal is rendered by middleware rather than by DRF's handler, and the probe
 below is a plain Django view precisely to prove that: the authentication
 endpoints are plain Django, so a guarantee that only held inside DRF would hold

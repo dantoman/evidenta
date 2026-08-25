@@ -32,7 +32,15 @@ de date și infrastructură RLS**.
 - **endpointul de probă stă în teste**, nu în `config/urls.py`: o rută care există doar ca să fie
   testată ajunge în producție și e găsită de cineva, iar una cu „efect financiar" în nume e un lucru
   prost de lăsat într-o hartă de URL-uri
-- **286 de teste trec**
+- **F0.10.2, în aceeași sesiune:** blocajul `DN-09` era expirat — decizia „obligatoriu pentru toți"
+  fusese luată și implementată prin ADR-021, dar intrarea rămăsese în listă. Din cele patru cazuri
+  cerute, trei erau deja acoperite de F0.3.7c; `IZ-04` lipsea. Adăugat ca **convenție**, nu ca
+  verificare într-un endpoint: **404, niciodată 403.** Un 403 spune „există și nu e al tău", iar
+  repetat peste un interval de identificatori e oracol de enumerare — un concurent cu o listă de
+  clienți află care dintre ei își țin evidența aici. RLS dă răspunsul corect fără să fie întrebat,
+  iar testul verifică și controlul: un rând existent și un identificator niciodată emis trebuie să
+  fie **indistinctibile**
+- **288 de teste trec**
 
 ## Sesiunea anterioară
 
@@ -601,7 +609,8 @@ preced orice model.
 - [ ] F0.10 — Convenții API și schelet frontend    ← ÎN CURS
   - [x] F0.10.1 — convenții API: coduri de eroare stabile prin middleware, `Idempotency-Key`
         cerut și validat (replay-ul stă pe evenimentul contabil, F1.2)
-  - [ ] F0.10.2 — autentificare la nivel de API
+  - [x] F0.10.2 — autentificare la nivel de API: IZ-04 adăugat ca **convenție** (404, niciodată
+        403); IZ-05/36/37 erau acoperite de F0.3.7c. `DN-09` era blocaj expirat — ADR-021
   - [ ] F0.10.3 — schelet frontend *(blocat de OD-19, OD-35)*
 
 Descompunerea în 49 de sarcini de dimensiunea unei sesiuni, cu dependențe, agenți de review și

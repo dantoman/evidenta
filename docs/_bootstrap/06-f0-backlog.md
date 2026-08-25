@@ -912,14 +912,24 @@ agenții invocați, ambele suite de izolare verzi, nicio decizie deschisă înch
 - **Endpointul de probă stă în teste**, nu în `config/urls.py`: o rută care există doar ca să fie
   testată este o rută care ajunge în producție și e găsită de cineva.
 
-### F0.10.2 — Autentificare la nivel de API
+### F0.10.2 — Autentificare la nivel de API — **TERMINAT** (2026-08-25)
 
 - **Obiectiv:** clienții se autentifică și primesc contextul corect din subdomeniu.
 - **Fișiere:** `backend/evidenta/platform/identity/api/`
 - **Depinde de:** F0.10.1, F0.3.7
 - **Review:** `tenancy-guard`
 - **Terminat:** cazurile IZ-04, IZ-05, IZ-36, IZ-37 trec prin stratul API, nu doar prin ORM.
-- **Blocat de:** DN-09
+- **Blocat de:** ~~DN-09~~ — **blocaj expirat.** `DN-09` (al doilea factor obligatoriu sau opțional)
+  a primit răspuns de la proprietar — *obligatoriu pentru toți* — și e implementat prin
+  [ADR-021](../decisions/021-mfa-obligatoriu.md). Intrarea rămăsese în listă după ce decizia se
+  luase.
+- **Livrat:** `IZ-05`, `IZ-36` și `IZ-37` erau deja acoperite la nivel de cerere de F0.3.7c
+  (`test_request_path.py`, `test_subdomain.py`). `IZ-04` lipsea și e adăugat acum, ca **convenție**,
+  nu ca verificare într-un endpoint: `api/lookup.py` — un rând care nu se vede întoarce **404,
+  niciodată 403**. Un 403 spune „există și nu e al tău", iar repetat peste un interval de
+  identificatori e oracol de enumerare. RLS produce răspunsul corect fără să fie întrebat: rândul e
+  invizibil, interogarea nu întoarce nimic, iar excepția e aceeași ca pentru un identificator
+  niciodată emis — nu există ramură în care codul află că rândul există și apoi decide ce spune.
 
 ### F0.10.3 — Schelet frontend
 
