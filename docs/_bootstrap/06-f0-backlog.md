@@ -798,7 +798,7 @@ agenții invocați, ambele suite de izolare verzi, nicio decizie deschisă înch
 
 ## F0.8 — Parametri fiscali și registru
 
-### F0.8.1 — `fiscal_parameter` și proveniența
+### F0.8.1 — `fiscal_parameter` și proveniența — **TERMINAT** (2026-08-25)
 
 - **Obiectiv:** parametrii fiscali există ca date versionate, fiecare cu sursa lui.
 - **Fișiere:** `backend/evidenta/fiscal/parameters/models.py`, `services.py`, migrații
@@ -806,9 +806,12 @@ agenții invocați, ambele suite de izolare verzi, nicio decizie deschisă înch
 - **Review:** `fiscal-reviewer`, `schema-reviewer`, `tenancy-guard`
 - **Terminat:** un parametru fără `source_id` nu poate ajunge `active` (constrângere, nu convenție);
   neîntrepătrunderea pe interval funcționează; tabelă globală, în lista de excepții.
-- **Blocat de:** DNB-06 *(forma parametrilor care nu sunt scalari)*
+- **Blocat de:** DNB-06 *(forma parametrilor care nu sunt scalari)* — **rămâne deschisă.**
+  `value` este `jsonb` fără constrângere de schemă, iar `value_type = 'table'` nu validează nimic
+  din interior. Documentat la fața locului, nu inventat: o formă aleasă acum pentru grile
+  progresive și plafoane pe tranșe s-ar fi fixat în date înainte să existe un singur caz real.
 
-### F0.8.2 — Registrul de selecție după dată efectivă
+### F0.8.2 — Registrul de selecție după dată efectivă — **TERMINAT** (2026-08-25)
 
 - **Obiectiv:** implementările de logică fiscală se selectează după data perioadei calculate, nu
   după data curentă.
@@ -819,6 +822,11 @@ agenții invocați, ambele suite de izolare verzi, nicio decizie deschisă înch
   un test demonstrează că o dată din trecut selectează implementarea de atunci, nu pe cea curentă.
   Niciun algoritm real încă.
 - **Blocat de:** —
+- **Livrat:** `resolve_parameter` stă în `fiscal.parameters`, `resolve_logic` în `fiscal.registry` —
+  fiecare lângă tabela pe care o citește. Un singur rezolvator pus în modulul celuilalt ar fi fost
+  un serviciu care importă modelele altui modul, adică exact cazul pe care `D6` îl țintește.
+  Fereastra de valabilitate este `[from, to)` și e o funcție publică folosită de amândouă: o
+  margine inclusivă într-una și exclusivă în cealaltă ar diferi pe exact o zi pe an.
 
 > Valorile fiscale efective (OD-22) **nu** fac parte din F0. F0 livrează structura. Introducerea
 > unei singure cote „ca exemplu" este exact felul în care o valoare inventată ajunge în producție.

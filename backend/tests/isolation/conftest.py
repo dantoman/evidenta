@@ -35,6 +35,9 @@ from tests.conftest import admin_dsn
 
 # Order matters: children before parents.
 SEEDED_TABLES = (
+    "fiscal_logic_version",
+    "fiscal_parameter",
+    "fiscal_parameter_source",
     "company_partner",
     "partner",
     "item",

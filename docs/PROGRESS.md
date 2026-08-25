@@ -12,6 +12,91 @@ de date și infrastructură RLS**.
 
 ## Ultima sesiune
 
+**2026-08-25, F0.8 — parametri fiscali și registrul de selecție**, scrisă în paralel cu sesiunea de
+cale de request, în același arbore:
+
+- **structura, fără nicio valoare.** `OD-22` e deschisă și legislația nu se ghicește din memorie;
+  regula proiectului o spune direct. Testele folosesc `test.rate.alpha` și valorile 1 și 2 —
+  nonsens vizibil, deliberat: un număr plauzibil într-un fișier de test e primul loc de unde
+  cineva copiază o cotă
+- **R15 și R16 sunt două tabele, nu una.** Parametrul e dată și se schimbă prin `INSERT`; logica e
+  cod versionat și se schimbă prin deployment. `fiscal_logic_version` ține referința către
+  implementare ca text, nu ca import — ca un algoritm retras să poată fi referit fără să fie
+  încărcat, fiindcă `R18` cere ca recalcularea unei perioade din 2026 să-l găsească în 2030
+- **rezolvarea nu citește niciodată ceasul.** Fiecare funcție primește data ca argument. Un
+  rezolvator care ar putea cădea pe „azi" ar face recalcularea unei perioade închise să întoarcă
+  răspunsul anului curent, iar greșeala ar fi tăcută și cu aspect corect. Asta e și motivul pentru
+  care `if year >= X` e interzis în codul de business: registrul știe anul, implementarea nu
+- **zero potriviri e eroare, nu zero.** Cea mai valoroasă aserțiune din fișier: un rezolvator care
+  întoarce `0` pentru o cotă neconfigurată produce o înregistrare fără impozit, care se postează,
+  se echilibrează și trece de orice altă verificare
+- **baza refuză ambiguitatea înainte s-o vadă rezolvatorul.** `EXCLUDE` peste `daterange`, doar pe
+  rândurile `active` — un refuz la calcul înseamnă că eroarea de configurare a ajuns la cineva care
+  închide luna și n-o poate repara. `COALESCE(scope_ref, uuid_nil)` fiindcă două rânduri globale au
+  amândouă `scope_ref` NULL, iar `NULL = NULL` e necunoscut: un `EXCLUDE` pe coloana nudă nu s-ar
+  declanșa exact în cazul cel mai frecvent
+- **ADR-027** — `fiscal` intră în lista straturilor de compunere de schemă. Nu fiindcă gardianul a
+  raportat ceva, ci fiindcă `R13` cere ca o înregistrare contabilă să poată numi versiunea de
+  parametru sub care s-a calculat. Alternativa — cheie străină doar în SQL, invizibilă lui Django —
+  ar fi fost o capcană cu întârziere
+- **două constatări ale gardianului de dependențe, reparate la cauză, nu prin excepție:**
+  rezolvarea parametrilor a fost mutată lângă tabela pe care o citește (`fiscal.parameters`), iar
+  verificarea de acces din autentificare trece acum prin serviciul public al lui `tenancy`, nu prin
+  modelele lui
+- **coliziunea de nume din gardianul de model, reparată la cauză.** Sonda `IZ-76` crea o tabelă
+  numită literal `fiscal_parameter`; a mers cât timp tabela nu exista. A treia oară când apare
+  forma asta (`audit_event`, `document_event`), și de fiecare dată reparația e aceeași: o sondă
+  poartă nume de sondă
+- **220 de teste trec**, sub `evidenta_app`, pe o bază construită de la zero
+
+## Sesiunea anterioară
+
+**2026-08-25, F0.3.7c — calea de request: rezolvator cablat, autentificare din sesiune**, scrisă în
+paralel cu sesiunea de gardian de dependențe și masterdata, în același arbore:
+
+- punctul de plecare a fost un traceback: `http://localhost:8000/` → `TenantResolutionError`. Nu era
+  defect, era regula aplicată — dar în spatele ei erau **trei** lipsuri, nu una. `RLS_CONTEXT_RESOLVER`
+  nu era cablat; `localhost` n-are subdomeniu; și nimic din codul de producție nu punea vreodată
+  `request.authenticated_user_id` — atributul era scris în exact un loc din tot repo-ul, în teste
+- **de ce F0.3.7b nu putea fi apelat de pe nicio cerere:** `app.current_user_id()` e fail-closed.
+  Fără context ridică excepție, nu întoarce `NULL`, deci nicio politică `self_row` — `user`,
+  `mfa_method`, `mfa_backup_code`, `user_session` — nu poate răspunde înainte de autentificare. Nici
+  pentru rândul propriu: „propriu" e tocmai ce nu se știe încă. Testele existente ascundeau asta
+  deschizând manual un context, adică presupunând rezolvat exact ce autentificarea trebuie să producă
+- **ADR-026**: patru funcții privilegiate pentru ce precede identitatea verificată, și o graniță
+  explicită pentru ce **nu** trece pe acolo — emiterea sesiunii, `last_login_at` și revocarea proprie
+  se fac prin ORM, sub context, fiindcă după al doilea factor identitatea e cunoscută. Varianta cu un
+  context deschis după parolă ar fi redus totul la o funcție; ar fi fost `ADR-021` încălcat cu un
+  strat mai jos, unde nu se mai vede
+- **ADR-025** închide `OD-20`: `*.evidenta.localhost`, `TENANT_BASE_DOMAIN` implicit doar în `dev.py`
+- `user_session` a primit `token_hash`. Până acum sesiunea era identificată doar prin cheia primară —
+  iar o cheie primară nu e secret: apare în loguri, în mesaje de eroare, în referințe. Tokenul e
+  `secrets.token_urlsafe(32)`, stocat ca SHA-256 nesărat (256 de biți n-au dicționar de rezistat, iar
+  o sare per rând ar face căutarea după token o parcurgere a tuturor sesiunilor)
+- **verificarea accesului la emitere întreabă baza, nu Python:** vizibilitatea rândului din `tenant`
+  trece prin aceeași `rls.has_tenant_access` pe care o folosește orice interogare ulterioară. O
+  reimplementare ar fi fost a doua copie a regulii de acces. Fără ea, parolă corectă + factor corect
+  pe subdomeniul greșit ar fi produs o sesiune validă în care fiecare interogare întoarce zero rânduri
+  — sigur, și imposibil de distins de un produs stricat
+- cookie **host-only** (fără `Domain`): granița de tenant și granița de cookie devin aceeași linie.
+  `SameSite=Lax` e deocamdată **toată** protecția CSRF — nu există middleware CSRF în lanț
+- trei endpoint-uri, Django simplu, nu DRF: convențiile API sunt F0.10.1 și n-aveau de ce să se
+  închidă din greșeală aici. `/api/v1/auth/login` e singura cale exemptată de context — exact, nu ca
+  prefix — iar ce face exceptarea sigură e garda de interogări: fără context, o viziune exemptată nu
+  poate atinge date de business deloc
+- **11 teste noi de cale de request**, plus unul la nivel de rezolvator. Suita de izolare: **184 de
+  teste trec**; `mypy` curat pe `platform` și `config`
+- **rămas deschis, `OD-48`:** înrolarea MFA n-are cale de request. Cine n-are al doilea factor nu
+  poate obține sesiune, deci nu poate ajunge la ecranul de înrolare. Circular și cunoscut
+- **defect găsit, nereparat, în afara scopului:** `invalidate_sessions_for_engagement` scrie prin ORM
+  peste sesiunile *altor* utilizatori, dar politica e `user_id = app.current_user_id()` — deci
+  actualizează zero rânduri când o cere administratorul clientului, adică în singurul caz real.
+  Testul trece fiindcă revocă sesiunea propriului utilizator. Aceeași clasă cu `OD-37`; are nevoie de
+  o cale privilegiată, ca `company_access` în `0014`
+- **suita completă e roșie dintr-un motiv care nu ține de aici:** `tests/schema_guard/test_model_guard.py`
+  creează o tabelă-probă numită literal `fiscal_parameter`, nume care acum aparține modulului fiscal
+  în lucru în paralel. 219 trec, 1 cade, pe o bază de test privată
+
 **2026-08-25, F0.0.5 — gardianul de dependențe (ADR-024)**, scris în paralel cu sesiunea de
 masterdata, în același arbore:
 
@@ -343,6 +428,9 @@ preced orice model.
   - [x] F0.3.7a — modelul de roluri (ADR-020): catalog fix în cod, roluri ca date per tenant,
         chei străine compuse, triggere pe rolurile de sistem; 12 teste
   - [x] F0.3.7b — autentificare și MFA obligatoriu, coduri de rezervă, sesiuni; 13 teste
+  - [x] F0.3.7c — calea de request (ADR-025, ADR-026): `token_hash` pe sesiune, funcțiile
+        privilegiate de dinainte de context, middleware de sesiune, rezolvatorul cablat prin
+        factory, `/api/v1/auth/{login,logout,whoami}`; 12 teste
   - [x] F0.3.3b — ADR-018 și ADR-019 aplicate: vocabular `module_key` cu `CHECK`, regula de
         nesuprapunere impusă prin index unic parțial + triggere de sincronizare; 4 teste
         (`CHECK`, listă într-un singur loc) și regula de arbitraj *fără suprapunere*, în bază
@@ -368,7 +456,11 @@ preced orice model.
   - [x] F0.7.4 — `Item`, `ItemCategory`, `UnitOfMeasure`, `UnitConversion`
   - [ ] F0.7.5 — `Warehouse` *(blocat de OD-11)*
   - [ ] F0.7.6 — dimensiuni: ADR, nu cod *(blocat de DNB-02)*
-- [ ] F0.8 — Parametri fiscali și registru
+- [x] F0.8 — Parametri fiscali și registru
+  - [x] F0.8.1 — `fiscal_parameter` și proveniența: sursa obligatorie, aprobarea obligatorie
+        pentru `active`, nesuprapunere impusă în bază. **Nicio valoare fiscală** (OD-22)
+  - [x] F0.8.2 — registrul de selecție după dată efectivă: rezolvare cu dată obligatorie,
+        zero și două potriviri sunt erori cu cod stabil
 - [ ] F0.9 — Multi-valută
 - [ ] F0.10 — Convenții API și schelet frontend
 

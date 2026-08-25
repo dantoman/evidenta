@@ -32,6 +32,27 @@ def owner_cursor() -> Iterator[object]:
 #: A contract that exists only for the append-only probes below. Declaring the
 #: probe here rather than in infra/schema/append_only.toml keeps the guard's
 #: self-tests independent of what the product happens to have built.
+#: The IZ-76 probe. Declared here rather than pointing at a real contract entry:
+#: the test used to build a table named `fiscal_parameter`, which worked for as
+#: long as no such table existed. F0.8 created it, and the probe's CREATE TABLE
+#: started failing with "already exists" -- a guard self-test broken by the
+#: arrival of the very schema it guards. Third time this shape appeared
+#: (`audit_event`, `document_event`), and the fix is the same each time: a probe
+#: names a probe.
+DRIFT_PROBE = Contract(
+    tables=[
+        {
+            "name": "probe_drift",
+            "tenant_column": False,
+            "policy_shape": "global_read_only",
+            "reason": "Probe for IZ-76.",
+            "source": "tests/schema_guard",
+        }
+    ],
+    patterns=[],
+    append_only=[],
+)
+
 APPEND_ONLY_PROBE = Contract(
     tables=[],
     patterns=[],
@@ -178,17 +199,23 @@ def test_detects_nullable_partition_column(owner_cursor: object) -> None:
 
 
 def test_detects_contract_drifting_from_the_schema(owner_cursor: object) -> None:
-    """IZ-76. An exception nobody needs any more is worse than no contract."""
+    """IZ-76. An exception nobody needs any more is worse than no contract.
+
+    The table is declared as having no tenant column and it has one. That is
+    drift in the direction that matters: the contract is the thing R1 and R2 are
+    checked against, so an entry that stopped being true silently widens what the
+    guard accepts.
+    """
     owner_cursor.execute(  # type: ignore[attr-defined]
         """
-        CREATE TABLE fiscal_parameter (
+        CREATE TABLE probe_drift (
             id uuid PRIMARY KEY,
             tenant_id uuid NOT NULL
         );
-        ALTER TABLE fiscal_parameter ENABLE ROW LEVEL SECURITY;
-        ALTER TABLE fiscal_parameter FORCE  ROW LEVEL SECURITY;
-        CREATE POLICY p ON fiscal_parameter FOR ALL TO evidenta_app
+        ALTER TABLE probe_drift ENABLE ROW LEVEL SECURITY;
+        ALTER TABLE probe_drift FORCE  ROW LEVEL SECURITY;
+        CREATE POLICY p ON probe_drift FOR ALL TO evidenta_app
             USING (true) WITH CHECK (true);
         """
     )
-    assert "IZ-76" in rules(audit(owner_cursor), "fiscal_parameter")
+    assert "IZ-76" in rules(audit(owner_cursor, DRIFT_PROBE), "probe_drift")

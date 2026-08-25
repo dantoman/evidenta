@@ -59,6 +59,8 @@ INSTALLED_APPS: list[str] = [
     "evidenta.masterdata.uom.apps.UomConfig",
     "evidenta.masterdata.partners.apps.PartnersConfig",
     "evidenta.masterdata.items.apps.ItemsConfig",
+    "evidenta.fiscal.parameters.apps.FiscalParametersConfig",
+    "evidenta.fiscal.registry.apps.FiscalRegistryConfig",
 ]
 
 MIDDLEWARE: list[str] = [
