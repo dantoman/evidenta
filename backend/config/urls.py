@@ -14,6 +14,7 @@ from config import health
 
 urlpatterns: list[URLPattern | URLResolver] = [
     path("api/v1/auth/", include("evidenta.platform.identity.urls")),
+    path("api/v1/accounting/coa/", include("evidenta.accounting.coa.urls")),
     # Operational, not API. They sit outside /api/v1/ because they are not
     # resources and are not versioned with the product: an orchestrator probe
     # must not have to be updated when the API version changes.
