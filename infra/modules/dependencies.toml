@@ -1,0 +1,123 @@
+# Contractul de dependență între module — sursa unică pentru gardianul de dependențe (suita 3).
+#
+# Autoritate:  CLAUDE.md §3 (D1–D6)
+#              docs/decisions/023-gardian-de-dependente.md
+# Consumator:  backend/tests/deps_guard/
+#
+# Modificarea acestui fișier este ADR. Graful de dependențe este invariant de arhitectură: o
+# direcție adăugată aici nu se mai scoate după ce zece module o folosesc, iar dependența ciclică
+# se plătește la fiecare modul următor, nu la cel care a introdus-o.
+#
+# Se declară două lucruri distincte:
+#
+#   [[layer]]      straturile din CLAUDE.md §3 și direcția permisă între ele
+#   [[forbidden]]  interdicțiile punctuale care NU se exprimă ca direcție de strat — `D3`, `D4`,
+#                  `D5`. Fiecare restrânge ceva ce graful singur ar permite
+#
+# Un pachet de sub `backend/evidenta/` care nu apare aici **nu este ignorat**: gardianul îl
+# raportează ca `D0`. Un strat nedeclarat care ar fi sărit tăcut peste verificare este exact gaura
+# pe care lista o previne — motiv pentru care nu are forma „ignoră ce nu cunoști".
+#
+# Layout-ul presupus este `backend/evidenta/<strat>/<modul>/`. Dacă un modul operațional ajunge
+# vreodată la `evidenta/sales/` în loc de `evidenta/operations/sales/`, `D0` se declanșează și
+# alegerea se consemnează aici — în loc să fie dedusă din primul commit care a nimerit-o.
+
+schema_version = 1
+updated = "2026-08-25"
+
+# ── Straturi ─────────────────────────────────────────────────────────────────
+#
+# `may_import` enumeră straturile pe care acesta le poate importa. Importurile în interiorul
+# aceluiași strat sunt permise de graf — dar `D6` le mărginește separat, mai jos.
+#
+# `rule` este identificatorul citat când stratul apare ca importator. `D1` și `D2` din CLAUDE.md
+# sunt cazuri particulare ale grafului, nu reguli peste el; celelalte straturi citează `DG`.
+
+[[layer]]
+name = "platform"
+may_import = []
+rule = "DG"
+reason = "Totul poate depinde de platform; platform nu depinde de nimeni. Un import în sens invers face fundația să depindă de ce stă pe ea."
+
+[[layer]]
+name = "fiscal"
+may_import = []
+rule = "D1"
+reason = "Parametrii și algoritmii fiscali nu cunosc niciun modul business. Un import de acolo ar lega o cotă de TVA de forma unei facturi."
+
+[[layer]]
+name = "masterdata"
+may_import = ["platform"]
+rule = "DG"
+reason = "Date de referință: partener, articol, unitate de măsură. Depind de tenancy, de nimic altceva."
+
+[[layer]]
+name = "accounting"
+may_import = ["platform", "masterdata", "fiscal"]
+rule = "D2"
+reason = "Contabilitatea nu cunoaște sursa efectului; primește evenimente. Un import din `sales` sau `payroll` inversează exact relația pe care Posting Engine o există ca s-o impună."
+
+[[layer]]
+name = "operations"
+may_import = ["platform", "masterdata", "fiscal", "accounting"]
+rule = "DG"
+reason = "Modulele operaționale stau deasupra tuturor. Ce pot importa DIN accounting este restrâns de `D3`."
+
+[[layer]]
+name = "firmspace"
+may_import = ["platform"]
+rule = "DG"
+reason = "Strat de prezentare peste read models, care stau în `platform/readmodels` (R7). O direcție în plus se adaugă aici, ca ADR — nu se deduce din primul ecran care are nevoie de ea."
+
+# ── Interdicții punctuale ────────────────────────────────────────────────────
+#
+# `target` și `importers` sunt prefixe cu punct, complete. `"*"` înseamnă oricine.
+
+[[forbidden]]
+rule = "D3"
+target = "evidenta.accounting.ledger"
+importers = ["evidenta.operations"]
+reason = "Modulele operaționale emit evenimente contabile; nu scriu și nu citesc ledgerul direct (R9). Graful permite operations → accounting tocmai pentru `accounting.events`, deci restul trebuie exclus explicit."
+
+[[forbidden]]
+rule = "D4"
+target = "evidenta.operations.tax"
+importers = ["evidenta.operations.payroll"]
+reason = "Ambele consumă `fiscal`. Un import direct între ele ar face ca o schimbare de declarație fiscală să treacă prin calculul de salarii."
+
+[[forbidden]]
+rule = "D5"
+target = "evidenta.firmspace"
+importers = ["*"]
+reason = "`firmspace` este strat de prezentare. Nimic nu importă din el — un import ar transforma un ecran în dependență de business."
+
+# ── D6 — importul direct de modele între module ──────────────────────────────
+#
+# `D6` interzice comunicarea prin modelele altui modul: un serviciu care citește sau scrie tabela
+# altcuiva ocolește exact granița pe care evenimentele contabile, serviciile publice și read
+# models-urile o există ca s-o țină.
+#
+# O țintă de `ForeignKey` nu este comunicare, este compunere de schemă — și Django are nevoie de
+# clasa modelului ca s-o exprime. Măsurat la închiderea `OD-17`: zece importuri de acest fel, toate
+# în `models.py`, toate către `tenancy` și `identity`.
+#
+# Excepția este deci de două ori îngustă, și ambele condiții contează:
+#
+#   1. numai un modul `models` poate compune schemă. `services/` care importă modelele altui
+#      modul rămâne încălcare — este chiar cazul pe care regula îl vizează
+#   2. numai către straturile către care tabelele arată prin natura lor: `platform` deține
+#      `Tenant`, `Company` și `User`; `masterdata` deține `UnitOfMeasure`, registrul de contrapărți
+#      și restul datelor de referință. Cheile străine către ele sunt fundație, nu cuplaj
+#
+# Ce NU permite, deliberat: `sales.models` → `purchases.models`. Două module de business care își
+# împart tabelele prin cheie străină sunt cuplate, oricât de „schemă" ar arăta importul. Lărgirea
+# listei de mai jos este ADR, iar suita are un test exact pentru acest caz.
+#
+# Lista a fost `["platform"]` timp de câteva minute, la scrierea gardianului. A căzut la
+# măsurătoare, nu la discuție: `Articol → Unitate de măsură` și `Partener → Registru de contrapărți`
+# au ieșit ca încălcări, iar niciuna nu este comunicare între module. Cazul care a motivat
+# îngustarea — `sales` → `purchases` — rămâne prins de condiția de strat.
+
+[d6]
+schema_layers = ["platform", "masterdata"]
+reason = "Fundația și datele de referință sunt cele către care arată cheile străine ale oricărei tabele business. Un modul de business care ține o cheie străină către alt modul de business este cuplat cu el, nu îl compune."

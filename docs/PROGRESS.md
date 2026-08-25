@@ -323,7 +323,13 @@ preced orice model.
   - [x] F0.6.4 — `document_event`, append-only, disciplina R21/R22
   - [ ] F0.6.3 — atașamente *(blocat de DN-16 și de providerul S3)*
   - [ ] F0.6.5 — notificări
-- [ ] F0.7 — Master data
+- [ ] F0.7 — Master data    ← ÎN CURS
+  - [x] F0.7.1 — `CounterpartyRegistry` global, doar citire la ambele straturi
+  - [x] F0.7.2 — `Partner`, nivel tenant, unic pe IDNO
+  - [x] F0.7.3 — `CompanyPartner`, configurare per companie
+  - [x] F0.7.4 — `Item`, `ItemCategory`, `UnitOfMeasure`, `UnitConversion`
+  - [ ] F0.7.5 — `Warehouse` *(blocat de OD-11)*
+  - [ ] F0.7.6 — dimensiuni: ADR, nu cod *(blocat de DNB-02)*
 - [ ] F0.8 — Parametri fiscali și registru
 - [ ] F0.9 — Multi-valută
 - [ ] F0.10 — Convenții API și schelet frontend

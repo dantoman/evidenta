@@ -35,6 +35,13 @@ from tests.conftest import admin_dsn
 
 # Order matters: children before parents.
 SEEDED_TABLES = (
+    "company_partner",
+    "partner",
+    "item",
+    "item_category",
+    "unit_conversion",
+    "unit_of_measure",
+    "counterparty_registry",
     "document_event",
     "document",
     "numbering_counter",
