@@ -24,15 +24,41 @@ import pytest
 from django.db import transaction
 from django.db.utils import IntegrityError, InternalError, ProgrammingError
 
+from evidenta.accounting.events import registry as reg
 from evidenta.accounting.events.models import AccountingEvent, EventStatus, SourceModule
+from evidenta.accounting.events.registry import EventType, UnknownEventTypeError, register
 from evidenta.accounting.events.services.emission import (
+    DeprecatedEventTypeError,
     IdempotencyConflictError,
+    MalformedPayloadError,
     MissingIdempotencyKeyError,
     emit,
 )
 from evidenta.platform.rls.context import TenantContext, tenant_context
 
 pytestmark = pytest.mark.django_db(databases=["default", "migration"])
+
+
+@pytest.fixture(autouse=True)
+def registered_type():
+    """The vocabulary is closed, so the tests register the type they emit.
+
+    Restored afterwards: these tests must not leave a registration behind that
+    another test then finds already present.
+    """
+    saved = dict(reg.REGISTRY)
+    saved_deprecated = set(reg.DEPRECATED)
+    register(
+        EventType(
+            name="sales.invoice_issued",
+            payload_fields=("amount", "currency"),
+        )
+    )
+    yield
+    reg.REGISTRY.clear()
+    reg.REGISTRY.update(saved)
+    reg.DEPRECATED.clear()
+    reg.DEPRECATED.update(saved_deprecated)
 
 
 @pytest.fixture
@@ -150,8 +176,8 @@ def test_key_reordering_in_the_payload_is_not_a_conflict(
         )
 
     with tenant_context(context):
-        first, _ = emit_with({"a": 1, "b": 2})
-        second, created = emit_with({"b": 2, "a": 1})
+        first, _ = emit_with({"amount": "1.00", "currency": "MDL"})
+        second, created = emit_with({"currency": "MDL", "amount": "1.00"})
 
     assert created is False
     assert first.id == second.id
@@ -294,3 +320,89 @@ def test_an_event_cannot_be_written_into_a_company_without_access(
         transaction.atomic(),
     ):
         emit_one(world, other, key="no-access")
+
+
+# --- The vocabulary is closed, and emission is where that becomes true ---------
+
+
+def test_an_unregistered_type_cannot_be_emitted(
+    company: uuid.UUID, context: TenantContext, world: dict[str, uuid.UUID]
+) -> None:
+    """Without this check the closed vocabulary is a declaration, not a fact.
+
+    An unregistered type would land as an event nothing can post -- and the boot
+    check could not catch it, because the type was never registered to be
+    checked.
+    """
+    with tenant_context(context), pytest.raises(UnknownEventTypeError):
+        emit(
+            tenant_id=world["tenant_a"],
+            company_id=company,
+            event_type="sales.invented_here",
+            source_module=SourceModule.SALES,
+            source_document_type="sales_invoice",
+            source_document_id=uuid.uuid4(),
+            occurred_at=datetime(2026, 3, 7, 10, 0, tzinfo=UTC),
+            accounting_date=date(2026, 3, 7),
+            idempotency_key="unregistered",
+            payload={"amount": "1.00", "currency": "MDL"},
+            capability_snapshot={},
+            actor_user_id=world["user_a"],
+            request_id="req",
+        )
+
+
+def test_a_payload_missing_a_declared_field_is_refused(
+    company: uuid.UUID, context: TenantContext, world: dict[str, uuid.UUID]
+) -> None:
+    """Checked at emission because of who can fix it.
+
+    The emitting module is on the stack right now. Discovered at posting, the
+    same fault surfaces in a queue, to an operator who cannot change the caller.
+    """
+    with tenant_context(context), pytest.raises(MalformedPayloadError) as failure:
+        emit(
+            tenant_id=world["tenant_a"],
+            company_id=company,
+            event_type="sales.invoice_issued",
+            source_module=SourceModule.SALES,
+            source_document_type="sales_invoice",
+            source_document_id=uuid.uuid4(),
+            occurred_at=datetime(2026, 3, 7, 10, 0, tzinfo=UTC),
+            accounting_date=date(2026, 3, 7),
+            idempotency_key="incomplete",
+            payload={"amount": "1.00"},
+            capability_snapshot={},
+            actor_user_id=world["user_a"],
+            request_id="req",
+        )
+    assert "currency" in str(failure.value)
+
+
+def test_a_deprecated_type_cannot_be_emitted(
+    company: uuid.UUID, context: TenantContext, world: dict[str, uuid.UUID]
+) -> None:
+    """Deprecation ends emission, not interpretation.
+
+    The handlers stay, because the entries the type already produced stay.
+    """
+    reg.deprecate("sales.invoice_issued")
+    with tenant_context(context), pytest.raises(DeprecatedEventTypeError):
+        emit_one(world, company, key="deprecated")
+
+
+def test_a_registered_type_with_no_handler_still_emits(
+    company: uuid.UUID, context: TenantContext, world: dict[str, uuid.UUID]
+) -> None:
+    """The line between a caller bug and a configuration gap.
+
+    `sales.invoice_issued` is registered here with no handler at all. Emission
+    succeeds and posting is what will fail -- into `failed` with a
+    `posting_error`, which gives an operator a queue to work from. Refusing here
+    would mean the business operation cannot even be recorded because of a gap
+    only a deployment can close.
+    """
+    with tenant_context(context):
+        event, created = emit_one(world, company, key="no-handler-yet")
+    assert created is True
+    assert event.status == EventStatus.PENDING
