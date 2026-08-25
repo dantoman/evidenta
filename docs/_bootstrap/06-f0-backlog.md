@@ -835,7 +835,7 @@ agenții invocați, ambele suite de izolare verzi, nicio decizie deschisă înch
 
 ## F0.9 — Multi-valută
 
-### F0.9.1 — Modelul de sumă
+### F0.9.1 — Modelul de sumă — **TERMINAT** (2026-08-25)
 
 - **Obiectiv:** reprezentarea sumei în valută există în core, reutilizabilă de orice modul.
 - **Fișiere:** `backend/evidenta/accounting/currency/money.py`, teste
@@ -844,8 +844,14 @@ agenții invocați, ambele suite de izolare verzi, nicio decizie deschisă înch
 - **Terminat:** cele patru elemente (sumă în valută, valută, curs, sumă în moneda funcțională) sunt
   reprezentate împreună; conversia și rotunjirea sunt testate pe cazurile din DNB-08.
 - **Blocat de:** — *(parțial deblocată: `numeric` cu scală explicită, niciodată `float`; rotunjirea ca logică fiscală versionată, nu utilitar. Valorile așteaptă ghidul SFS — `OD-24`)*
+- **Livrat:** modelul există și **refuză să rotunjească** până când `DNB-08` primește răspuns —
+  `convert()` rezolvă regula din `fiscal_logic_version` după data perioadei și ridică
+  `fiscal.no_logic` cât timp niciuna nu e înregistrată. Nu există `round_money()`. Rândul din
+  registru **selectează** dintr-un tabel de implementări din cod; nu importă o cale dintr-o coloană
+  — altfel un `INSERT` prin P-4 ar fi execuție de cod arbitrar, invizibilă gardianului de
+  dependențe.
 
-### F0.9.2 — `exchange_rate`
+### F0.9.2 — `exchange_rate` — **TERMINAT** (2026-08-25)
 
 - **Obiectiv:** cursurile există ca tabelă globală versionată pe dată.
 - **Fișiere:** `backend/evidenta/accounting/currency/models.py`, migrații

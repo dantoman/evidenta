@@ -12,6 +12,30 @@ de date și infrastructură RLS**.
 
 ## Ultima sesiune
 
+**2026-08-25, F0.9 — modelul de sumă și cursurile valutare:**
+
+- **modulul refuză să rotunjească.** `convert()` cere o regulă de rotunjire rezolvată din registrul
+  fiscal pentru perioada postată, iar pentru `accounting.money_rounding` **nu e înregistrată
+  niciuna**: `DNB-08` e blocată pe ghidul de integrare SFS (`OD-24`). Un test afirmă exact starea
+  asta, ca să nu alunece tăcut. O regulă aleasă acum ca să facă modulul utilizabil ar produce
+  numere care nu se pot apăra în fața validatorului care decide dacă factura e acceptată
+- **de aceea nu există `round_money()`.** Spec B §7.4 pct. 3: rotunjirea e logică fiscală
+  versionată, nu utilitar. Un ajutor de rotunjire într-un modul de utilitare e exact forma în care
+  o regulă fiscală ajunge nemarcată în cod
+- **rândul din registru selectează, nu importă.** `implementation_ref` e o cheie într-un tabel de
+  implementări din cod, nu o cale importabilă. `fiscal_logic_version` se scrie prin calea
+  privilegiată P-4; dacă referința ar ajunge la un `import`, un singur `INSERT` privilegiat ar fi
+  execuție de cod arbitrar în rolul aplicației — iar gardianul de dependențe, care citește AST-ul,
+  n-ar vedea un import dinamic deloc. Un test încearcă `os.system` și primește refuz
+- **cele patru elemente se produc împreună**, fiindcă separat e felul în care ajung să descrie
+  momente diferite, iar înregistrarea e imutabilă după postare. Nu e alegere de proiectare: Legea
+  287/2017, art. 7 alin. (2) — contabilitatea faptelor în valută se ține în ambele monede
+- `float` e **refuzat la construcție**, nu convertit tăcut: face aceeași balanță să dea rezultate
+  diferite după ordinea de agregare
+- **235 de teste trec**; `mypy` curat pe tot `backend`
+
+## Sesiunea anterioară
+
 **2026-08-25, F0.8 — parametri fiscali și registrul de selecție**, scrisă în paralel cu sesiunea de
 cale de request, în același arbore:
 
@@ -49,7 +73,7 @@ cale de request, în același arbore:
   poartă nume de sondă
 - **220 de teste trec**, sub `evidenta_app`, pe o bază construită de la zero
 
-## Sesiunea anterioară
+## Sesiuni mai vechi
 
 **2026-08-25, F0.3.7c — calea de request: rezolvator cablat, autentificare din sesiune**, scrisă în
 paralel cu sesiunea de gardian de dependențe și masterdata, în același arbore:
@@ -461,7 +485,11 @@ preced orice model.
         pentru `active`, nesuprapunere impusă în bază. **Nicio valoare fiscală** (OD-22)
   - [x] F0.8.2 — registrul de selecție după dată efectivă: rezolvare cu dată obligatorie,
         zero și două potriviri sunt erori cu cod stabil
-- [ ] F0.9 — Multi-valută
+- [x] F0.9 — Multi-valută *(modelul; conectorul BNM e F1, reevaluarea F2 — OD-10)*
+  - [x] F0.9.1 — modelul de sumă: `Decimal` peste tot, valutele nu se amestecă,
+        rotunjirea vine din registrul fiscal după data perioadei — nu există `round_money()`
+  - [x] F0.9.2 — `exchange_rate` global, `UNIQUE (currency, rate_date, rate_type)`,
+        scriere doar prin calea privilegiată P-3
 - [ ] F0.10 — Convenții API și schelet frontend
 
 Descompunerea în 49 de sarcini de dimensiunea unei sesiuni, cu dependențe, agenți de review și

@@ -21,7 +21,7 @@ from __future__ import annotations
 import uuid
 from datetime import date
 
-from django.db.models import Q, QuerySet
+from django.db.models import Model, Q, QuerySet
 
 from evidenta.fiscal.parameters.models import (
     FiscalParameter,
@@ -38,7 +38,7 @@ class FiscalResolutionError(RuntimeError):
         super().__init__(f"{code}: {message}")
 
 
-def in_force[M](rows: QuerySet[M], effective_date: date) -> QuerySet[M]:
+def in_force[M: Model](rows: QuerySet[M], effective_date: date) -> QuerySet[M]:
     """Rows whose validity window contains the date. Half-open: ``[from, to)``.
 
     Public because `fiscal.registry` applies the same window to its own table and
