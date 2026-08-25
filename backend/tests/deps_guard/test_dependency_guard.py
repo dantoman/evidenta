@@ -15,6 +15,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 from tests.deps_guard.audit import Contract, Finding, audit
 
 #: The graph the probes are checked against. Deliberately smaller than the real
@@ -80,6 +82,23 @@ def probe(root: Path, **extra: str) -> list[Finding]:
 
 def rules(findings: list[Finding]) -> set[str]:
     return {finding.rule for finding in findings}
+
+
+def test_refuses_a_layer_declared_twice() -> None:
+    """A contract with two answers for one layer has no answer.
+
+    The dict comprehension this replaced kept the last entry and said nothing,
+    so a second declaration of `accounting` with a wider `may_import` would have
+    taken effect while the first sat above it in the file, looking authoritative.
+    """
+    with pytest.raises(ValueError, match="declared twice"):
+        Contract(
+            layers=[
+                {"name": "accounting", "may_import": [], "rule": "D2"},
+                {"name": "accounting", "may_import": ["operations"], "rule": "D2"},
+            ],
+            forbidden=[],
+        )
 
 
 def test_compliant_tree_has_no_findings(tmp_path: Path) -> None:

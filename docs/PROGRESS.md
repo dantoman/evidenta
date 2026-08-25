@@ -12,6 +12,44 @@ de date și infrastructură RLS**.
 
 ## Ultima sesiune
 
+**2026-08-25, F0.2.5 și două reparații de gardian** — continuarea sesiunii de F0.0.5:
+
+- **F0.2.5 livrat.** Cele 12 teste care existau probau mecanismul contextului — se setează, se
+  curăță, refuză înainte de orice interogare — dar rulau toate pe UUID-uri inventate. Corect pentru
+  un refuz: niciun rând nu trebuie să existe ca un refuz să fie refuz. Insuficient pentru `IZ-41` și
+  `IZ-45`, unde întrebarea e ce **răspunde baza**. Trei teste noi pe date reale, 15 în total
+- cel mai informativ dintre ele: un task pornit cu id-ul tenantului B și utilizatorul lui A
+  **chiar primește contextul B** — și tot nu vede rândul. A numi un tenant nu înseamnă a avea acces
+  la el; politica întreabă dacă utilizatorul poate ajunge acolo
+- fiecare test poartă acum identificatorul scenariului. „Acoperă `IZ-40`…`IZ-45`" era criteriul, iar
+  fără identificatori acoperirea nu se putea **arăta**, doar susține
+- **ambele gardiene refuzau tăcut un contract cu două răspunsuri.** `{entry["name"]: entry for ...}`
+  păstrează ultima intrare și nu spune nimic — deci două declarații pentru aceeași tabelă, ultima în
+  vigoare, iar gardianul raportează conformitate față de o declarație pe care nimeni n-o știa
+  câștigătoare. Ajunsese în fișierul real o dată, ca un al doilea set de tabele fiscale. Reparat în
+  ambele, cu test fiecare
+- ADR-024 completat cu golul concret al analizei statice, găsit la F0.8: `implementation_ref` e un
+  șir cu puncte scris pe cale privilegiată. Rezolvat prin import, un singur `INSERT` privilegiat
+  devine execuție de cod arbitrar, **fără niciun import de citit în sursă**. Registrul selectează
+  dintr-un dicționar declarat în cod; unde un șir devine cod, granița o ține refuzul de la locul
+  rezolvării, nu gardianul
+- **291 de teste trec** pe o bază construită de la zero; `ruff` și `mypy` curate
+
+**F0.2.4 nu s-a scris, deliberat, și motivul este o constatare.** Modelul de scope există în schemă
+și nu e impus nicăieri: `covers_all_companies` apare de **zero ori** în tot `infra/`;
+`engagement_company_scope` are politică pe ea însăși, dar niciun predicat nu o consultă;
+`permission_level` are `CHECK` și nu e citit de nicio politică. Din cele cinci scenarii, `IZ-25` și
+`IZ-26` ar fi trecut **din motivul greșit** — nu fiindcă scope-ul e impus, ci fiindcă accesul cere un
+rând `company_access` explicit — iar `IZ-27`, `IZ-28` și `IZ-29` descriu comportament care nu există.
+Decizia proprietarului: **impunerea stă la provizionare, în servicii**, nu în predicate. Serviciul
+care acceptă un engagement creează `company_access` doar pentru companiile din scope, iar cu
+`covers_all_companies = true` crearea unei companii noi provizionează accesul. Aceea e sarcina
+următoare, și abia după ea `IZ-25`…`IZ-27` au ce demonstra.
+
+Criteriul de ieșire din F0 are acum trei rânduri bifate din cinci. Al patrulea — cele patru
+combinații de acces — pare acoperit de `IZ-10`…`IZ-18`, dar **nu l-am bifat** cât F0.2.4 e deschisă:
+bifa ar spune că sarcina e terminată, iar ea nu e.
+
 **2026-08-25, F0.10.1 — convenții API:**
 
 - **codurile stabile se randează prin middleware, nu prin handlerul DRF.** `C10` e o garanție despre
@@ -556,6 +594,9 @@ preced orice model.
   - [x] F0.2.2 — gardianul de model; 11 teste, fiecare regulă cu probă că poate eșua
   - [x] F0.2.3 — penetrare: toate cele opt scenarii SQL au echivalent pytest care trece
   - [x] F0.2.6 — suitele în CI, sub rolul de aplicație; proba SQL retrasă
+  - [x] F0.2.5 — task-uri Celery: IZ-40…IZ-45, cu trei scenarii pe date reale
+  - [ ] F0.2.4 — cazurile de scope *(scope-ul nu e impus nicăieri; impunerea la
+        provizionare e decisă, nescrisă)*
 - [x] F0.3 — Tenancy și identitate
   - [x] F0.3.1 — `Tenant`, `Company`, `CompanyVatRegistration` + politici, într-o migrare
   - [x] F0.3.2 — `User`, `Membership`; `tenant` interogabil pe calea de membru

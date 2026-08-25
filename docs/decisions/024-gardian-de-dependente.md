@@ -77,3 +77,14 @@ motivat îngustarea inițială.
   în loc să fie dedusă din primul commit care a nimerit-o.
 - Ce nu acoperă: importurile dinamice (`importlib`, `__import__` cu nume calculat). Sunt invizibile
   oricărei analize statice, inclusiv lui `import-linter`. Nu apar în cod azi.
+
+  **Golul are o formă concretă, găsită la F0.8, nu ipotetică.** `fiscal_logic_version`
+  `.implementation_ref` este un șir cu puncte, scris printr-o cale privilegiată. Implementarea
+  evidentă îl rezolvă printr-un import — și atunci un singur `INSERT` privilegiat devine execuție de
+  cod arbitrar sub rolul aplicației, **fără ca gardianul să vadă ceva**: nu există import de citit în
+  sursă. Forma corectă, cea aleasă: registrul **selectează** dintr-un dicționar declarat în cod, iar
+  un rând care numește altceva este refuzat, cu test care îl pointează spre `os.system`.
+
+  Regula practică: unde un șir devine cod, granița nu o ține gardianul de dependențe, ci refuzul de
+  la locul rezolvării. Dacă apar mai multe astfel de locuri, ele merită o regulă proprie — nu în
+  acest gardian, ci una care interzice `importlib` în afara unei liste enumerate.

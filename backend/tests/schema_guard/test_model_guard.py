@@ -81,6 +81,29 @@ def compliant_table(cursor: object, name: str, extra_columns: str = "") -> None:
     )
 
 
+def test_refuses_a_table_declared_twice() -> None:
+    """The RLS contract may not carry two declarations for one table.
+
+    This is the shape the guard is least able to survive: two entries, the last
+    one silently in force, and the audit reporting compliance against a
+    declaration nobody knew had won. It reached the real file once, as a second
+    set of fiscal tables, and nothing said so.
+    """
+    with pytest.raises(ValueError, match="declared twice"):
+        Contract(
+            tables=[
+                {"name": "fiscal_parameter", "tenant_column": False, "policy_shape": "system"},
+                {
+                    "name": "fiscal_parameter",
+                    "tenant_column": False,
+                    "policy_shape": "global_read_only",
+                },
+            ],
+            patterns=[],
+            append_only=[],
+        )
+
+
 def test_live_schema_is_clean(owner_cursor: object) -> None:
     assert audit(owner_cursor) == []
 

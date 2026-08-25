@@ -56,6 +56,29 @@ def _load(path: Path) -> dict[str, Any]:
         return tomllib.load(handle)
 
 
+def _index(entries: list[dict[str, Any]], contract: str) -> dict[str, dict[str, Any]]:
+    """Index declarations by name, refusing a name that appears twice.
+
+    A dict comprehension keeps the last entry and says nothing about the first.
+    That is the one failure mode a contract file must not have: two answers for
+    one name, one of them silently winning, and a guard reporting compliance
+    against a declaration nobody knew was in force.
+
+    Found the way these things are found -- a second set of fiscal tables was
+    added to the RLS contract by mistake, and nothing complained.
+    """
+    indexed: dict[str, dict[str, Any]] = {}
+    for entry in entries:
+        name = entry["name"]
+        if name in indexed:
+            raise ValueError(
+                f"{contract}: {name!r} is declared twice. A contract with two answers "
+                f"for one name has no answer -- delete one of them."
+            )
+        indexed[name] = entry
+    return indexed
+
+
 class Contract:
     """The declared shape of the module graph.
 
@@ -76,7 +99,7 @@ class Contract:
             forbidden = data.get("forbidden", [])
             d6 = data.get("d6", {})
 
-        self.layers: dict[str, dict[str, Any]] = {entry["name"]: entry for entry in (layers or [])}
+        self.layers = _index(layers or [], "infra/modules/dependencies.toml")
         self.forbidden: list[dict[str, Any]] = forbidden or []
         self.schema_layers: list[str] = list((d6 or {}).get("schema_layers", []))
 

@@ -50,6 +50,29 @@ def _load(path: Path) -> dict[str, Any]:
         return tomllib.load(handle)
 
 
+def _index(entries: list[dict[str, Any]], contract: str) -> dict[str, dict[str, Any]]:
+    """Index declarations by name, refusing a name that appears twice.
+
+    A dict comprehension keeps the last entry and says nothing about the first.
+    That is the one failure mode a contract file must not have: two answers for
+    one name, one of them silently winning, and a guard reporting compliance
+    against a declaration nobody knew was in force.
+
+    Found the way these things are found -- a second set of fiscal tables was
+    added to the RLS contract by mistake, and nothing complained.
+    """
+    indexed: dict[str, dict[str, Any]] = {}
+    for entry in entries:
+        name = entry["name"]
+        if name in indexed:
+            raise ValueError(
+                f"{contract}: {name!r} is declared twice. A contract with two answers "
+                f"for one name has no answer -- delete one of them."
+            )
+        indexed[name] = entry
+    return indexed
+
+
 class Contract:
     """The declared shape of the schema.
 
@@ -74,11 +97,9 @@ class Contract:
             patterns = rls.get("table_pattern", [])
             append_only = _load(APPEND_ONLY_CONTRACT).get("table", [])
 
-        self.tables: dict[str, dict[str, Any]] = {entry["name"]: entry for entry in (tables or [])}
+        self.tables = _index(tables or [], "infra/rls/exceptions.toml")
         self.patterns: list[dict[str, Any]] = patterns or []
-        self.append_only: dict[str, dict[str, Any]] = {
-            entry["name"]: entry for entry in (append_only or [])
-        }
+        self.append_only = _index(append_only or [], "infra/schema/append_only.toml")
 
     def declaration_for(self, table: str) -> dict[str, Any] | None:
         if table in self.tables:

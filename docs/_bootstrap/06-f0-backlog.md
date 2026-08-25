@@ -402,14 +402,23 @@ agenții invocați, ambele suite de izolare verzi, nicio decizie deschisă înch
 - **Terminat:** acoperă IZ-10…IZ-21 și IZ-25…IZ-29, toate verzi.
 - **Blocat de:** — *(`DN-06` prin [ADR-018](../decisions/018-engagementuri-multiple.md), `DN-07` prin [ADR-019](../decisions/019-vocabular-scope.md))*
 
-### F0.2.5 — Suita 1, task-uri Celery
+### F0.2.5 — Suita 1, task-uri Celery ✔
 
 - **Obiectiv:** un task fără context eșuează, nu returnează date.
-- **Fișiere:** `backend/tests/isolation/test_celery_context.py`
+- **Fișiere:** `backend/tests/isolation/test_task_context.py` *(numele real; intrarea spunea
+  `test_celery_context.py`, fișierul există din F0.1.5 sub celălalt nume și nu s-a duplicat)*
 - **Depinde de:** F0.2.1, F0.1.5
 - **Review:** `tenancy-guard`
-- **Terminat:** acoperă IZ-40…IZ-45.
+- **Terminat:** acoperă IZ-40…IZ-45, fiecare test purtând identificatorul scenariului.
 - **Blocat de:** —
+- **Ce lipsea, și de ce nu se vedea:** cele 12 teste existente probau **mecanismul** — contextul se
+  setează, se curăță, refuză înainte de orice interogare — dar toate rulau pe UUID-uri inventate.
+  Niciun rând real, deci nicio afirmație despre ce **răspunde baza**. `IZ-41` („acces doar la
+  tenantul respectiv") și `IZ-45` („utilizator fără membership → zero acces") nu se pot face așa
+- **Livrat:** 3 teste pe date reale, peste `world`. Cel mai informativ: un task pornit cu id-ul
+  tenantului B și utilizatorul lui A **chiar primește contextul B** — și tot nu vede rândul, fiindcă
+  politica întreabă dacă utilizatorul poate ajunge acolo. A numi un tenant nu înseamnă a avea acces
+  la el. 15 teste, toate verzi
 
 ### F0.2.6 — Integrarea în CI și retragerea probei SQL ✔
 
@@ -966,11 +975,11 @@ agenții invocați, ambele suite de izolare verzi, nicio decizie deschisă înch
 
 Din `_input/evidenta-implementation-spec.md` §6.1, cu sarcina care îl acoperă:
 
-- [ ] Ambele suite de izolare rulează verde în CI, sub rolul de aplicație — *F0.2.6*
+- [x] Ambele suite de izolare rulează verde în CI, sub rolul de aplicație — *F0.2.6*
 - [ ] Se pot crea doi tenanți, o firmă și un engagement, iar accesul se comportă corect în toate
       cele patru combinații (membru, engagement activ, engagement revocat, niciunul) — *F0.2.4*
-- [ ] Un task Celery fără context explicit eșuează, nu returnează date — *F0.2.5*
-- [ ] Gardianul de model eșuează dacă se adaugă o tabelă fără `tenant_id` — *F0.2.2*
+- [x] Un task Celery fără context explicit eșuează, nu returnează date — *F0.2.5*
+- [x] Gardianul de model eșuează dacă se adaugă o tabelă fără `tenant_id` — *F0.2.2*
 - [ ] Modelul de volum de date este livrat — *F0.11*
 
 ## Sinteza blocajelor
