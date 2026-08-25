@@ -19,7 +19,10 @@ jobs:
     name: Lint, format, types
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      # v7, not v4: v4 is still released against, but it targets Node.js 20,
+      # which GitHub has deprecated and now forces onto Node 24. "Actively
+      # maintained" and "not deprecated" turned out to be different things.
+      - uses: actions/checkout@v7
 
       # Pinned to an immutable tag, not a major one: astral-sh/setup-uv stopped
       # publishing major and minor tags at v8, so `@v5` was both five majors
@@ -86,7 +89,7 @@ jobs:
       OWNER_DB_PASSWORD: ci-owner
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # Pinned to an immutable tag, not a major one: astral-sh/setup-uv stopped
       # publishing major and minor tags at v8, so `@v5` was both five majors
