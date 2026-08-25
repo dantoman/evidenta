@@ -891,7 +891,7 @@ agenții invocați, ambele suite de izolare verzi, nicio decizie deschisă înch
 
 ## F0.10 — Convenții API și schelet frontend
 
-### F0.10.1 — Convenții API
+### F0.10.1 — Convenții API — **TERMINAT** (2026-08-25)
 
 - **Obiectiv:** structura de rutare, erorile și idempotența sunt fixate înainte de primul endpoint
   de business.
@@ -902,6 +902,15 @@ agenții invocați, ambele suite de izolare verzi, nicio decizie deschisă înch
 - **Terminat:** `/api/v1/` este singura cale; fiecare eroare are cod stabil; un endpoint de probă cu
   efect financiar refuză cererea fără `Idempotency-Key`.
 - **Blocat de:** —
+- **Livrat, și ce nu:** codurile stabile se randează prin **middleware**, nu prin handlerul DRF —
+  endpointurile de autentificare sunt Django simplu, deci o garanție care ar sta doar în DRF ar
+  ține pentru o parte din API și pentru restul nu. `Idempotency-Key` se **cere** și se validează;
+  **replay-ul nu e implementat, deliberat**: `R19` pune cheia pe evenimentul contabil
+  (`UNIQUE (company_id, idempotency_key)`), care vine cu motorul de postare la F1.2, iar un cache
+  de replay la nivel de endpoint ar fi chiar lucrul despre care `R19` spune că nu ajunge. `DNB-10`
+  (fereastra de reutilizare) rămâne deschisă și nimic nu presupune un răspuns.
+- **Endpointul de probă stă în teste**, nu în `config/urls.py`: o rută care există doar ca să fie
+  testată este o rută care ajunge în producție și e găsită de cineva.
 
 ### F0.10.2 — Autentificare la nivel de API
 

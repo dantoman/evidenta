@@ -12,6 +12,30 @@ de date și infrastructură RLS**.
 
 ## Ultima sesiune
 
+**2026-08-25, F0.10.1 — convenții API:**
+
+- **codurile stabile se randează prin middleware, nu prin handlerul DRF.** `C10` e o garanție despre
+  API, nu despre un framework, iar endpointurile de autentificare sunt Django simplu — o garanție
+  care ar sta doar în DRF ar ține pentru o parte din API și pentru restul nu. Handlerul DRF există
+  și el, fiindcă mapează și excepțiile proprii ale frameworkului
+- **cârligul e `process_exception`, nu `try/except` în jurul lui `get_response`.** A doua formă e cea
+  evidentă și e greșită: Django transformă excepția unui view în răspuns **înainte** să ajungă la
+  `except`-ul unui strat exterior. Varianta evidentă trece testele dacă testele folosesc view-uri
+  DRF, apoi cade tăcut pe cele Django simple — adică exact jumătatea pentru care există middleware-ul
+- **middleware-ul stă în interiorul contextului de tenant**, ca tranzacția să fie încă deschisă: o
+  eroare ridicată de un serviciu trebuie să deruleze înapoi, iar prinderea ei în afara contextului ar
+  transforma o scriere parțială într-un 400 curat
+- **`Idempotency-Key` se cere și se validează; replay-ul nu se implementează, deliberat.** `R19` pune
+  cheia pe evenimentul contabil, care vine la F1.2. Un cache de replay la nivel de endpoint ar fi
+  chiar lucrul despre care `R19` spune că nu ajunge, și ar trebui scos. `DNB-10` rămâne deschisă —
+  fereastra de 24h e convenția din industrie și ar fi fost plauzibil de scris
+- **endpointul de probă stă în teste**, nu în `config/urls.py`: o rută care există doar ca să fie
+  testată ajunge în producție și e găsită de cineva, iar una cu „efect financiar" în nume e un lucru
+  prost de lăsat într-o hartă de URL-uri
+- **286 de teste trec**
+
+## Sesiunea anterioară
+
 **2026-08-25, ADR-028 — ce înseamnă „modelat în F0". `OD-11` închisă, `F0.7.5` retrasă:**
 
 - **decizia era deja luată** și stătea într-o regulă cu prioritate declarată. `CLAUDE.md` §4:
@@ -30,7 +54,7 @@ de date și infrastructură RLS**.
   cu probă care cade
 - **273 de teste trec**
 
-## Sesiunea anterioară
+## Sesiuni mai vechi
 
 **2026-08-25, F0.6.5 — notificări.** Închide conflictul X-9: modulul era marcat F0 în hartă și în
 V2 §10, dar n-avea sarcină în §6.1.
@@ -574,7 +598,11 @@ preced orice model.
         rotunjirea vine din registrul fiscal după data perioadei — nu există `round_money()`
   - [x] F0.9.2 — `exchange_rate` global, `UNIQUE (currency, rate_date, rate_type)`,
         scriere doar prin calea privilegiată P-3
-- [ ] F0.10 — Convenții API și schelet frontend
+- [ ] F0.10 — Convenții API și schelet frontend    ← ÎN CURS
+  - [x] F0.10.1 — convenții API: coduri de eroare stabile prin middleware, `Idempotency-Key`
+        cerut și validat (replay-ul stă pe evenimentul contabil, F1.2)
+  - [ ] F0.10.2 — autentificare la nivel de API
+  - [ ] F0.10.3 — schelet frontend *(blocat de OD-19, OD-35)*
 
 Descompunerea în 49 de sarcini de dimensiunea unei sesiuni, cu dependențe, agenți de review și
 criterii de terminare: `_bootstrap/06-f0-backlog.md`.

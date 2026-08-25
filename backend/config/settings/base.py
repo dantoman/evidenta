@@ -74,6 +74,12 @@ MIDDLEWARE: list[str] = [
     # before the cookie was ever read.
     "evidenta.platform.identity.middleware.SessionAuthenticationMiddleware",
     "evidenta.platform.rls.middleware.TenantContextMiddleware",
+    # Inside the tenant context, on purpose. An ApiError raised by a service has
+    # to roll the transaction back; catching it outside the context would turn a
+    # partial write into a tidy 400. C10 is a guarantee about the API, not about
+    # a framework, so it cannot live only in DRF's handler -- the authentication
+    # endpoints are plain Django.
+    "evidenta.platform.api.middleware.ApiErrorMiddleware",
 ]
 
 # Names a zero-argument **factory** returning the resolver, not the resolver
@@ -175,6 +181,11 @@ REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [],
     "DEFAULT_PERMISSION_CLASSES": ["rest_framework.permissions.IsAuthenticated"],
     "UNAUTHENTICATED_USER": None,
+    # Every error answers with a stable code (C10). Wired at the framework level
+    # rather than per view: an endpoint that forgot to use it would answer with
+    # DRF's own shape, and the difference is invisible until a client branches on
+    # it.
+    "EXCEPTION_HANDLER": "evidenta.platform.api.errors.exception_handler",
 }
 
 # --- Celery ------------------------------------------------------------------
