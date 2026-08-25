@@ -263,13 +263,28 @@ Postarea într-un cont care cere dimensiunea `partner` fără `partner_id` este 
 > partenerului) și evită un `JOIN` pe cea mai mare tabelă din sistem. Prețul: zece coloane
 > majoritar `NULL` și o listă închisă.
 
-**`DECIZIE NECESARĂ (DNB-02)` — dimensiuni definite de utilizator.**
-Lista de mai sus este închisă. Un client care vrea „filială" sau „linie de business" ca dimensiune
-nu are unde. Opțiuni: (A) lista rămâne închisă, iar cererile se rezolvă prin subconturi — soluția
-clasică din 1C, care umflă planul de conturi; (B) se adaugă un `jsonb custom_dimensions` pe linie,
-indexabil `GIN`, cu costul că nu se poate impune obligativitatea și nici integritatea; (C) `N`
-coloane generice rezervate (`dim_1_id` … `dim_5_id`), cu semnificația configurată per companie —
-funcționează, dar face rapoartele ilizibile fără metadate.
+**`DNB-02` — ÎNCHISĂ prin [ADR-029](../decisions/029-dimensiuni-analitice.md), varianta (C).**
+
+Lista de mai sus rămâne închisă, și i se adaugă **cinci sloturi generice**: `dim_1_id` … `dim_5_id`,
+`uuid NULL`, cu semnificația configurată per companie într-o tabelă `company_dimension`
+(`(company_id, slot)` → nume, sursa valorilor permise).
+
+Trei lucruri fac varianta să funcționeze, și fiecare răspunde unei obiecții:
+
+- **obligativitatea se impune la fel ca la restul** — `company_account.required_dimensions` (2.4)
+  numește un slot ca pe orice altă dimensiune, iar motorul refuză postarea fără el. Este exact ce
+  varianta `jsonb` nu putea oferi;
+- **indexarea rămâne B-tree obișnuit** — `(company_id, dim_1_id, accounting_date)`, ca la partener,
+  fără `GIN` pe cea mai mare tabelă din sistem;
+- **obiecția „rapoarte ilizibile fără metadate" cade**, fiindcă tabela de metadate nu e un cost
+  adăugat: interfața are nevoie de ea oricum, pentru etichetă și pentru lista de valori.
+
+Limita de cinci este deliberată și vizibilă. Al șaselea client care cere o axă proprie cere o
+migrare; alternativa fără limită era cea fără obligativitate.
+
+`company_dimension` **nu se construiește în F0.** Se creează la `F1.2`, odată cu `journal_line`.
+Motivul pentru care forma se fixează totuși acum: `journal_line` este tabelă append-only de volum
+mare (`R21`), iar adăugarea unei coloane pe ea, mai târziu, nu mai e migrare ieftină.
 
 ---
 
@@ -1034,7 +1049,7 @@ o stare „suspectat duplicat" pe document și un flux de rezolvare.
 | # | Decizie | Blochează | Cine decide |
 |---|---|---|---|
 | DNB-01 | Cine deține vocabularul de `event_type` | F1.3 | arhitectură |
-| DNB-02 | Dimensiuni definite de utilizator | F1.2 — coloanele liniei | arhitectură + produs |
+| ~~DNB-02~~ | Dimensiuni definite de utilizator — **închisă** prin ADR-029: cinci sloturi generice per companie | — | — |
 | DNB-03 | Politica de propagare a template-ului planului de conturi *(= OD-03)* | F1.1 | contabil + produs |
 | DNB-04 | Reprezentarea regulilor de postare: date, cod, sau hibrid | F1.4 | arhitectură |
 | DNB-05 | Granularitatea postării de payroll | F2, volumul lui `journal_line` | contabil + arhitectură |

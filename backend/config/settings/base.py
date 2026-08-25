@@ -62,6 +62,7 @@ INSTALLED_APPS: list[str] = [
     "evidenta.fiscal.parameters.apps.FiscalParametersConfig",
     "evidenta.fiscal.registry.apps.FiscalRegistryConfig",
     "evidenta.platform.notifications.apps.NotificationsConfig",
+    "evidenta.platform.attachments.apps.AttachmentsConfig",
     "evidenta.accounting.currency.apps.CurrencyConfig",
 ]
 
@@ -175,6 +176,30 @@ LANGUAGE_CODE = "ro"
 TIME_ZONE = "Europe/Chisinau"
 USE_I18N = True
 USE_TZ = True
+
+# --- attachments -------------------------------------------------------------
+#
+# Names a zero-argument factory returning the storage backend. Unset means
+# RefusingStorage, which raises on every call -- OD-52 has not chosen a provider,
+# and a filesystem fallback would pass every test and lose files in production
+# behind a load balancer.
+ATTACHMENT_STORAGE: str | None = None
+
+# SCHELET. Upload limits have to exist before the first upload path does, because
+# a missing limit is not a missing feature -- it is an unbounded write reachable
+# from outside. The values are reversible defaults, not decisions; the real ones
+# belong with OD-52, together with what a scanner does.
+ATTACHMENT_MAX_BYTES = 25 * 1024 * 1024
+ATTACHMENT_ALLOWED_CONTENT_TYPES: tuple[str, ...] = (
+    "application/pdf",
+    "application/xml",
+    "text/xml",
+    "image/jpeg",
+    "image/png",
+    "image/tiff",
+    "text/csv",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+)
 
 # --- REST --------------------------------------------------------------------
 REST_FRAMEWORK = {

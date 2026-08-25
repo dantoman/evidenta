@@ -35,6 +35,7 @@ from tests.conftest import admin_dsn
 
 # Order matters: children before parents.
 SEEDED_TABLES = (
+    "attachment_metadata",
     "notification_delivery",
     "notification",
     "exchange_rate",

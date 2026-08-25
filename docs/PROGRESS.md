@@ -80,7 +80,7 @@ bifa ar spune că sarcina e terminată, iar ea nu e.
   fie **indistinctibile**
 - **288 de teste trec**
 
-## Sesiunea anterioară
+## Sesiuni mai vechi
 
 **2026-08-25, ADR-028 — ce înseamnă „modelat în F0". `OD-11` închisă, `F0.7.5` retrasă:**
 
@@ -626,7 +626,8 @@ preced orice model.
   - [x] F0.6.1 — `Document` cu tip discriminator, stări generice și matrice de tranziții
   - [x] F0.6.2 — numerotare pe șabloane (ADR-022): contor blocat, unicitate în bază
   - [x] F0.6.4 — `document_event`, append-only, disciplina R21/R22
-  - [ ] F0.6.3 — atașamente *(blocat de DN-16 și de providerul S3)*
+  - [~] F0.6.3 — atașamente: metadate la nivel de companie, politici, contract de stocare.
+        **Parțial** — providerul, semnarea și limitele reale sunt `OD-52`
   - [x] F0.6.5 — notificări: in-app complet, canalul de e-mail modelat fără transport (OD-50);
         închide conflictul X-9
 - [ ] F0.7 — Master data    ← ÎN CURS
@@ -636,7 +637,8 @@ preced orice model.
   - [x] F0.7.4 — `Item`, `ItemCategory`, `UnitOfMeasure`, `UnitConversion`
   - [x] ~~F0.7.5~~ — `Warehouse` **retrasă** prin ADR-028: „modelat în F0" e obligație negativă,
         verificată, nu construită. `masterdata/warehouses` rămâne F4; `OD-11` închisă
-  - [ ] F0.7.6 — dimensiuni: ADR, nu cod *(blocat de DNB-02)*
+  - [x] F0.7.6 — dimensiuni: ADR-029, listă închisă plus cinci sloturi generice. Niciun cod,
+        cum cere sarcina — `journal_line` se creează la F1.2
 - [x] F0.8 — Parametri fiscali și registru
   - [x] F0.8.1 — `fiscal_parameter` și proveniența: sursa obligatorie, aprobarea obligatorie
         pentru `active`, nesuprapunere impusă în bază. **Nicio valoare fiscală** (OD-22)

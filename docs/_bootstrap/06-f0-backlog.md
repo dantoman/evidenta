@@ -708,7 +708,7 @@ agenții invocați, ambele suite de izolare verzi, nicio decizie deschisă înch
   paralele); comportamentul la anulare este cel decis, nu cel implicit.
 - **Blocat de:** **OD-02** *(per companie sau per filială — și „filiala" nu e o entitate definită)*
 
-### F0.6.3 — Atașamente
+### F0.6.3 — Atașamente — **PARȚIAL** (2026-08-25)
 
 - **Obiectiv:** fișierele se stochează izolat per tenant, cu metadate în bază.
 - **Fișiere:** `backend/evidenta/platform/attachments/models.py`, `storage.py`, migrații, politici
@@ -716,7 +716,15 @@ agenții invocați, ambele suite de izolare verzi, nicio decizie deschisă înch
 - **Review:** `tenancy-guard`
 - **Terminat:** un utilizator al tenantului A nu poate obține un URL semnat pentru un fișier al
   tenantului B (caz din IZ-06); limitele de dimensiune și tip sunt impuse la încărcare.
-- **Blocat de:** DN-16, OD-14 *(providerul S3)*
+- **Blocat de:** ~~DN-16~~ *(închisă prin [ADR-030](../decisions/030-atasamente.md): nivel
+  companie)*; ~~OD-14~~ — **citare greșită în backlog:** `OD-14` este *versiunile stack-ului* și e
+  închisă de la 2026-08-24 prin ADR-005. Providerul S3 n-avea număr; e acum `OD-52`.
+- **Livrat:** `attachment_metadata` la nivel de companie, cu politică `has_tenant_access` **și**
+  `has_company_access`, `WITH CHECK` inclus; cheia de obiect derivată în cod, cu
+  `tenant_id/company_id` în față; contractul de stocare scris, cu `RefusingStorage` implicit.
+- **Rămas (`OD-52`):** providerul, layout-ul, semnarea URL-urilor, limitele reale, scanarea și
+  comportamentul la `archived`. **Criteriul de terminare nu e îndeplinit:** nu există cale de
+  încărcare și nici URL semnat, deci `IZ-06` e demonstrat la nivel de metadate, nu de fișier.
 
 ### F0.6.4 — `document_events`
 
@@ -802,7 +810,7 @@ agenții invocați, ambele suite de izolare verzi, nicio decizie deschisă înch
 - **Rezultat:** `masterdata/warehouses` rămâne F4. `X-5` se rezolvă în favoarea hărții. `OD-11` e
   închisă. Regula §4 a primit un gardian: `backend/tests/architecture/test_no_empty_apps.py`.
 
-### F0.7.6 — Dimensiunile analitice: consemnare, nu implementare
+### F0.7.6 — Dimensiunile analitice: consemnare, nu implementare — **TERMINAT** (2026-08-25)
 
 - **Obiectiv:** lista închisă a dimensiunilor și regulile lor de obligativitate sunt fixate înainte
   ca linia de jurnal să existe.
@@ -811,7 +819,10 @@ agenții invocați, ambele suite de izolare verzi, nicio decizie deschisă înch
 - **Review:** —
 - **Terminat:** lista celor zece dimensiuni e consemnată ca decizie, cu răspunsul la DNB-02
   (dimensiuni definite de utilizator). Niciun cod.
-- **Blocat de:** DNB-02
+- **Blocat de:** ~~DNB-02~~ — închisă de proprietar prin
+  [ADR-029](../decisions/029-dimensiuni-analitice.md), varianta (C): lista închisă plus cinci
+  sloturi generice cu semnificația per companie. Spec B §1.7 actualizată. **Niciun cod**, așa cum
+  cere sarcina: `company_dimension` și coloanele se creează la F1.2, odată cu `journal_line`.
 
 > „Dimensiuni la F0" înseamnă că linia de jurnal va avea câmpurile de la început, nu că modulul de
 > centre de cost există. Linia de jurnal se creează la F1.2; ce se face acum este decizia.
