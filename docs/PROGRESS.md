@@ -10,6 +10,9 @@
 **F0 — Fundament.** Inițializarea s-a terminat; implementarea a început cu **F0.1 — roluri de bază
 de date și infrastructură RLS**.
 
+Descompunerea completă: `_bootstrap/08-f1-backlog.md` — patru fire care pot merge în paralel, cu
+`F1.2.1` ca singur punct de sincronizare timpuriu, și tabelul de blocaje la final.
+
 ## Ultima sesiune
 
 **2026-08-25, două decizii de F1 depuse ca ADR — și trei reconcilieri găsite la depunere:**

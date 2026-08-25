@@ -1,9 +1,10 @@
 # 07 — Backlog F1, parțial: grilele de date
 
 - **Data:** 2026-08-24
-- **Statut:** **extras parțial.** Backlogul complet F1 nu este scris. Acest fișier conține doar
-  cele două sarcini de grilă, ca să nu se nască din interiorul primului raport. Se topește în
-  backlogul F1 când acela se scrie.
+- **Statut:** **detaliul canonic** pentru `F1.G1` și `F1.G2`. Backlogul F1 există acum
+  (`08-f1-backlog.md`) și le **secvențiază**, fără să le copieze: o a doua copie a aceleiași
+  sarcini diverge de prima, iar F0 a produs destule exemple. Cine caută poziția lor în fază se uită
+  în `08`; cine le implementează, aici.
 - **Sursa:** `../decisions/001-grila-de-date.md` (Acceptat), `CLAUDE.md` §2.6 (`C16`–`C22`)
 - **Ordinea F1 de referință:** `../_input/evidenta-implementation-spec.md` §6.2
 

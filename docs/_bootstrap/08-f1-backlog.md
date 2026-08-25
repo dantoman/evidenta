@@ -1,0 +1,388 @@
+# 08 — Backlog F1: Accounting Core
+
+- **Data:** 2026-08-25
+- **Sursa ordinii:** `_input/evidenta-implementation-spec.md` §6.2 (F1.1 → F1.10). Ordinea de
+  referință se păstrează; unde se abate, se spune de ce.
+- **Obiectivul fazei:** Evidenta produce o balanță de verificare corectă, **verificabilă la leu**
+  contra unei balanțe 1C reale.
+- **Regula de dimensionare:** o sarcină care atinge mai mult de un modul, sau care nu poate fi
+  verificată printr-un criteriu clar, este prea mare. Fiecare sarcină de mai jos încape într-o
+  sesiune.
+
+## Cum se citește o sarcină
+
+Aceeași formă ca la F0 — `Obiectiv`, `Fișiere`, `Depinde de`, `Review`, `Terminat`, `Blocat de` —
+plus **Definition of Done**, care se aplică peste criteriul propriu: zero CRITICAL de la agenții
+invocați, suitele verzi, nicio decizie deschisă închisă tacit.
+
+Un lucru s-a schimbat față de F0, și e învățat acolo: **lista de blocaje se curăță.** La F0 s-au
+găsit într-o singură zi trei sarcini blocate de decizii închise de zile, plus două decizii luate de
+proprietar și neconsemnate deloc. Deriva merge într-o singură direcție — registrul se actualizează,
+backlogul nu — iar o listă de blocaje pe care nimeni n-o curăță încetează să fie o listă de blocaje
+și devine un motiv de a nu începe. §12 de mai jos e tabelul care se verifică, nu se citește.
+
+## Ce s-a schimbat față de F0, ca metodă
+
+**Schema F1 e fixată de patru ADR-uri, nu de acest document.** [ADR-036](../decisions/036-forma-postarii.md)
+(forma postării), [ADR-038](../decisions/038-vocabularul-de-evenimente.md) (`event_type`),
+[ADR-039](../decisions/039-valuta-si-perioade.md) (valută și perioade),
+[ADR-029](../decisions/029-dimensiuni-analitice.md) (dimensiuni). Backlogul le implementează; nu le
+redeschide. Unde o sarcină pare să ceară altceva, ADR-ul câștigă și sarcina se corectează.
+
+---
+
+## F1.1 — Planul de conturi SNC
+
+### F1.1.1 — Șablonul global, versionat
+
+- **Obiectiv:** planul de conturi există ca **date versionate**, nu ca fixture copiat o dată.
+- **Fișiere:** `backend/evidenta/accounting/coa/models.py`, migrații, politici
+- **Depinde de:** —
+- **Review:** `schema-reviewer`, `tenancy-guard`, `fiscal-reviewer`
+- **Terminat:** `coa_template` și `coa_template_account` există ca tabele globale, în lista de
+  excepții; `UNIQUE (code, version)`; neîntrepătrundere pe `(code, daterange)` pentru versiunile
+  `published`; scriere doar prin calea privilegiată `P-4`. **Niciun cont încărcat.**
+- **Blocat de:** — *(structura; **conținutul** e `OD-22` — niciun cod de cont nu intră fără
+  trimitere la Planul general de conturi și la ordinul care îl aprobă)*
+
+### F1.1.2 — Instanța per companie
+
+- **Obiectiv:** planul unei companii este „versiune de șablon + strat de suprascriere", nu copie.
+- **Fișiere:** `backend/evidenta/accounting/coa/`, migrații, politici
+- **Depinde de:** F1.1.1
+- **Review:** `schema-reviewer`, `tenancy-guard`
+- **Terminat:** `company_chart` și `company_account`, tenant-scoped, îngustate pe companie;
+  conturile au `valid_from`/`valid_to` și **nu se șterg niciodată**; un cont de sistem nu poate fi
+  modificat de tenant, iar unul propriu poate. Granița e cea din normă, nu inventată:
+  [ADR-036](../decisions/036-forma-postarii.md) §6.3 — gradul I din clasele 1–7 e obligatoriu,
+  restul e recomandare.
+- **Blocat de:** — *(`DNB-03`, propagarea legislativă, **nu blochează F1**: apare abia când există
+  tenanți în producție și se schimbă legea — ADR-036 §13)*
+
+### F1.1.3 — `required_dimensions` pe cont
+
+- **Obiectiv:** obligativitatea dimensiunilor se impune de motor, pe cont.
+- **Depinde de:** F1.1.2
+- **Terminat:** `company_account.required_dimensions` există; postarea într-un cont care cere o
+  dimensiune fără ea este refuzată **de motor**, nu de interfață. Este mecanismul pe care
+  [ADR-029](../decisions/029-dimensiuni-analitice.md) l-a apărat respingând varianta `jsonb`.
+- **Blocat de:** —
+
+---
+
+## F1.2 — Ledgerul
+
+### F1.2.1 — `journal_entry` și `journal_line`
+
+- **Obiectiv:** registrul există, append-only, cu echilibrul impus în bază.
+- **Fișiere:** `backend/evidenta/accounting/ledger/models.py`, migrații, politici
+- **Depinde de:** F1.1.2
+- **Review:** `schema-reviewer`, `accounting-reviewer`, `tenancy-guard`
+- **Terminat:** `debit` și `credit` separate, `NOT NULL DEFAULT 0`, cu
+  `CHECK ((debit = 0) <> (credit = 0))`; `Σ debit = Σ credit` prin trigger de constrângere amânată
+  (`R11`); `accounting_date NOT NULL` ca **cheie de partiționare** ([ADR-032](../decisions/032-cheia-de-partitionare.md));
+  fără chei străine **intrând** (`R21`); `bigint` ca PK (`C6`); indecșii încep cu
+  `(tenant_id, company_id, accounting_date)`.
+- **Blocat de:** —
+
+### F1.2.2 — Cele trei date și cele patru câmpuri de valută
+
+- **Obiectiv:** linia poartă din prima zi ce nu se mai poate adăuga ieftin într-un registru imutabil.
+- **Depinde de:** F1.2.1
+- **Terminat:** `accounting_date`, `document_date` și `rate_date` există, primele două indexate;
+  `currency`, `amount_currency`, `exchange_rate` obligatorii, cu `exchange_rate = 1` pentru moneda
+  funcțională. Soldul unui cont se calculează **atât în MDL, cât și în moneda originală**.
+  Vezi [ADR-039](../decisions/039-valuta-si-perioade.md) §3, §9.
+- **Blocat de:** —
+
+### F1.2.3 — Dimensiunile analitice
+
+- **Obiectiv:** lista închisă plus cele cinci sloturi generice.
+- **Depinde de:** F1.2.1
+- **Terminat:** cele zece coloane din Spec B §1.7 plus `dim_1_id` … `dim_5_id`; `company_dimension`
+  leagă slotul de semnificația lui per companie, cu `UNIQUE (company_id, slot)` și
+  `UNIQUE (company_id, name)`. **Cinci, nu „un plafon din modelul de volum"** —
+  [ADR-029](../decisions/029-dimensiuni-analitice.md).
+- **Blocat de:** —
+
+### F1.2.4 — Storno
+
+- **Obiectiv:** corecția se face prin storno și reînregistrare, niciodată prin `UPDATE`.
+- **Depinde de:** F1.2.1, F1.3.1
+- **Review:** `accounting-reviewer`
+- **Terminat:** o înregistrare de storno are **două legături** — spre documentul sursă și spre
+  înregistrarea anulată (`R14`); niciun `UPDATE` pe linii postate este posibil, verificat prin test
+  care încearcă și eșuează (`R10`).
+- **Blocat de:** —
+
+---
+
+## F1.3 — Evenimentele contabile
+
+### F1.3.1 — `accounting_event` și idempotența
+
+- **Obiectiv:** stratul dintre modulele business și ledger, idempotent pe eveniment.
+- **Fișiere:** `backend/evidenta/accounting/events/`, migrații, politici
+- **Depinde de:** F1.2.1
+- **Review:** `accounting-reviewer`, `schema-reviewer`
+- **Terminat:** `UNIQUE (company_id, idempotency_key)` — inima lui `R19`; aceeași cheie cu același
+  payload întoarce rezultatul primei execuții fără efect nou; **aceeași cheie cu payload diferit
+  este eroare cu cod stabil**, fiindcă acela e cazul care semnalează un bug la apelant, iar tăcerea
+  l-ar ascunde.
+- **Blocat de:** — *(`DNB-10`, fereastra de reutilizare a cheii **din API**, nu blochează: pe
+  eveniment unicitatea e permanentă)*
+
+### F1.3.2 — Registrul de `event_type`
+
+- **Obiectiv:** vocabularul e închis și fiecare tip are handler.
+- **Depinde de:** F1.3.1
+- **Terminat:** modulele **își înregistrează** tipurile — direcția inversă, deci `D2` nu e atinsă;
+  validarea rulează **în CI și la pornirea proceselor care servesc, nu în `AppConfig.ready()`**,
+  unde ar cădea și `migrate`; intervalele de valabilitate ale handlerelor unui tip nu se suprapun și
+  nu lasă goluri. Vezi [ADR-038](../decisions/038-vocabularul-de-evenimente.md) §3–§5.
+- **Blocat de:** —
+
+### F1.3.3 — Lineage complet
+
+- **Obiectiv:** `R13` navigabil în ambele sensuri.
+- **Depinde de:** F1.3.1, F1.2.1
+- **Review:** `accounting-reviewer`
+- **Terminat:** un test parcurge lanțul `Journal Line → Journal Entry → Accounting Event → Source
+  Document → Sursă` și înapoi, cu sume și conturi.
+- **Blocat de:** —
+
+---
+
+## F1.4 — Posting Engine
+
+### F1.4.1 — Rezoluția regulilor
+
+- **Obiectiv:** un eveniment produce exact o postare, sau eșuează zgomotos.
+- **Fișiere:** `backend/evidenta/accounting/posting/`
+- **Depinde de:** F1.3.2, F1.1.3
+- **Review:** `accounting-reviewer`, `fiscal-reviewer`
+- **Terminat:** selecția e `event_type + accounting_date ∈ [valid_from, valid_to)`, filtrată pe
+  condiții și **pe profilul de capabilități** — `R26` cere ca acesta să fie **input explicit**, nu
+  o citire laterală; **zero sau ≥2 reguli este eroare**, niciodată alegere implicită.
+- **Blocat de:** —
+
+### F1.4.2 — Rolurile de cont și legarea
+
+- **Obiectiv:** handlerele referă sloturi semantice, nu conturi.
+- **Depinde de:** F1.4.1, F1.1.2
+- **Terminat:** un rol nelegat este **eroare la postare**, nu postare pe un cont de rezervă;
+  legarea are `valid_from`/`valid_to` și nu afectează postările existente. Granița din
+  [ADR-036](../decisions/036-forma-postarii.md) §5.1 e respectată: maparea **impusă de lege** stă în
+  `fiscal_parameter`, global; subcontul propriu al tenantului e configurare.
+- **Blocat de:** —
+
+### F1.4.3 — Cei șase invarianți
+
+- **Obiectiv:** motorul refuză, nu handlerul.
+- **Depinde de:** F1.4.1
+- **Terminat:** toți șase din [ADR-036](../decisions/036-forma-postarii.md) §5 sunt verificați de
+  motor, fiecare cu un test care îl încalcă deliberat și vede refuzul.
+- **Blocat de:** —
+
+### F1.4.4 — Primele handlere
+
+- **Obiectiv:** tratamentele concrete.
+- **Depinde de:** F1.4.3
+- **Review:** `accounting-reviewer`, `fiscal-reviewer`
+- **Terminat:** fiecare handler are teste proprii și interval de valabilitate.
+- **Blocat de:** **cazurile `C1`–`C5` din [ADR-036](../decisions/036-forma-postarii.md) §11** —
+  metoda de cost la ieșire, amortizarea, cheltuielile de transport-aprovizionare, diferențele de
+  curs, repartizarea indirectelor. Cer lista permisă de SNC, **citată**, nu dedusă.
+
+---
+
+## F1.5 — Perioade și închidere
+
+### F1.5.1 — Perioada contabilă
+
+- **Obiectiv:** stările și refuzul la nivel de motor.
+- **Depinde de:** F1.2.1
+- **Terminat:** `open` / `closed` / `locked`, cu redeschidere posibilă doar cât exercițiul e deschis,
+  cu motivare și urmă în audit; după `locked`, niciodată. **Postarea într-o perioadă închisă e
+  refuzată de motor, nu de interfață** (`R12`).
+- **Blocat de:** —
+
+### F1.5.2 — Exercițiul fiscal
+
+- **Obiectiv:** `start_date`/`end_date` explicite, implicit calendaristic.
+- **Depinde de:** F1.5.1
+- **Terminat:** presupunerea „douăsprezece luni, ianuarie–decembrie" **nu apare nicăieri** în
+  închidere, agregare sau raportare — verificat prin test cu un exercițiu aprilie–martie, care este
+  cazul normal pentru subsidiarele cu proprietar străin (art. 24 alin. (1) lit. b).
+- **Blocat de:** —
+
+### F1.5.3 — Perioada fiscală TVA, distinctă
+
+- **Obiectiv:** perioada contabilă și cea fiscală sunt două concepte.
+- **Depinde de:** F1.5.1
+- **Terminat:** un test acoperă cazul anulării înregistrării, unde perioada fiscală TVA **depășește
+  o lună calendaristică** (art. 114 alin. (2)). În 99% din cazuri coincid — testul e pentru restul.
+- **Blocat de:** —
+
+### F1.5.4 — Închiderea
+
+- **Obiectiv:** două `event_type`, cu clasa 8 ca invariant.
+- **Depinde de:** F1.5.2, F1.4.1
+- **Review:** `accounting-reviewer`
+- **Terminat:** `period.month.closed` blochează și **validează invariantul clasei 8** (sold zero la
+  data raportării); `period.year.closed` postează lanțul de închidere a conturilor de rezultate.
+  Închiderea produce **postări normale, prin motor** (`R9`).
+- **Blocat de:** **`OD-22`** — conturile concrete din lanț sunt **mapări de conturi**, deci parametri
+  fiscali (`R15`): se încarcă din `fiscal_parameter` cu act normativ, nu se scriu în handler. Un
+  număr de cont scris din memorie în codul care produce rezultatul anului este un rezultat pe care
+  nimeni nu-l poate apăra la un control.
+
+---
+
+## F1.6 — Logica fiscală, primul strat
+
+- **Obiectiv:** registrul de algoritmi are primele implementări reale.
+- **Depinde de:** F1.4.1
+- **Review:** `fiscal-reviewer`
+- **Terminat:** cel puțin un algoritm real e selectat după data efectivă a perioadei și trece
+  corpusul de regresie. Registrul însuși **există din F0.8**; ce lipsește sunt implementările.
+- **Blocat de:** **`OD-22`** *(valorile)* și **`DNB-08`** *(rotunjirea — [ADR-037](../decisions/037-conventii-de-platforma.md),
+  blocat pe ghidul de integrare SFS, `OD-24`)*. `accounting.money_rounding` nu are nicio versiune
+  înregistrată, deci `convert()` refuză — starea corectă, afirmată printr-un test din F0.9.
+
+---
+
+## F1.7 — Note contabile manuale și solduri inițiale
+
+### F1.7.1 — Nota manuală
+
+- **Obiectiv:** chiar și o notă manuală trece prin motor.
+- **Depinde de:** F1.4.3
+- **Terminat:** tipul e `manual.journal_entry`; motorul validează echilibrul, conturile, perioada
+  deschisă și dimensiunile obligatorii, apoi postează **fără să derive** liniile. Nu există a doua
+  cale către ledger.
+- **Blocat de:** —
+
+### F1.7.2 — Soldurile inițiale
+
+- **Obiectiv:** șase seturi de linii, câte unul per domeniu.
+- **Depinde de:** F1.7.1, F1.5.1
+- **Review:** `accounting-reviewer`
+- **Terminat:** GL, clienți, furnizori, stocuri, active, angajați; `opening.balance.posted` într-o
+  perioadă de deschidere; **perioada de start rămâne ireversibilă** ([ADR-039](../decisions/039-valuta-si-perioade.md) §11),
+  iar alegerea ei trece prin `P-9` și Spec A §12.
+- **Blocat de:** —
+
+### F1.7.3 — Șabloanele de operațiuni tipice
+
+- **Obiectiv:** absorb presiunea de personalizare, fără divergență semantică.
+- **Depinde de:** F1.7.1
+- **Terminat:** produc `manual.journal_entry`, **nu tipuri proprii**, și nu pot fi folosite pentru
+  postarea automată a documentelor ([ADR-036](../decisions/036-forma-postarii.md) §8).
+- **Blocat de:** —
+
+---
+
+## F1.8 — Rapoartele contabile
+
+- **Obiectiv:** balanță de verificare, Cartea Mare, fișa contului, jurnale, rulaje, cu drill-down
+  complet.
+- **Depinde de:** F1.2.2, F1.5.1, **F1.G1**
+- **Review:** `accounting-reviewer`
+- **Terminat:** balanța se reconciliază **la leu** contra extrasului 1C; **totalurile vin de la
+  server** (`C19`) — niciun total calculat în client peste un set virtualizat; exporturile se
+  generează server-side, din aceeași sursă ca afișarea (`C20`); drill-down până la documentul sursă.
+- **Blocat de:** `OD-29` *(țintele de performanță — modelul de volum există din F0.11, deci decizia
+  e deblocată, nu luată)*, `OD-35` *(scara de densitate; `C21` e activă, iar acesta e primul ecran cu
+  grilă)*
+
+---
+
+## F1.9 — Importatorul 1C, fundament
+
+- **Obiectiv:** conector, extragere plan de conturi, parteneri, solduri.
+- **Depinde de:** F1.1.2, F1.7.2
+- **Review:** `accounting-reviewer`
+- **Terminat:** liniile importate sunt **vizibil distincte** în registru; suma din sursă e
+  autoritativă și nu se recalculează, dar cei șase invarianți se verifică la fel — un import care nu
+  echilibrează e refuzat, ceea ce e chiar verificarea utilă la migrare
+  ([ADR-038](../decisions/038-vocabularul-de-evenimente.md) §7.3).
+- **Blocat de:** **`OD-28`** *(ce versiuni 1C, prin ce metodă de extragere)*
+
+---
+
+## F1.10 — Corpusul de regresie fiscală
+
+- **Obiectiv:** cazuri reale, anonimizate, cu rezultat cunoscut.
+- **Depinde de:** F1.6
+- **Review:** `fiscal-reviewer`
+- **Terminat:** rulează în CI la fiecare modificare de parametru sau algoritm (`C14`).
+- **Blocat de:** **contabilul practicant** — cazurile cu rezultat verificat nu se pot fabrica. Este
+  singura măsură de risc contabil rămasă după [ADR-010](../decisions/010-fara-a-doua-semnatura.md),
+  iar F0 s-a încheiat cu ea încă goală.
+
+---
+
+## F1.G1 și F1.G2 — grilele
+
+Rămân descrise în detaliu în `07-f1-grile.md`, care le specifică deja bine. **Nu se copiază aici:**
+o a doua copie a aceleiași sarcini diverge de prima, iar F0 a produs destule exemple.
+
+| Sarcină | Poziție în secvență | Blocat de |
+|---|---|---|
+| **F1.G1** `DataGrid` | după F1.2, înainte de F1.8 | `OD-35`; *`OD-19` închisă prin [ADR-031](../decisions/031-stack-frontend.md)* |
+| **F1.G2** `EntryGrid` | după F1.2, înainte de F1.7 | **`OD-36`** — contractul de tastatură se scrie și se aprobă înainte de cod |
+
+`F1.G0` — setul de date 1C — este aceeași precondiție ca `OD-28`.
+
+---
+
+## Ce poate începe acum, în paralel
+
+Patru fire independente. Niciunul nu așteaptă o decizie deschisă:
+
+```
+Firul A   F1.1.1 → F1.1.2 → F1.1.3        planul de conturi (structura)
+Firul B   F1.2.1 → F1.2.2 → F1.2.3        ledgerul
+Firul C   F1.3.1 → F1.3.2 → F1.3.3        evenimentele            (după F1.2.1)
+Firul D   F1.5.1 → F1.5.2 → F1.5.3        perioadele              (după F1.2.1)
+```
+
+`F1.2.1` este singurul punct de sincronizare timpuriu: firele C și D îl așteaptă. Firul A e complet
+independent de el.
+
+**Ce nu poate începe, și de ce e util să fie vizibil:** F1.4.4 (handlerele concrete) așteaptă
+`C1`–`C5` cu SNC citat; F1.5.4 și F1.6 așteaptă `OD-22`; F1.8 așteaptă `OD-35`; F1.9 și grilele
+așteaptă `OD-28`; F1.10 așteaptă cazuri reale. **Cinci din zece sarcini de nivel superior sunt
+blocate pe lucruri care nu se rezolvă scriind cod** — patru pe domeniu contabil sau acces extern,
+una pe o decizie de produs.
+
+---
+
+## Criteriul de ieșire din F1
+
+- [ ] Balanță de verificare corectă pe date reale importate din 1C
+- [ ] Diferență zero la reconciliere
+- [ ] Storno și reînregistrare funcționează, cu lineage coerent
+- [ ] Postarea într-o perioadă închisă este refuzată
+- [ ] Corpusul de regresie rulează în CI
+
+**Trei dintre cele cinci depind de un extras 1C real.** Aceeași dependență externă care a rămas
+deschisă toată F0, acum pe drumul critic al criteriului de ieșire.
+
+---
+
+## Tabelul de blocaje — se verifică, nu se citește
+
+| Sarcină | Decizie | Natura |
+|---|---|---|
+| F1.4.4 | `C1`–`C5` din ADR-036 §11 | Domeniu contabil — SNC citat |
+| F1.5.4, F1.6 | `OD-22` | Domeniu contabil — Planul general de conturi, ordinul care îl aprobă |
+| F1.6 | `DNB-08` → ADR-037 | Extern — ghidul de integrare SFS (`OD-24`) |
+| F1.8 | `OD-29`, `OD-35` | Produs — deblocate de modelul de volum, respectiv nedecise |
+| F1.9, F1.G0 | `OD-28` | Extern — acces la o bază 1C reală |
+| F1.G2 | `OD-36` | Produs — contractul de tastatură |
+| F1.10 | — | Domeniu contabil — cazuri cu rezultat verificat |
+
+Când o decizie se închide, **rândul de aici se taie în același commit**. Regula există fiindcă la
+F0 nu a existat.
