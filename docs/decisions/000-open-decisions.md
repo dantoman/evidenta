@@ -16,7 +16,6 @@ târziu moment la care decizia trebuie luată fără să genereze rescriere.
 
 | # | Decizie | Blochează | Termen | Ce se știe |
 |---|---|---|---|---|
-| **OD-01** | **Cheia de partiționare** pentru tabelele append-only de volum mare | Nimic — disciplina o substituie (fără FK-uri intrând, coloană `NOT NULL`, indecși cu context) | După modelul de volum, în F0 | Candidați: `accounting_date` (an) pentru tabele contabile, `tenant_id` pentru audit și evenimente. Primul candidat real este `audit_events`, nu `journal_lines` — volum mare de scriere, valoare care scade cu vechimea |
 | **OD-03** | **Politica de propagare** a modificărilor din template-ul planului de conturi către instanțele existente | `accounting/coa` (F1.1) | Spec B | Nicio opțiune descrisă în documente. Întrebarea din V2 §7.1 rămâne deschisă: ce se întâmplă cu companiile care au instanțiat versiunea veche când legislația modifică un cont |
 | **OD-04** | **Modelul cumulativelor payroll** la activarea salarizării în cursul anului | Schema `payroll` | Înainte de F2 | Cerința cunoscută: cumulative de la 1 ianuarie per angajat, altfel IPC-ul iese greșit. Amendamentul o declară închisă în text și deschisă în tabel — vezi `00-inventory.md`, X-1. Tratată ca deschisă |
 | **OD-05** | **Relația cu AvaBoss:** integrare prin evenimente sau portare ulterioară | Nimic acum | După F3 | POS-ul nu se rescrie în Evidenta. Fie devine sursă de evenimente către Posting Engine, fie se portează deliberat mai târziu |
@@ -78,7 +77,7 @@ citabilă sau de contabilul practicant al echipei.
 | **OD-27** | Bănci: formatele de extras acceptate și lista băncilor vizate | F2 | Băncile |
 | **OD-28** | 1C: versiunile și configurațiile suportate, metoda de extragere | F1.9 | Investigație tehnică |
 | **OD-29** | Țintele numerice de performanță pentru cele patru scenarii din V2 §12.4 | Indecșii și read models | Decizie umană, înainte de F1 |
-| **OD-30** | Modelul de volum de date (scenarii mic / mediu / mare) — firma de contabilitate colaboratoare nu este identificată | OD-01 | Date reale |
+| **OD-30** | **Restrânsă prin [ADR-032](032-cheia-de-partitionare.md).** Volumul **nu** mai cere o firmă colaboratoare: modelul stă pe agregate publice (BNS, BNM) plus cifrele din Amendament, cu cinci ipoteze declarate și testate la sensibilitate — vezi `_bootstrap/11-volume-model.md`. Rămâne deschis ce chiar cere date reale: **structura** (plan de conturi, parteneri, un an de rulaje, ca fixture pentru grile — `OD-28`, F1.G0) și **verificarea la leu** contra unei balanțe 1C reale (F1.2) | F1.G0, F1.2 — **nu mai blochează F0.11** | Înainte de F1.7 |
 | **OD-31** | SLA-ul intern de conformitate (propunerea neconfirmată: 5 zile lucrătoare pentru cote și praguri, 15 pentru formulare noi) | Operațiunea de conformitate | Decizie umană |
 
 ---
@@ -143,7 +142,6 @@ Trebuie închise pentru a termina faza. Sarcina blocată e în `../_bootstrap/06
 | F0.7.1 | `OD-12` |
 | F0.8.1 | `DNB-06` |
 | F0.10.3 | ~~`OD-19`~~ ADR-031; `OD-35` *(nu blochează scheletul — `C21` privește ecranele cu grile)* |
-| F0.11 | `OD-30` |
 
 ### T2 — Blochează F1
 
@@ -198,6 +196,7 @@ Se decid la momentul lor. `OD-04` *(înainte de F2)*, `OD-05` *(după F3)*, `OD-
 | **DN-09** | **Al doilea factor este obligatoriu pentru toți.** Fără opțiune de dezactivare: `authenticate()` refuză cu `auth.mfa_enrolment_required` un utilizator fără factor confirmat | [ADR-021](021-mfa-obligatoriu.md) | 2026-08-25 |
 | **OD-20** | Subdomeniul în dezvoltare locală: `*.evidenta.localhost`, cu `TENANT_BASE_DOMAIN` implicit doar în `dev.py` și obligatoriu din mediu în staging și producție. Browserele rezolvă orice `*.localhost` la loopback fără intrare în `hosts`, deci un tenant nou de dezvoltare nu costă nimic. `http://localhost:8000/` răspunde **404** și așa rămâne: o gazdă fără subdomeniu nu are tenant | [ADR-025](025-subdomeniu-in-dezvoltare.md) | 2026-08-25 |
 | **OD-11** | **Nu se creează app-uri pentru module din faze viitoare.** Decizia era deja luată de `CLAUDE.md` §4, care are prioritate declarată asupra backlogului: „modelat în F0" este o obligație **negativă** — nimic din structura fazei curente nu face modulul viitor imposibil — și se **verifică**, nu se construiește. `masterdata/warehouses` și `masterdata/dimensions` rămân la F4, respectiv F1. `X-5` se rezolvă în favoarea hărții. Regula a primit și un gardian, cu probă care cade | [ADR-028](028-modelat-in-f0.md) | 2026-08-25 |
+| **OD-01** | Cheile de partiționare se **desemnează acum și se aplică la prag**: `occurred_at` pentru `audit_event`, `document_event` și arhive; `accounting_date` pentru `journal_line` și `inventory_movement`; **niciodată `tenant_id`** — distribuția BNS dă un raport de volum de ordinul 50:1 între tenanți, deci partiții inegale cu două ordine de mărime. Pragul: peste ~100 mln de rânduri **și** interogări care se pot elaga după cheie. Benchmark-ul a găsit întâi altceva: un index greșit ca formă, care făcea enumerarea să citească un milion de rânduri pentru cincizeci | [ADR-032](032-cheia-de-partitionare.md) | 2026-08-25 |
 | **OD-17** | Contractele de dependență se impun printr-un **gardian propriu, în suită** — parcurgere AST, contract în `infra/modules/dependencies.toml`, fiecare regulă cu probă că poate eșua. `import-linter` a fost evaluat și respins: un contract de straturi nu poate exprima `D6` (comunicare prin modelele altui modul), nu distinge `accounting.events` de `accounting.ledger` (`D3`), și tace despre pachetul pe care nimeni n-a știut să-l declare | [ADR-024](024-gardian-de-dependente.md) | 2026-08-25 |
 | **OD-16** | CI pe **GitHub Actions**, cu Postgres ca serviciu configurat cu aceeași colație ca producția. Bootstrap-ul rulează cu roluri per fișier, nu ca superuser — altfel pipeline-ul ar fi mai permisiv decât producția și n-ar prinde lipsa unui privilegiu | [ADR-023](023-ci-github-actions.md) | 2026-08-25 |
 | **OD-02** | Numerotarea documentelor: **șabloane configurabile per companie**, general sau per tip de document, cu prefix/sufix/lungime. Filiala **nu** se modelează — `prefix` acoperă nevoia; dacă devine cerință reală, e decizie nouă cu entitate proprie | [ADR-022](022-numerotare-sabloane.md) | 2026-08-25 |

@@ -1005,7 +1005,17 @@ agenții invocați, ambele suite de izolare verzi, nicio decizie deschisă înch
 - **Review:** `schema-reviewer`
 - **Terminat:** cele trei scenarii sunt cuantificate; măsurătorile rulează **cu politicile RLS
   active** și sub rolul de aplicație; rezultatul închide OD-01 printr-un ADR.
-- **Blocat de:** OD-30 *(firma de contabilitate colaboratoare nu e identificată)*
+- **Blocat de:** — *(`OD-30` restrânsă prin [ADR-032](../decisions/032-cheia-de-partitionare.md):
+  volumul nu cere date reale, doar ordine de mărime, iar acelea sunt publice)*
+- **Livrat:** `docs/_bootstrap/11-volume-model.md` — trei scenarii cuantificate din agregate BNS și
+  BNM plus cifrele din Amendament, cu cinci ipoteze declarate și testate la sensibilitate; plus
+  `backend/tests/volume/`, generator și măsurători sub `evidenta_app` cu RLS activ
+- **Verificat pe un milion de rânduri:** scriere 13–18 mii rânduri/s prin rolul aplicației, cu
+  `WITH CHECK` evaluat pe rând. `OD-01` închisă prin ADR-032
+- **Ce a găsit benchmark-ul înainte de a răspunde la întrebare:** enumerarea Spec A §9.3 citea un
+  milion de rânduri ca să întoarcă cincizeci — 6.749 ms. Nu scan secvențial, ci index scan peste
+  tot, fiindcă `audit_event_scope_idx` are `company_id` între tenant și timp. Reparat prin
+  `audit_event_recent_idx`: **1,05 ms**. Partiționarea nu era problema
 
 > Este criteriu de ieșire din F0 fără sarcină în documentul de intrare (E-4). Ordinea nu contează —
 > nimic din F0 nu depinde de el — dar absența lui blochează închiderea fazei.
@@ -1021,7 +1031,7 @@ Din `_input/evidenta-implementation-spec.md` §6.1, cu sarcina care îl acoperă
       cele patru combinații (membru, engagement activ, engagement revocat, niciunul) — *F0.2.4*
 - [x] Un task Celery fără context explicit eșuează, nu returnează date — *F0.2.5*
 - [x] Gardianul de model eșuează dacă se adaugă o tabelă fără `tenant_id` — *F0.2.2*
-- [ ] Modelul de volum de date este livrat — *F0.11*
+- [x] Modelul de volum de date este livrat — *F0.11*
 
 ## Sinteza blocajelor
 

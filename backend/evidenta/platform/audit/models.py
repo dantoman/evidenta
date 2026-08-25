@@ -87,6 +87,20 @@ class AuditEvent(models.Model):
                 fields=["tenant_id", "entity_type", "entity_id", "occurred_at"],
                 name="audit_event_entity_idx",
             ),
+            # Spec A 9.3 again, but for the tenant alone -- "what happened here,
+            # most recent first", which is the screen this table exists for.
+            #
+            # It looks redundant next to audit_event_scope_idx and is not, and the
+            # difference was measured rather than reasoned (F0.11). With
+            # company_id in the middle, a tenant's rows are ordered by company and
+            # only then by time, so ordering by occurred_at alone cannot be served
+            # from that index: on a million rows in one tenant, LIMIT 50 read all
+            # million and took 6.7 seconds. Not a sequential scan -- an index scan
+            # of everything, which is why a check for "Seq Scan" passed happily.
+            models.Index(
+                fields=["tenant_id", "-occurred_at"],
+                name="audit_event_recent_idx",
+            ),
             models.Index(fields=["request_id"], name="audit_event_request_idx"),
         ]
 

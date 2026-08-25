@@ -12,6 +12,48 @@ de date și infrastructură RLS**.
 
 ## Ultima sesiune
 
+**2026-08-25, F0.11 — și un index găsit prin măsurătoare, nu prin citire:**
+
+- **`OD-30` nu cerea ce părea că cere.** Blocajul spunea „firma de contabilitate colaboratoare nu
+  este identificată", dar criteriul lui F0.11 cere ca scenariile să fie **cuantificate**, nu ca
+  datele să fie reale — datele le generează scriptul. Cuantificarea stă în statistică publică (BNS,
+  BNM) plus cifrele deja scrise în Amendament, pe care nimeni nu le citise ca sursă
+- `docs/_bootstrap/11-volume-model.md`: trei scenarii, fiecare număr cu sursa lui, **cinci ipoteze
+  marcate ca ipoteze** și testate la sensibilitate. Trei capcane din sursele publice semnalate ca să
+  nu se propage — comunicatele IMM 2024 și 2025 **nu sunt comparabile**, ponderea sare de la 46,1% la
+  73,4% printr-o schimbare de metodologie
+- calculul confirmă independent două afirmații din Amendament: „sute de milioane de linii cumulat,
+  nu pe an" (515 mln la 5 ani, 103 mln pe an) și că **`audit_event` este primul candidat**, nu
+  `journal_lines` (172 față de 103 mln pe an)
+- **Benchmark-ul a găsit altceva înainte să răspundă la întrebare.** Enumerarea Spec A §9.3 — „ce s-a
+  întâmplat în tenantul ăsta, cel mai recent întâi" — citea **un milion de rânduri ca să întoarcă
+  cincizeci**, în 6.749 ms. Nu scan secvențial: *index scan* peste tot, fiindcă
+  `audit_event_scope_idx` are `company_id` între tenant și timp, deci rândurile unui tenant nu sunt
+  ordonate după timp. Reparat prin `audit_event_recent_idx`: **1,05 ms, 50 de rânduri citite**
+- verificarea pe care o scrisesem căuta absența cuvântului „Seq Scan" și **trecea mulțumită la 6,7
+  secunde**. Acum verifică rândurile citite. Dacă am fi partiționat fără să măsurăm, am fi făcut o
+  operațiune scumpă care nu repara nimic
+- **constatare care depășește tabela:** planificatorul nu poate estima selectivitatea prin
+  `app.current_tenant_id()` — presupune `rows=1` acolo unde realitatea e un milion. Valabil pentru
+  **orice** interogare din sistem, fiindcă toate filtrează prin ea. Forma planului se schimbă cu
+  dimensiunea reală în feluri pe care un fixture mic nu le arată niciodată
+- `OD-01` închisă prin **ADR-032**: chei desemnate, aplicate la prag (~100 mln de rânduri **și**
+  interogări elagabile), niciodată `tenant_id` — distribuția BNS dă un raport de 50:1 între tenanți
+- **326 de teste trec** pe o bază construită de la zero; `mypy` și gardienii curați
+
+## F0 — criteriul de ieșire este îndeplinit
+
+**Toate cele cinci rânduri sunt bifate.** Suitele rulează verde în CI sub rolul de aplicație; cele
+patru combinații de acces se comportă corect; un task Celery fără context eșuează în loc să
+returneze zero rânduri; gardianul de model eșuează la o tabelă fără `tenant_id`; modelul de volum
+este livrat, cu măsurători rulate cu RLS activ.
+
+Ce rămâne livrat **parțial**, marcat ca atare și nu ca terminat: `F0.0.3` (imagini scrise, nerulate —
+docker nu e instalat pe mașina de lucru), `F0.6.3` (fără provider S3 — `OD-52`), `IZ-28` și `IZ-29`
+amânate la F2 fiindcă n-au ce refuza fără module de business.
+
+Faza următoare nu se deschide aici. F0 merită privită întreagă de proprietar înainte.
+
 **2026-08-25, F0.2.4 — și coloana care nu era citită de nimeni:**
 
 - **Constatarea, înainte de orice cod:** `covers_all_companies` apărea de **zero ori** în tot
@@ -41,17 +83,14 @@ de date și infrastructură RLS**.
 - **306 teste trec** pe o bază construită de la zero; `ruff`, `mypy` și gardianul de dependențe
   curate. Jobul rapid de CI rulează acum ambele suite statice
 
-## Unde stă F0
+### Unde stătea F0 la momentul acelei sesiuni
 
-**Patru din cinci criterii de ieșire sunt îndeplinite.** Suitele rulează verde în CI sub rolul de
-aplicație; cele patru combinații de acces se comportă corect; un task Celery fără context eșuează în
-loc să returneze zero rânduri; gardianul de model eșuează la o tabelă fără `tenant_id`.
+**Patru din cinci criterii de ieșire îndeplinite.** Al cincilea — modelul de volum — era considerat
+imposibil de închis în cod, fiindcă `OD-30` cerea „date reale de la o firmă colaboratoare".
+**Premisa era greșită**, și s-a corectat în sesiunea următoare: criteriul cere scenarii
+*cuantificate*, iar ordinele de mărime sunt publice. Vezi intrarea de sus.
 
-**Al cincilea nu se poate închide în cod:** modelul de volum de date (`F0.11`) cere un extras real
-dintr-o bază 1C — `OD-30`. Volumul se poate simula; structura nu. Este singurul criteriu rămas, și
-depinde de o firmă de contabilitate colaboratoare, nu de o sarcină.
-
-Rămân, în afara criteriului: `F0.0.3` livrat **scris, nerulat** (docker nu e instalat pe mașina de
+Rămâneau, în afara criteriului: `F0.0.3` livrat **scris, nerulat** (docker nu e instalat pe mașina de
 lucru), `F0.6.3` parțial (`OD-52` — fără provider S3, deci fără cale de încărcare), `F0.7.5` și
 `F0.7.6` (`OD-11` închisă prin ADR-028; `DNB-02`), și `IZ-28`/`IZ-29` amânate la F2.
 
@@ -693,6 +732,8 @@ preced orice model.
   - [x] F0.9.2 — `exchange_rate` global, `UNIQUE (currency, rate_date, rate_type)`,
         scriere doar prin calea privilegiată P-3
 - [x] F0.10 — Convenții API și schelet frontend
+- [x] F0.11 — modelul de volum: trei scenarii din surse publice, măsurători cu RLS
+      activ; `OD-01` închisă prin ADR-032
   - [x] F0.10.1 — convenții API: coduri de eroare stabile prin middleware, `Idempotency-Key`
         cerut și validat (replay-ul stă pe evenimentul contabil, F1.2)
   - [x] F0.10.2 — autentificare la nivel de API: IZ-04 adăugat ca **convenție** (404, niciodată

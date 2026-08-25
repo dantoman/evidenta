@@ -102,6 +102,7 @@ Acte normative, secțiuni din documentele de intrare, benchmark-uri, discuții.
 | [029](029-dimensiuni-analitice.md) | Dimensiuni: listă închisă plus cinci sloturi generice per companie | Acceptat | 2026-08-25 | DNB-02 |
 | [030](030-atasamente.md) | Atașamentele stau la nivel de companie, nu de tenant | Acceptat | 2026-08-25 | DN-16 |
 | [031](031-stack-frontend.md) | Stack frontend minimal: react-query, react-router, fetch, Intl | Acceptat | 2026-08-25 | OD-19 |
+| [032](032-cheia-de-partitionare.md) | Cheia de partiționare: desemnată acum, aplicată la prag | Acceptat | 2026-08-25 | OD-01 |
 
 *Indexul se actualizează la fiecare ADR nou. Un ADR care nu apare aici este invizibil.*
 
