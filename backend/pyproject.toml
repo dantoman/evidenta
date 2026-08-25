@@ -25,6 +25,13 @@ dependencies = [
     # constraint that drifts from it.
     "pyotp",
     "cryptography",
+    # The WSGI server the container image runs. Sync workers, deliberately: R3
+    # requires every request inside a transaction carrying `SET LOCAL`, and the
+    # tenant context is held in a ContextVar for the life of that transaction.
+    # An async worker interleaving requests on one thread is not automatically
+    # wrong here, but it is not automatically right either, and nothing in the
+    # suite would notice the difference. See OD-49.
+    "gunicorn",
 ]
 
 [dependency-groups]

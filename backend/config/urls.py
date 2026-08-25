@@ -10,6 +10,13 @@ no URL here will ever carry a tenant identifier.
 
 from django.urls import URLPattern, URLResolver, include, path
 
+from config import health
+
 urlpatterns: list[URLPattern | URLResolver] = [
     path("api/v1/auth/", include("evidenta.platform.identity.urls")),
+    # Operational, not API. They sit outside /api/v1/ because they are not
+    # resources and are not versioned with the product: an orchestrator probe
+    # must not have to be updated when the API version changes.
+    path("healthz", health.live),
+    path("readyz", health.ready),
 ]

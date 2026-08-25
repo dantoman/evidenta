@@ -4,8 +4,13 @@
 # (`make setup`, `make test`, `make run`) merg direct la ele. Containerele intră în joc la deploy și
 # în CI, unde reproductibilitatea contează mai mult decât viteza buclei de lucru.
 #
-# backend și frontend sunt declarate sub profilul `app`, pentru că Dockerfile-urile lor se adaugă la
-# F0.0.3, respectiv F0.10 — până atunci `docker compose up` pornește doar infrastructura.
+# `backend`, `worker` și `migrate` stau sub profilul `app` (F0.0.3). `frontend` stă sub profilul
+# **`web`**, separat: Dockerfile-ul lui se adaugă la F0.10, iar cât timp lipsește, un `frontend` în
+# profilul `app` face `docker compose --profile app up` să cadă la build oricât de corect ar fi
+# backendul. Un profil care nu poate porni nu e „pregătit", e stricat.
+#
+# NEVERIFICAT LA RULARE: docker nu e instalat pe mașina de dezvoltare, deci nimic din profilul
+# `app` n-a fost pornit vreodată. Vezi `docs/PROGRESS.md`, F0.0.3.
 #
 # Valorile marcate SCHELET sunt alegeri implicite reversibile, nu decizii de arhitectură.
 # Versiunile exacte ale stack-ului sunt decizie deschisă — vezi docs/decisions/000-open-decisions.md.
@@ -18,8 +23,13 @@ services:
     image: postgres:18-alpine
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-evidenta}
-      POSTGRES_USER: ${POSTGRES_USER:-evidenta_owner}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-evidenta}
+      # `postgres`, nu `evidenta_owner`. Imaginea creează rolul din POSTGRES_USER
+      # ca **superuser** — iar un owner superuser ocolește RLS în întregime, deci
+      # ar contrazice `R5` fix acolo unde contează. Cele trei roluri se creează de
+      # `infra/bootstrap/0001_roles.sql`, cu atributele lor: owner fără superuser,
+      # `evidenta_app` fără `BYPASSRLS` și fără ownership, `evidenta_rls` `NOLOGIN`.
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${DB_ADMIN_PASSWORD:-postgres}
       # Colația: ADR-015. `ro`, nu `ro-x-icu` — al doilea e numele obiectului de colație.
       # Este decizie „la creare": schimbarea ulterioară cere reconstruirea indecșilor pe text.
       POSTGRES_INITDB_ARGS: "--locale-provider=icu --icu-locale=ro --encoding=UTF8 --locale=C.UTF-8"
@@ -27,11 +37,8 @@ services:
       - "${POSTGRES_PORT:-5432}:5432"
     volumes:
       - ./.data/postgres:/var/lib/postgresql/data
-      # Rolul de migrare (owner) și rolul de aplicație se creează din SQL manual, la F0.1.
-      # Vezi backend/config/db_roles.sql și infra/migrations/.
-      - ./infra/migrations:/opt/evidenta/migrations:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-evidenta_owner} -d ${POSTGRES_DB:-evidenta}"]
+      test: ["CMD-SHELL", "pg_isready -U postgres -d ${POSTGRES_DB:-evidenta}"]
       interval: 5s
       timeout: 3s
       retries: 10
@@ -46,51 +53,132 @@ services:
       timeout: 3s
       retries: 10
 
-  backend:
-    profiles: ["app"]       # se activează la F0.1, când există infra/docker/backend.Dockerfile
+  # Rolurile, schemele și predicatele de acces. Rulează o dată și iese.
+  #
+  # Nu poate merge prin `/docker-entrypoint-initdb.d/`: fișierele iau variabile
+  # psql (`-v owner_password=...`) și au nevoie fiecare de alt rol — `0000` și
+  # `0001` de superuser, restul de owner. Bucla de aici este **aceeași** cu cea
+  # din `make bootstrap` și cu pasul din CI, deliberat: trei variante ale
+  # aceleiași secvențe ar diverge, iar divergența s-ar vedea într-un mediu nou,
+  # nu în commit-ul care a rupt-o.
+  #
+  # `infra/bootstrap/` stă în afara ciclului de migrare (C31) și este idempotent,
+  # deci rularea la fiecare `up` este corectă, nu risipă.
+  bootstrap:
+    profiles: ["app"]
+    image: postgres:18-alpine
+    entrypoint: ["/bin/sh", "-eu", "-c"]
+    command:
+      - |
+        for f in /bootstrap/0*.sql; do
+          case "$$f" in
+            */0000_*|*/0001_*)
+              echo "--> $$f (ca postgres)"
+              PGPASSWORD="$$DB_ADMIN_PASSWORD" psql -v ON_ERROR_STOP=1 \
+                -h postgres -U postgres -d "$$POSTGRES_DB" \
+                -v owner_password="$$OWNER_DB_PASSWORD" \
+                -v app_password="$$APP_DB_PASSWORD" -f "$$f" ;;
+            *)
+              echo "--> $$f (ca $$OWNER_DB_USER)"
+              PGPASSWORD="$$OWNER_DB_PASSWORD" psql -v ON_ERROR_STOP=1 \
+                -h postgres -U "$$OWNER_DB_USER" -d "$$POSTGRES_DB" -f "$$f" ;;
+          esac
+        done
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-evidenta}
+      DB_ADMIN_PASSWORD: ${DB_ADMIN_PASSWORD:-postgres}
+      OWNER_DB_USER: ${OWNER_DB_USER:-evidenta_owner}
+      OWNER_DB_PASSWORD: ${OWNER_DB_PASSWORD:-evidenta_owner}
+      APP_DB_PASSWORD: ${APP_DB_PASSWORD:-evidenta_app}
+    volumes:
+      - ./infra/bootstrap:/bootstrap:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  # Migrațiile, ca serviciu propriu care rulează o dată și iese.
+  #
+  # Separat de `backend` fiindcă rulează sub **alt rol de bază de date**:
+  # `evidenta_owner` migrează și deține tabelele, `evidenta_app` rulează
+  # aplicația fără `BYPASSRLS` și fără ownership (R5). Un entrypoint care ar
+  # migra la pornirea backendului ar cere containerului de aplicație acreditările
+  # owner-ului — și ar face separarea rolurilor decorativă.
+  migrate:
+    profiles: ["app"]
     build:
       context: .
       dockerfile: infra/docker/backend.Dockerfile
-    environment:
-      DJANGO_SETTINGS_MODULE: config.settings.dev
-      DATABASE_URL: postgresql://${APP_DB_USER:-evidenta_app}:${APP_DB_PASSWORD:-evidenta_app}@postgres:5432/${POSTGRES_DB:-evidenta}
+    command: ["python", "manage.py", "migrate", "--database", "migration"]
+    environment: &db_env
+      DJANGO_SETTINGS_MODULE: ${DJANGO_SETTINGS_MODULE:-config.settings.dev}
+      POSTGRES_DB: ${POSTGRES_DB:-evidenta}
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: "5432"
+      APP_DB_USER: ${APP_DB_USER:-evidenta_app}
+      APP_DB_PASSWORD: ${APP_DB_PASSWORD:-evidenta_app}
+      OWNER_DB_USER: ${OWNER_DB_USER:-evidenta_owner}
+      OWNER_DB_PASSWORD: ${OWNER_DB_PASSWORD:-evidenta_owner}
       REDIS_URL: redis://redis:6379/0
+      TENANT_BASE_DOMAIN: ${TENANT_BASE_DOMAIN:-evidenta.localhost}
+      MFA_SECRET_KEY: ${MFA_SECRET_KEY:-}
+    depends_on:
+      bootstrap:
+        condition: service_completed_successfully
+    restart: "no"
+
+  backend:
+    profiles: ["app"]
+    build:
+      context: .
+      dockerfile: infra/docker/backend.Dockerfile
+    # Exact variabilele pe care `config/settings/base.py` le citește. `DATABASE_URL`
+    # stătea aici și **nu-l citea nimic**: containerul ar fi căzut înapoi pe
+    # `POSTGRES_HOST=localhost` — adică pe el însuși — și ar fi eșuat la prima
+    # interogare cu o eroare care nu arată nicăieri lângă cauză.
+    environment: *db_env
     ports:
       - "${BACKEND_PORT:-8000}:8000"
-    volumes:
-      - ./backend:/app
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
 
   worker:
-    profiles: ["app"]       # Celery; se activează odată cu backend
+    profiles: ["app"]
     build:
       context: .
       dockerfile: infra/docker/backend.Dockerfile
-    command: celery -A config worker -l info
-    environment:
-      DJANGO_SETTINGS_MODULE: config.settings.dev
-      DATABASE_URL: postgresql://${APP_DB_USER:-evidenta_app}:${APP_DB_PASSWORD:-evidenta_app}@postgres:5432/${POSTGRES_DB:-evidenta}
-      REDIS_URL: redis://redis:6379/0
-    volumes:
-      - ./backend:/app
+    command: ["celery", "-A", "config", "worker", "-l", "info"]
+    environment: *db_env
+    # `inspect ping` întreabă workerul, nu procesul: un proces Celery viu care
+    # nu mai consumă din coadă arată identic cu unul sănătos dacă verifici doar
+    # că rulează.
+    healthcheck:
+      test: ["CMD", "celery", "-A", "config", "inspect", "ping", "-d", "celery@$$HOSTNAME"]
+      interval: 15s
+      timeout: 10s
+      start_period: 30s
+      retries: 5
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
 
   frontend:
-    profiles: ["app"]       # se activează la F0.10
+    # Profil propriu: Dockerfile-ul apare la F0.10. Sub `app` ar face profilul
+    # întreg să cadă la build.
+    profiles: ["web"]
     build:
       context: .
       dockerfile: infra/docker/frontend.Dockerfile
     ports:
       - "${FRONTEND_PORT:-5173}:5173"
-    volumes:
-      - ./frontend:/app
     depends_on:
       - backend

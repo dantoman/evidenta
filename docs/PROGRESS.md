@@ -12,6 +12,37 @@ de date și infrastructură RLS**.
 
 ## Ultima sesiune
 
+**2026-08-25, F0.0.3 — imagini de container.** Livrată **scrisă, nerulată**, și asta e o stare
+declarată, nu o bifă:
+
+- **docker nu e instalat pe mașina de dezvoltare.** `docker compose --profile app up` n-a fost
+  executat niciodată, deci criteriul de terminare al sarcinii — healthcheck-uri verzi — **nu e
+  demonstrat**. Dockerfile-ul și compose-ul sunt scrise cu grijă și marcate ca atare, în ambele
+  fișiere. Ce e verificat sunt cele două sonde HTTP, care au acum teste proprii
+- **defect real găsit în compose, nu în ce am scris eu:** `POSTGRES_USER: evidenta_owner` face
+  imaginea de Postgres să creeze rolul de owner ca **superuser** — iar un owner superuser ocolește
+  RLS în întregime. Contrazicea `R5` fix acolo unde contează. Acum `postgres` creează baza, iar
+  cele trei roluri vin din `0001_roles.sql`, cu atributele lor
+- **al doilea defect:** `DATABASE_URL` era trimis către backend și worker și **nu-l citea nimic** —
+  `base.py` citește `POSTGRES_HOST`, `APP_DB_USER` etc. Containerul ar fi căzut înapoi pe
+  `localhost`, adică pe el însuși, cu o eroare de conexiune care nu arată nicăieri lângă cauză
+- **bootstrap și migrare sunt servicii proprii**, nu entrypoint. Rulează sub roluri diferite:
+  bootstrap ca superuser și ca owner, migrarea ca owner, aplicația ca `evidenta_app` (R5). Un
+  entrypoint care ar migra la pornire ar cere containerului de aplicație acreditările owner-ului și
+  ar face separarea rolurilor decorativă
+- **`frontend` a ieșit din profilul `app`** în profilul `web`: Dockerfile-ul lui vine la F0.10, iar
+  cât timp lipsește făcea profilul întreg să cadă la build. Un profil care nu poate porni nu e
+  pregătit, e stricat
+- **`/healthz` și `/readyz`**, exact două căi noi exceptate de context, cu patru teste — inclusiv
+  controlul care arată că o cale obișnuită pe aceeași gazdă tot refuză. Liveness nu atinge baza,
+  deliberat: o sondă care interoghează baza repornește o aplicație sănătoasă când baza clipește
+- **`OD-49`**: gunicorn cu workeri sincroni e alegere, nu neutralitate — `R3` ține contextul într-un
+  `ContextVar` pe durata tranzacției, iar nimic din suită n-ar observa dacă un worker asincron ar
+  întreține requesturi pe același fir
+- **241 de teste trec**
+
+## Sesiunea anterioară
+
 **2026-08-25, F0.9 — modelul de sumă și cursurile valutare:**
 
 - **modulul refuză să rotunjească.** `convert()` cere o regulă de rotunjire rezolvată din registrul
@@ -34,7 +65,7 @@ de date și infrastructură RLS**.
   diferite după ordinea de agregare
 - **235 de teste trec**; `mypy` curat pe tot `backend`
 
-## Sesiunea anterioară
+## Sesiuni mai vechi
 
 **2026-08-25, F0.8 — parametri fiscali și registrul de selecție**, scrisă în paralel cu sesiunea de
 cale de request, în același arbore:
@@ -432,6 +463,8 @@ preced orice model.
   - [x] F0.1.6 — mecanismul de aplicare a SQL-ului manual (`sql.py`, `make bootstrap`, `make migrate`)
 - [ ] F0.0 — schelet de proiect
   - [x] F0.0.1 — dependențe și tooling; `uv.lock` comis, `ruff` curat
+  - [x] F0.0.3 — imagini de container: backend/worker, bootstrap și migrare ca servicii
+        proprii sub roluri diferite. **Scrisă, nerulată** — docker nu e instalat aici
   - [x] F0.0.2 — proiect Django și Celery; `check`, `ruff`, `mypy`, `pytest` toate verzi
   - [ ] F0.0.3 — imagini de container
   - [x] F0.0.4 — CI pe GitHub Actions; jobul `quality` și jobul `tests`

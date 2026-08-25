@@ -92,7 +92,15 @@ TENANT_BASE_DOMAIN: str | None = None
 # prefix would silently exempt every route added under it later. What keeps the
 # exemption honest is the query guard -- with no context, an exempt view cannot
 # touch business data at all, only the privileged authentication path.
-TENANT_CONTEXT_EXEMPT_PATHS: tuple[str, ...] = ("/api/v1/auth/login",)
+TENANT_CONTEXT_EXEMPT_PATHS: tuple[str, ...] = (
+    "/api/v1/auth/login",
+    # The orchestrator's probes. Exempt because they have to be: a probe arrives
+    # on the container's own host, which carries no tenant subdomain, so a
+    # context-bound path would answer 404 to a perfectly healthy service. Safe
+    # because neither view reads business data -- see config/health.py.
+    "/healthz",
+    "/readyz",
+)
 
 # The session cookie. Host-only and HttpOnly are not configurable; see
 # evidenta.platform.identity.cookie for why. `Secure` is, because local

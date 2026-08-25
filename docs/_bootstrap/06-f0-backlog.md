@@ -87,7 +87,7 @@ agenții invocați, ambele suite de izolare verzi, nicio decizie deschisă înch
 > **Două conexiuni la aceeași bază:** `default` ca `evidenta_app`, `migration` ca `evidenta_owner`.
 > Migrațiile rulează explicit cu `--database=migration`. Fără separare, R5 ar fi o intenție.
 
-### F0.0.3 — Imagini de container
+### F0.0.3 — Imagini de container — **SCRISĂ, NERULATĂ** (2026-08-25)
 
 - **Obiectiv:** backend, worker și frontend pornesc din `docker compose --profile app`.
 - **Fișiere:** `infra/docker/backend.Dockerfile`, `infra/docker/frontend.Dockerfile`
@@ -97,6 +97,11 @@ agenții invocați, ambele suite de izolare verzi, nicio decizie deschisă înch
   *Este sarcină de producție și CI, nu de dezvoltare locală: local se rulează nativ, prin `make
   setup` (vezi `README.md`).*
 - **Blocat de:** —
+- **Stare reală:** criteriul **nu e îndeplinit** și nu poate fi aici: docker nu e instalat pe mașina
+  de dezvoltare, deci `docker compose --profile app up` n-a rulat niciodată. Ce există: Dockerfile
+  de backend (servește și workerul), servicii proprii de `bootstrap` și `migrate` sub rolurile care
+  le trebuie, `frontend` mutat în profilul `web` până la F0.10, și două sonde HTTP cu teste.
+  Rămâne de rulat o dată pe o mașină cu docker înainte să se considere terminată.
 
 ### F0.0.4 — CI ✔
 
