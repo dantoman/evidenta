@@ -36,8 +36,15 @@ export const ro = {
     // Keyed by the stable code from C10, never by the server's message. A client
     // that branched on message text would break the first time a sentence is
     // reworded, and rewording is the cheapest thing in the product.
+    // Copiate din codurile pe care le ridică `platform/identity`, nu inventate.
+    // Prima versiune avea `auth.mfa_required`, un nume pe care serverul nu-l
+    // trimite niciodată, deci orice cod greșit cădea pe „eroare neașteptată" --
+    // exact ce `C10` există ca să prevină. `test_error_catalogue.py` verifică
+    // acum că fiecare cod al serverului are un mesaj aici.
     'auth.invalid_credentials': 'E-mail sau parolă incorecte.',
-    'auth.mfa_required': 'Introduceți codul de verificare.',
+    'auth.mfa_code_required': 'Introduceți codul de verificare.',
+    'auth.invalid_mfa_code': 'Codul de verificare este greșit sau a expirat.',
+    'auth.invalid_backup_code': 'Codul de recuperare nu este valid.',
     'auth.mfa_enrolment_required':
       'Contul nu are încă un al doilea factor configurat.',
     'auth.no_access_to_tenant': 'Nu aveți acces la acest spațiu de lucru.',

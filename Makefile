@@ -157,6 +157,11 @@ run: ## Pornește serverul de dezvoltare
 # să nu poată diverge. `npm ci`, nu `npm install`: refuză să rezolve ce lockfile-ul nu pinuiește deja.
 NPM := cd frontend && npm
 
+.PHONY: dev-code
+dev-code: ## Codul TOTP curent pentru utilizatorul de dezvoltare (dev@example.md)
+	@cd backend && uv run python -c "import pyotp, time; t=pyotp.TOTP('JBSWY3DPEHPK3PXP'); \
+	print(t.now(), '— valabil', 30 - int(time.time()) % 30, 'secunde')"
+
 .PHONY: web-install
 web-install: ## Instalează dependențele frontend din lockfile
 	$(NPM) ci

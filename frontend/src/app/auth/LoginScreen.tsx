@@ -74,6 +74,13 @@ export function LoginScreen() {
           <input
             inputMode="numeric"
             autoComplete="one-time-code"
+            // Six digits, and the field says so. The owner pasted the TOTP
+            // *secret* into it on the first try, which is a reasonable thing to
+            // do when the field is an unlabelled box and the setup instructions
+            // handed them a long string.
+            pattern="[0-9]{6}"
+            maxLength={6}
+            placeholder="123456"
             value={code}
             onChange={(event) => setCode(event.target.value)}
             className="w-full rounded border border-border bg-surface px-3 py-2 tabular"
