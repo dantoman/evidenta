@@ -93,6 +93,7 @@ Acte normative, secțiuni din documentele de intrare, benchmark-uri, discuții.
 | [020](020-roluri-ca-date.md) | Rolurile sunt date compozabile, peste un catalog fix de permisiuni | Acceptat | 2026-08-25 | DN-08 |
 | [021](021-mfa-obligatoriu.md) | MFA obligatoriu pentru toți utilizatorii | Acceptat | 2026-08-25 | DN-09 |
 | [022](022-numerotare-sabloane.md) | Numerotarea: șabloane configurabile per companie | Acceptat | 2026-08-25 | OD-02 |
+| [023](023-ci-github-actions.md) | CI pe GitHub Actions, cu Postgres ca serviciu | Acceptat | 2026-08-25 | OD-16 |
 
 *Indexul se actualizează la fiecare ADR nou. Un ADR care nu apare aici este invizibil.*
 

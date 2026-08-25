@@ -98,7 +98,7 @@ agenții invocați, ambele suite de izolare verzi, nicio decizie deschisă înch
   setup` (vezi `README.md`).*
 - **Blocat de:** —
 
-### F0.0.4 — CI
+### F0.0.4 — CI ✔
 
 - **Obiectiv:** fiecare commit rulează lint, teste și, de la F0.2, ambele suite de izolare, sub
   rolul de aplicație.
@@ -294,9 +294,17 @@ agenții invocați, ambele suite de izolare verzi, nicio decizie deschisă înch
 > inexistente eșuează, iar asta este comportamentul corect. Se activează pe măsură ce entitățile
 > apar în F0.3–F0.7.
 
-> **Regula de migrare — nu se negociază.** *(Se aplică per artefact: fiecare probă se retrage când
-> propriile ei scenarii au echivalente, nu toate deodată. Probele Python au fost retrase la F0.2.1;
-> cea SQL așteaptă tabelele de tenancy din F0.3.)*
+> **Regula de migrare — îndeplinită.** Toate cele trei probe au fost retrase, fiecare când propriile
+> ei scenarii au avut echivalente care trec. Maparea probei SQL, verificabilă prin `grep`:
+>
+> | Scenariu | Echivalent |
+> |---|---|
+> | IZ-01, IZ-03, IZ-08 | `test_tenant_isolation.py` |
+> | IZ-10, IZ-11, IZ-18 | `test_engagement_access.py` |
+> | IZ-30 | `test_context_enforcement.py` |
+> | IZ-50 | `test_company_access.py` |
+>
+> Fiecare test citează identificatorul în docstring, deci maparea nu depinde de memoria cuiva.
 > Proba din `infra/rls/smoke_test.sql` acoperă azi șapte scenarii, verificate pe PostgreSQL 18.6:
 > **IZ-01, IZ-03, IZ-08, IZ-10, IZ-11, IZ-18, IZ-30, IZ-50.**
 > **F0.2 nu este terminată până când fiecare dintre ele are echivalent Python care trece.**
@@ -390,7 +398,7 @@ agenții invocați, ambele suite de izolare verzi, nicio decizie deschisă înch
 - **Terminat:** acoperă IZ-40…IZ-45.
 - **Blocat de:** —
 
-### F0.2.6 — Integrarea în CI și retragerea probei SQL
+### F0.2.6 — Integrarea în CI și retragerea probei SQL ✔
 
 - **Obiectiv:** ambele suite rulează la fiecare commit, sub rolul de aplicație.
 - **Fișiere:** `infra/ci/*`, `Makefile` (ținta `isolation-check`)

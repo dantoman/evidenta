@@ -1,0 +1,160 @@
+# Verification pipeline -- ADR-023.
+#
+# Two jobs on purpose. `quality` needs no database and fails in seconds; `tests`
+# needs Postgres and is the one that matters. Splitting them means a formatting
+# slip does not wait on a database to tell you about it.
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+env:
+  PYTHON_VERSION: "3.13"
+
+jobs:
+  quality:
+    name: Lint, format, types
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: backend/uv.lock
+
+      - name: Install from the lock file
+        working-directory: backend
+        # --locked, not --frozen: the lock is the exact pin (ADR-005), and a
+        # pyproject that drifted from it should fail here rather than resolve
+        # something new and pass.
+        run: uv sync --locked
+
+      - run: uv run ruff check .
+        working-directory: backend
+
+      - run: uv run ruff format --check .
+        working-directory: backend
+
+      - run: uv run mypy .
+        working-directory: backend
+
+      - name: No undeclared model changes
+        working-directory: backend
+        run: uv run python manage.py makemigrations --check --dry-run --no-input
+
+  tests:
+    name: Bootstrap and test suites
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_PASSWORD: postgres
+          # The same collation as production (ADR-015). If this differed, the
+          # locale guard would stop the chain -- correctly -- and the pipeline
+          # would be red from the first minute, which invites someone to "fix"
+          # the guard instead of the configuration.
+          POSTGRES_INITDB_ARGS: "--locale-provider=icu --icu-locale=ro --encoding=UTF8 --locale=C.UTF-8"
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      POSTGRES_HOST: localhost
+      POSTGRES_PORT: "5432"
+      POSTGRES_DB: evidenta
+      # Three privileges, not two (F0.2.1). The admin creates the database, the
+      # owner applies bootstrap and migrations, the application role runs the
+      # tests. Running the suites as superuser would pass everything and prove
+      # nothing (T1) -- the harness refuses anyway, but the pressure to try it
+      # arrives exactly when the pipeline is red on a Friday.
+      TEST_DB_ADMIN_USER: postgres
+      TEST_DB_ADMIN_PASSWORD: postgres
+      APP_DB_PASSWORD: ci-app
+      OWNER_DB_PASSWORD: ci-owner
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: backend/uv.lock
+
+      - name: Install from the lock file
+        working-directory: backend
+        run: uv sync --locked
+
+      - name: Install the psql client
+        # The bootstrap files use psql variables and \set ON_ERROR_STOP, and the
+        # harness applies them the same way `make bootstrap` does -- so a broken
+        # bootstrap breaks here too, rather than only in production.
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client
+
+      - name: Create the database with the production collation
+        env:
+          PGPASSWORD: postgres
+        run: |
+          psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 \
+            -c "CREATE DATABASE evidenta LOCALE_PROVIDER icu ICU_LOCALE 'ro' TEMPLATE template0;"
+
+      - name: Apply the bootstrap on a clean database
+        # Runs in full, not just the suites: without this a broken bootstrap is
+        # discovered at the first new environment rather than at the commit that
+        # broke it.
+        #
+        # Each file runs under the role it needs, exactly as `make bootstrap`
+        # does -- and that is the point. Running everything as the superuser also
+        # works, and would have hidden the two privilege gaps found while
+        # building this (the owner lacking CREATE on the database, then on schema
+        # `app`). A pipeline more permissive than production tells you nothing
+        # about production.
+        run: |
+          set -euo pipefail
+          for file in infra/bootstrap/0*.sql; do
+            case "$file" in
+              *0000_*|*0001_*) role=postgres; export PGPASSWORD=postgres ;;
+              *)               role=evidenta_owner; export PGPASSWORD="$OWNER_DB_PASSWORD" ;;
+            esac
+            echo "--> $file (as $role)"
+            psql -h localhost -U "$role" -d evidenta -v ON_ERROR_STOP=1 \
+              -v owner_password="$OWNER_DB_PASSWORD" \
+              -v app_password="$APP_DB_PASSWORD" \
+              -f "$file"
+          done
+
+      - name: Migrations, as the owner
+        working-directory: backend
+        run: uv run python manage.py migrate --database=migration --no-input
+
+      - name: Isolation suites, under the application role
+        working-directory: backend
+        run: uv run pytest -q
+
+      - name: Confirm the suites ran as the application role
+        # The harness already refuses to run otherwise. This step exists so the
+        # log states which role was used: a green pipeline whose role nobody can
+        # see is the false assurance T1 is about.
+        working-directory: backend
+        run: |
+          uv run python -c "
+          import os, django
+          os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings.dev')
+          django.setup()
+          from django.db import connection
+          from evidenta.platform.rls.context import unguarded
+          with unguarded('ci: role check'), connection.cursor() as cursor:
+              cursor.execute('SELECT current_user, rolsuper, rolbypassrls FROM pg_roles WHERE rolname = current_user')
+              user, is_super, bypass = cursor.fetchone()
+          print(f'suites ran as {user} (superuser={is_super}, bypassrls={bypass})')
+          assert user == 'evidenta_app' and not is_super and not bypass
+          "

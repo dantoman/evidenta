@@ -229,13 +229,13 @@ preced orice model.
   - [x] F0.0.1 — dependențe și tooling; `uv.lock` comis, `ruff` curat
   - [x] F0.0.2 — proiect Django și Celery; `check`, `ruff`, `mypy`, `pytest` toate verzi
   - [ ] F0.0.3 — imagini de container
-  - [ ] F0.0.4 — CI *(blocat de OD-16)*
+  - [x] F0.0.4 — CI pe GitHub Actions; jobul `quality` și jobul `tests`
   - [ ] F0.0.5 — contracte de dependență între module *(blocat de OD-17)*
 - [ ] F0.2 — Suitele de verificare (penetrare + gardian de model)    ← ÎN CURS
   - [x] F0.2.1 — harness sub rolul de aplicație; refuză ca owner și ca superuser
   - [x] F0.2.2 — gardianul de model; 11 teste, fiecare regulă cu probă că poate eșua
-  - [~] F0.2.3 — penetrare: probele Python migrate în pytest; cea SQL așteaptă F0.3
-  - [ ] F0.2.6 — integrare CI *(blocat de OD-16)*
+  - [x] F0.2.3 — penetrare: toate cele opt scenarii SQL au echivalent pytest care trece
+  - [x] F0.2.6 — suitele în CI, sub rolul de aplicație; proba SQL retrasă
 - [ ] F0.3 — Tenancy și identitate    ← ÎN CURS
   - [x] F0.3.1 — `Tenant`, `Company`, `CompanyVatRegistration` + politici, într-o migrare
   - [x] F0.3.2 — `User`, `Membership`; `tenant` interogabil pe calea de membru
@@ -275,7 +275,6 @@ schimbare care le-a înlocuit; a rămas doar cea SQL, care așteaptă tabelele d
 
 | Ce blochează | Ce nu se poate face | Referință |
 |---|---|---|
-| Platforma CI nu e aleasă | F0.0.4, F0.2.6 | OD-16 |
 | Corpusul de regresie fiscală nu are cazuri reale cu rezultat verificat | Nimic nu verifică mecanic conținutul contabil; este singura măsură de risc rămasă după ADR-010 | ADR-010, C14, F1.10 |
 | Nu există extras real dintr-o bază 1C | `DataGrid` și `EntryGrid` nu pot fi validate pe structuri neanticipate; volumul se poate simula, structura nu | OD-28, OD-30, `_bootstrap/07-f1-grile.md` |
 | Nu există semnătură electronică, entitate de test și acces în e-Factura | `DNB-08` (rotunjirea TVA) și formatele declarațiilor. **Singurul element extern pe drumul critic** | ADR-010, OD-24, OD-25 |

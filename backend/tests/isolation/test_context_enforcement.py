@@ -36,6 +36,7 @@ def context() -> TenantContext:
 
 
 def test_query_without_context_is_refused() -> None:
+    """IZ-30. Absence of context is an error, never an empty result."""
     with pytest.raises(MissingTenantContextError), connection.cursor() as cursor:
         cursor.execute("SELECT 1")
 

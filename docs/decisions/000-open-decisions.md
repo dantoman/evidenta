@@ -46,7 +46,6 @@ Reversibile individual, dar fiecare devine scumpă după ce se scrie cod peste e
 
 | # | Decizie | Blochează | Termen |
 |---|---|---|---|
-| **OD-16** | Platforma CI și modul concret în care suitele de izolare rulează **sub rolul de aplicație** într-un runner efemer | F0.2 | Înainte de F0.2 |
 | **OD-17** | Unealta care verifică mecanic regulile de dependență D1–D6 | Aplicarea D1–D6 | Înainte de primul modul cu dependențe |
 | **OD-19** | Stack-ul frontend peste React: management de stare, client HTTP, rutare, i18n, formatare pentru RM. **Restrânsă:** grila de date a ieșit prin ADR-001; biblioteca de componente prin ADR-009 | F0.10 | Înainte de F0.10 |
 | **OD-35** | **Scara de densitate**, fixată ca **set de tokeni** (ADR-009 `C26`) înainte de primul ecran. Valorile implicite Tailwind și shadcn sunt calibrate pentru SaaS aerisit; un contabil vrea maximum de rânduri pe ecran. Comprimarea după 40 de ecrane construite pe spațierea implicită înseamnă rescriere | Primul ecran de frontend | Înainte de primul ecran |
@@ -119,7 +118,6 @@ Trebuie închise pentru a termina faza. Sarcina blocată e în `../_bootstrap/06
 
 | Sarcină | Decizii |
 |---|---|
-| F0.0.4, F0.2.6 | `OD-16` |
 | F0.0.5 | `OD-17` |
 | F0.1 (căi privilegiate) | `OD-09` = `DN-17` |
 | F0.3.1 | `DN-02`, `DN-03` |
@@ -183,6 +181,7 @@ Se decid la momentul lor. `OD-04` *(înainte de F2)*, `OD-05` *(după F3)*, `OD-
 
 | # | Decizie | ADR | Data |
 |---|---|---|---|
+| **OD-16** | CI pe **GitHub Actions**, cu Postgres ca serviciu configurat cu aceeași colație ca producția. Bootstrap-ul rulează cu roluri per fișier, nu ca superuser — altfel pipeline-ul ar fi mai permisiv decât producția și n-ar prinde lipsa unui privilegiu | [ADR-023](023-ci-github-actions.md) | 2026-08-25 |
 | **OD-02** | Numerotarea documentelor: **șabloane configurabile per companie**, general sau per tip de document, cu prefix/sufix/lungime. Filiala **nu** se modelează — `prefix` acoperă nevoia; dacă devine cerință reală, e decizie nouă cu entitate proprie | [ADR-022](022-numerotare-sabloane.md) | 2026-08-25 |
 | **OD-13** | Limba rusă: **strat de prezentare exclusiv**. Contabilitatea se ține în română prin lege (nr. 287/2017, art. 7 alin. 1). Denumirile din planul de conturi rămân valoare unică, în română | [ADR-016](016-limba-contabilitatii.md) | 2026-08-24 |
 | **OD-38** | Ieșire bilingvă — **nu se face.** Nu e funcționalitate amânată: pentru documentele contabile e ceva ce nu poate exista | [ADR-016](016-limba-contabilitatii.md) | 2026-08-24 |
