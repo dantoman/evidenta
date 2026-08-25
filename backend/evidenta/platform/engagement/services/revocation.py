@@ -25,6 +25,7 @@ from evidenta.platform.engagement.services.lifecycle import (
 from evidenta.platform.identity.services.sessions import (
     invalidate_sessions_for_engagement,
 )
+from evidenta.platform.notifications.services import dispatch
 
 
 class RevocationError(RuntimeError):
@@ -70,6 +71,12 @@ def revoke_engagement(
     transaction. RLS already refuses their queries, so this is the usability half
     of revocation rather than the security half -- the firm's interface ends
     cleanly instead of failing one request at a time.
+
+    Every active member of the client is notified, in the same transaction and by
+    an explicit call rather than a signal (C4). Spec A section 4.6 makes the
+    notification mandatory, and putting it inside the transaction is the point:
+    an access change that is committed while its notice is not leaves people
+    working against a system that has already changed under them.
     """
     with transaction.atomic():
         engagement = Engagement.objects.select_for_update().get(pk=engagement_id)
@@ -83,6 +90,7 @@ def revoke_engagement(
             raise RevocationError(str(illegal)) from illegal
 
         previous_status = engagement.status
+
         now = datetime.now(UTC)
         engagement.status = EngagementStatus.REVOKED
         engagement.revoked_at = now
@@ -106,6 +114,11 @@ def revoke_engagement(
             engagement.client_tenant_id,
             engagement.firm_id,
             reason=f"engagement {engagement_id} revoked",
+        )
+
+        dispatch.notify_tenant(
+            tenant_id=engagement.client_tenant_id,
+            type_key="engagement.revoked",
         )
 
         record(

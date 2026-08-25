@@ -61,6 +61,7 @@ INSTALLED_APPS: list[str] = [
     "evidenta.masterdata.items.apps.ItemsConfig",
     "evidenta.fiscal.parameters.apps.FiscalParametersConfig",
     "evidenta.fiscal.registry.apps.FiscalRegistryConfig",
+    "evidenta.platform.notifications.apps.NotificationsConfig",
     "evidenta.accounting.currency.apps.CurrencyConfig",
 ]
 

@@ -35,6 +35,8 @@ from tests.conftest import admin_dsn
 
 # Order matters: children before parents.
 SEEDED_TABLES = (
+    "notification_delivery",
+    "notification",
     "exchange_rate",
     "fiscal_logic_version",
     "fiscal_parameter",

@@ -719,7 +719,7 @@ agenții invocați, ambele suite de izolare verzi, nicio decizie deschisă înch
 - **Blocat de:** — *(scopul tabelei nu e descris în documentele de intrare — G-19; se specifică în
   această sarcină și se consemnează ca ADR)*
 
-### F0.6.5 — Notificări
+### F0.6.5 — Notificări — **TERMINAT** (2026-08-25)
 
 - **Obiectiv:** utilizatorii primesc notificări in-app și pe e-mail.
 - **Fișiere:** `backend/evidenta/platform/notifications/`, migrații, politici
@@ -728,7 +728,12 @@ agenții invocați, ambele suite de izolare verzi, nicio decizie deschisă înch
 - **Terminat:** notificarea de revocare a engagementului (Spec A §4.6) ajunge la destinatari; nicio
   notificare nu conține date de business ale altui tenant.
 - **Blocat de:** — *(modulul e marcat F0 în hartă și în V2 §10, dar nu are sarcină în `§6.1` —
-  conflictul X-9)*
+  conflictul X-9, **închis acum**)*
+- **Livrat:** in-app complet — notificare cu cheie și parametri, randare la citire, politică
+  **personală** (destinatar, nu tenant), fan-out prin cale privilegiată cu judecata în SQL.
+  Revocarea și suspendarea engagementului notifică membrii clientului, în aceeași tranzacție.
+- **Rămas deschis:** canalul de e-mail e modelat și n-are transport — `OD-50`. Și `OD-51`, găsită
+  aici: clientul nu poate citi numele firmei, deși comentariul politicii spune că poate.
 
 ---
 

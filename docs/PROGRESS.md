@@ -12,6 +12,35 @@ de date și infrastructură RLS**.
 
 ## Ultima sesiune
 
+**2026-08-25, F0.6.5 — notificări.** Închide conflictul X-9: modulul era marcat F0 în hartă și în
+V2 §10, dar n-avea sarcină în §6.1.
+
+- **notificările sunt personale, nu la nivel de tenant.** Politica îngustează la destinatar. Un
+  utilizator al firmei cu engagement viu ajunge la datele clientului — pentru asta există
+  engagementul — dar căsuța administratorului clientului nu face parte din ele. E granița pe care o
+  politică mai largă ar fi trecut-o fără să observe nimeni; are test propriu
+- **expedierea către altcineva e cale privilegiată**, iar judecata stă în SQL: destinatarul trebuie
+  să fie membru activ al tenantului, iar cel care notifică trebuie să aibă el însuși acces. Prin
+  `rls.has_tenant_access`, **nu** prin `app.current_tenant_id() = p_tenant_id` — a doua variantă
+  compară două lucruri pe care le controlează același server de aplicație, prima verifică un fapt de
+  bază de date
+- **lista destinatarilor se calculează în SQL**, nu în Python: `membership` aparține lui `identity`,
+  iar un serviciu care importă modelele altui modul e chiar ce interzice `D6`
+- **rândul păstrează cheie + parametri, nu o propoziție randată.** Corectarea unei formulări devine
+  deployment, nu migrare peste rânduri; și `ADR-014` ține rusa ca strat de prezentare — un corp
+  înghețat în română la scriere ar fi transformat tăcut „amânăm rusa" în „refuzăm rusa"
+- **`OD-51`, găsită prin măsurare, nu prin citit:** comentariul politicii pe `firm` spune că firma
+  se vede clientului cu engagement viu; predicatul e `rls.has_tenant_access` peste tenantul
+  **firmei**, iar un administrator al clientului întoarce fals. Deci clientul nu poate citi numele
+  contabilului său. Notificările nu numesc cealaltă parte — ceea ce e oricum corect, numele aparține
+  altui tenant — dar costul e vizibil: un client cu doi contabili nu poate spune care a plecat
+- **`OD-50`:** canalul de e-mail e modelat și n-are transport. Expeditorul rulează fără identitate
+  de utilizator, deci cere o cale privilegiată proprie, și nu e ales niciun furnizor. Rândurile stau
+  pe `unavailable`, nu pe `pending`: numărabile, spre deosebire de o notificare pierdută tăcut
+- **253 de teste trec**
+
+## Sesiunea anterioară
+
 **2026-08-25, F0.0.3 — imagini de container.** Livrată **scrisă, nerulată**, și asta e o stare
 declarată, nu o bifă:
 
@@ -41,7 +70,7 @@ declarată, nu o bifă:
   întreține requesturi pe același fir
 - **241 de teste trec**
 
-## Sesiunea anterioară
+## Sesiuni mai vechi
 
 **2026-08-25, F0.9 — modelul de sumă și cursurile valutare:**
 
@@ -505,7 +534,8 @@ preced orice model.
   - [x] F0.6.2 — numerotare pe șabloane (ADR-022): contor blocat, unicitate în bază
   - [x] F0.6.4 — `document_event`, append-only, disciplina R21/R22
   - [ ] F0.6.3 — atașamente *(blocat de DN-16 și de providerul S3)*
-  - [ ] F0.6.5 — notificări
+  - [x] F0.6.5 — notificări: in-app complet, canalul de e-mail modelat fără transport (OD-50);
+        închide conflictul X-9
 - [ ] F0.7 — Master data    ← ÎN CURS
   - [x] F0.7.1 — `CounterpartyRegistry` global, doar citire la ambele straturi
   - [x] F0.7.2 — `Partner`, nivel tenant, unic pe IDNO

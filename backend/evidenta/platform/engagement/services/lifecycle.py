@@ -22,6 +22,7 @@ from django.db import transaction
 
 from evidenta.platform.audit.services.recording import record
 from evidenta.platform.engagement.models import Engagement, EngagementStatus
+from evidenta.platform.notifications.services import dispatch
 
 
 class IllegalTransitionError(RuntimeError):
@@ -173,7 +174,12 @@ def accept(engagement_id: uuid.UUID, accepted_by_user_id: uuid.UUID, actor_side:
 
 
 def suspend(engagement_id: uuid.UUID, actor_side: str) -> Engagement:
-    """Cut access, keep the relationship. Reversible, unlike revocation."""
+    """Cut access, keep the relationship. Reversible, unlike revocation.
+
+    The client's members are told, in the same transaction. Suspension is the
+    quieter of the two, which is exactly why it needs the notice: access simply
+    stops working, and without a message that reads as the product being broken.
+    """
     with transaction.atomic():
         engagement = Engagement.objects.select_for_update().get(pk=engagement_id)
         check_transition(engagement.status, EngagementStatus.SUSPENDED, actor_side)
@@ -181,6 +187,10 @@ def suspend(engagement_id: uuid.UUID, actor_side: str) -> Engagement:
         engagement.status = EngagementStatus.SUSPENDED
         engagement.suspended_at = datetime.now(UTC)
         engagement.save(update_fields=["status", "suspended_at", "updated_at"])
+        dispatch.notify_tenant(
+            tenant_id=engagement.client_tenant_id,
+            type_key="engagement.suspended",
+        )
         record(
             action="engagement.suspended",
             entity_type="engagement",
