@@ -68,21 +68,34 @@ class AmbiguousHandlerError(RegistryError):
 
 @dataclass(frozen=True, slots=True)
 class HandlerVersion:
-    """One treatment of one event type, valid over a half-open date interval.
+    """One treatment of one event type, over a date interval and a capability set.
 
     `implementation_ref` is a **key into `HANDLERS`**, not a dotted path. See the
     module docstring for why that distinction is the security property rather
     than a style choice.
+
+    `requires` is **selection criteria, not a gate**, and the difference is what
+    R26 asks for: "the same operation is accounted for differently according to
+    the active capabilities". A gate would refuse when a capability is missing;
+    criteria let two treatments of one event coexist on one date -- one for a
+    VAT-registered company, one for a company that is not -- and let the profile
+    choose between them. Spec B section 4 draws the resolution that way already.
     """
 
     implementation_ref: str
     valid_from: date
     valid_to: date | None = None
+    #: Capability keys this treatment needs. Empty means it applies whatever the
+    #: company has, which is the common case.
+    requires: frozenset[str] = frozenset()
 
     def covers(self, on: date) -> bool:
         """`[valid_from, valid_to)` -- the same half-open window fiscal
         parameters use, so the two cannot disagree on a boundary day."""
         return self.valid_from <= on and (self.valid_to is None or on < self.valid_to)
+
+    def applies_to(self, capabilities: frozenset[str]) -> bool:
+        return self.requires <= capabilities
 
 
 @dataclass(frozen=True, slots=True)
@@ -138,12 +151,20 @@ def deprecate(name: str) -> None:
     DEPRECATED.add(name)
 
 
-def resolve_handler(name: str, accounting_date: date) -> Callable[..., Any]:
-    """The handler in force for that period -- R17, R18.
+def resolve_handler(
+    name: str, accounting_date: date, capabilities: frozenset[str]
+) -> Callable[..., Any]:
+    """The handler in force for that period and that company -- R17, R18, R26.
+
+    `capabilities` has no default, deliberately. R26 requires the profile to be
+    an **explicit input** to the Posting Engine, and a default of "none" would
+    silently pick the treatment for a company without VAT, while a default of
+    "all" would pick the one for a company that has it. Both are plausible wrong
+    answers, which is the worst kind in a ledger.
 
     Zero matches or two are errors, never a choice. Taking the newest would
-    answer a question the registration cannot actually answer, and in a ledger a
-    plausible wrong treatment is worse than a refusal, because it posts.
+    answer a question the registration cannot actually answer, and a plausible
+    wrong treatment is worse than a refusal, because it posts.
     """
     try:
         event_type = REGISTRY[name]
@@ -153,16 +174,46 @@ def resolve_handler(name: str, accounting_date: date) -> Callable[..., Any]:
             f"registers its types, it does not emit arbitrary ones."
         ) from None
 
-    matches = [h for h in event_type.handlers if h.covers(accounting_date)]
+    on_date = [h for h in event_type.handlers if h.covers(accounting_date)]
+    applicable = [h for h in on_date if h.applies_to(capabilities)]
+
+    # The most specific treatment wins, and without this a registration cannot be
+    # written at all: a handler with no requirements is satisfied by every
+    # profile, so it would collide with every specialised one. Same rule as
+    # `fiscal.parameters.resolve_parameter`, where a scoped value beats the
+    # global one -- an entity whose own status changes the treatment, not a
+    # preference.
+    #
+    # "Most specific" means: no other applicable handler requires a strict
+    # superset. Two maximal handlers with incomparable requirements -- one
+    # needing VAT, another needing inventory -- are left as an ambiguity rather
+    # than ordered by some tiebreak, because there is no reading of the
+    # registration that says which should win.
+    matches = [
+        h for h in applicable if not any(other.requires > h.requires for other in applicable)
+    ]
+
     if not matches:
+        # The two failures are told apart on purpose. "No treatment for this
+        # period" is a registration gap, closed by a deployment. "Treatments
+        # exist but need capabilities this company lacks" is a tenant
+        # configuration question, and sending somebody to the wrong one of those
+        # costs an afternoon.
+        if on_date:
+            needed = sorted({c for h in on_date for c in h.requires} - capabilities)
+            raise NoHandlerError(
+                f"{name!r} has treatments on {accounting_date}, none applying to "
+                f"this company's capabilities. Missing: {', '.join(needed)}."
+            )
         raise NoHandlerError(
             f"no handler for {name!r} on {accounting_date}. A type with no "
             f"treatment for the period being posted has no safe default."
         )
     if len(matches) > 1:
         raise AmbiguousHandlerError(
-            f"{name!r} has {len(matches)} handlers covering {accounting_date}; "
-            f"the newest is not the answer, the registration is wrong"
+            f"{name!r} has {len(matches)} handlers covering {accounting_date} for "
+            f"these capabilities; the newest is not the answer, the registration "
+            f"is wrong"
         )
 
     ref = matches[0].implementation_ref
@@ -222,7 +273,30 @@ def _interval_problems(name: str, handlers: tuple[HandlerVersion, ...]) -> list[
     refuse at posting time -- so the misconfiguration reaches somebody closing a
     month who cannot fix it. A gap is worse: it is silent until a document falls
     into it, which may be years after the registration was written.
+
+    **Grouped by capability requirement**, and that grouping is the consequence
+    of R26 the request for `requires` did not name. Two treatments covering the
+    same day for different capability sets are not an overlap -- they are exactly
+    what "the same operation is accounted for differently according to the active
+    capabilities" means. Checking them together would report the correct
+    registration as broken, which is how a guard teaches people to ignore it.
+
+    The cost of the grouping is real and is accepted: a gap is only detected
+    within one capability set, so a period covered for VAT-registered companies
+    and uncovered for the rest is not reported here. Catching that needs the set
+    of capability combinations that actually occur, which the registry does not
+    know -- it is a question for the engine, against real tenants.
     """
+    problems: list[str] = []
+    by_requirement: dict[frozenset[str], list[HandlerVersion]] = {}
+    for handler in handlers:
+        by_requirement.setdefault(handler.requires, []).append(handler)
+    for group in by_requirement.values():
+        problems.extend(_ordered_problems(name, group))
+    return problems
+
+
+def _ordered_problems(name: str, handlers: list[HandlerVersion]) -> list[str]:
     problems: list[str] = []
     ordered = sorted(handlers, key=lambda h: h.valid_from)
     for earlier, later in pairwise(ordered):

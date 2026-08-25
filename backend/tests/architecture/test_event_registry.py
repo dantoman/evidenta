@@ -117,8 +117,14 @@ def test_the_handler_of_the_period_is_selected_not_the_newest() -> None:
             ),
         )
     )
-    assert resolve_handler("sales.invoice_issued", date(2022, 6, 30)) is HANDLERS["probe.v1"]
-    assert resolve_handler("sales.invoice_issued", date(2024, 1, 1)) is HANDLERS["probe.v2"]
+    assert (
+        resolve_handler("sales.invoice_issued", date(2022, 6, 30), frozenset())
+        is HANDLERS["probe.v1"]
+    )
+    assert (
+        resolve_handler("sales.invoice_issued", date(2024, 1, 1), frozenset())
+        is HANDLERS["probe.v2"]
+    )
 
 
 def test_the_boundary_day_belongs_to_the_later_handler() -> None:
@@ -139,7 +145,10 @@ def test_the_boundary_day_belongs_to_the_later_handler() -> None:
             ),
         )
     )
-    assert resolve_handler("sales.invoice_issued", date(2023, 12, 31)) is HANDLERS["probe.v1"]
+    assert (
+        resolve_handler("sales.invoice_issued", date(2023, 12, 31), frozenset())
+        is HANDLERS["probe.v1"]
+    )
 
 
 def test_no_handler_for_the_period_is_an_error() -> None:
@@ -157,7 +166,7 @@ def test_no_handler_for_the_period_is_an_error() -> None:
         )
     )
     with pytest.raises(NoHandlerError):
-        resolve_handler("sales.invoice_issued", date(2020, 1, 1))
+        resolve_handler("sales.invoice_issued", date(2020, 1, 1), frozenset())
 
 
 def test_two_handlers_covering_one_date_is_an_error() -> None:
@@ -174,12 +183,12 @@ def test_two_handlers_covering_one_date_is_an_error() -> None:
         )
     )
     with pytest.raises(AmbiguousHandlerError):
-        resolve_handler("sales.invoice_issued", date(2023, 1, 1))
+        resolve_handler("sales.invoice_issued", date(2023, 1, 1), frozenset())
 
 
 def test_an_unregistered_type_cannot_be_resolved() -> None:
     with pytest.raises(UnknownEventTypeError):
-        resolve_handler("sales.never_registered", date(2026, 1, 1))
+        resolve_handler("sales.never_registered", date(2026, 1, 1), frozenset())
 
 
 def test_a_registration_selects_and_never_imports() -> None:
@@ -197,7 +206,7 @@ def test_a_registration_selects_and_never_imports() -> None:
         )
     )
     with pytest.raises(NoHandlerError):
-        resolve_handler("sales.invoice_issued", date(2026, 1, 1))
+        resolve_handler("sales.invoice_issued", date(2026, 1, 1), frozenset())
 
 
 # --- The boot check, and its probes ------------------------------------------
@@ -313,4 +322,152 @@ def test_a_deprecated_type_keeps_its_handlers() -> None:
     )
     reg.deprecate("sales.invoice_issued")
     assert "sales.invoice_issued" in reg.DEPRECATED
-    assert resolve_handler("sales.invoice_issued", date(2021, 1, 1)) is HANDLERS["probe.v1"]
+    assert (
+        resolve_handler("sales.invoice_issued", date(2021, 1, 1), frozenset())
+        is HANDLERS["probe.v1"]
+    )
+
+
+# --- Capabilities select the treatment, they do not gate it (R26) ------------
+
+
+def test_two_treatments_of_one_event_coexist_on_one_date() -> None:
+    """R26 as a test: the same operation, accounted for differently.
+
+    Both handlers cover the day. The company's profile decides, and that is the
+    reason `requires` is selection criteria rather than a gate -- a gate would
+    have refused, and a refusal is not "accounted for differently".
+    """
+    HANDLERS["probe.with_vat"] = probe_handler
+    HANDLERS["probe.without_vat"] = probe_handler
+    register(
+        EventType(
+            name="sales.invoice_issued",
+            payload_fields=(),
+            handlers=(
+                HandlerVersion("probe.with_vat", date(2020, 1, 1), requires=frozenset({"vat"})),
+                HandlerVersion("probe.without_vat", date(2020, 1, 1)),
+            ),
+        )
+    )
+    with_vat = resolve_handler("sales.invoice_issued", date(2026, 1, 1), frozenset({"vat"}))
+    without = resolve_handler("sales.invoice_issued", date(2026, 1, 1), frozenset())
+    assert with_vat is HANDLERS["probe.with_vat"]
+    assert without is HANDLERS["probe.without_vat"]
+
+
+def test_a_missing_capability_is_reported_as_such_not_as_a_missing_period() -> None:
+    """The two failures are told apart because the fixes differ.
+
+    "No treatment for this period" is a registration gap closed by a deployment.
+    "Treatments exist and need capabilities this company lacks" is a tenant
+    configuration question. Sending somebody to the wrong one costs an afternoon.
+    """
+    HANDLERS["probe.with_vat"] = probe_handler
+    register(
+        EventType(
+            name="sales.invoice_issued",
+            payload_fields=(),
+            handlers=(
+                HandlerVersion("probe.with_vat", date(2020, 1, 1), requires=frozenset({"vat"})),
+            ),
+        )
+    )
+    with pytest.raises(NoHandlerError) as failure:
+        resolve_handler("sales.invoice_issued", date(2026, 1, 1), frozenset())
+    assert "vat" in str(failure.value)
+    assert "no handler" not in str(failure.value)
+
+
+def test_handlers_differing_only_in_capability_are_not_an_overlap() -> None:
+    """The consequence of R26 the guard has to know about.
+
+    Checked together, a correct registration would be reported as broken -- and a
+    guard that reports correct work is a guard people learn to ignore.
+    """
+    HANDLERS["probe.with_vat"] = probe_handler
+    HANDLERS["probe.without_vat"] = probe_handler
+    probe = {
+        "sales.invoice_issued": EventType(
+            "sales.invoice_issued",
+            (),
+            handlers=(
+                HandlerVersion("probe.with_vat", date(2020, 1, 1), requires=frozenset({"vat"})),
+                HandlerVersion("probe.without_vat", date(2020, 1, 1)),
+            ),
+        )
+    }
+    assert audit(probe) == []
+
+
+def test_an_overlap_within_one_capability_set_is_still_reported() -> None:
+    """The control for the grouping. Without it, `requires` would be a way to
+    silence the overlap check rather than to express a distinction.
+    """
+    HANDLERS["probe.a"] = probe_handler
+    HANDLERS["probe.b"] = probe_handler
+    probe = {
+        "sales.invoice_issued": EventType(
+            "sales.invoice_issued",
+            (),
+            handlers=(
+                HandlerVersion("probe.a", date(2020, 1, 1), requires=frozenset({"vat"})),
+                HandlerVersion("probe.b", date(2024, 1, 1), requires=frozenset({"vat"})),
+            ),
+        )
+    }
+    assert any("open-ended" in p for p in audit(probe))
+
+
+def test_incomparable_requirements_stay_ambiguous() -> None:
+    """No tiebreak invented where the registration does not express one.
+
+    One treatment needs VAT, another needs inventory, and a company has both.
+    There is no reading of that registration which says one wins -- ordering them
+    by size, or by declaration order, would answer a question nobody asked and
+    would post under a treatment nobody chose.
+    """
+    HANDLERS["probe.vat"] = probe_handler
+    HANDLERS["probe.inventory"] = probe_handler
+    register(
+        EventType(
+            name="sales.invoice_issued",
+            payload_fields=(),
+            handlers=(
+                HandlerVersion("probe.vat", date(2020, 1, 1), requires=frozenset({"vat"})),
+                HandlerVersion(
+                    "probe.inventory", date(2020, 1, 1), requires=frozenset({"inventory"})
+                ),
+            ),
+        )
+    )
+    with pytest.raises(AmbiguousHandlerError):
+        resolve_handler("sales.invoice_issued", date(2026, 1, 1), frozenset({"vat", "inventory"}))
+
+
+def test_a_strict_superset_wins_over_the_general_treatment() -> None:
+    """The control for "most specific wins".
+
+    Without it the rule could be satisfied by picking either one, and the test
+    above would pass on an implementation that simply took the first match.
+    """
+    HANDLERS["probe.general"] = probe_handler
+    HANDLERS["probe.vat_inventory"] = probe_handler
+    register(
+        EventType(
+            name="sales.invoice_issued",
+            payload_fields=(),
+            handlers=(
+                HandlerVersion("probe.general", date(2020, 1, 1), requires=frozenset({"vat"})),
+                HandlerVersion(
+                    "probe.vat_inventory",
+                    date(2020, 1, 1),
+                    requires=frozenset({"vat", "inventory"}),
+                ),
+            ),
+        )
+    )
+    chosen = resolve_handler(
+        "sales.invoice_issued", date(2026, 1, 1), frozenset({"vat", "inventory"})
+    )
+    assert chosen is HANDLERS["probe.vat_inventory"]
