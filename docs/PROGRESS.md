@@ -312,7 +312,11 @@ preced orice model.
   - [x] F0.4.1 — `audit_event` append-only, fără chei străine, `occurred_at NOT NULL`
   - [x] F0.4.2 — captare explicită din servicii, fără signals; engagement cablat
   - [x] F0.4.3 — corelatorul `request_id` și enumerarea efectelor (Spec A §9.3)
-- [ ] F0.5 — Capabilități și feature flags    ← ÎN CURS
+- [x] F0.5 — Capabilități și feature flags
+  - [x] F0.5.1 — `CapabilityActivation` cu dată efectivă și stare de inițializare;
+        nesuprapunere pe `COALESCE(company_id, tenant_id)`; R24 impus prin `CHECK`
+  - [x] F0.5.2 — feature flags și release rings; override cu motiv și expirare
+        obligatorii; flagurile de conformitate refuzate la suprascriere, prin trigger
 - [ ] F0.6 — Document core, numerotare, atașamente *(numerotarea deblocată prin ADR-022)*
 - [ ] F0.7 — Master data
 - [ ] F0.8 — Parametri fiscali și registru

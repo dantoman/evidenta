@@ -35,6 +35,10 @@ from tests.conftest import admin_dsn
 
 # Order matters: children before parents.
 SEEDED_TABLES = (
+    "feature_flag_override",
+    "tenant_release_ring",
+    "feature_flag",
+    "capability_activation",
     "user_session",
     "mfa_backup_code",
     "mfa_method",
