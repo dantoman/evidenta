@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import uuid
 from collections.abc import Callable
-from datetime import UTC, date, datetime, timedelta
+from datetime import UTC, date, datetime
 
 import pytest
 from django.db import connection
@@ -29,7 +29,7 @@ from evidenta.platform.engagement.services.revocation import (
     RevocationError,
     revoke_engagement,
 )
-from evidenta.platform.rls.context import TenantContext, tenant_context
+from evidenta.platform.rls.context import TenantContext, tenant_context, unguarded
 
 pytestmark = pytest.mark.django_db(databases=["default", "migration"])
 
@@ -220,8 +220,21 @@ def test_expiry_is_cosmetic_not_the_security_mechanism(
 
     Asserted together on purpose: if someone ever makes access depend on the job,
     the second half of this test is what fails.
+
+    **"Yesterday" is read from the database, not from Python.** The predicate
+    evaluates validity against `current_date`, so an expiry computed from the
+    application's clock is not testing expiry -- it is testing that two clocks
+    agree, which they do not: Django runs the process in `Europe/Chisinau` and
+    opens the connection in UTC, so between 21:00 and 24:00 UTC the two name
+    different days. This test used to fail in that window and pass the rest of
+    the time, which is how a real finding gets filed as flakiness. The finding
+    itself is `OD-63`, and the test below characterises it deliberately instead.
     """
-    yesterday = date.today() - timedelta(days=1)
+    # Named, because the guard is right to refuse: this touches no business data,
+    # it asks the server what day it is.
+    with unguarded("test: the server's own clock"), connection.cursor() as cursor:
+        cursor.execute("SELECT current_date - 1")
+        yesterday = cursor.fetchone()[0]
 
     with tenant_context(as_client):
         engagement = new_invitation(firm_world)
@@ -247,3 +260,47 @@ def test_expiry_is_cosmetic_not_the_security_mechanism(
         expired = mark_expired(engagement.id)
         assert expired is not None
         assert expired.status == EngagementStatus.EXPIRED
+
+
+def test_the_predicate_follows_the_database_day_not_the_application_day(
+    firm_world: dict[str, uuid.UUID], as_client: TenantContext
+) -> None:
+    """The asymmetry `OD-63` records, asserted rather than stumbled into.
+
+    The application computes dates in `Europe/Chisinau`; the access predicate
+    asks the database, whose connection Django opens in UTC. For three hours
+    every night they name different days.
+
+    This test says which one decides, and it says the same thing at every hour --
+    an engagement valid up to and including the database's today still grants
+    access, whatever the application thinks today is. Written so that closing
+    `OD-63` makes it fail loudly rather than leaving the old behaviour untested.
+    """
+    with unguarded("test: the server's own clock"), connection.cursor() as cursor:
+        cursor.execute("SELECT current_date")
+        database_today = cursor.fetchone()[0]
+
+    application_today = date.today()
+
+    with tenant_context(as_client):
+        engagement = new_invitation(firm_world)
+        accept(engagement.id, firm_world["user_b"], TenantSide.TENANT)
+        Engagement.objects.filter(pk=engagement.id).update(valid_to=database_today)
+
+    acting = TenantContext(
+        tenant_id=firm_world["tenant_b"],
+        user_id=firm_world["user_f"],
+        request_id="test",
+        actor_firm_id=firm_world["firm"],
+    )
+    with tenant_context(acting), connection.cursor() as cursor:
+        cursor.execute("SELECT count(*) FROM tenant")
+        visible = cursor.fetchone()[0]
+
+    # Valid through the database's today, so access holds -- even on the nights
+    # when the application has already turned the page.
+    assert visible == 1, (
+        f"the predicate must follow the database day ({database_today}); the "
+        f"application says {application_today}. If this fails, OD-63 has been "
+        f"closed and this test is the one to rewrite."
+    )
