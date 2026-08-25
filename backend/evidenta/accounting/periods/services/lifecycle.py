@@ -1,0 +1,191 @@
+"""Closing, reopening, locking -- F1.5.1, ADR-039 section 8 and Spec B section 6.2.
+
+Three transitions and one that does not exist:
+
+    open   -> closed   closing the month
+    closed -> open     reopening, while the exercise is still open
+    closed -> locked   closing the exercise, irreversible
+
+``locked -> anything`` is missing on purpose, and its absence is tested. A
+correction to a locked period goes through a reversal posted in an open one
+(Spec B section 9.3) -- which is also why nothing here needs to reach back into
+a closed period to fix it.
+
+Every transition is recorded from the service that made it, explicitly rather
+than through a signal (C4). Row timestamps say a row changed; they do not say
+who reopened March, or why -- and that is the question a reviewer asks.
+"""
+
+from __future__ import annotations
+
+import uuid
+from datetime import UTC, datetime
+
+from django.db import transaction
+from django.db.models import QuerySet
+
+from evidenta.accounting.periods.errors import (
+    FiscalYearClosedError,
+    FiscalYearNotFoundError,
+    PeriodLockedError,
+    PeriodNotFoundError,
+    PeriodNotOpenError,
+    PeriodsStillOpenError,
+)
+from evidenta.accounting.periods.models import FiscalYear, FiscalYearStatus, Period, PeriodStatus
+from evidenta.platform.audit.services.recording import record
+from evidenta.platform.rls.context import MissingTenantContextError, current_context
+
+
+def _period(period_id: uuid.UUID) -> Period:
+    """The period, or a refusal that does not say whose it is (IZ-04)."""
+    period = Period.objects.filter(id=period_id).select_related("fiscal_year").first()
+    if period is None:
+        raise PeriodNotFoundError(f"period {period_id} is not visible in this context")
+    return period
+
+
+def _actor() -> uuid.UUID:
+    """Who is closing. Never a parameter -- it comes from the context.
+
+    A closure whose author the caller chooses records whatever the caller
+    prefers, which is not evidence that anyone reviewed the month.
+    """
+    context = current_context()
+    if context is None:
+        raise MissingTenantContextError("closing a period needs a tenant context")
+    return context.user_id
+
+
+@transaction.atomic
+def close_period(period_id: uuid.UUID) -> Period:
+    """``open -> closed``. Refuses anything else, including a second closing."""
+    period = _period(period_id)
+    if period.status == PeriodStatus.LOCKED:
+        raise PeriodLockedError(f"period {period.start_date:%Y-%m} is locked; it does not reopen")
+    if period.status != PeriodStatus.OPEN:
+        raise PeriodNotOpenError(
+            f"period {period.start_date:%Y-%m} is {period.status}, not open; "
+            f"closing it again would move its closing date to today"
+        )
+
+    actor = _actor()
+    period.status = PeriodStatus.CLOSED
+    period.closed_at = datetime.now(UTC)
+    period.closed_by_user_id = actor
+    period.save(update_fields=["status", "closed_at", "closed_by_user_id", "updated_at"])
+
+    record(
+        action="period.closed",
+        entity_type="period",
+        entity_id=period.id,
+        company_id=period.company_id,
+        old_value={"status": PeriodStatus.OPEN.value},
+        new_value={"status": PeriodStatus.CLOSED.value},
+    )
+    return period
+
+
+@transaction.atomic
+def reopen_period(period_id: uuid.UUID, reason: str) -> Period:
+    """``closed -> open``, while the exercise is open, with the reason recorded.
+
+    ``reason`` is required and goes into the audit entry, not into a column: the
+    next reopening would overwrite a column, and the question asked later is how
+    often this happened and why each time, not why the last time.
+    """
+    if not reason.strip():
+        raise PeriodNotOpenError(
+            "reopening a closed period needs a reason; an unexplained reopening "
+            "is the one an inspection asks about first"
+        )
+
+    period = _period(period_id)
+    if period.status == PeriodStatus.LOCKED:
+        raise PeriodLockedError(
+            f"period {period.start_date:%Y-%m} is locked; correct it with a reversal "
+            f"posted in the open period (Spec B section 9.3)"
+        )
+    if period.status == PeriodStatus.OPEN:
+        raise PeriodNotOpenError(f"period {period.start_date:%Y-%m} is already open")
+    if period.fiscal_year.status != FiscalYearStatus.OPEN:
+        raise FiscalYearClosedError(
+            f"exercise {period.fiscal_year.code} is closed; nothing inside it moves again"
+        )
+
+    actor = _actor()
+    period.status = PeriodStatus.OPEN
+    period.reopened_count += 1
+    period.last_reopened_at = datetime.now(UTC)
+    period.last_reopened_by_user_id = actor
+    period.save(
+        update_fields=[
+            "status",
+            "reopened_count",
+            "last_reopened_at",
+            "last_reopened_by_user_id",
+            "updated_at",
+        ]
+    )
+
+    record(
+        action="period.reopened",
+        entity_type="period",
+        entity_id=period.id,
+        company_id=period.company_id,
+        old_value={"status": PeriodStatus.CLOSED.value},
+        new_value={
+            "status": PeriodStatus.OPEN.value,
+            "reason": reason,
+            "reopened_count": period.reopened_count,
+        },
+    )
+    return period
+
+
+def _periods_of(year: FiscalYear) -> QuerySet[Period]:
+    return Period.objects.filter(fiscal_year=year)
+
+
+@transaction.atomic
+def close_fiscal_year(fiscal_year_id: uuid.UUID) -> FiscalYear:
+    """Close the exercise and lock every period in it -- irreversibly.
+
+    The order matters and is the reason this is one service rather than two: a
+    year marked closed over periods still marked open would leave the refusal to
+    post depending on which of the two the caller happened to read.
+    """
+    year = FiscalYear.objects.filter(id=fiscal_year_id).first()
+    if year is None:
+        raise FiscalYearNotFoundError(f"exercise {fiscal_year_id} is not visible in this context")
+    if year.status != FiscalYearStatus.OPEN:
+        raise FiscalYearClosedError(f"exercise {year.code} is already closed")
+
+    still_open = list(
+        _periods_of(year).filter(status=PeriodStatus.OPEN).values_list("period_no", flat=True)
+    )
+    if still_open:
+        numbers = ", ".join(str(number) for number in still_open)
+        raise PeriodsStillOpenError(
+            f"exercise {year.code} still has open periods ({numbers}); closing it "
+            f"would lock work in progress out of its own month"
+        )
+
+    actor = _actor()
+    now = datetime.now(UTC)
+    locked = _periods_of(year).filter(status=PeriodStatus.CLOSED).update(status=PeriodStatus.LOCKED)
+
+    year.status = FiscalYearStatus.CLOSED
+    year.closed_at = now
+    year.closed_by_user_id = actor
+    year.save(update_fields=["status", "closed_at", "closed_by_user_id", "updated_at"])
+
+    record(
+        action="fiscal_year.closed",
+        entity_type="fiscal_year",
+        entity_id=year.id,
+        company_id=year.company_id,
+        old_value={"status": FiscalYearStatus.OPEN.value},
+        new_value={"status": FiscalYearStatus.CLOSED.value, "periods_locked": locked},
+    )
+    return year
