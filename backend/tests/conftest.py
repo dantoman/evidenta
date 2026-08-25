@@ -168,6 +168,8 @@ def django_db_setup(django_db_blocker: pytest.FixtureRequest) -> Iterator[None]:
     with django_db_blocker.unblock():  # type: ignore[attr-defined]
         call_command("migrate", database="migration", run_syncdb=False, verbosity=0)
 
+    _assert_application_role(django_db_blocker)
+
     yield
 
     for alias in ("default", "migration"):
@@ -177,10 +179,15 @@ def django_db_setup(django_db_blocker: pytest.FixtureRequest) -> Iterator[None]:
             admin.execute(f'DROP DATABASE IF EXISTS "{dbname}" WITH (FORCE)')
 
 
-@pytest.fixture(scope="session", autouse=True)
-def assert_application_role(
-    django_db_setup: None, django_db_blocker: pytest.FixtureRequest
-) -> None:
+# Deliberately a function, not an autouse fixture. As autouse it ran at session
+# setup, so *every* test in the repository -- including purely static ones that
+# never touch a row -- depended on a reachable Postgres. That is how a static
+# check ends up needing a database, and how it ends up excluded from the fast CI
+# job for a reason that has nothing to do with what it checks.
+#
+# It still runs for every database test: django_db_setup calls it below, and
+# pytest builds that fixture only when a test actually asks for the database.
+def _assert_application_role(django_db_blocker: pytest.FixtureRequest) -> None:
     """Refuse to run the suite unless it runs as the application role (T1).
 
     Checked by querying the server, not by reading settings: settings describe
