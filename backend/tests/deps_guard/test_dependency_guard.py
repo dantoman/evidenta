@@ -22,7 +22,7 @@ from tests.deps_guard.audit import Contract, Finding, audit
 PROBE_CONTRACT = Contract(
     layers=[
         {"name": "platform", "may_import": [], "rule": "DG"},
-        {"name": "fiscal", "may_import": [], "rule": "D1"},
+        {"name": "fiscal", "may_import": ["platform"], "rule": "D1"},
         {"name": "masterdata", "may_import": ["platform"], "rule": "DG"},
         {"name": "accounting", "may_import": ["platform", "masterdata", "fiscal"], "rule": "D2"},
         {
@@ -101,6 +101,21 @@ def test_detects_fiscal_importing_a_business_module(tmp_path: Path) -> None:
         **{"fiscal.registry.rates": "from evidenta.accounting.events import emit\n"},
     )
     assert "D1" in rules(findings)
+
+
+def test_allows_fiscal_to_import_the_platform(tmp_path: Path) -> None:
+    """D1 is about business modules, and platform is not one.
+
+    The contract said `fiscal -> nothing` for an afternoon. Nothing caught it,
+    because `evidenta/fiscal/` did not exist yet; the first file placed there was
+    a migration importing run_sql_file -- the mechanism C30 requires -- and the
+    guard reported the graph rather than the code. It was right to.
+    """
+    findings = probe(
+        tmp_path,
+        **{"fiscal.registry.migrations": "from evidenta.platform.rls.sql import run_sql_file\n"},
+    )
+    assert findings == []
 
 
 def test_detects_accounting_importing_operations(tmp_path: Path) -> None:

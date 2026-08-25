@@ -109,15 +109,23 @@ agenții invocați, ambele suite de izolare verzi, nicio decizie deschisă înch
   „suite absente", nu tăcut.
 - **Blocat de:** OD-16
 
-### F0.0.5 — Contracte de dependență între module
+### F0.0.5 — Contracte de dependență între module ✔
 
 - **Obiectiv:** regulile D1–D6 din `CLAUDE.md` sunt verificate mecanic, nu prin convenție.
-- **Fișiere:** `backend/.importlinter` (sau echivalent), țintă `make deps-check`, job în CI
+- **Fișiere:** `infra/modules/dependencies.toml`, `backend/tests/deps_guard/`, ținta `make
+  deps-check`, pasul din jobul rapid de CI
 - **Depinde de:** F0.0.1, F0.0.4
 - **Review:** —
 - **Terminat:** `make deps-check` trece; un import deliberat interzis, adăugat temporar, îl face să
   eșueze.
-- **Blocat de:** OD-17
+- **Blocat de:** — *(OD-17 prin [ADR-024](../decisions/024-gardian-de-dependente.md): gardian
+  propriu, în suită, nu `import-linter`)*
+- **Livrat:** gardian AST cu contract citit dintr-un singur fișier; `D0` (pachet nedeclarat), `DG`,
+  `D1`–`D6`. 19 teste, fiecare regulă cu probă că poate eșua, ~0,1 s, fără bază de date
+- **Verificat:** criteriul „un import interzis îl face să eșueze" nu e ipotetic — fiecare regulă are
+  proba ei pe o ierarhie de fișiere construită pentru ea. Peste ele, gardianul a prins la prima
+  rulare pe arborele real două chei străine scrise în aceeași oră, ceea ce a schimbat forma
+  excepției `D6` (vezi ADR-024)
 
 ---
 
@@ -930,7 +938,7 @@ Sarcinile care nu pot începe până la închiderea unei decizii:
 | ~~OD-14~~ | **închisă** — [ADR-005](../decisions/005-stack-versions.md) |
 | ~~OD-15~~ | **închisă** — [ADR-011](../decisions/011-tooling-python.md) |
 | OD-16 *(CI)* | F0.0.4, F0.2.6 |
-| OD-17 *(unealtă de dependențe)* | F0.0.5 |
+| ~~OD-17~~ | **închisă** — [ADR-024](../decisions/024-gardian-de-dependente.md) |
 | ~~OD-18~~ | **închisă** — [ADR-012](../decisions/012-sql-in-django-migrations.md) |
 | DN-06, DN-07 *(scope de engagement)* | F0.2.4, F0.3.3 |
 | DN-08, DN-09 *(roluri, MFA)* | F0.3.7, F0.10.2 |

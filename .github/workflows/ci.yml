@@ -48,6 +48,13 @@ jobs:
       - run: uv run mypy .
         working-directory: backend
 
+      # In the fast job on purpose: the guard reads files, never the database
+      # (ADR-024). A static check that needed Postgres to run would be a static
+      # check that runs late.
+      - name: Dependency contract (D1-D6)
+        working-directory: backend
+        run: uv run pytest tests/deps_guard -q
+
       - name: No undeclared model changes
         working-directory: backend
         run: uv run python manage.py makemigrations --check --dry-run --no-input

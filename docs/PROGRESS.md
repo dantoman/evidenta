@@ -12,6 +12,43 @@ de date și infrastructură RLS**.
 
 ## Ultima sesiune
 
+**2026-08-25, F0.0.5 — gardianul de dependențe (ADR-024)**, scris în paralel cu sesiunea de
+masterdata, în același arbore:
+
+- `D1`–`D6` erau declarate în `CLAUDE.md` §3 și **citite de nimic**. Acum: parcurgere AST peste
+  `backend/evidenta`, contract într-un singur fișier (`infra/modules/dependencies.toml`), 19 teste,
+  fiecare regulă cu probă că poate eșua. ~0,1 s, fără bază de date, deci stă în jobul rapid de CI
+- **`import-linter` respins, cu motiv măsurat, nu de gust:** un contract de straturi nu poate
+  exprima `D6`, nu distinge `accounting.events` de `accounting.ledger` (`D3`), și **tace** despre
+  pachetul pe care nimeni n-a știut să-l declare. Gardianul îl raportează — `D0` — și vede pe
+  deasupra importurile relative și pe cele din interiorul funcțiilor, a doua formă fiind exact cum
+  se face un ciclu să funcționeze la rulare
+- **`D6` a fost decis pe măsurătoare, nu pe citire.** Aplicat literal, declara defecte zece
+  importuri existente, toate ținte de `ForeignKey` în `models.py`. Excepția are două condiții,
+  ambele impuse: numai un modul `models` poate compune schemă, și numai către `platform` și
+  `masterdata`. Lista a fost `["platform"]` singur câteva minute — a căzut când `Articol → Unitate
+  de măsură` a ieșit ca încălcare
+- gardianul a prins în prima oră două chei străine scrise în aceeași oră, în `masterdata`. Ambele
+  au devenit referințe prin șir. Una dintre ele a scos la iveală un al doilea defect, care nu era
+  ținta lui: mutarea cheilor străine în altă migrare a lăsat `CREATE POLICY ... USING (tenant_id =
+  ...)` să ruleze înaintea coloanei — eșua pe bază curată, trecea pe una migrată
+- **gardianul a prins o eroare în propriul lui contract**, nu în cod: `fiscal.may_import` era gol,
+  dar graful spune „totul poate depinde de platform", iar `D1` vorbește despre module **business**.
+  Nimic nu o prinsese cât `evidenta/fiscal/` nu exista; primul fișier pus acolo a fost o migrare
+  care importă `run_sql_file` — mecanismul cerut de C30 — și verificarea a căzut. Contractul e
+  greșit acolo, nu codul
+- **190 de teste trec** pe o bază construită de la zero; `ruff`, `mypy` curate; `make deps-check` și
+  pasul de CI cablate
+
+**Lucrul în paralel a costat, și costul e de consemnat.** Două sesiuni în același arbore au
+implementat F0.0.5 **de două ori**, simultan, fiindcă decizia care alegea unealta a fost pusă într-o
+sesiune și nu în cealaltă. S-a rezolvat prin mesaj între sesiuni, dar numai fiindcă niciuna nu
+comisese. Registrul de decizii a suferit aceeași coliziune a doua oară în aceeași zi: `OD-44` și
+`OD-45` primiseră fiecare o a doua decizie, iar una era înregistrată de două ori — devenite acum
+`OD-46` (gardianul pe `*_key`) și `OD-47` (privilegiile implicite). **Regula care lipsește: cine ia
+o sarcină o spune înainte, iar numerele de `OD`, de ADR și de migrare se rezervă, nu se aleg la
+scriere.**
+
 **2026-08-25, corecții pe stratul de rezoluție** — mesaje care trimiteau la o fază terminată:
 
 - `refuse_all` și comentariul din `settings/base.py` spuneau amândouă „la F0.3.5", dar F0.3.5 e
@@ -289,7 +326,8 @@ preced orice model.
   - [x] F0.0.2 — proiect Django și Celery; `check`, `ruff`, `mypy`, `pytest` toate verzi
   - [ ] F0.0.3 — imagini de container
   - [x] F0.0.4 — CI pe GitHub Actions; jobul `quality` și jobul `tests`
-  - [ ] F0.0.5 — contracte de dependență între module *(blocat de OD-17)*
+  - [x] F0.0.5 — gardianul de dependențe (ADR-024): `D0`, `DG`, `D1`–`D6`, contract într-un
+        singur fișier; 19 teste, fără bază de date
 - [ ] F0.2 — Suitele de verificare (penetrare + gardian de model)    ← ÎN CURS
   - [x] F0.2.1 — harness sub rolul de aplicație; refuză ca owner și ca superuser
   - [x] F0.2.2 — gardianul de model; 11 teste, fiecare regulă cu probă că poate eșua

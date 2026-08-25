@@ -214,6 +214,4 @@ sync: ## Instalează mediul din uv.lock
 
 .PHONY: deps-check
 deps-check: ## Verifică regulile de dependență între module (D1-D6 din CLAUDE.md)
-	@echo "Nedefinit încă — unealta de verificare a contractelor de import nu e aleasă."
-	@echo "Vezi docs/decisions/000-open-decisions.md."
-	@exit 1
+	cd backend && uv run python -m tests.deps_guard.audit

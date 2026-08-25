@@ -41,9 +41,9 @@ reason = "Totul poate depinde de platform; platform nu depinde de nimeni. Un imp
 
 [[layer]]
 name = "fiscal"
-may_import = []
+may_import = ["platform"]
 rule = "D1"
-reason = "Parametrii și algoritmii fiscali nu cunosc niciun modul business. Un import de acolo ar lega o cotă de TVA de forma unei facturi."
+reason = "Parametrii și algoritmii fiscali nu cunosc niciun modul BUSINESS. `platform` nu este unul: graful spune „totul poate depinde de platform”, iar migrațiile din fiscal aplică SQL prin `platform.rls.sql.run_sql_file`, mecanismul impus de C30. Un import din masterdata, accounting sau operations ar lega o cotă de TVA de forma unei facturi — acela rămâne refuzat."
 
 [[layer]]
 name = "masterdata"
@@ -118,6 +118,11 @@ reason = "`firmspace` este strat de prezentare. Nimic nu importă din el — un 
 # au ieșit ca încălcări, iar niciuna nu este comunicare între module. Cazul care a motivat
 # îngustarea — `sales` → `purchases` — rămâne prins de condiția de strat.
 
+# `fiscal` s-a adăugat la F0.8 — ADR-027. Nu pentru că gardianul a raportat ceva, ci pentru că
+# stratul are aceeași natură: parametrul fiscal e act normativ transcris, iar `R13` cere ca
+# înregistrarea contabilă să poată numi versiunea sub care s-a calculat. O legătură reconstruită
+# prin căutare după dată la fiecare interogare nu e lanț de audit.
+
 [d6]
-schema_layers = ["platform", "masterdata"]
-reason = "Fundația și datele de referință sunt cele către care arată cheile străine ale oricărei tabele business. Un modul de business care ține o cheie străină către alt modul de business este cuplat cu el, nu îl compune."
+schema_layers = ["platform", "masterdata", "fiscal"]
+reason = "Fundația, datele de referință și parametrii fiscali sunt cele către care arată cheile străine ale oricărei tabele business. Un modul de business care ține o cheie străină către alt modul de business este cuplat cu el, nu îl compune."
