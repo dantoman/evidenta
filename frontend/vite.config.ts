@@ -5,12 +5,21 @@ import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 
 export default defineConfig(({ mode }) => {
-  // The backend port is already configurable in `.env` (`BACKEND_PORT`), so the
-  // proxy target has to be too -- otherwise the two drift the first time someone
-  // runs the backend anywhere but 8000, and the failure looks like a broken
-  // frontend rather than a wrong port.
-  const env = loadEnv(mode, process.cwd(), '')
-  const apiTarget = env.VITE_API_TARGET ?? `http://127.0.0.1:${env.BACKEND_PORT ?? '8000'}`
+  // The backend port is configurable in the repo's `.env` (`BACKEND_PORT`), so
+  // the proxy target has to follow it -- otherwise the two drift the first time
+  // somebody runs the backend anywhere but 8000, and the failure looks like a
+  // broken frontend rather than a wrong port.
+  //
+  // **The root, not `process.cwd()`.** The first version of this line read the
+  // frontend directory, where no `.env` exists, so `BACKEND_PORT=8001` in the
+  // repo `.env` silently did nothing and every request went to 8000. Found by
+  // the owner, whose port 8000 is another project entirely -- so the frontend
+  // proxied to somebody else's Django and reported "the server is not
+  // responding". Same class as the compose file's unread `DATABASE_URL`:
+  // configuration that looks right and has never run.
+  const repoRoot = fileURLToPath(new URL('..', import.meta.url))
+  const env = loadEnv(mode, repoRoot, '')
+  const apiTarget = env.VITE_API_TARGET ?? `http://127.0.0.1:${env.BACKEND_PORT || '8000'}`
 
   return {
     plugins: [react(), tailwindcss()],

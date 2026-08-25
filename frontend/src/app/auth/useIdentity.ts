@@ -23,7 +23,13 @@ export function useIdentity() {
         return await whoami()
       } catch (error) {
         // Not authenticated is an answer, not a failure: it means "show the
-        // login screen". Anything else is a real error and must surface.
+        // login screen".
+        //
+        // A 404 is **not** one of those, and conflating them was the first
+        // version's bug. The tenant comes from the subdomain (C8), so a host
+        // with no tenant answers `tenant.not_found` with 404 -- and showing the
+        // login form there would invite somebody to type a password into an
+        // address that has no workspace behind it.
         if (error instanceof ApiError && (error.status === 401 || error.status === 403)) {
           return null
         }

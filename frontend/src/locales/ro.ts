@@ -42,6 +42,13 @@ export const ro = {
       'Contul nu are încă un al doilea factor configurat.',
     'auth.no_access_to_tenant': 'Nu aveți acces la acest spațiu de lucru.',
     'api.not_found': 'Nu s-a găsit.',
+    // The tenant comes from the subdomain (C8), so this is what a host with no
+    // workspace behind it answers -- not an error in the usual sense.
+    'tenant.not_found': 'Această adresă nu are un spațiu de lucru.',
+    'tenant.mismatch': 'Adresa și sesiunea nu se potrivesc.',
+    'auth.required': 'Autentificați-vă pentru a continua.',
+    'auth.session_tenant_mismatch':
+      'Sesiunea aparține altui spațiu de lucru.',
     'api.forbidden': 'Nu aveți dreptul necesar.',
     'api.not_authenticated': 'Sesiunea a expirat. Autentificați-vă din nou.',
     'api.invalid': 'Datele trimise nu sunt valide.',
@@ -50,6 +57,8 @@ export const ro = {
     'api.throttled': 'Prea multe cereri. Încercați peste puțin timp.',
     unknown: 'A apărut o eroare neașteptată.',
     network: 'Serverul nu răspunde.',
+    hintSubdomain:
+      'Spațiul de lucru se alege din subdomeniu — de exemplu alpha.evidenta.localhost:5173, nu evidenta.localhost:5173.',
   },
 } as const
 
