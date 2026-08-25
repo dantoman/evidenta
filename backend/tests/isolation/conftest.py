@@ -35,7 +35,23 @@ from tests.conftest import admin_dsn
 
 # Order matters: children before parents.
 SEEDED_TABLES = (
+    # F1.2. Lines before entries; entries before the period and the event they
+    # name. `journal_line` receives no foreign key (R21), so nothing points at it
+    # -- but it points at `journal_entry`, which is what fixes the order here.
+    "journal_line",
+    "journal_entry",
+    "company_dimension",
     "accounting_event",
+    # F1.5. `period` points at `fiscal_year`, both at `company`.
+    "period",
+    "fiscal_year",
+    # F1.1. Before `company` and `tenant`, and children before parents:
+    # `company_account` points at `coa_template_account`, `company_chart` at
+    # `coa_template`.
+    "company_account",
+    "company_chart",
+    "coa_template_account",
+    "coa_template",
     "attachment_metadata",
     "notification_delivery",
     "notification",
@@ -106,9 +122,25 @@ def seed_system_roles(seed: Callable[..., None], tenant_id: uuid.UUID) -> None:
 
 #: The protections the cleanup has to get past, and put back. Written once so
 #: the disable and the re-enable cannot drift apart.
+#:
+#: **The rule for adding to this list**, which is not "the table is in
+#: SEEDED_TABLES": a table needs an entry here when it has a trigger refusing
+#: DELETE *and* is seeded through `seed()`. Rows written through the ORM live in
+#: the test transaction and are rolled back, so the next cleanup matches nothing
+#: and a FOR EACH ROW trigger never fires. `seed()` writes on the admin
+#: connection with autocommit, so its rows survive and must be deleted.
+#:
+#: That asymmetry is why `accounting_event` was added here only when the ledger
+#: tests arrived: the module that owns the table seeds through the ORM, so its
+#: own suite passes with or without this line. Measured by `evidenta-2f`, who
+#: removed the line and ran their 27 tests green either way.
 _TRIGGER_STATE = (
     "ALTER TABLE role {action} TRIGGER role_protect_system",
     "ALTER TABLE role_permission {action} TRIGGER role_permission_protect_system",
+    # Accounting events refuse deletion -- production behaviour (F1.3.1), proved
+    # by that module's own suite. See the rule above for why this line arrived
+    # with the ledger tests rather than with the table.
+    "ALTER TABLE accounting_event {action} TRIGGER accounting_event_no_delete",
 )
 
 

@@ -65,6 +65,9 @@ INSTALLED_APPS: list[str] = [
     "evidenta.platform.attachments.apps.AttachmentsConfig",
     "evidenta.accounting.currency.apps.CurrencyConfig",
     "evidenta.accounting.events.apps.AccountingEventsConfig",
+    "evidenta.accounting.coa.apps.CoaConfig",
+    "evidenta.accounting.periods.apps.PeriodsConfig",
+    "evidenta.accounting.ledger.apps.LedgerConfig",
 ]
 
 MIDDLEWARE: list[str] = [
@@ -204,9 +207,19 @@ ATTACHMENT_ALLOWED_CONTENT_TYPES: tuple[str, ...] = (
 
 # --- REST --------------------------------------------------------------------
 REST_FRAMEWORK = {
-    "DEFAULT_AUTHENTICATION_CLASSES": [],
+    # Adopts the identity the session middleware established; it does not resolve
+    # a session of its own. See platform/api/authentication.py for why there is
+    # exactly one place that decides who the caller is.
+    "DEFAULT_AUTHENTICATION_CLASSES": [
+        "evidenta.platform.api.authentication.SessionIdentityAuthentication",
+    ],
     "DEFAULT_PERMISSION_CLASSES": ["rest_framework.permissions.IsAuthenticated"],
     "UNAUTHENTICATED_USER": None,
+    # JSON only. The browsable API renders templates, needs `rest_framework` in
+    # INSTALLED_APPS, and turns a content-negotiation mistake into a 200 with an
+    # HTML body -- which a client parses as a failure it cannot name.
+    "DEFAULT_RENDERER_CLASSES": ["rest_framework.renderers.JSONRenderer"],
+    "DEFAULT_PARSER_CLASSES": ["rest_framework.parsers.JSONParser"],
     # Every error answers with a stable code (C10). Wired at the framework level
     # rather than per view: an endpoint that forgot to use it would answer with
     # DRF's own shape, and the difference is invisible until a client branches on

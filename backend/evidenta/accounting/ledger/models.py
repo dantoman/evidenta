@@ -1,0 +1,401 @@
+"""The ledger -- F1.2, Spec B sections 1.2, 1.3, 1.6, 1.7.
+
+Two tables with deliberately different natures, and the difference is the whole
+design:
+
+``journal_entry``   moderate volume, real foreign keys, immutable once posted
+``journal_line``    the largest table in the system: append-only, partition-ready,
+                    no incoming foreign keys (R21), ``bigint`` key (C6)
+
+**Every column of ``journal_line`` that will ever be needed is here now.** Not
+tidiness -- ADR-039 section 2 and ADR-029 both say the same thing for different
+reasons: adding a column to an append-only table of hundreds of millions of rows
+is a migration nobody wants to run, so the currency fields, the three dates and
+the fifteen dimension columns exist from the first row even though F1 implements
+none of the features that read them.
+
+**No module writes here** (R9). Rows arrive from the posting engine, which reads
+an `accounting_event`. The service in this module is what the engine will call;
+it is not a public surface for anything else.
+"""
+
+from __future__ import annotations
+
+import uuid
+
+from django.db import models
+
+from evidenta.accounting.coa.dimensions import GENERIC_SLOTS
+from evidenta.platform.tenancy.models import Company, Tenant
+
+
+class EntryType(models.TextChoices):
+    """Why the entry exists. Not a label -- it gates two constraints.
+
+    A `reversal` must name the entry it cancels (R14); a `reversal` or
+    `adjustment` may name the period it corrects, and nothing else may
+    (ADR-006).
+    """
+
+    STANDARD = "standard"
+    REVERSAL = "reversal"
+    OPENING = "opening"
+    CLOSING = "closing"
+    ADJUSTMENT = "adjustment"
+
+
+class EntryStatus(models.TextChoices):
+    DRAFT = "draft"
+    POSTED = "posted"
+
+
+class JournalEntry(models.Model):
+    """One accounting entry. Immutable once posted (R10).
+
+    Three barriers guard that immutability, and Spec B section 1.2 asks for all
+    three because each covers what the others miss:
+
+    1. the service refuses to touch a posted entry
+    2. a trigger refuses ``UPDATE``/``DELETE`` on one, in the database, so the
+       importer and any data migration meet the same refusal
+    3. the application role holds no ``DELETE`` on either table
+
+    ``period`` and ``accounting_event`` are **real foreign keys**. This table is
+    not in ``infra/schema/append_only.toml``, so the argument that keeps keys off
+    ``journal_line`` does not apply here -- and an entry that could name a period
+    or an event that does not exist would break the lineage chain R13 requires.
+
+    Both are named as strings rather than imported. Django needs the model to
+    express the key, and the import would be the coupling `D6` exists to stop --
+    the same choice `items.Item` makes for its unit of measure.
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    tenant = models.ForeignKey(Tenant, on_delete=models.PROTECT, db_column="tenant_id")
+    company = models.ForeignKey(Company, on_delete=models.PROTECT, db_column="company_id")
+
+    entry_number = models.TextField()
+    accounting_date = models.DateField()
+
+    period = models.ForeignKey(
+        "periods.Period", on_delete=models.PROTECT, db_column="period_id", related_name="entries"
+    )
+    entry_type = models.TextField(choices=EntryType.choices, default=EntryType.STANDARD)
+
+    #: Even a manual journal entry has one (Spec B section 1.5). Two paths into
+    #: the ledger would mean lineage, idempotency and effect enumeration
+    #: implemented twice, and the second implementation is always the one that
+    #: breaks.
+    accounting_event = models.ForeignKey(
+        "accounting_events.AccountingEvent",
+        on_delete=models.PROTECT,
+        db_column="accounting_event_id",
+        related_name="entries",
+    )
+
+    #: The second link of a reversal (R14). Without it a drill-down shows two
+    #: entries with opposite amounts and nothing saying one cancels the other.
+    reverses_entry = models.ForeignKey(
+        "self",
+        on_delete=models.PROTECT,
+        db_column="reverses_entry_id",
+        null=True,
+        blank=True,
+        related_name="reversals",
+    )
+
+    #: Where the correction *belongs*, when that differs from where it is posted
+    #: (ADR-006). `accounting_date` says where it lands; this says which reporting
+    #: period was affected -- and without it the rectifying declaration cannot be
+    #: generated, because nothing knows what to rectify.
+    corrects_period = models.ForeignKey(
+        "periods.Period",
+        on_delete=models.PROTECT,
+        db_column="corrects_period_id",
+        null=True,
+        blank=True,
+        related_name="corrections",
+    )
+
+    status = models.TextField(choices=EntryStatus.choices, default=EntryStatus.DRAFT)
+    posted_at = models.DateTimeField(null=True, blank=True)
+    posted_by_user_id = models.UUIDField(null=True, blank=True)
+
+    description = models.TextField()
+
+    #: Maintained by a trigger on `journal_line`, checked at commit by a deferred
+    #: constraint trigger (Spec B section 1.6). PostgreSQL has no CHECK over an
+    #: aggregate of another table, and R11 asks for the database to be the one
+    #: that refuses -- so the sum is materialised here rather than trusted.
+    #:
+    #: **There is deliberately no `CHECK (total_debit = total_credit)`**, though
+    #: Spec B section 1.2 lists one. Section 1.6 of the same document says why it
+    #: cannot exist: lines are inserted one at a time, so the entry is unbalanced
+    #: between the first and the last *by construction*. An immediate CHECK fires
+    #: on the totals trigger's first update and makes a correct entry impossible
+    #: to write -- measured, not reasoned: it failed on the first line of the
+    #: first test. The deferred constraint trigger is the mechanism; the CHECK
+    #: would be a second copy of it that cannot work.
+    total_debit = models.DecimalField(max_digits=20, decimal_places=4, default=0)
+    total_credit = models.DecimalField(max_digits=20, decimal_places=4, default=0)
+
+    request_id = models.TextField()
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "journal_entry"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["company", "entry_number"], name="journal_entry_number_unique"
+            ),
+            models.CheckConstraint(
+                condition=models.Q(entry_type__in=EntryType.values),
+                name="journal_entry_type_valid",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(status__in=EntryStatus.values),
+                name="journal_entry_status_valid",
+            ),
+            models.CheckConstraint(
+                condition=~models.Q(status=EntryStatus.POSTED) | models.Q(posted_at__isnull=False),
+                name="journal_entry_posted_has_timestamp",
+            ),
+            models.CheckConstraint(
+                condition=~models.Q(entry_type=EntryType.REVERSAL)
+                | models.Q(reverses_entry__isnull=False),
+                name="journal_entry_reversal_names_original",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(corrects_period__isnull=True)
+                | models.Q(entry_type__in=[EntryType.REVERSAL, EntryType.ADJUSTMENT]),
+                name="journal_entry_corrects_only_when_correcting",
+            ),
+        ]
+        indexes = [
+            models.Index(
+                fields=["tenant", "company", "accounting_date"], name="journal_entry_date_idx"
+            ),
+            models.Index(fields=["company", "period"], name="journal_entry_period_idx"),
+            models.Index(fields=["accounting_event"], name="journal_entry_event_idx"),
+            models.Index(
+                fields=["reverses_entry"],
+                name="journal_entry_reverses_idx",
+                condition=models.Q(reverses_entry__isnull=False),
+            ),
+            # The query the rectifying declaration is generated from.
+            models.Index(
+                fields=["company", "corrects_period"],
+                name="journal_entry_corrects_idx",
+                condition=models.Q(corrects_period__isnull=False),
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.entry_number} ({self.accounting_date})"
+
+
+class JournalLine(models.Model):
+    """One line. The largest table in the system, and shaped for it.
+
+    **No foreign key points at this table** (R21) and none ever may: a table with
+    ten incoming keys is not repartitioned, it is redesigned. The link back is an
+    index on ``journal_entry_id``, which Spec B section 9.1 names explicitly as an
+    index and *not* a key.
+
+    **Outgoing keys, on the other hand, are almost all absent too, and for a
+    different reason.** ``account_id``, ``partner_id`` and the rest carry no
+    ``REFERENCES``: each one would make every INSERT do another lookup, and bulk
+    posting and the 1C import are exactly the volume cases. Validation happens
+    when the posting rule resolves, where the accounts and dimensions are loaded
+    anyway. The accepted consequence is that a line can name a deleted account --
+    which is why accounts are never deleted (Spec B section 2.4), enforced by the
+    application role holding no DELETE on ``company_account``.
+
+    The one exception is ``journal_entry_id``, which Spec B section 1.3 permits.
+    One lookup per line is not the ten the cost argument is about, and an orphan
+    line in an append-only ledger cannot be repaired -- there is no UPDATE to fix
+    it with.
+    """
+
+    #: `bigint`, not uuid (C6). Lines are counted in hundreds of millions; a uuid
+    #: costs 8 bytes more per row and, worse, randomises insert order on the index.
+    id = models.BigAutoField(primary_key=True)
+
+    #: Plain columns, no keys -- the convention `audit_event` already set for an
+    #: append-only table, and for the same reason twice over: two more lookups on
+    #: every one of hundreds of millions of inserts, on rows that cannot be
+    #: orphaned anyway because a tenant is never deleted.
+    tenant_id = models.UUIDField()
+    company_id = models.UUIDField()
+
+    #: The partition column (ADR-032, R22). `NOT NULL` from the first row, before
+    #: there is any data to migrate -- which is the whole point of deciding it now.
+    accounting_date = models.DateField()
+
+    #: The other two dates of ADR-039 section 9. `document_date` is what the fiscal
+    #: reports ask for; `rate_date` is when the exchange rate was taken, which under
+    #: Codul fiscal art. 97 para. (6) is neither of the other two. Without it the
+    #: posting cannot be reconstructed, only recomputed with today's answer.
+    document_date = models.DateField()
+    rate_date = models.DateField()
+
+    journal_entry = models.ForeignKey(
+        JournalEntry, on_delete=models.PROTECT, db_column="journal_entry_id", related_name="lines"
+    )
+    line_number = models.SmallIntegerField()
+
+    #: The company's account. No foreign key -- see the class docstring.
+    account_id = models.UUIDField()
+
+    #: Two columns, not one signed amount. A trial balance needs debit turnover and
+    #: credit turnover separately, and a signed column makes "a credit line of 100"
+    #: and "a debit line of -100" indistinguishable -- both occur, and they mean
+    #: different things. ADR-039 section 3 corrected a proposal that collapsed them.
+    debit = models.DecimalField(max_digits=20, decimal_places=4, default=0)
+    credit = models.DecimalField(max_digits=20, decimal_places=4, default=0)
+
+    #: The transaction's own currency and amount, always present -- `MDL` and the
+    #: same number for a domestic line. Storing `1` rather than NULL for the rate
+    #: is what lets `CHECK (exchange_rate > 0)` have no special case, and what lets
+    #: `functional = amount_currency * exchange_rate` have no branch.
+    currency = models.CharField(max_length=3)
+    amount_currency = models.DecimalField(max_digits=20, decimal_places=4)
+    exchange_rate = models.DecimalField(max_digits=18, decimal_places=8, default=1)
+
+    quantity = models.DecimalField(max_digits=20, decimal_places=6, null=True, blank=True)
+    uom_id = models.UUIDField(null=True, blank=True)
+
+    description = models.TextField(null=True, blank=True)
+
+    # --- the fifteen analytical columns (ADR-029, Spec B section 1.7) --------
+    #
+    # Written out rather than generated from `coa.dimensions`. A loop over the
+    # vocabulary would keep the list in one place and would also make the schema
+    # of the largest table in the system depend on a tuple being imported
+    # correctly -- and migrations that are generated differently on two machines
+    # are the one failure this table cannot survive.
+    #
+    # The tie to the vocabulary is kept by a test instead: it asserts that the
+    # column set here is exactly `DIMENSION_KEYS`, so adding a name there without
+    # a column, or a column here without a name, fails.
+    #
+    # Ten named, from the closed list. The phase in each comment is when the
+    # feature that fills it arrives; the column is here now regardless.
+    partner_id = models.UUIDField(null=True, blank=True)  # F1
+    item_id = models.UUIDField(null=True, blank=True)  # F4
+    employee_id = models.UUIDField(null=True, blank=True)  # F2
+    contract_id = models.UUIDField(null=True, blank=True)  # F5
+    warehouse_id = models.UUIDField(null=True, blank=True)  # F4
+    project_id = models.UUIDField(null=True, blank=True)  # direction
+    department_id = models.UUIDField(null=True, blank=True)  # F5
+    cost_center_id = models.UUIDField(null=True, blank=True)  # F5
+    asset_id = models.UUIDField(null=True, blank=True)  # F2
+    production_order_id = models.UUIDField(null=True, blank=True)  # direction
+
+    # Five generic slots, meaning configured per company in `CompanyDimension`.
+    # The cap is deliberate and visible: the alternative without one was the
+    # variant that could not enforce a required dimension at all.
+    dim_1_id = models.UUIDField(null=True, blank=True)
+    dim_2_id = models.UUIDField(null=True, blank=True)
+    dim_3_id = models.UUIDField(null=True, blank=True)
+    dim_4_id = models.UUIDField(null=True, blank=True)
+    dim_5_id = models.UUIDField(null=True, blank=True)
+
+    class Meta:
+        db_table = "journal_line"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["journal_entry", "line_number"], name="journal_line_number_unique"
+            ),
+            # Exactly one side non-zero. Both zero is noise; both non-zero is a
+            # modelling error wearing a valid row's clothes.
+            models.CheckConstraint(
+                condition=models.Q(debit=0, credit__gt=0) | models.Q(debit__gt=0, credit=0),
+                name="journal_line_one_side_only",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(debit__gte=0) & models.Q(credit__gte=0),
+                name="journal_line_amounts_not_negative",
+            ),
+            # Spec B section 1.3 writes this as "currency = functional OR rate > 0".
+            # The functional currency lives on the company, which a CHECK cannot
+            # reach, and the disjunction collapses to the second half anyway: the
+            # functional-currency line stores rate 1, which is > 0.
+            models.CheckConstraint(
+                condition=models.Q(exchange_rate__gt=0), name="journal_line_rate_positive"
+            ),
+            models.CheckConstraint(
+                condition=models.Q(quantity__isnull=True) | models.Q(uom_id__isnull=False),
+                name="journal_line_quantity_has_unit",
+            ),
+        ]
+        indexes = [
+            models.Index(
+                fields=["tenant_id", "company_id", "accounting_date"],
+                name="journal_line_scope_idx",
+            ),
+            models.Index(
+                fields=["company_id", "account_id", "accounting_date"],
+                name="journal_line_account_idx",
+            ),
+            # The index that produces the partner ledger. Partial, because most
+            # lines carry no partner and an index over mostly-NULL is mostly waste.
+            models.Index(
+                fields=["company_id", "partner_id", "accounting_date"],
+                name="journal_line_partner_idx",
+                condition=models.Q(partner_id__isnull=False),
+            ),
+            # Entry to lines -- an index, never a key (Spec B section 9.1).
+            models.Index(fields=["journal_entry"], name="journal_line_entry_idx"),
+            # ADR-039 section 9: reports are built on one date or the other.
+            models.Index(fields=["company_id", "document_date"], name="journal_line_document_idx"),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.journal_entry_id}/{self.line_number}"
+
+
+class CompanyDimension(models.Model):
+    """What a generic slot means for one company -- ADR-029.
+
+    The five slots exist as columns on every line whether a company uses them or
+    not. This is where `dim_3` becomes "Proiect" for a particular client, so a
+    report can carry a label instead of a slot number.
+
+    Not a cost added by the decision: the interface needs this table anyway, for
+    the label and for the list of permitted values. That is why the objection
+    "reports become unreadable without metadata" did not survive.
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    tenant = models.ForeignKey(Tenant, on_delete=models.PROTECT, db_column="tenant_id")
+    company = models.ForeignKey(Company, on_delete=models.PROTECT, db_column="company_id")
+
+    slot = models.TextField()
+    name = models.TextField()
+    is_active = models.BooleanField(default=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "company_dimension"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["company", "slot"], name="company_dimension_slot_unique"
+            ),
+            # Two slots with one name make every report ambiguous in the one place
+            # a reader cannot check -- the label.
+            models.UniqueConstraint(
+                fields=["company", "name"], name="company_dimension_name_unique"
+            ),
+            models.CheckConstraint(
+                condition=models.Q(slot__in=list(GENERIC_SLOTS)),
+                name="company_dimension_slot_known",
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.slot}={self.name}"

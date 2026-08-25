@@ -152,6 +152,11 @@ def django_db_setup(django_db_blocker: pytest.FixtureRequest) -> Iterator[None]:
     dbname = test_database_name()
 
     with psycopg.connect(admin_dsn("postgres"), autocommit=True) as admin:
+        # WITH (FORCE) disconnects whoever is attached -- including a second
+        # pytest run on the same machine, which then fails in ways that read
+        # like a bug in the code under test. Two runs at once need two
+        # databases: `POSTGRES_DB=evidenta_2 pytest` gives the other one
+        # `test_evidenta_2` and neither touches the other.
         admin.execute(f'DROP DATABASE IF EXISTS "{dbname}" WITH (FORCE)')
         admin.execute(
             f'CREATE DATABASE "{dbname}" '
