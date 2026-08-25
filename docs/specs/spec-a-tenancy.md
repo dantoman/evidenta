@@ -146,6 +146,14 @@ Constrângeri:
 Indici: `(client_tenant_id, status)`; `(firm_id, status)`;
 `(client_tenant_id, valid_from, valid_to) WHERE status = 'active'`.
 
+> **Delegarea nu se re-deleagă** — [ADR-035](../decisions/035-fara-delegare-tranzitiva.md), `R27`.
+> Engagementul leagă o firmă de un tenant, iar predicatul potrivește exact o relație, niciodată un
+> lanț. Direcția inversă rămâne permisă și nu e excepție: firma A poate fi clientul firmei B pentru
+> propria contabilitate, iar B vede registrele lui A — inclusiv că A facturează clientul X, fiindcă
+> factura aceea e documentul lui A. Din registrul lui X nu vede nimic. Cabinetul care vrea să
+> subcontracteze cere clientului un al doilea engagement, posibil prin
+> [ADR-018](../decisions/018-engagementuri-multiple.md) — nu o cedare de acces. `IZ-68`, `IZ-69`.
+
 **`DN-06` — ÎNCHISĂ prin [ADR-018](../decisions/018-engagementuri-multiple.md):** da, prin opțiunea B de mai jos. Regula de arbitraj este *fără suprapunere* — un `module_key` este revendicat de cel mult un engagement viu per tenant, impus în bază.
 
 Cazul real: o firmă ține contabilitatea, alta ține salarizarea. Documentele nu spun nimic.
@@ -286,6 +294,14 @@ company-scoped; `(engagement_id) WHERE revoked_at IS NULL` — folosit la revoca
 > **Regula de coerență la revocare:** revocarea unui engagement revocă în aceeași tranzacție toate
 > rândurile `CompanyAccess` cu `granted_via='engagement'` care îl referă. Accesul nu poate
 > supraviețui relației care l-a produs. Testul care demonstrează asta este obligatoriu (secțiunea 8).
+
+> **`DECIZIE NECESARĂ (OD-54)` — vizibilitatea nominală și blocarea unei persoane.** Clientul
+> revocă engagementul integral, dar azi nu poate nici să vadă nominal cine din firmă îi atinge
+> datele, nici să blocheze o persoană fără să rupă relația cu firma. Întrebarea deschisă nu este
+> dacă se face, ci **unde se impune**: dacă blocarea trăiește doar la provizionare (`CompanyAccess`),
+> o reprovizionare ulterioară o învie — vezi §6.2 și `provision_company_access`; dacă intră în
+> predicat, apare pe calea fierbinte a fiecărei interogări. Înrudite: `OD-42` (entitatea din spatele
+> lui `assignment`), `OD-51` (azi clientul nu poate citi nici măcar numele firmei sale).
 
 ### 1.8 `CapabilityActivation`
 
@@ -983,6 +999,18 @@ identificatori, niciodată sume de linii de jurnal sau conținut de document. Dr
 read model se face intrând în contextul tenantului respectiv, pe calea normală, cu politicile
 active.
 
+**Intrarea în contextul clientului este schimbare de context, nu navigare.** Trei cerințe decurg
+din asta:
+
+- interfața arată **permanent**, cât timp durează, în ce tenant se lucrează și prin ce relație —
+  cu cuvintele de interfață fixate în [ADR-017](../decisions/017-terminologie.md), niciodată cu
+  termenii de model (`C37`);
+- fiecare acțiune se auditează cu ambele identități: persoana **și** firma prin care a obținut
+  accesul. Coloana există — `audit_event.actor_firm_id`; cerința este să fie completată pe această
+  cale, nu să existe;
+- tabloul consolidat nu devine niciodată a doua cale către date de detaliu. Când un indicator cere
+  „de ce", răspunsul este intrarea în context, nu o coloană în plus în read model.
+
 ### 7.2 Structura
 
 Fiecare tabelă de read model are:
@@ -1107,6 +1135,9 @@ User UX: fără nicio apartenență
 | IZ-19 | După revocare, `company_access` cu `granted_via='engagement'` | toate revocate în aceeași tranzacție |
 | IZ-20 | După revocare, sesiunea activă a lui UF | invalidată; cererile ulterioare eșuează |
 | IZ-21 | Engagement transferat către altă firmă | firma veche: zero acces; firma nouă: acces; niciun interval în care ambele au acces (dacă `DN-15` alege A) |
+| IZ-22 | Membrul firmei este suspendat sau scos din firmă | zero acces la **toți** clienții, la următoarea interogare — statutul se reevaluează, nu se copiază; rândurile `company_access` rămân și nu mai dau nimic |
+| IZ-68 | UC (membru doar al firmei C), cu engagement **activ** C → tenantul firmei A, cere contextul unui client al lui A | zero acces — predicatul potrivește o relație, nu un lanț (ADR-035) |
+| IZ-69 | Același, la nivel de companie: clientul lui A are `company_access` derivat din engagementul lui A | zero acces; controlul demonstrează că utilizatorul lui A **chiar** ajunge la companie |
 
 ### 8.3 Scope restrâns
 

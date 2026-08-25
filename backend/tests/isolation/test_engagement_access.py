@@ -275,3 +275,124 @@ def test_revoking_an_engagement_frees_its_modules(
         " VALUES (%s, %s, 'payroll', 'write', %s, true)",
         [uuid.uuid4(), second, firm_world["tenant_b"]],
     )
+
+
+def visible_companies() -> list[str]:
+    with connection.cursor() as cursor:
+        cursor.execute("SELECT legal_name FROM company ORDER BY legal_name")
+        return [row[0] for row in cursor.fetchall()]
+
+
+def test_delegation_does_not_chain(
+    firm_world: dict[str, uuid.UUID],
+    outsourcing_firm: dict[str, uuid.UUID],
+    engage: Callable[..., uuid.UUID],
+) -> None:
+    """IZ-68 -- ADR-035. Keeping a firm's books is not keeping its clients'.
+
+    Firm A serves tenant B. Firm C serves firm A -- the permitted direction, and
+    a real case: an accounting firm hires an accountant. The predicate matches
+    one engagement, never a chain, so C's access stops at A's own tenant. The
+    property held by shape before this test; now it holds by declaration, which
+    is the difference between an invariant and a coincidence.
+    """
+    engage(firm_world["firm"], firm_world["tenant_b"], firm_world["user_f"])
+    engage(outsourcing_firm["firm"], firm_world["firm_tenant"], outsourcing_firm["user"])
+
+    # The first hop is real. Without this assertion the second one could pass
+    # because the chain was never built, which would prove nothing at all.
+    with tenant_context(
+        acting_for_firm(
+            firm_world["firm_tenant"], outsourcing_firm["user"], outsourcing_firm["firm"]
+        )
+    ):
+        assert visible_tenants() == ["contaexpert"]
+
+    with tenant_context(
+        acting_for_firm(firm_world["tenant_b"], outsourcing_firm["user"], outsourcing_firm["firm"])
+    ):
+        assert visible_tenants() == []
+
+
+def test_delegation_does_not_chain_at_company_level(
+    firm_world: dict[str, uuid.UUID],
+    outsourcing_firm: dict[str, uuid.UUID],
+    engage: Callable[..., uuid.UUID],
+    company_of: Callable[..., uuid.UUID],
+    grant_company: Callable[..., uuid.UUID],
+) -> None:
+    """IZ-69. The same question one level down, where a leak would surface.
+
+    Company access derived from A's engagement is a row naming A's user, so the
+    second firm inherits nothing even when the ledger it would reach is one join
+    away.
+    """
+    engagement = engage(firm_world["firm"], firm_world["tenant_b"], firm_world["user_f"])
+    engage(outsourcing_firm["firm"], firm_world["firm_tenant"], outsourcing_firm["user"])
+    company = company_of(firm_world["tenant_b"], "1002600000003", "Beta Trading")
+    grant_company(
+        firm_world["tenant_b"],
+        company,
+        firm_world["user_f"],
+        firm_world["user_f"],
+        via="engagement",
+        engagement_id=engagement,
+    )
+
+    with tenant_context(
+        acting_for_firm(firm_world["tenant_b"], firm_world["user_f"], firm_world["firm"])
+    ):
+        assert visible_companies() == ["Beta Trading"]
+
+    with tenant_context(
+        acting_for_firm(firm_world["tenant_b"], outsourcing_firm["user"], outsourcing_firm["firm"])
+    ):
+        assert visible_companies() == []
+
+
+def test_removing_a_firm_member_cuts_access_to_every_client(
+    firm_world: dict[str, uuid.UUID],
+    engage: Callable[..., uuid.UUID],
+    company_of: Callable[..., uuid.UUID],
+    grant_company: Callable[..., uuid.UUID],
+    seed: Callable[..., None],
+) -> None:
+    """IZ-22. The accountant who leaves the firm, which is the model's sharpest risk.
+
+    Nothing about the firm's staff is copied onto the user: the predicate re-reads
+    the membership on every policy evaluation. So suspending one row inside the
+    firm ends access to all of its clients at the next query -- no cascade job to
+    run, nothing to forget when it fails.
+
+    The last assertion is the one that matters. The `company_access` row derived
+    from the engagement is still there, untouched, and grants nothing: the
+    company-scoped policy asks for tenant access too, and that answer changed.
+    """
+    engagement = engage(firm_world["firm"], firm_world["tenant_b"], firm_world["user_f"])
+    company = company_of(firm_world["tenant_b"], "1002600000004", "Beta Trading")
+    grant_company(
+        firm_world["tenant_b"],
+        company,
+        firm_world["user_f"],
+        firm_world["user_f"],
+        via="engagement",
+        engagement_id=engagement,
+    )
+
+    with tenant_context(
+        acting_for_firm(firm_world["tenant_b"], firm_world["user_f"], firm_world["firm"])
+    ):
+        assert visible_tenants() == ["beta"]
+        assert visible_companies() == ["Beta Trading"]
+
+    seed(
+        "UPDATE membership SET status = 'suspended', suspended_at = now()"
+        " WHERE tenant_id = %s AND user_id = %s",
+        [firm_world["firm_tenant"], firm_world["user_f"]],
+    )
+
+    with tenant_context(
+        acting_for_firm(firm_world["tenant_b"], firm_world["user_f"], firm_world["firm"])
+    ):
+        assert visible_tenants() == []
+        assert visible_companies() == []

@@ -36,6 +36,11 @@ tenancy, Spec B — accounting), `docs/decisions/` (ADR-uri și decizii deschise
   (`platform/readmodels`) și în căile privilegiate enumerate în Spec A.
 - **R8** — Nicio parte din logica de business nu presupune că doi tenanți sunt fizic în aceeași
   bază de date.
+- **R27** — **Delegarea nu este tranzitivă.** `rls.has_tenant_access` nu înlănțuie două relații:
+  firma din `app.actor_firm_id` trebuie să aibă ea însăși un engagement viu cu tenantul cerut. Un
+  cabinet care ține contabilitatea altui cabinet nu primește nimic din clienții acestuia. Invers
+  este permis și nu e excepție: firma poate fi clientul altei firme pentru propria contabilitate
+  ([ADR-035](docs/decisions/035-fara-delegare-tranzitiva.md)).
 
 ### 1.2 Contabilitate
 
@@ -178,6 +183,17 @@ se pinuiesc exact, în lockfile. **Upgrade-ul este sarcină proprie, niciodată 
   document generat. Nu este preferință de produs: un registru în altă limbă este artefact neconform.
   Denumirile din planul de conturi sunt valoare unică, în română
   ([ADR-016](docs/decisions/016-limba-contabilitatii.md)).
+- **C38** — Generarea unui **document legal** — document tipărit, registru, situație financiară,
+  declarație, payload e-Factura, descriere de înregistrare contabilă generată de sistem —
+  deschide **explicit** contextul lingvistic românesc și nu moștenește limba activă a cererii
+  sau a task-ului. Formatarea de numere și date pe documente vine dintr-un modul de document cu
+  convenții `ro-MD` fixe, care nu consultă limba activă. *Măsurat: limba activată supraviețuiește
+  unității de lucru care a setat-o, deci un worker refolosit o duce în următoarea sarcină — de
+  aceea regula numește Celery explicit* ([ADR-033](docs/decisions/033-limba-la-generare.md)).
+- **C39** — Pe un document, într-un registru sau într-un export apare **denumirea legală**
+  (`item.name`, `partner.legal_name`), niciodată denumirea internă (`internal_name`) — liberă ca
+  alfabet, existentă doar pentru interfață, căutare și importuri
+  ([ADR-034](docs/decisions/034-denumire-legala-si-interna.md)).
 - **C34** — Coloanele de **denumire** folosesc colația implicită a bazei (`ro-x-icu`); coloanele de
   **cod** — IDNO, coduri de conturi și articole, SKU, numere de documente — primesc `COLLATE "C"`
   explicit ([ADR-015](docs/decisions/015-colatie-icu.md)).
@@ -293,6 +309,9 @@ operations   ←  depinde de toate cele de mai sus
 - Nu se adaugă o regulă obligatorie în acest fișier fără un ADR `Acceptat` în spate. O regulă
   fără ADR nu are autoritate și se șterge la prima revizuire — vezi `docs/decisions/002`.
 - Nu se randează documente tipărite din componente React.
+- Nu se generează un document legal în limba activă a cererii sau a task-ului. Contextul
+  românesc se deschide explicit, la intrarea în pipeline.
+- Nu se extinde predicatul de acces ca să înlănțuie două engagementuri.
 - Nu se calculează totaluri contabile în client.
 
 ---

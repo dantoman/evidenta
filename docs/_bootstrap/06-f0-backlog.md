@@ -416,6 +416,15 @@ agenții invocați, ambele suite de izolare verzi, nicio decizie deschisă înch
   citește scope-ul
 - **`OD-53`:** nicio cale de producție nu creează o companie, deci provizionarea este testată prin
   apel direct, nu prin calea reală. Când calea se scrie, trebuie să o apeleze
+- **Adăugat ulterior — `IZ-22`:** angajatul care pleacă din firmă. Statutul de membru se
+  reevaluează la fiecare evaluare de politică, deci suspendarea unui singur rând în firmă taie
+  accesul la toți clienții la următoarea interogare. Aserțiunea care contează este ultima:
+  rândul `company_access` derivat din engagement rămâne pe loc și nu mai dă nimic
+- **Adăugat ulterior — `IZ-68` și `IZ-69` ([ADR-035](../decisions/035-fara-delegare-tranzitiva.md)):**
+  delegarea nu este tranzitivă. Proprietatea era adevărată din forma predicatului, pe care nimic
+  n-o numea și niciun test n-o acoperea; acum e invariant (`R27`) cu probă. Fiecare test are o
+  aserțiune de control care demonstrează că **primul** salt există — altfel ar trece fiindcă
+  lanțul n-a fost construit
 - **Blocat de:** — *(`DN-06` prin [ADR-018](../decisions/018-engagementuri-multiple.md), `DN-07` prin [ADR-019](../decisions/019-vocabular-scope.md))*
 
 ### F0.2.5 — Suita 1, task-uri Celery ✔
@@ -842,6 +851,27 @@ agenții invocați, ambele suite de izolare verzi, nicio decizie deschisă înch
 
 > „Dimensiuni la F0" înseamnă că linia de jurnal va avea câmpurile de la început, nu că modulul de
 > centre de cost există. Linia de jurnal se creează la F1.2; ce se face acum este decizia.
+
+---
+
+### F0.7.7 — Denumire legală și denumire internă pe nomenclatoare
+
+- **Obiectiv:** `item` și `partner` au `internal_name`, iar denumirea care ajunge pe un document
+  rămâne cea legală.
+- **Fișiere:** `backend/evidenta/masterdata/items/models.py`,
+  `backend/evidenta/masterdata/partners/models.py`, migrații Django aditive (`C5`)
+- **Depinde de:** F0.7.2, F0.7.4
+- **Review:** `schema-reviewer`, `tenancy-guard`
+- **Terminat:** coloană `text NULL` pe ambele tabele, colația implicită a bazei (e denumire, nu
+  cod — `C34`); afișarea preferă `internal_name` și cade pe denumirea legală; căutarea acoperă
+  ambele; gardianul de model trece fără excepții noi.
+- **Blocat de:** — *(decizia e luată:
+  [ADR-034](../decisions/034-denumire-legala-si-interna.md))*
+
+> Proba care contează nu e existența coloanei, ci că documentul **nu o citește**. Ea aparține
+> gărzii de pipeline din [ADR-033](../decisions/033-limba-la-generare.md), deci primului document
+> generat, în F1. Până atunci regula trăiește ca `C39`, fără gardă — și asta se spune, nu se
+> ascunde.
 
 ---
 

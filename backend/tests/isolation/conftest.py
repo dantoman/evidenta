@@ -365,3 +365,53 @@ def company_of(seed: Callable[..., None]) -> Callable[..., uuid.UUID]:
         return company_id
 
     return make
+
+
+@pytest.fixture
+def outsourcing_firm(
+    seed: Callable[..., None], firm_world: dict[str, uuid.UUID]
+) -> dict[str, uuid.UUID]:
+    """A second firm, engaged over the *first firm's own* tenant.
+
+    The permitted direction of ADR-035: a firm is free to be somebody else's
+    client for its own bookkeeping. What must not follow is that its accountant
+    inherits its clients -- so the fixture builds the chain and the tests check
+    that the second hop does not exist.
+    """
+    now = datetime.now(UTC)
+    ids = {"tenant": uuid.uuid4(), "firm": uuid.uuid4(), "user": uuid.uuid4()}
+
+    seed(
+        "INSERT INTO tenant (id, subdomain, legal_name, status, default_locale,"
+        " created_at, updated_at)"
+        " VALUES (%s, 'birouldecont', 'Biroul de Cont SRL', 'active', 'ro', %s, %s)",
+        [ids["tenant"], now, now],
+    )
+    seed(
+        'INSERT INTO "user" (id, email, full_name, mfa_enabled, locale, is_active,'
+        " created_at, updated_at)"
+        " VALUES (%s, 'g@example.md', 'G', false, 'ro', true, %s, %s)",
+        [ids["user"], now, now],
+    )
+    seed_system_roles(seed, ids["tenant"])
+    seed(
+        "INSERT INTO membership (id, tenant_id, user_id, role_id, status, invited_at,"
+        " accepted_at, created_at, updated_at)"
+        " VALUES (%s, %s, %s, %s, 'active', %s, %s, %s, %s)",
+        [
+            uuid.uuid4(),
+            ids["tenant"],
+            ids["user"],
+            role_id(ids["tenant"], "owner"),
+            now,
+            now,
+            now,
+            now,
+        ],
+    )
+    seed(
+        "INSERT INTO firm (id, tenant_id, name, status, created_at, updated_at)"
+        " VALUES (%s, %s, 'Biroul de Cont', 'active', %s, %s)",
+        [ids["firm"], ids["tenant"], now, now],
+    )
+    return ids

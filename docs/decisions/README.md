@@ -103,6 +103,9 @@ Acte normative, secțiuni din documentele de intrare, benchmark-uri, discuții.
 | [030](030-atasamente.md) | Atașamentele stau la nivel de companie, nu de tenant | Acceptat | 2026-08-25 | DN-16 |
 | [031](031-stack-frontend.md) | Stack frontend minimal: react-query, react-router, fetch, Intl | Acceptat | 2026-08-25 | OD-19 |
 | [032](032-cheia-de-partitionare.md) | Cheia de partiționare: desemnată acum, aplicată la prag | Acceptat | 2026-08-25 | OD-01 |
+| [033](033-limba-la-generare.md) | Limba la generare: contextul românesc se forțează, nu se moștenește | Acceptat | 2026-08-25 | — *(operaționalizează ADR-016)* |
+| [034](034-denumire-legala-si-interna.md) | Nomenclatoarele au denumire legală și denumire internă | Acceptat | 2026-08-25 | — *(`OD-40` rămâne deschisă)* |
+| [035](035-fara-delegare-tranzitiva.md) | Delegarea nu este tranzitivă | Acceptat | 2026-08-25 | — *(deschide `OD-54`)* |
 
 *Indexul se actualizează la fiecare ADR nou. Un ADR care nu apare aici este invizibil.*
 
