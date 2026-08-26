@@ -108,15 +108,36 @@ de proiectare.
 **Recomandare: se păstrează 25 MB per fişier; se adaugă plafon de 10 ataşamente per document;
 `content_type` devine determinat de server; SVG şi HTML nu se acceptă niciodată.**
 
-| Platformă | Limită per fişier | Notă |
-|---|---|---|
-| Xero Files | **25 MB** **[S]** | fără executabile, audio, video |
-| Xero API | **10 MB** (de la 2 MB, ~mai 2025), **max 10 per tranzacţie** **[S]** | chiar ridicarea arată că cifrele se mişcă |
-| QuickBooks Online | ~**30 MB**; 2 MB pe e-mail **[S]** | fişierele de zero octeţi respinse |
+> **Tabelul de mai jos înlocuieşte o versiune anterioară, secundară — şi două cifre erau greşite.**
+> Limitele Xero erau **pe dos**: 25 MB e pe endpointul de ataşamente din Accounting API, iar 10 MB pe
+> Files API, nu invers. Iar QuickBooks Online **nu publică nicio limită de mărime**: cifra de ~30 MB
+> circula din răspunsuri de forum, unde **agenţii proprii ai Intuit se contrazic** între ei dacă
+> plafonul de 20 MB e per fişier sau per tranzacţie. Preluat: 26 august 2026.
 
-Banda reală e **10–30 MB cu plafon mic de număr**, cu limite diferite pe căi diferite de intrare.
-Cei 25 MB din schelet **sunt în bandă** şi — util — **stau sub pragul de 100 MB de la care ClamAV
-trece tăcut**. Se păstrează. Plafonul de număr lipseşte azi din cod.
+| Platformă | Per fişier | Per document | Total | Politica de tipuri | Provenienţă |
+|---|---|---|---|---|---|
+| **Xero** — Accounting API | **25 MB** | **10 ataşamente** | nepublicat | fără executabile, audio, video | **[V]** documentat per endpoint |
+| **Xero** — Files API | **10 MB** | — | nepublicat | listă la `help.xero.com/filesupload` — **pagina nu se poate prelua** | **[V]** |
+| **QuickBooks Online** | **nedocumentată** | nedocumentată | pretins nelimitat **[S]** | **listă albă**: PDF, JPEG, PNG, DOC, XLSX, CSV, TIFF, GIF, XML | **[V]** doar tipurile |
+| **Sage Accounting** | **2,5 MB** | **10 ataşamente** | nepublicat | **listă albă**: PDF, GIF, JPG, JPEG, PNG | **[V]** |
+| **Zoho Books** | 5 MB | 5 fişiere | nepublicat | nedocumentată | **[V]** |
+| **FreeAgent** | 5 MB | 50 *(tranzacţie bancară)* | **1 GB** pe cont | largă, enumerată neexhaustiv | **[V]** |
+| **Wave** | 5 MB | 25 fişiere / 20 MB *(factură)* | nepublicat | listă albă per suprafaţă, **inconsecventă între suprafeţe** | **[V]** |
+
+**Trei observaţii care contează pentru desen:**
+
+1. **Vendorii de contabilitate se grupează la 2,5–25 MB per fişier şi 5–10 ataşamente per document.**
+   **10 × 25 MB e chiar plafonul de sus al pieţei**, Sage e podeaua. Cei 25 MB din schelet sunt la
+   marginea superioară, nu la mijloc — şi rămân sub pragul de 100 MB de la care ClamAV trece tăcut.
+   **Plafonul de număr lipseşte azi din cod.**
+2. **Fiecare vendor de contabilitate foloseşte listă albă de tipuri; vendorii de stocare folosesc
+   listă neagră sau nimic.** Listele albe converg pe PDF + JPEG/PNG/GIF/TIFF; **doar QBO admite
+   DOC/XLSX/CSV/XML.** Ceea ce înseamnă că lista noastră, care trebuie să conţină XML pentru
+   e-Factura, e mai largă decât a majorităţii — deci regula `defusedxml` de la §4 nu e prudenţă
+   teoretică, e ce plătim pentru lărgime.
+3. **Niciun vendor de contabilitate nu publică plafon total, cu excepţia FreeAgent (1 GB).** Xero,
+   QBO, Sage şi Zoho îl lasă nedocumentat — **ceea ce înseamnă că există şi nu e divulgat**, nu că
+   lipseşte.
 
 - **Tipul MIME declarat de client nu valorează nimic.** OWASP: *„The Content-Type for uploaded files
   is provided by the user, and as such cannot be trusted, as it is trivial to spoof"*; iar despre
@@ -242,10 +263,16 @@ GitHub.
 
 **Secundar sau derivat — de verificat înainte să intre într-un ADR:**
 
-- **Toate cifrele Xero şi QuickBooks Online.** Vin din pagini de suport ale unor integratori, nu de
-  la `developer.xero.com` sau Intuit. Limita API Xero s-a mişcat de la 2 MB la 10 MB pe la mai 2025 —
-  cifrele astea demonstrabil derivează. Orice valoare citată are nevoie de dată de preluare.
-- **Limitele Dropbox: neobţinute** (URL 404).
+- **Cifrele Xero şi QuickBooks Online au fost între timp reluate din documentaţia vendorilor** şi
+  tabelul de la §4 e înlocuit — vezi nota de acolo. Ce rămâne **neobţinut**: plafonul total de stocare
+  Xero Files şi cel al inboxului; **lista explicită de tipuri permise de Xero** (`help.xero.com/filesupload`
+  întoarce CAPTCHA); **limita oficială de mărime a QBO**, care pur şi simplu nu e publicată; limitele
+  entităţii `Attachable` din API-ul QBO (pagina e SPA şi nu întoarce conţinut); plafonul modulului
+  Documents din Zoho Books. *Enumerate ca să nu fie confundate cu absenţa unei limite.*
+- **Dropbox şi Google Drive** au fost obţinute, dar **nu sunt comparabile**: sunt vendori de stocare, nu
+  de contabilitate, cu limite de ordinul GB–TB. *Notă utilă totuşi: două pagini oficiale Dropbox se
+  contrazic — una spune că încărcările din browser peste 375 GB „may cause timeouts", cealaltă că
+  fişierele de pe `dropbox.com` trebuie să fie sub 50 GB.*
 - **Regiunea UE a Backblaze B2** (`eu-central-003` Amsterdam) e doar din sursă secundară; documentul
   propriu de endpoint-uri a dat 404.
 - **Modurile Object Lock la Hetzner** — listat ca suportat, semantica neverificată. **OVHcloud** —
