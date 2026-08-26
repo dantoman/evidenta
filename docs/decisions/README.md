@@ -116,6 +116,7 @@ Acte normative, secțiuni din documentele de intrare, benchmark-uri, discuții.
 | [041](041-ziua-ca-argument.md) | Ziua intră ca argument; niciun predicat de acces nu citește ceasul | Acceptat | 2026-08-26 | `OD-63` |
 | [044](044-data-de-rezolutie.md) | Regula se rezolvă după data perioadei, niciodată după data calculului | Acceptat | 2026-08-26 | `OD-66` |
 | [045](045-sursa-de-adevar-pentru-parametri.md) | Actul de rang legal dă parametrii; regulamentul dă procedura | Acceptat | 2026-08-26 | — (impune `C14`) |
+| [046](046-istoricul-increderii-in-sursa.md) | Încrederea în sursă are istoric: o confirmare nu schimbă valoarea, deci nu e o versiune nouă | Acceptat | 2026-08-26 | — (`R1`: declară o excepție) |
 
 *Indexul se actualizează la fiecare ADR nou. Un ADR care nu apare aici este invizibil.*
 

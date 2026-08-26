@@ -19,12 +19,13 @@ ledger a plausible wrong number is worse than a refusal, because it gets posted.
 from __future__ import annotations
 
 import uuid
-from datetime import date
+from datetime import date, datetime
 
 from django.db.models import Model, Q, QuerySet
 
 from evidenta.fiscal.parameters.models import (
     FiscalParameter,
+    FiscalParameterConfidenceEvent,
     ParameterScope,
     ParameterStatus,
     SourceConfidence,
@@ -93,12 +94,43 @@ def resolve_parameter(
     return globals_[0]
 
 
+def confidence_at(parameter_id: uuid.UUID, at: datetime) -> str:
+    """What `source_confidence` was at an instant, not what it is now.
+
+    Answers the question an inspection asks -- *at the date you filed, what were
+    you relying on?* -- which the column alone stops being able to answer the
+    moment a value is confirmed.
+
+    Raises rather than assuming when the history does not reach back that far. A
+    parameter whose earliest recorded state is later than the instant asked about
+    cannot say what it was before, and PROVISIONAL would be a guess dressed as an
+    answer -- in the direction that looks prudent, which is exactly what makes it
+    hard to notice.
+    """
+    event = (
+        FiscalParameterConfidenceEvent.objects.filter(
+            parameter_id=parameter_id, effective_at__lte=at
+        )
+        .order_by("-effective_at", "-recorded_at")
+        .first()
+    )
+    if event is None:
+        raise FiscalResolutionError(
+            "fiscal.no_confidence_history",
+            f"parameter {parameter_id} has no recorded confidence at or before {at}. "
+            f"Its history does not reach back that far, and a default here would be "
+            f"a guess about what someone relied on.",
+        )
+    return str(event.confidence)
+
+
 def provisional_in_force(
     effective_date: date,
     *,
     parameter_keys: list[str] | None = None,
+    as_known_at: datetime | None = None,
 ) -> list[FiscalParameter]:
-    """Live values on ``effective_date`` that were inferred rather than read.
+    """Values in force on ``effective_date`` that were inferred rather than read.
 
     The question a compliance screen asks before a declaration is filed: is
     anything this calculation depends on still standing on an inference? Answering
@@ -109,14 +141,21 @@ def provisional_in_force(
     inference rests on" is. Ordering is by key so the same date always renders the
     same list.
 
-    Takes the date like everything else in this module (`R18`, ADR-044). Asking
-    what is provisional *today* about a period closed in March would answer a
-    question nobody asked.
+    ``effective_date`` is the fiscal window; ``as_known_at`` is the instant the
+    question is asked *about*. They are different axes and both matter: without
+    the second, this reports today's beliefs about a past period, so once a value
+    is confirmed it reports that nothing was ever provisional -- which is false
+    about the filing and true only about now. Left at None it means "as things
+    stand", which is the right default for the screen shown before filing.
     """
-    rows = FiscalParameter.objects.filter(
-        status=ParameterStatus.ACTIVE,
-        source_confidence=SourceConfidence.PROVISIONAL,
-    )
+    rows = FiscalParameter.objects.filter(status=ParameterStatus.ACTIVE)
     if parameter_keys is not None:
         rows = rows.filter(parameter_key__in=parameter_keys)
-    return list(in_force(rows, effective_date).order_by("parameter_key", "valid_from"))
+    candidates = list(in_force(rows, effective_date).order_by("parameter_key", "valid_from"))
+
+    if as_known_at is None:
+        return [r for r in candidates if r.source_confidence == SourceConfidence.PROVISIONAL]
+
+    return [
+        r for r in candidates if confidence_at(r.id, as_known_at) == SourceConfidence.PROVISIONAL
+    ]

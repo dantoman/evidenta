@@ -243,3 +243,84 @@ class FiscalParameter(models.Model):
 
     def __str__(self) -> str:
         return f"{self.parameter_key}@{self.valid_from}"
+
+
+class FiscalParameterConfidenceEvent(models.Model):
+    """Every state `source_confidence` has ever been in, and from when.
+
+    Without this the column answers only "is this inferred *now*". The question an
+    inspection asks is the other one: *at the date you filed, what were you
+    relying on?* Confirming a value does not change the value, so it is not a new
+    version with a new `valid_from` -- it is an in-place edit of one column, and
+    an in-place edit erases the very fact being asked about. From the moment the
+    tax service publishes, `provisional_in_force` on a March date returns nothing,
+    while the March calculation really was made on an inference.
+
+    So confidence is append-only, like the ledger and for the same reason: the
+    state at a past instant has to remain recoverable after the present state
+    changes.
+
+    **This is the weaker of the two available answers, and it is worth saying so.**
+    The stronger one is for the calculation to stamp, at posting, which parameter
+    version and which confidence it actually used -- the same discipline as a
+    posted amount being authoritative rather than recomputed. Re-deriving from
+    this table assumes resolution is reproducible, which ADR-044 does guarantee,
+    but the guarantee covers the rule and not a later correction of the row
+    itself. The stamp belongs with the posting engine; this table is what `fiscal`
+    can supply on its own, and it is what the stamp would record.
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+
+    parameter = models.ForeignKey(
+        "fiscal_parameters.FiscalParameter",
+        on_delete=models.PROTECT,
+        db_column="parameter_id",
+        related_name="confidence_events",
+    )
+
+    confidence = models.TextField(choices=SourceConfidence.choices)
+
+    # Snapshotted rather than read through the parameter, because the wording can
+    # be edited later and the point of this row is what was believed then.
+    provisional_reason = models.TextField(null=True, blank=True)
+
+    # Why the state changed -- "the tax service published the annual note on
+    # 2027-03-30" is the answer to an inspection; "confirmed" is not.
+    note = models.TextField()
+
+    # When the state began, supplied by the caller rather than defaulted to now():
+    # backfilling a transition that happened before this table existed is a real
+    # case, and a column that can only ever say "now" cannot express it.
+    effective_at = models.DateTimeField()
+
+    recorded_at = models.DateTimeField(auto_now_add=True)
+    recorded_by_user_id = models.UUIDField(null=True, blank=True)
+
+    class Meta:
+        db_table = "fiscal_parameter_confidence_event"
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(confidence__in=SourceConfidence.values),
+                name="fiscal_conf_event_confidence_valid",
+            ),
+            models.CheckConstraint(
+                condition=~models.Q(note=""),
+                name="fiscal_conf_event_has_note",
+            ),
+            models.CheckConstraint(
+                condition=~models.Q(confidence=SourceConfidence.PROVISIONAL)
+                | ~models.Q(provisional_reason__isnull=True) & ~models.Q(provisional_reason=""),
+                name="fiscal_conf_event_provisional_has_reason",
+            ),
+        ]
+        indexes = [
+            # The lookup is always "this parameter, at or before this instant",
+            # newest first.
+            models.Index(
+                fields=["parameter", "-effective_at"], name="fiscal_conf_event_lookup_idx"
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.parameter_id}:{self.confidence}@{self.effective_at}"

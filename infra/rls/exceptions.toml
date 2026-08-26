@@ -73,6 +73,13 @@ reason = "Proveniența parametrilor: act normativ, Monitorul Oficial, dată publ
 source = "Amendament §B.1"
 
 [[table]]
+name = "fiscal_parameter_confidence_event"
+tenant_column = false
+policy_shape = "global_read_only"
+reason = "Istoricul încrederii în sursă: când o valoare a trecut de la dedusă la citită în act. Același fapt pentru toți tenanții — un istoric per tenant ar da răspunsuri diferite aceluiași control despre același act."
+source = "ADR-046"
+
+[[table]]
 name = "fiscal_logic_version"
 tenant_column = false
 policy_shape = "global_read_only"

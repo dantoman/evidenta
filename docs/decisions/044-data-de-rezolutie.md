@@ -17,7 +17,10 @@ de gestiune** — adică ale anului în care se face calculul — și se declar�
 atunci."*
 
 Prima formulare a fost „`R18` e contrazis de o normă în vigoare", ceea ce suna a rescriere de
-arhitectură. **Măsurătoarea a îngustat-o.** Toate rezolvatoarele din produs —
+arhitectură. **Două lucruri au îngustat-o, apoi au desființat-o** — măsurătoarea de mai jos, și apoi
+citirea legii (§6), care arată că nu exista niciun conflict.
+
+**Măsurătoarea:** Toate rezolvatoarele din produs —
 
 ```
 resolve_parameter(parameter_key, effective_date, …)
@@ -74,18 +77,58 @@ la data plății: acolo „momentul actului" *este* faptul generator, nu o conve
 legală.** Și o excepție la un invariant trebuie să fie **vizibilă în cod și în `CLAUDE.md`**, niciodată
 implicită într-un apelant — altfel invariantul rămâne scris și nu mai e adevărat.
 
-## 6. Unde cade norma CNAS — și de ce nu se poate spune încă
+## 6. Norma CNAS nu era o excepție — era o citire greșită a perioadei
 
-Ordinul CNAS nr. 31-A/2026 este **act subordonat Legii nr. 489/1999**, ale cărei anexe poartă efectiv
-cotele. Prin [ADR-045](045-sursa-de-adevar-pentru-parametri.md), autoritatea unui regulament asupra
-**cuantumurilor** este exact ce se neagă; ce rămâne obligatoriu din pct. 8 e partea procedurală — *„se
-declară în luna de calcul"*.
+**Prima lectură a acestui ADR spunea că întrebarea „se mută" spre textul Legii nr. 489/1999, necitit.
+Textul a fost între timp citit de proprietar, și rezultatul e mai bun: nu e nevoie de nicio excepție.**
 
-> **Nu se afirmă că astfel conflictul dispare.** `legis.md` întoarce 403 și Monitorul Oficial e cu
-> plată, deci **textul Legii nr. 489/1999 n-a putut fi citit**. Ce se poate spune e că întrebarea **se
-> mută**: din „normă contra invariant" în „ce spune legea, dincolo de ordin". Până când textul legii e
-> citit, `R18` se aplică fără excepție, iar dacă legea însăși ancorează calculul în perioada de
-> gestiune, atunci excepția se scrie după criteriul de la §5.
+**Tarifele sunt în lege, nu în ordin.** Anexa nr. 1 la Legea nr. 489/1999 reglementează categoriile de
+plătitori, **tarifele**, baza de calcul și termenele de virare. Ordinul CNAS nu inventează un cuantum —
+repetă o regulă care are deja rang de lege. Iar legea ancorează explicit **în momentul acumulării**, în
+două locuri:
+
+> **Art. 20 alin. (5)** — plătitorii sunt obligați să calculeze și să vireze, în mărimea și termenele
+> din anexa nr. 1, contribuțiile **aferente salariilor calculate** și altor recompense.
+>
+> **Anexa nr. 1** — contribuția datorată lunar de angajator se calculează prin aplicarea tarifului
+> corespunzător la suma salariilor și recompenselor **calculate lunar** pentru toți angajații.
+
+Iar sinteza practicii spune direct: contribuțiile se calculează **conform contabilității de
+angajamente**.
+
+### 6.1 De ce asta desființează întrebarea în loc s-o rezolve
+
+Confuzia nu era „normă contra invariant". Era despre **ce înseamnă *perioada* pentru CAS.**
+
+Sub contabilitate de angajamente, **un salariu calculat în iunie pentru muncă din martie se acumulează
+în iunie.** Nu e o recalculare a lui martie — e un **fapt economic al lunii iunie**. Perioada lui
+economică este iunie, deci parametrii lui sunt cei din iunie. `R18` nu e atins.
+
+Două situații arată identic și nu sunt:
+
+| Situație | Perioadă economică | Tarif |
+|---|---|---|
+| **Corectarea unei erori** în acumularea din martie | martie | martie |
+| **Plată suplimentară calculată în iunie** pentru muncă din martie | **iunie** | **iunie** |
+
+Prima e recalculare, a doua e **eveniment nou**. `R18` le tratează corect pe amândouă — **cu condiția
+ca rezolvatorul să primească data de angajament, nu perioada de muncă.**
+
+### 6.2 Consecința pentru modelul de salarii
+
+Linia de salariu are nevoie de **două date**, exact ca linia de jurnal:
+
+- **perioada de muncă** — pentru declarația nominală și pentru drepturi;
+- **data de angajament** — pentru rezoluția tarifului.
+
+Același tipar ca `document_date` / `posting_date` din [ADR-039](039-valuta-si-perioade.md) `DN-05` §5.
+Ceea ce e o confirmare utilă în sine: **al treilea loc în care aceeași distincție apare independent**,
+descoperită de fiecare dată din alt capăt. Când o distincție se redescoperă singură de trei ori, nu mai
+e o convenție de proiect — e forma domeniului.
+
+> **Rezerva proprietarului, purtată ca atare:** textul integral al anexei nr. 1 **nu a fost citit**, ci
+> doar sinteze care îl citează. **De confirmat înainte de scrierea handlerului de salarii**, fiindcă
+> acolo distincția de la §6.2 devine cod.
 
 ## 7. Ce s-a respins
 

@@ -23,7 +23,7 @@ from __future__ import annotations
 
 import uuid
 from collections.abc import Callable
-from datetime import date
+from datetime import UTC, date, datetime
 
 import pytest
 from django.db import transaction
@@ -37,8 +37,13 @@ from evidenta.fiscal.parameters.models import (
     SourceConfidence,
     ValueType,
 )
+from evidenta.fiscal.parameters.services.confidence import (
+    ConfidenceTransitionError,
+    set_confidence,
+)
 from evidenta.fiscal.parameters.services.resolution import (
     FiscalResolutionError,
+    confidence_at,
     provisional_in_force,
     resolve_parameter,
 )
@@ -568,3 +573,183 @@ def test_a_raw_insert_that_omits_the_confidence_fails_loudly(
             [uuid.uuid4(), SOURCE_ID, APPROVER],
         )
     assert "source_confidence" in str(excinfo.value)
+
+
+# --- Confidence has a past, and it survives the present changing ---------------
+#
+# `set_confidence` writes through the privileged path P-4, which has no mechanism
+# yet -- the same gap as `OD-56` for the chart of accounts. The application role
+# has INSERT revoked on these tables and there is no policy admitting a writer, so
+# the dual write itself cannot be exercised end to end today. What is exercised
+# here is everything that does not depend on it: the refusals, which happen before
+# any write, and the guarantees the database makes about rows once they exist,
+# seeded the way every other fiscal row in this file is seeded.
+
+
+def _confidence_event(
+    seed: Callable[..., None],
+    parameter_id: uuid.UUID,
+    confidence: str,
+    effective_at: datetime,
+    *,
+    note: str = "test",
+    provisional_reason: str | None = None,
+) -> uuid.UUID:
+    """A confidence state, seeded. Mirrors what `set_confidence` writes."""
+    event_id = uuid.uuid4()
+    seed(
+        """
+        INSERT INTO fiscal_parameter_confidence_event
+            (id, parameter_id, confidence, provisional_reason, note, effective_at,
+             recorded_at)
+        VALUES (%s, %s, %s, %s, %s, %s, now())
+        """,
+        [event_id, parameter_id, confidence, provisional_reason, note, effective_at],
+    )
+    return event_id
+
+
+def test_confirming_a_value_does_not_erase_that_it_was_inferred(
+    seed: Callable[..., None], source: uuid.UUID, context: TenantContext
+) -> None:
+    """The question an inspection asks: at the date you filed, what did you rely on?
+
+    Confirming does not change the value, so it is not a new version -- it is an
+    edit of one column. Without a history that edit makes the March calculation
+    look as though it had always stood on a published figure.
+    """
+    _param(
+        seed,
+        "test.rate.exemption",
+        29_700,
+        "2026-01-01",
+        confidence=SourceConfidence.PROVISIONAL,
+        provisional_reason="2025 value; both change lists leave art. 33-35 untouched",
+    )
+    with tenant_context(context):
+        row = resolve_parameter("test.rate.exemption", date(2026, 3, 15))
+
+    _confidence_event(
+        seed,
+        row.id,
+        SourceConfidence.PROVISIONAL,
+        datetime(2026, 1, 1, tzinfo=UTC),
+        provisional_reason="inferred from the prior year",
+    )
+    _confidence_event(
+        seed,
+        row.id,
+        SourceConfidence.CONFIRMED,
+        datetime(2027, 3, 30, tzinfo=UTC),
+        note="SFS published the annual note",
+    )
+    # The value's own column now says confirmed, as production would after P-4.
+    seed(
+        "UPDATE fiscal_parameter SET source_confidence = 'confirmed',"
+        " provisional_reason = NULL WHERE id = %s",
+        [row.id],
+    )
+
+    with tenant_context(context):
+        # As things stand, nothing is provisional. True, and not the answer.
+        assert provisional_in_force(date(2026, 3, 15)) == []
+
+        # As things stood when the declaration was filed, it was.
+        filed = provisional_in_force(
+            date(2026, 3, 15), as_known_at=datetime(2026, 3, 15, tzinfo=UTC)
+        )
+        assert [r.parameter_key for r in filed] == ["test.rate.exemption"]
+
+        # And asking about now agrees with the column.
+        assert (
+            provisional_in_force(date(2026, 3, 15), as_known_at=datetime(2027, 6, 1, tzinfo=UTC))
+            == []
+        )
+
+
+def test_the_history_refuses_to_be_rewritten(
+    seed: Callable[..., None], source: uuid.UUID, context: TenantContext
+) -> None:
+    """Append-only in the database, not by convention.
+
+    A history that can be edited does not answer the question it exists for, and
+    the edit would leave no trace -- which is the whole failure mode. Enforced by
+    a trigger, so it holds against the privileged path too: this seed runs as the
+    test administrator, which bypasses RLS and is still refused.
+    """
+    _param(seed, "test.rate.audited", 1, "2026-01-01")
+    with tenant_context(context):
+        row = resolve_parameter("test.rate.audited", date(2026, 6, 1))
+    event_id = _confidence_event(
+        seed, row.id, SourceConfidence.CONFIRMED, datetime(2027, 1, 1, tzinfo=UTC)
+    )
+
+    with pytest.raises(Exception) as excinfo:
+        seed(
+            "UPDATE fiscal_parameter_confidence_event SET note = 'reworded' WHERE id = %s",
+            [event_id],
+        )
+    assert "append-only" in str(excinfo.value)
+
+    with pytest.raises(Exception) as excinfo:
+        seed("DELETE FROM fiscal_parameter_confidence_event WHERE id = %s", [event_id])
+    assert "append-only" in str(excinfo.value)
+
+
+def test_asking_before_the_history_begins_is_an_error_not_a_guess(
+    seed: Callable[..., None], source: uuid.UUID, context: TenantContext
+) -> None:
+    """PROVISIONAL would look like the prudent default. That is what makes it bad.
+
+    A guess in the cautious direction is still a claim about what somebody relied
+    on, and it is the kind nobody checks because it reads as careful.
+    """
+    _param(seed, "test.rate.silent", 1, "2026-01-01")
+    with tenant_context(context):
+        row = resolve_parameter("test.rate.silent", date(2026, 6, 1))
+        with pytest.raises(FiscalResolutionError) as excinfo:
+            confidence_at(row.id, datetime(2026, 1, 1, tzinfo=UTC))
+    assert excinfo.value.code == "fiscal.no_confidence_history"
+
+
+def test_recording_the_same_state_twice_is_refused(
+    seed: Callable[..., None], source: uuid.UUID, context: TenantContext
+) -> None:
+    """An event that changes nothing would date the transition to the wrong moment.
+
+    Refused before any write, so this holds on the application connection even
+    though the write itself would not be permitted there.
+    """
+    _param(seed, "test.rate.steady", 1, "2026-01-01")
+    with tenant_context(context):
+        row = resolve_parameter("test.rate.steady", date(2026, 6, 1))
+    _confidence_event(seed, row.id, SourceConfidence.CONFIRMED, datetime(2026, 2, 1, tzinfo=UTC))
+
+    with tenant_context(context), pytest.raises(ConfidenceTransitionError) as excinfo:
+        set_confidence(
+            row,
+            SourceConfidence.CONFIRMED,
+            note="again",
+            effective_at=datetime(2026, 3, 1, tzinfo=UTC),
+        )
+    assert excinfo.value.code == "fiscal.confidence_unchanged"
+
+
+def test_a_transition_that_predates_the_last_one_is_refused(
+    seed: Callable[..., None], source: uuid.UUID, context: TenantContext
+) -> None:
+    """Interleaving would make the history unreadable without saying so."""
+    _param(seed, "test.rate.ordered", 1, "2026-01-01")
+    with tenant_context(context):
+        row = resolve_parameter("test.rate.ordered", date(2026, 6, 1))
+    _confidence_event(seed, row.id, SourceConfidence.CONFIRMED, datetime(2027, 1, 1, tzinfo=UTC))
+
+    with tenant_context(context), pytest.raises(ConfidenceTransitionError) as excinfo:
+        set_confidence(
+            row,
+            SourceConfidence.PROVISIONAL,
+            note="backdated",
+            effective_at=datetime(2026, 1, 1, tzinfo=UTC),
+            provisional_reason="inferred",
+        )
+    assert excinfo.value.code == "fiscal.confidence_out_of_order"

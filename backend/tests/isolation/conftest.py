@@ -58,6 +58,7 @@ SEEDED_TABLES = (
     "notification",
     "exchange_rate",
     "fiscal_logic_version",
+    "fiscal_parameter_confidence_event",
     "fiscal_parameter",
     "fiscal_parameter_source",
     "company_partner",
@@ -142,6 +143,12 @@ _TRIGGER_STATE = (
     # by that module's own suite. See the rule above for why this line arrived
     # with the ledger tests rather than with the table.
     "ALTER TABLE accounting_event {action} TRIGGER accounting_event_no_delete",
+    # Confidence history is append-only (ADR-046) and is seeded through `seed()`,
+    # so it meets both halves of the rule above. Without this line the cleanup
+    # cannot delete its own rows, and every later test in the file errors at
+    # setup -- which is how it was found.
+    "ALTER TABLE fiscal_parameter_confidence_event {action} "
+    "TRIGGER fiscal_confidence_event_append_only",
 )
 
 
