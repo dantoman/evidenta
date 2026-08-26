@@ -60,15 +60,16 @@ def source(seed: Callable[..., None]) -> uuid.UUID:
     """One normative act, seeded through the privileged path.
 
     Fictitious on purpose: no act number in this repository should be mistakable
-    for a real one.
+    for a real one -- which is why the date is fictitious too. An act is cited by
+    number *and* date, so a test act carrying a real date would be half-citable.
     """
     seed(
         """
         INSERT INTO fiscal_parameter_source
-            (id, act_type, act_number, official_gazette_number, published_at,
-             effective_from, created_at)
-        VALUES (%s, 'test', 'TEST-0/0000', 'TEST 0', DATE '2000-01-01',
-                DATE '2000-01-01', now())
+            (id, act_type, act_number, act_date, official_gazette_number,
+             official_gazette_article, published_at, effective_from, created_at)
+        VALUES (%s, 'test', 'TEST-0/0000', DATE '2000-01-01', 'TEST 0',
+                'art. 0', DATE '2000-01-01', DATE '2000-01-01', now())
         """,
         [SOURCE_ID],
     )

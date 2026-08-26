@@ -183,6 +183,10 @@ ca **invariant validat**, nu ca `event_type` de închidere.
 5. **Actele românești contaminează căutarea.** Ordinele MFP 1802/2014, 2649/2023, 2202/2023 și
    conturi precum 1496 sunt din **România**. Niciunul nu apare mai sus, dar o căutare ulterioară le
    va scoate.
-6. **O inconsecvență internă a actului, purtată ca atare:** capitolul II numește contul **920
-   „Creanţe contingente"**, iar capitolul III îl descrie ca **„Active contingente"**. Ambele lecturi
-   sunt în textul primar; actul nu le reconciliază.
+6. **Inconsecvențele de denumire — rafinate de extragerea completă** (vezi
+   [`od-23-nomenclatorul-planului-de-conturi.md`](od-23-nomenclatorul-planului-de-conturi.md)).
+   Cazul **920 e altfel decât s-a presupus aici inițial:** divergența **nu e între capitole**, ci
+   **în interiorul capitolului III** — titlul secțiunii spune „Creanţe contingente", concordant cu
+   nomenclatorul, iar doar textul narativ spune „Active contingente". Pentru un plan de lucru
+   contează forma din nomenclator. Divergențe reale între capitole există însă la **12**, **31**,
+   **112** și **132**, unde capitolul III a rămas cu denumirea anterioară redacției din 2019.

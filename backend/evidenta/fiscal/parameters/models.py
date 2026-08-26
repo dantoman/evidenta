@@ -61,13 +61,36 @@ class FiscalParameterSource(models.Model):
     not bookkeeping: recalculating a 2026 period in 2030 has to be defensible,
     and "the rate was 20%" is not an answer without "under which act, published
     when".
+
+    **One publication per source, which is not always true.** An order and the
+    annex it approves can appear in different issues months apart -- the chart of
+    accounts was published as MO nr. 177-181 art. 1225 of 16.08.2013 while its
+    annex, the nomenclature itself, came in MO nr. 233-237 art. 1534 of
+    22.10.2013. The columns here record one of the two. Whether the second
+    belongs in more columns or in a publications table is OD-65, left open rather
+    than guessed: it decides what a citation looks like everywhere downstream.
     """
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
 
     act_type = models.TextField()
     act_number = models.TextField()
+
+    # Part of the act's identity, not decoration. Moldovan acts are cited as
+    # number *and* date -- "Ordinul MF nr. 119 din 06.08.2013" -- because the
+    # number alone repeats across years: the chart of accounts is amended by
+    # orders 188/2014, 100/2019 and 111/2021, and the ministry issues a fresh
+    # number sequence annually. A source row keyed on the number alone cannot
+    # say which act it means.
+    act_date = models.DateField()
+
     official_gazette_number = models.TextField(null=True, blank=True)
+
+    # The pinpoint within the issue. Moldovan citations carry it -- "MO nr.
+    # 177-181 art. 1225 din 16.08.2013" -- and an issue number without the
+    # article is a magazine, not a reference.
+    official_gazette_article = models.TextField(null=True, blank=True)
+
     published_at = models.DateField(null=True, blank=True)
     effective_from = models.DateField()
     url = models.TextField(null=True, blank=True)
@@ -78,11 +101,11 @@ class FiscalParameterSource(models.Model):
     class Meta:
         db_table = "fiscal_parameter_source"
         indexes = [
-            models.Index(fields=["act_number"], name="fiscal_source_act_idx"),
+            models.Index(fields=["act_number", "act_date"], name="fiscal_source_act_idx"),
         ]
 
     def __str__(self) -> str:
-        return f"{self.act_type} {self.act_number}"
+        return f"{self.act_type} {self.act_number} din {self.act_date}"
 
 
 class FiscalParameter(models.Model):
