@@ -100,6 +100,19 @@ make worker       # workerul Celery
 make help         # toate comenzile
 ```
 
+> **Dacă `make test` cade cu `fe_sendauth: no password supplied`, nu e baza, e utilizatorul de
+> administrare.** Suita își creează propria bază, iar pentru asta se conectează ca administrator —
+> implicit `postgres`, din `tests/conftest.py`. Dacă `~/.pgpass` are intrare pentru alt utilizator
+> (de exemplu `avadmin` din `.env`), libpq nu găsește nicio parolă pentru `postgres` și eșuează
+> înainte să atingă vreun test. Se dă utilizatorul corect:
+>
+> ```bash
+> TEST_DB_ADMIN_USER=avadmin make test
+> ```
+>
+> Parola se ia atunci din `~/.pgpass`; `TEST_DB_ADMIN_PASSWORD` există pentru mediile care n-au
+> `.pgpass`. Eroarea arată ca o problemă de configurare a bazei și nu este.
+
 `make run` pornește serverul, dar **nicio cerere nu ajunge la date**: nu există rezolvator de
 subdomeniu, deci middleware-ul refuză tot, cu mesaj explicit, până la F0.3.5. Iar `urlpatterns` este
 gol până la F0.10. Ce se poate verifica azi este baza — izolarea, bootstrap-ul și migrațiile — prin
