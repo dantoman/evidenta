@@ -13,6 +13,9 @@ The claims, in order of what they would cost to get wrong:
 * a session issued for one tenant does not authenticate on another's host
 * revoked and expired sessions stop authenticating immediately
 * the cookie is host-only and unreadable by script
+* refusal comes **before** route resolution, so an HTTP probe cannot tell a real
+  path from an invented one -- a route is checked through the URL conf, never
+  through the network
 
 Runs under the application role like the rest of suite 1 (T1).
 """
@@ -174,11 +177,46 @@ def test_an_expired_session_stops_authenticating(credentials: dict[str, Any]) ->
     assert response.status_code == 401
 
 
+def test_authentication_answers_before_the_route_is_resolved() -> None:
+    """An unauthenticated HTTP probe cannot tell a real route from an invented one.
+
+    Not a property worth having for its own sake -- it is written down because the
+    obvious way to check "does this endpoint exist?" from outside is to call it
+    and read the status, and that check **cannot work here**: the authentication
+    middleware answers before Django resolves the URL, so a path that exists and
+    a path nobody ever wrote both come back `401 auth.required`. Somebody probing
+    a typo'd path would read the 401 as "the route is there, I just need a
+    session" and go looking for a bug that is not there.
+
+    The way to check a route from outside a session is the URL conf itself --
+    ``django.urls.resolve`` -- not the network.
+
+    Pinned as a test rather than left as a comment because it is an **ordering**
+    claim about the middleware chain: if the order ever changes, this fails and
+    says so, instead of quietly making the reasoning above wrong.
+    """
+    client = Client()
+    invented = client.get("/api/v1/aceasta-cale-nu-exista", headers={"host": HOST_A})
+    real = client.get("/api/v1/auth/whoami", headers={"host": HOST_A})
+
+    assert invented.status_code == 401
+    assert invented.json()["code"] == "auth.required"
+    # The same answer, from a route that does exist. That is the whole point.
+    assert real.status_code == invented.status_code
+    assert real.json()["code"] == invented.json()["code"]
+
+
 def test_logout_ends_the_session(credentials: dict[str, Any]) -> None:
     client = Client()
     log_in(client, HOST_A, credentials["email"], credentials["secret"])
 
-    assert client.post("/api/v1/auth/logout", headers={"host": HOST_A}).status_code == 204
+    response = client.post("/api/v1/auth/logout", headers={"host": HOST_A})
+    assert response.status_code == 204
+    # Empty, and asserted rather than assumed. A 204 ends the message at the
+    # headers, so a body sent with it is parsed as the start of the next
+    # response: the first version answered `{}` here and the browser's sign-out
+    # failed in transport on a session this endpoint had already revoked.
+    assert response.content == b""
     assert client.get("/api/v1/auth/whoami", headers={"host": HOST_A}).status_code == 401
 
 

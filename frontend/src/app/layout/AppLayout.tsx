@@ -23,23 +23,45 @@ export function AppLayout({ tenantId }: { tenantId: string }) {
   const queryClient = useQueryClient()
   const signOut = useMutation({
     mutationFn: logout,
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: IDENTITY_KEY }),
+    // Iesirea reincarca aplicatia pe `/`, indiferent ce a raspuns serverul.
+    //
+    // Unconditional on purpose, and the reload is what makes it honest rather
+    // than a guess: `/` re-asks `whoami` on a cold start, so the screen that
+    // comes back is whatever the server says is true -- the login form for a
+    // session that ended, the shell again for one that survived, the error
+    // screen if the server is unreachable. Branching on the response instead
+    // would have to *decide* what happened, and that decision is exactly what
+    // was wrong before: the sign-out request used to fail in transport on a
+    // session the server had already revoked, so a truthful-looking `if` left
+    // the person sitting in an application they were no longer signed in to.
+    //
+    // A reload, not a re-render: it also drops the previous session's rows out
+    // of memory, which on an accountant's desk is the point.
+    onSettled: () => {
+      queryClient.removeQueries({ queryKey: IDENTITY_KEY })
+      window.location.replace('/')
+    },
   })
 
   return (
     <div className="min-h-screen">
       <header className="flex items-center justify-between border-b border-border bg-surface px-4 py-3">
         <div className="flex items-center gap-6">
-          <span className="font-semibold">{t.app.name}</span>
-          {/* Navigatia apare cand exista mai mult de un ecran. Un singur link nu e
-              navigatie, e un buton -- si un meniu gol e mai rau decat niciunul. */}
+          {/* Marca duce acasa. `end` fiindca ruta index e `/`: fara el, orice
+              ruta de sub layout ar tine marca activa. */}
+          <NavLink to="/" end className="font-semibold text-ink">
+            {t.app.name}
+          </NavLink>
+          {/* Un singur link, si e cel corect: planul de conturi apartine unei
+              companii, iar antetul nu stie careia. Drumul spre contabilitate
+              trece prin lista de companii, ca in rutele serverului. */}
           <NavLink
-            to="/plan-de-conturi"
+            to="/companii"
             className={({ isActive }) =>
               `text-sm ${isActive ? 'text-ink' : 'text-ink-muted'}`
             }
           >
-            {t.accounting.chart.title}
+            {t.companies.title}
           </NavLink>
         </div>
         <div className="flex items-center gap-4">
@@ -53,7 +75,8 @@ export function AppLayout({ tenantId }: { tenantId: string }) {
           <button
             type="button"
             onClick={() => signOut.mutate()}
-            className="text-sm text-accent"
+            disabled={signOut.isPending}
+            className="text-sm text-accent disabled:text-ink-muted"
           >
             {t.auth.signOut}
           </button>

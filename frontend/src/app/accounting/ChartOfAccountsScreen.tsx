@@ -1,15 +1,12 @@
 /**
- * The chart of accounts -- the first screen in the product that shows accounting
- * data.
+ * The chart of accounts of one company.
  *
- * It reads `/api/v1/accounting/coa/`, which has existed and been tested since
- * F1.1 with no consumer at all. That gap is why this screen exists before any
- * other: an API nobody calls is an API nobody has checked the shape of.
- *
- * **The company comes from the path, never the tenant** (C8). The tenant is the
- * host the browser is already on; the company is a resource inside it, and a
- * holding has several -- so the screen has to say which, and the server decides
- * whether the caller may reach it.
+ * **The company is in the path, the tenant never is** (C8). The tenant is the
+ * host the browser is already on; the company is a resource inside it, and the
+ * server's own routes are shaped the same way. The first version kept the choice
+ * in component state, which meant the chart of a particular company had no
+ * address -- nothing could link to it, and a reload picked the first company in
+ * the list rather than the one being read.
  *
  * Account names arrive from the server and are rendered as they arrive. The books
  * are kept in Romanian by law (C33, ADR-016): an account name is a stored value,
@@ -20,12 +17,20 @@
 
 import { useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
+import { Link, useNavigate, useParams } from 'react-router'
 
 import { t } from '@/locales'
-import { listAccounts, type Account, type AccountClass } from '@/shared/api/coa'
+import { date } from '@/shared/format'
+import {
+  getChart,
+  listAccounts,
+  listTemplates,
+  type Account,
+  type AccountClass,
+} from '@/shared/api/coa'
 import { listCompanies } from '@/shared/api/companies'
-import { ApiError } from '@/shared/api/client'
 import { DataGrid, type Column } from '@/shared/DataGrid'
+import { Failure, codeOf } from '@/shared/Failure'
 
 const CLASS_LABEL: Record<AccountClass, string> = {
   asset: t.accounting.classes.asset,
@@ -41,125 +46,186 @@ const CLASS_LABEL: Record<AccountClass, string> = {
  * chart carries no amounts -- the balances screen is where `numeric` starts
  * earning its keep.
  */
-const columns: Column<Account>[] = [
-  {
-    key: 'account_code',
-    header: t.accounting.chart.code,
-    cell: (account) => <span className="font-mono">{account.account_code}</span>,
-    width: '8rem',
-  },
-  {
-    key: 'name_ro',
-    header: t.accounting.chart.name,
-    // Indented by depth so the hierarchy reads without a tree control. The chart
-    // is two levels in practice; a disclosure widget would cost more than it
-    // returns until somebody has a chart deep enough to need one.
-    cell: (account) => (
-      <span className={account.parent_id ? 'pl-6' : ''}>{account.name_ro}</span>
-    ),
-  },
-  {
-    key: 'account_class',
-    header: t.accounting.chart.class,
-    cell: (account) => CLASS_LABEL[account.account_class],
-    width: '10rem',
-  },
-  {
-    key: 'origin',
-    header: t.accounting.chart.origin,
-    cell: (account) =>
-      account.origin === 'system'
-        ? t.accounting.chart.originSystem
-        : t.accounting.chart.originCompany,
-    width: '10rem',
-  },
-  {
-    key: 'state',
-    header: t.accounting.chart.state,
-    cell: (account) => {
-      if (account.is_blocked) {
-        return <span className="text-danger">{t.accounting.chart.blocked}</span>
-      }
-      if (account.valid_to) {
-        return <span className="text-ink-muted">{t.accounting.chart.closed}</span>
-      }
-      return <span className="text-ink-muted">{t.accounting.chart.open}</span>
+function columnsFor(companyId: string): Column<Account>[] {
+  return [
+    {
+      key: 'account_code',
+      header: t.accounting.chart.code,
+      cell: (account) => (
+        <Link
+          to={`/companii/${companyId}/conturi/${account.id}`}
+          className="font-mono text-accent"
+        >
+          {account.account_code}
+        </Link>
+      ),
+      width: '8rem',
     },
-    width: '8rem',
-  },
-]
+    {
+      key: 'name_ro',
+      header: t.accounting.chart.name,
+      // Indented by depth so the hierarchy reads without a tree control. The
+      // chart is two levels in practice; a disclosure widget would cost more
+      // than it returns until somebody has a chart deep enough to need one.
+      cell: (account) => (
+        <span className={account.parent_id ? 'pl-6' : ''}>{account.name_ro}</span>
+      ),
+    },
+    {
+      key: 'account_class',
+      header: t.accounting.chart.class,
+      cell: (account) => CLASS_LABEL[account.account_class],
+      width: '10rem',
+    },
+    {
+      key: 'origin',
+      header: t.accounting.chart.origin,
+      cell: (account) =>
+        account.origin === 'system'
+          ? t.accounting.chart.originSystem
+          : t.accounting.chart.originCompany,
+      width: '10rem',
+    },
+    {
+      key: 'state',
+      header: t.accounting.chart.state,
+      cell: (account) => {
+        if (account.is_blocked) {
+          return <span className="text-danger">{t.accounting.chart.blocked}</span>
+        }
+        if (account.valid_to) {
+          return <span className="text-ink-muted">{t.accounting.chart.closed}</span>
+        }
+        return <span className="text-ink-muted">{t.accounting.chart.open}</span>
+      },
+      width: '8rem',
+    },
+  ]
+}
 
 export function ChartOfAccountsScreen() {
-  const [companyId, setCompanyId] = useState<string | null>(null)
+  const { companyId = '' } = useParams()
+  const navigate = useNavigate()
+
+  /**
+   * The date a posting would carry, not "today".
+   *
+   * Empty means the whole chart, including accounts that are closed or not yet
+   * open -- a screen that showed only today's accounts could not explain a
+   * posting made last year. The server never substitutes today for a missing
+   * date either, and for the same reason (R18).
+   */
+  const [on, setOn] = useState('')
 
   const companies = useQuery({ queryKey: ['companies'], queryFn: listCompanies })
 
-  // The first company only until somebody chooses. Not a default that hides the
-  // choice: with more than one, the selector below is rendered and the current
-  // one is named, because a screen that silently picks one of a holding's
-  // companies is a screen that shows the wrong numbers convincingly.
-  const selected = companyId ?? companies.data?.[0]?.id ?? null
-
-  const accounts = useQuery({
-    queryKey: ['accounts', selected],
-    queryFn: () => listAccounts(selected as string),
-    enabled: selected !== null,
+  // 404 is a state here, not a failure: a company that was never initialised has
+  // no chart. Retrying it would only delay the screen that says so.
+  const chart = useQuery({
+    queryKey: ['chart', companyId],
+    queryFn: () => getChart(companyId),
+    retry: false,
+  })
+  const templates = useQuery({
+    queryKey: ['templates'],
+    queryFn: listTemplates,
+    enabled: chart.isSuccess,
   })
 
-  if (companies.isPending) {
-    return <p className="text-sm text-ink-muted">{t.app.loading}</p>
-  }
+  const accounts = useQuery({
+    queryKey: ['accounts', companyId, on],
+    queryFn: () => listAccounts(companyId, on || undefined),
+  })
 
-  if (companies.isError) {
-    return <Failure error={companies.error} />
-  }
-
-  if (companies.data.length === 0) {
-    return <p className="text-sm text-ink-muted">{t.accounting.chart.noCompany}</p>
-  }
+  const company = companies.data?.find((row) => row.id === companyId)
+  // Named, never shown as an identifier. A UUID in a header is a database key on
+  // a screen; if the version cannot be named, nothing is written.
+  const template = templates.data?.find((row) => row.id === chart.data?.template_id)
+  const missingChart = chart.isError && codeOf(chart.error) === 'api.not_found'
 
   return (
     <section className="flex flex-col gap-4">
-      <header className="flex items-center justify-between">
-        <h1 className="text-base font-semibold">{t.accounting.chart.title}</h1>
-        {companies.data.length > 1 && (
+      <header className="flex flex-wrap items-center justify-between gap-4">
+        <div className="flex flex-col">
+          <h1 className="text-base font-semibold">{t.accounting.chart.title}</h1>
+          {company && <span className="text-sm text-ink-muted">{company.legal_name}</span>}
+        </div>
+
+        <div className="flex flex-wrap items-center gap-4">
+          {template && (
+            <span className="text-sm text-ink-muted">
+              {t.accounting.chart.version}: {template.code} {template.version}
+            </span>
+          )}
+          {companies.data && companies.data.length > 1 && (
+            <label className="flex items-center gap-2 text-sm">
+              <span className="text-ink-muted">{t.accounting.chart.company}</span>
+              <select
+                value={companyId}
+                onChange={(event) =>
+                  void navigate(`/companii/${event.target.value}/plan-de-conturi`)
+                }
+                className="rounded border border-border bg-surface px-2 text-sm"
+              >
+                {companies.data.map((row) => (
+                  <option key={row.id} value={row.id}>
+                    {row.legal_name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
           <label className="flex items-center gap-2 text-sm">
-            <span className="text-ink-muted">{t.accounting.chart.company}</span>
-            <select
-              value={selected ?? ''}
-              onChange={(event) => setCompanyId(event.target.value)}
+            <span className="text-ink-muted">{t.accounting.chart.postableOn}</span>
+            <input
+              type="date"
+              value={on}
+              onChange={(event) => setOn(event.target.value)}
               className="rounded border border-border bg-surface px-2 text-sm"
-            >
-              {companies.data.map((company) => (
-                <option key={company.id} value={company.id}>
-                  {company.legal_name}
-                </option>
-              ))}
-            </select>
+            />
           </label>
-        )}
+          {on && (
+            <button
+              type="button"
+              onClick={() => setOn('')}
+              className="text-sm text-accent"
+            >
+              {t.accounting.chart.postableAll}
+            </button>
+          )}
+        </div>
       </header>
+
+      {on && (
+        <p className="text-sm text-ink-muted">
+          {t.accounting.chart.postableNote} ({date(on)})
+        </p>
+      )}
+
+      {missingChart && (
+        <p className="text-sm">
+          <span className="text-ink-muted">{t.accounting.chart.empty} </span>
+          <Link
+            to={`/companii/${companyId}/plan-de-conturi/initializare`}
+            className="text-accent"
+          >
+            {t.accounting.chart.initialize}
+          </Link>
+        </p>
+      )}
+      {chart.isError && !missingChart && <Failure error={chart.error} />}
+      {companies.isError && <Failure error={companies.error} />}
 
       {accounts.isPending && <p className="text-sm text-ink-muted">{t.app.loading}</p>}
       {accounts.isError && <Failure error={accounts.error} />}
-      {accounts.data && (
+      {accounts.data && !missingChart && (
         <DataGrid
-          columns={columns}
+          columns={columnsFor(companyId)}
           rows={accounts.data}
           rowKey={(account) => account.id}
           emptyMessage={t.accounting.chart.empty}
         />
       )}
     </section>
-  )
-}
-
-/** By stable code, never by the server's message (C10). */
-function Failure({ error }: { error: unknown }) {
-  const failure = error instanceof ApiError ? error : null
-  return (
-    <p role="alert" className="text-sm text-danger">
-      {failure ? failure.display : t.errors.unknown}
-    </p>
   )
 }

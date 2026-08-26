@@ -1,12 +1,14 @@
-import { BrowserRouter, Route, Routes } from 'react-router'
+import { BrowserRouter, Navigate, Route, Routes } from 'react-router'
 
 import { t } from '@/locales'
 import { ApiError } from '@/shared/api/client'
 import { LoginScreen } from './auth/LoginScreen'
 import { useIdentity } from './auth/useIdentity'
+import { AccountScreen } from './accounting/AccountScreen'
 import { ChartOfAccountsScreen } from './accounting/ChartOfAccountsScreen'
+import { ChartSetupScreen } from './accounting/ChartSetupScreen'
+import { CompaniesScreen } from './companies/CompaniesScreen'
 import { AppLayout } from './layout/AppLayout'
-import { HomeScreen } from './layout/HomeScreen'
 
 /**
  * The whole routing decision, which is small on purpose.
@@ -14,6 +16,13 @@ import { HomeScreen } from './layout/HomeScreen'
  * **No route ever carries a tenant identifier.** The tenant comes from the
  * subdomain (C8), so there is no `/:tenantId/` segment here and there will not
  * be one: a path that could name a tenant is a path someone can type.
+ *
+ * **A company identifier is a different thing entirely, and it belongs here.** A
+ * tenant may hold several companies, each with its own ledger, so every
+ * accounting screen has to say which -- and the server's own routes are shaped
+ * the same way. Keeping the choice in component state, as the first version did,
+ * meant one company's chart had no address: nothing could link to it and a
+ * reload silently fell back to the first company in the list.
  *
  * Authentication gates the router rather than living inside it. A route guard
  * that ran per route would let a screen mount for a frame before redirecting,
@@ -54,8 +63,19 @@ export function App() {
     <BrowserRouter>
       <Routes>
         <Route element={<AppLayout tenantId={identity.data.tenant_id} />}>
-          <Route index element={<HomeScreen />} />
-          <Route path="plan-de-conturi" element={<ChartOfAccountsScreen />} />
+          {/* One canonical address per screen. `/` redirects rather than
+              rendering the list a second time under a second URL. */}
+          <Route index element={<Navigate to="/companii" replace />} />
+          <Route path="companii" element={<CompaniesScreen />} />
+          <Route
+            path="companii/:companyId/plan-de-conturi"
+            element={<ChartOfAccountsScreen />}
+          />
+          <Route
+            path="companii/:companyId/plan-de-conturi/initializare"
+            element={<ChartSetupScreen />}
+          />
+          <Route path="companii/:companyId/conturi/:accountId" element={<AccountScreen />} />
         </Route>
       </Routes>
     </BrowserRouter>

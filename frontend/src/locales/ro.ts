@@ -30,7 +30,24 @@ export const ro = {
     password: 'Parolă',
     code: 'Cod de verificare',
     submit: 'Intră în cont',
-    signOut: 'Ieși din cont',
+    signOut: 'Ieșire din cont',
+  },
+  common: {
+    back: 'Înapoi',
+    save: 'Salvează',
+    add: 'Adaugă',
+    none: '—',
+  },
+  companies: {
+    // „Companii", nu „companiile mele": pagina o citesc si proprietarul, si
+    // contabilul care tine evidenta altcuiva, iar ADR-017 le da acelorasi randuri
+    // doua formulari diferite („compania mea" / „clientii mei"). Un titlu neutru
+    // nu se contrazice cu niciuna.
+    title: 'Companii',
+    legalName: 'Denumire legală',
+    idno: 'IDNO',
+    currency: 'Monedă funcțională',
+    empty: 'Nu aveți acces la nicio companie.',
   },
   accounting: {
     // Vocabularul din jurul contului, nu numele lui. Denumirea contului vine de la
@@ -59,7 +76,63 @@ export const ro = {
       closed: 'Închis',
       blocked: 'Blocat',
       empty: 'Compania nu are încă un plan de conturi.',
-      noCompany: 'Nu aveți acces la nicio companie.',
+      version: 'Versiune',
+      // Filtrul `?on=`: ce se poate inregistra la o data, nu ce exista azi.
+      postableOn: 'Se poate înregistra la data',
+      postableAll: 'Tot planul',
+      postableNote:
+        'Se afișează doar conturile în care se poate înregistra la data aleasă — valabile și neblocate atunci.',
+      initialize: 'Inițializează planul de conturi',
+    },
+    templates: {
+      title: 'Inițializarea planului de conturi',
+      lead: 'Planul se construiește dintr-o versiune publicată. Alegeți versiunea, apoi confirmați.',
+      code: 'Cod',
+      version: 'Versiune',
+      validity: 'Valabilitate',
+      // Actul normativ este pe sarma tocmai ca alegerea sa nu fie intre doua
+      // siruri opace -- cine alege o versiune alege un act.
+      act: 'Act normativ',
+      reference: 'Referință',
+      published: 'Publicat',
+      choose: 'Alege',
+      chosen: 'Versiunea aleasă',
+      submit: 'Inițializează planul',
+      empty: 'Nu există nicio versiune publicată.',
+      already: 'Compania are deja un plan de conturi.',
+    },
+    account: {
+      title: 'Fișa contului',
+      code: 'Cod',
+      name: 'Denumire',
+      class: 'Clasă',
+      origin: 'Origine',
+      normalBalance: 'Sold normal',
+      debit: 'Debit',
+      credit: 'Credit',
+      parent: 'Cont superior',
+      validFrom: 'Valabil din',
+      validTo: 'Valabil până la',
+      tracking: 'Urmărire',
+      currencyTracking: 'Valută',
+      quantityTracking: 'Cantitate',
+      allowsSubaccounts: 'Permite subconturi',
+      requiredDimensions: 'Dimensiuni obligatorii',
+      state: 'Stare',
+      rename: 'Redenumire',
+      renameSystem:
+        'Conturile din plan se mențin centralizat și nu se redenumesc. Blocarea și închiderea rămân posibile.',
+      block: 'Blochează contul',
+      unblock: 'Deblochează contul',
+      close: 'Închiderea contului',
+      closeFrom: 'Valabil până la',
+      closeAction: 'Închide contul',
+      subaccount: 'Subcont nou',
+      subaccountNotAllowed: 'Acest cont nu permite subconturi.',
+      subaccountDimensions:
+        'Dimensiunile obligatorii nu se aleg aici: subcontul pornește fără niciuna, ca pe server.',
+      saved: 'Modificarea a fost salvată.',
+      created: 'Subcontul a fost creat.',
     },
   },
   errors: {
@@ -92,6 +165,27 @@ export const ro = {
     'api.idempotency_key_required':
       'Cerere respinsă: lipsește cheia de idempotență.',
     'api.throttled': 'Prea multe cereri. Încercați peste puțin timp.',
+    'api.idempotency_key_invalid': 'Cheia de idempotență nu este validă.',
+    'api.tenant_context_missing': 'Cererea a ajuns fără spațiu de lucru.',
+    'error.unknown': 'A apărut o eroare neașteptată.',
+    // Planul de conturi. Fiecare cod exista in `accounting/coa/errors.py`; niciun
+    // mesaj de aici nu descrie altceva decat clasa de acolo.
+    'coa.chart_already_instantiated': 'Compania are deja un plan de conturi.',
+    'coa.template_not_published': 'Versiunea aleasă nu este publicată.',
+    // Un rand inaccesibil este absent, niciodata interzis (IZ-04): serverul da un
+    // singur cod pentru „nu exista" si „nu aveti acces", iar mesajul nu are voie
+    // sa le desparta inapoi.
+    'coa.company_not_visible': 'Compania nu există sau nu aveți acces la ea.',
+    'coa.account_not_found': 'Contul nu a fost găsit.',
+    'coa.subaccounts_not_allowed': 'Contul superior nu permite subconturi.',
+    'coa.parent_account_closed':
+      'Contul superior nu mai este valabil la data de la care ar începe subcontul.',
+    'coa.account_code_taken': 'Există deja un cont cu acest cod în planul companiei.',
+    'coa.system_account_immutable':
+      'Conturile din plan nu se redenumesc. Blocarea și închiderea rămân posibile.',
+    'coa.unknown_dimension': 'Dimensiune analitică din afara vocabularului.',
+    'coa.invalid_validity_window': 'Perioada de valabilitate nu este validă.',
+    'coa.invalid_date': 'Data nu este o dată validă.',
     unknown: 'A apărut o eroare neașteptată.',
     network: 'Serverul nu răspunde.',
     hintSubdomain:

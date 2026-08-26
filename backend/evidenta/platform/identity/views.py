@@ -126,7 +126,17 @@ def logout(request: HttpRequest) -> HttpResponse:
     if session_id is not None:
         sessions.revoke(uuid.UUID(str(session_id)), reason="logout")
 
-    response = JsonResponse({}, status=204 if session_id is not None else 200)
+    # A 204 carries no body, and that is framing, not tidiness: RFC 9112 ends the
+    # message at the header section for 204 regardless of what follows, so a JSON
+    # body sent after it is read as the beginning of the *next* response on the
+    # connection. Measured, because it was not theory: the two bytes `{}` make
+    # node's HTTP parser -- what the development proxy runs on -- fail the
+    # response with `HPE_INVALID_CONSTANT`, so the browser saw the sign-out fail
+    # on a session this view had already revoked. The button appeared dead and
+    # only a reload reached the login screen.
+    response: HttpResponse = (
+        HttpResponse(status=204) if session_id is not None else JsonResponse({}, status=200)
+    )
     cookie.clear(response)
     return response
 
