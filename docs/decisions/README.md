@@ -114,6 +114,8 @@ Acte normative, secțiuni din documentele de intrare, benchmark-uri, discuții.
 | [043](043-privilegiile-functiilor-rls.md) | Operațiile pe obiectele lui `evidenta_rls` se fac sub rolul lui; `REVOKE` de la non-proprietar e un warning | Acceptat | 2026-08-26 | deschide `OD-64` |
 | [042](042-scara-de-densitate.md) | Scara de densitate ca tokeni `--spacing-*`: 40/32/24, implicit `compact` la 32px | Acceptat | 2026-08-26 | `OD-35` |
 | [041](041-ziua-ca-argument.md) | Ziua intră ca argument; niciun predicat de acces nu citește ceasul | Acceptat | 2026-08-26 | `OD-63` |
+| [044](044-data-de-rezolutie.md) | Regula se rezolvă după data perioadei, niciodată după data calculului | Acceptat | 2026-08-26 | `OD-66` |
+| [045](045-sursa-de-adevar-pentru-parametri.md) | Actul de rang legal dă parametrii; regulamentul dă procedura | Acceptat | 2026-08-26 | — (impune `C14`) |
 
 *Indexul se actualizează la fiecare ADR nou. Un ADR care nu apare aici este invizibil.*
 

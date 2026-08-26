@@ -54,6 +54,28 @@ class ParameterStatus(models.TextChoices):
     SUPERSEDED = "superseded"
 
 
+class SourceConfidence(models.TextChoices):
+    """How firmly the value is attached to its act -- orthogonal to status.
+
+    ``ParameterStatus`` tracks *our* workflow: drafted, approved by the
+    practising accountant, live, replaced. This tracks something about the world
+    instead: whether the number was read in the act or inferred around it. The
+    two are independent, and deliberately so -- a value can be ACTIVE and
+    PROVISIONAL at once, which is exactly the case that needs representing.
+
+    The case that produced it: the 2026 personal exemptions. The tax service
+    publishes amounts only in its retrospective annual note, so for 2026 no
+    figure exists yet; what exists is the 2025 amount plus two exhaustive change
+    lists that leave the articles untouched. That inference is strong enough to
+    calculate with and not strong enough to defend at an inspection, and those
+    are different claims. Without a column, "inferred" lives in a comment and
+    disappears at the first refactor.
+    """
+
+    CONFIRMED = "confirmed"
+    PROVISIONAL = "provisional"
+
+
 class FiscalParameterSource(models.Model):
     """Where a parameter came from. Required, not decorative.
 
@@ -141,6 +163,25 @@ class FiscalParameter(models.Model):
     approved_by_user_id = models.UUIDField(null=True, blank=True)
     approved_at = models.DateTimeField(null=True, blank=True)
 
+    # PROVISIONAL is the safe direction for the ORM path: a forgotten field then
+    # overstates doubt, showing a warning nobody needed, rather than letting an
+    # inference pass as read-from-the-act.
+    #
+    # **Measured: this default never reaches a raw INSERT.** Django's `default=`
+    # is applied in Python, and the migration drops the database default after
+    # backfilling, so SQL that omits the column gets NULL and fails NOT NULL. That
+    # is the better outcome and it is why no `db_default` is set here: parameters
+    # are loaded through the privileged SQL paths, and whoever loads a rate should
+    # have to say whether it was read in the act. A default would let the row
+    # arrive without anyone deciding.
+    source_confidence = models.TextField(
+        choices=SourceConfidence.choices, default=SourceConfidence.PROVISIONAL
+    )
+
+    # Required when provisional: what the inference rests on, so a later reader
+    # can judge it instead of re-deriving it.
+    provisional_reason = models.TextField(null=True, blank=True)
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -164,6 +205,18 @@ class FiscalParameter(models.Model):
                 condition=models.Q(status__in=ParameterStatus.values),
                 name="fiscal_parameter_status_valid",
             ),
+            models.CheckConstraint(
+                condition=models.Q(source_confidence__in=SourceConfidence.values),
+                name="fiscal_parameter_confidence_valid",
+            ),
+            # A provisional value without its reasoning is indistinguishable from
+            # a confirmed one that somebody mislabelled, so the reason is part of
+            # the claim rather than documentation of it.
+            models.CheckConstraint(
+                condition=~models.Q(source_confidence=SourceConfidence.PROVISIONAL)
+                | ~models.Q(provisional_reason__isnull=True) & ~models.Q(provisional_reason=""),
+                name="fiscal_parameter_provisional_has_reason",
+            ),
             # A global parameter with a scope reference, or a scoped one without,
             # is a row the resolver cannot place.
             models.CheckConstraint(
@@ -183,6 +236,9 @@ class FiscalParameter(models.Model):
         indexes = [
             models.Index(fields=["parameter_key", "valid_from"], name="fiscal_parameter_key_idx"),
             models.Index(fields=["status"], name="fiscal_parameter_status_idx"),
+            # "Which live values are still inferred" is the question the
+            # compliance screen asks on every load; without this it scans.
+            models.Index(fields=["source_confidence", "status"], name="fiscal_parameter_conf_idx"),
         ]
 
     def __str__(self) -> str:

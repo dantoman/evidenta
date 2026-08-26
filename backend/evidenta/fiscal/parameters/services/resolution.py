@@ -27,6 +27,7 @@ from evidenta.fiscal.parameters.models import (
     FiscalParameter,
     ParameterScope,
     ParameterStatus,
+    SourceConfidence,
 )
 
 
@@ -90,3 +91,32 @@ def resolve_parameter(
             f"{parameter_key!r} has {len(globals_)} global values in force on {effective_date}",
         )
     return globals_[0]
+
+
+def provisional_in_force(
+    effective_date: date,
+    *,
+    parameter_keys: list[str] | None = None,
+) -> list[FiscalParameter]:
+    """Live values on ``effective_date`` that were inferred rather than read.
+
+    The question a compliance screen asks before a declaration is filed: is
+    anything this calculation depends on still standing on an inference? Answering
+    it afterwards is worth much less -- the declaration has been submitted by then.
+
+    Returns rows, not a boolean, because "something is provisional" is not
+    actionable and "the 2026 personal exemption is provisional, here is what the
+    inference rests on" is. Ordering is by key so the same date always renders the
+    same list.
+
+    Takes the date like everything else in this module (`R18`, ADR-044). Asking
+    what is provisional *today* about a period closed in March would answer a
+    question nobody asked.
+    """
+    rows = FiscalParameter.objects.filter(
+        status=ParameterStatus.ACTIVE,
+        source_confidence=SourceConfidence.PROVISIONAL,
+    )
+    if parameter_keys is not None:
+        rows = rows.filter(parameter_key__in=parameter_keys)
+    return list(in_force(rows, effective_date).order_by("parameter_key", "valid_from"))

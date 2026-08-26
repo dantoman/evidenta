@@ -60,6 +60,54 @@ peste, **se pierd și scutirea personală, și cea majorată**.
 > publicată de **SFS și de MF**, nu conține nicio modificare la art. 33–35. **Deducția e solidă, dar
 > nu e citat.**
 
+### 2.1 Plafonul de venit al persoanei întreținute, și două reguli care produc erori tăcute
+
+**Plafonul pentru 2025: 12 400 lei anual (1 033,33 lei lunar)**, majorat de la 11 280 lei **tocmai ca
+să faciliteze încadrarea în limită**. *(Sursa: proprietarul, contabil practicant. Nu s-a putut citi în
+textul art. 35 — vezi „Ce nu s-a putut verifica".)*
+
+Pentru claritate, cuantumurile corespunzătoare: scutirea pentru persoana întreținută **9 900 lei
+anual (825 lunar)**; pentru persoane cu dizabilități în urma unei afecțiuni congenitale sau din
+copilărie și pentru cele cu dizabilități severe și accentuate — **21 780 lei anual (1 815 lunar)**.
+
+> #### ⚠ Regula 1 — ce se exclude din baza de calcul
+>
+> La determinarea venitului persoanei întreținute se iau în calcul veniturile **impozabile și
+> neimpozabile**, din surse **din RM și din afara ei** — **cu excepția alocațiilor achitate din bugetul
+> de stat** pentru persoanele cu dizabilități în urma unei afecțiuni congenitale sau din copilărie și
+> pentru cele cu dizabilități severe și accentuate.
+>
+> **Un motor care însumează tot venitul ar respinge exact categoria pentru care scutirea e majorată** —
+> ar refuza 21 780 lei tocmai persoanei îndreptățite la ei, fiindcă alocația de stat ar împinge-o peste
+> plafon. Eroare plauzibilă, tăcută, și în defavoarea celui mai vulnerabil contribuabil.
+
+> #### ⚠ Regula 2 — unicitatea nu există
+>
+> **Numărul de contribuabili care pot folosi scutirea pentru aceeași persoană întreținută nu e limitat
+> prin lege.** Ambii părinți pot folosi scutirea pentru același copil; toți copiii, pentru același
+> părinte.
+>
+> **O constrângere `UNIQUE` pe (persoană întreținută) în model ar fi invenția noastră, nu o cerință
+> legală.** E genul de constrângere care pare igienă de schemă și e de fapt o regulă de business
+> inventată — refuză un caz pe care legea îl permite, iar utilizatorul n-are cum să afle de ce.
+
+### 2.2 Capcana de versionare: regulamentul a rămas în urma Codului
+
+**HG nr. 697/2014, pct. 11** — chiar regulamentul de reținere a impozitului din salariu — prevede că
+persoana aflată în relații de căsătorie are dreptul la scutire suplimentară **„în mărimea indicatorului
+prevăzut la art. 34 alin. (1) sau (2)"**, cu condiția ca soțul să nu beneficieze de scutire personală.
+
+Adică **regulamentul secundar încă trimite la ambele alineate, inclusiv la cel pe care SFS îl codifică
+`x` fiindcă nu se acordă.** Textul de rang inferior a rămas în urma Codului fiscal.
+
+> **Consecință de arhitectură, de impus prin corpusul de regresie:** sursa de adevăr pentru **parametri**
+> este **Codul fiscal**. Regulamentele se folosesc **doar pentru procedură** — niciodată pentru
+> cuantumuri sau drepturi. Fără regula asta scrisă, cineva „corectează" motorul după HG 697 și
+> **reintroduce exact scutirea care nu se acordă**. Consemnată ca [ADR-045](../../decisions/045-sursa-de-adevar-pentru-parametri.md).
+
+Util din aceeași hotărâre, **pct. 12**: suma scutirilor anuale **se transmite în cuantum întreg, fără a
+fi divizată între soți**. Nu e proporțională.
+
 **Tranziția 2024 → 2025** a fost o majorare de **+10%** prin **Legea nr. 214 din 31.07.2024**
 *(MO nr. 355-357 din 15.08.2024, art. 545)*, confirmată de tabelul comparativ propriu al SFS.
 
@@ -173,11 +221,8 @@ dintre cele două comunicate oficiale care enumeră exhaustiv modificările nu l
    sunt publice și au fost folosite pentru a confirma numărul, data și numărul de ordine al fiecărei
    legi citate. Copia de pe `lex.md` a fost **descărcată și respinsă**: se oprește pe la 2018–2020.
 2. **Cuantumurile scutirilor pentru 2026 sunt deduse** — vezi avertismentul de la §2.
-3. **Plafonul de venit al persoanei întreținute** (art. 35 alin. (2) lit. b)): SFS citează formularea
-   *„are un venit ce nu depăşeşte suma anuală în mărimea stabilită la acest alineat"* **fără să dea
-   vreodată cifra**. Un răspuns mai vechi spunea „în mărimea stabilită la art. 33 alin. (1)", dar
-   textul actual conține o sumă proprie. **Valoarea pentru 2026 nu s-a găsit** — și e parametru necesar
-   pentru validarea cererii angajatului.
+3. ~~Plafonul de venit al persoanei întreținute~~ — **obținut de proprietar, vezi §2.1.** Rămâne de
+   confirmat doar dacă cei **12 400 lei** se schimbă pentru 2026, aceeași incertitudine ca la scutiri.
 4. **Articolul care fixează cota SIMM de 4%** — cota e confirmată verbatim, dar niciun răspuns SFS
    accesibil nu citează articolul; prin structura capitolului ar fi **art. 54³**, neconfirmat.
 5. **Articolul din Legea nr. 214/2024 care modifică art. 33–35** — legea și efectul (+10%) sunt

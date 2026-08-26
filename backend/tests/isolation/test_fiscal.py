@@ -34,10 +34,12 @@ from evidenta.fiscal.parameters.models import (
     FiscalParameterSource,
     ParameterScope,
     ParameterStatus,
+    SourceConfidence,
     ValueType,
 )
 from evidenta.fiscal.parameters.services.resolution import (
     FiscalResolutionError,
+    provisional_in_force,
     resolve_parameter,
 )
 from evidenta.fiscal.registry.models import FiscalLogicVersion, LogicStatus
@@ -86,14 +88,23 @@ def _param(
     status: str = ParameterStatus.ACTIVE,
     scope: str = ParameterScope.GLOBAL,
     scope_ref: uuid.UUID | None = None,
+    confidence: str = SourceConfidence.CONFIRMED,
+    provisional_reason: str | None = None,
 ) -> None:
+    # Confidence is spelled out rather than left to the column default, and the
+    # default here is the opposite of the column's on purpose: a test about
+    # something else should not have to think about it, while a row reaching the
+    # table for real should have to.
+    if confidence == SourceConfidence.PROVISIONAL and provisional_reason is None:
+        provisional_reason = "test: inferred, reason supplied so the check passes"
     seed(
         """
         INSERT INTO fiscal_parameter
             (id, parameter_key, scope, scope_ref, value_type, value, valid_from,
              valid_to, source_id, status, approved_by_user_id, approved_at,
-             created_at, updated_at)
-        VALUES (%s, %s, %s, %s, %s, %s::jsonb, %s, %s, %s, %s, %s, now(), now(), now())
+             source_confidence, provisional_reason, created_at, updated_at)
+        VALUES (%s, %s, %s, %s, %s, %s::jsonb, %s, %s, %s, %s, %s, now(), %s, %s,
+                now(), now())
         """,
         [
             uuid.uuid4(),
@@ -107,6 +118,8 @@ def _param(
             SOURCE_ID,
             status,
             APPROVER if status == ParameterStatus.ACTIVE else None,
+            confidence,
+            provisional_reason,
         ],
     )
 
@@ -312,9 +325,9 @@ def test_active_without_an_approver_is_refused(
             """
             INSERT INTO fiscal_parameter
                 (id, parameter_key, scope, value_type, value, valid_from,
-                 source_id, status, created_at, updated_at)
+                 source_id, status, source_confidence, created_at, updated_at)
             VALUES (%s, 'test.rate.iota', 'global', 'integer', '1'::jsonb,
-                    DATE '2020-01-01', %s, 'active', now(), now())
+                    DATE '2020-01-01', %s, 'active', 'confirmed', now(), now())
             """,
             [uuid.uuid4(), SOURCE_ID],
         )
@@ -451,3 +464,107 @@ def test_resolution_requires_a_context(seed: Callable[..., None], source: uuid.U
 
     with pytest.raises(RuntimeError):
         resolve_parameter("test.rate.nu", date(2022, 1, 1))
+
+
+# --- Confirmed or inferred, and the difference has to survive ------------------
+
+
+def test_a_provisional_value_resolves_and_says_so(
+    seed: Callable[..., None], source: uuid.UUID, context: TenantContext
+) -> None:
+    """An inferred value is usable. That is the whole point of the column.
+
+    Refusing to resolve it would be worse than the problem: the 2026 exemptions
+    have to be calculated with long before the tax service publishes them. What
+    must not happen is calculating with them while believing they were read in
+    the act.
+    """
+    _param(
+        seed,
+        "test.rate.inferred",
+        29_700,
+        "2026-01-01",
+        confidence=SourceConfidence.PROVISIONAL,
+        provisional_reason="2025 value; both official change lists leave art. 33-35 untouched",
+    )
+
+    with tenant_context(context):
+        row = resolve_parameter("test.rate.inferred", date(2026, 6, 1))
+
+    assert row.source_confidence == SourceConfidence.PROVISIONAL
+    assert "art. 33-35" in (row.provisional_reason or "")
+
+
+def test_provisional_values_are_listed_for_the_date_asked_about(
+    seed: Callable[..., None], source: uuid.UUID, context: TenantContext
+) -> None:
+    """The question a compliance screen asks before a declaration is filed.
+
+    Asked about a date, not about today -- a period closed in March must report
+    what was inferred *then*, which is what an inspection would ask about.
+    """
+    _param(seed, "test.rate.solid", 12, "2024-01-01")
+    _param(
+        seed,
+        "test.rate.shaky",
+        99,
+        "2026-01-01",
+        confidence=SourceConfidence.PROVISIONAL,
+        provisional_reason="deduced",
+    )
+
+    with tenant_context(context):
+        during_2026 = provisional_in_force(date(2026, 6, 1))
+        during_2024 = provisional_in_force(date(2024, 6, 1))
+
+    assert [r.parameter_key for r in during_2026] == ["test.rate.shaky"]
+    # The inferred value does not exist yet on that date, and a confirmed one
+    # never appears here however long it has been in force.
+    assert during_2024 == []
+
+
+def test_a_provisional_value_without_its_reasoning_is_refused(
+    seed: Callable[..., None], source: uuid.UUID, context: TenantContext
+) -> None:
+    """Marked uncertain and silent about why is indistinguishable from mislabelled.
+
+    Enforced in the database rather than in a service, because the row is what
+    somebody reads in three years, and by then the service that wrote it may not
+    exist.
+    """
+    with pytest.raises(Exception) as excinfo:
+        _param(
+            seed,
+            "test.rate.unexplained",
+            1,
+            "2026-01-01",
+            confidence=SourceConfidence.PROVISIONAL,
+            provisional_reason="",
+        )
+    assert "fiscal_parameter_provisional_has_reason" in str(excinfo.value)
+
+
+def test_a_raw_insert_that_omits_the_confidence_fails_loudly(
+    seed: Callable[..., None], source: uuid.UUID
+) -> None:
+    """The guarantee the model docstring claims, pinned so it cannot quietly go.
+
+    Parameters arrive through privileged SQL, not the ORM, and Django's
+    `default=` is applied in Python -- so the model default does *not* protect
+    that path. Measured while writing the migration: an INSERT omitting the
+    column gets NULL and fails. That is the outcome we want, which is why no
+    `db_default` is set; if someone adds one later, this test says what breaks.
+    """
+    with pytest.raises(Exception) as excinfo:
+        seed(
+            """
+            INSERT INTO fiscal_parameter
+                (id, parameter_key, scope, value_type, value, valid_from,
+                 source_id, status, approved_by_user_id, approved_at,
+                 created_at, updated_at)
+            VALUES (%s, 'test.rate.kappa', 'global', 'integer', '1'::jsonb,
+                    DATE '2020-01-01', %s, 'active', %s, now(), now(), now())
+            """,
+            [uuid.uuid4(), SOURCE_ID, APPROVER],
+        )
+    assert "source_confidence" in str(excinfo.value)
