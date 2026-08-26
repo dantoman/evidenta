@@ -15,11 +15,13 @@ import pytest
 from django.db import connection, transaction
 from django.db.utils import IntegrityError
 
+from evidenta.platform.api.lookup import NotFoundError
 from evidenta.platform.capabilities.models import (
     ActivationSource,
     CapabilityActivation,
     InitialisationState,
 )
+from evidenta.platform.capabilities.services.profile import active_profile
 from evidenta.platform.flags.models import FeatureFlagOverride
 from evidenta.platform.rls.context import TenantContext, tenant_context
 
@@ -38,6 +40,7 @@ def activate(
     company_id: uuid.UUID | None = None,
     start: date = date(2026, 1, 1),
     end: date | None = None,
+    state: str = InitialisationState.NOT_REQUIRED,
 ) -> CapabilityActivation:
     return CapabilityActivation.objects.create(
         tenant_id=world["tenant_a"],
@@ -45,7 +48,7 @@ def activate(
         capability_key=key,
         effective_from=start,
         effective_to=end,
-        initialisation_state=InitialisationState.NOT_REQUIRED,
+        initialisation_state=state,
         activated_by_id=world["user_a"],
         activated_at=datetime.now(UTC),
         source=ActivationSource.MANUAL,
@@ -218,3 +221,157 @@ def test_a_normal_flag_can_be_overridden(
             created_by_id=world["user_a"],
         )
         assert override.state is True
+
+
+# --- the profile the posting engine takes as input (R26) --------------------
+
+
+def test_the_profile_unions_tenant_and_company_activations(
+    context: TenantContext,
+    world: dict[str, uuid.UUID],
+    company_of: Callable[..., uuid.UUID],
+    grant_company: Callable[..., uuid.UUID],
+) -> None:
+    """A union, not a precedence.
+
+    The model has no way to express a denial -- `effective_to` ends an
+    activation, it does not negate a broader one -- so "either row in force" is
+    the only reading the schema supports.
+    """
+    company_id = company_of(world["tenant_a"], "1002600000401", "Alpha Capabilitati")
+    grant_company(world["tenant_a"], company_id, world["user_a"], world["user_a"])
+
+    with tenant_context(context):
+        activate(world, "payroll")
+        activate(world, "inventory", company_id=company_id)
+
+        profile = active_profile(company_id, date(2026, 6, 1))
+        assert profile.usable == frozenset({"payroll", "inventory"})
+        assert profile.has("payroll")
+        assert profile.has("inventory")
+
+
+def test_an_uninitialised_capability_is_activated_but_not_usable(
+    context: TenantContext,
+    world: dict[str, uuid.UUID],
+    company_of: Callable[..., uuid.UUID],
+    grant_company: Callable[..., uuid.UUID],
+) -> None:
+    """R25: activation is an entity with an initialisation state, not a boolean.
+
+    Posting under a half-initialised capability produces entries the
+    initialisation exists to set up -- opening balances that are not loaded,
+    payroll cumulatives starting from zero mid-year.
+    """
+    company_id = company_of(world["tenant_a"], "1002600000402", "Alpha Neinitializat")
+    grant_company(world["tenant_a"], company_id, world["user_a"], world["user_a"])
+
+    with tenant_context(context):
+        activate(world, "payroll", state=InitialisationState.IN_PROGRESS)
+
+        profile = active_profile(company_id, date(2026, 6, 1))
+        assert profile.activated == frozenset({"payroll"})
+        assert profile.usable == frozenset()
+        assert profile.has("payroll") is False
+        assert profile.pending() == frozenset({"payroll"})
+
+
+def test_the_profile_answers_for_the_date_it_is_asked_about(
+    context: TenantContext,
+    world: dict[str, uuid.UUID],
+    company_of: Callable[..., uuid.UUID],
+    grant_company: Callable[..., uuid.UUID],
+) -> None:
+    """R18. The window is half-open, so the last day is the day before
+    `effective_to` -- the same convention as every other validity window in the
+    product, restated here because `platform` cannot import the helper.
+    """
+    company_id = company_of(world["tenant_a"], "1002600000403", "Alpha Interval")
+    grant_company(world["tenant_a"], company_id, world["user_a"], world["user_a"])
+
+    with tenant_context(context):
+        activate(world, "inventory", start=date(2026, 1, 1), end=date(2026, 7, 1))
+
+        assert active_profile(company_id, date(2025, 12, 31)).usable == frozenset()
+        assert active_profile(company_id, date(2026, 6, 30)).usable == frozenset({"inventory"})
+        assert active_profile(company_id, date(2026, 7, 1)).usable == frozenset()
+
+
+def test_the_snapshot_is_stable_and_says_which_shape_it_is(
+    context: TenantContext,
+    world: dict[str, uuid.UUID],
+    company_of: Callable[..., uuid.UUID],
+    grant_company: Callable[..., uuid.UUID],
+) -> None:
+    """It is stored on every accounting event and read back years later, so the
+    shape is a contract -- and sorted, because two identical profiles must not
+    look different in `jsonb`.
+    """
+    company_id = company_of(world["tenant_a"], "1002600000404", "Alpha Instantaneu")
+    grant_company(world["tenant_a"], company_id, world["user_a"], world["user_a"])
+
+    with tenant_context(context):
+        activate(world, "inventory")
+        activate(world, "payroll", state=InitialisationState.REQUIRED)
+
+        snapshot = active_profile(company_id, date(2026, 6, 1)).as_snapshot()
+        assert snapshot == {
+            "version": 1,
+            "on": "2026-06-01",
+            "activated": ["inventory", "payroll"],
+            "usable": ["inventory"],
+        }
+
+
+def test_a_company_the_caller_cannot_see_has_no_profile_at_all(
+    context: TenantContext,
+    world: dict[str, uuid.UUID],
+    company_of: Callable[..., uuid.UUID],
+) -> None:
+    """The case RLS alone does not cover, and it fails in the dangerous direction.
+
+    Tenant-level rows belong to the *caller's* tenant, so they survive the policy
+    whatever company identifier is asked about. Without the visibility check the
+    profile comes back non-empty for somebody else's company, and an engine
+    reading it would post as though those capabilities applied.
+    """
+    foreign = company_of(world["tenant_b"], "1002600000406", "Beta Capabilitati")
+
+    with tenant_context(context):
+        activate(world, "inventory")
+        with pytest.raises(NotFoundError) as excinfo:
+            active_profile(foreign, date(2026, 6, 1))
+    assert excinfo.value.code == "api.not_found"
+
+
+def test_another_tenants_activations_do_not_leak_into_my_profile(
+    context: TenantContext,
+    world: dict[str, uuid.UUID],
+    company_of: Callable[..., uuid.UUID],
+    grant_company: Callable[..., uuid.UUID],
+) -> None:
+    """The RLS half, which the visibility check above does not cover.
+
+    Here the company *is* mine. What must not happen is that a tenant-level row
+    belonging to somebody else is counted into it -- the profile is read under
+    the policy like everything else, so the row is not filtered out, it is not
+    visible.
+    """
+    mine = company_of(world["tenant_a"], "1002600000407", "Alpha Propriu")
+    grant_company(world["tenant_a"], mine, world["user_a"], world["user_a"])
+
+    other = TenantContext(tenant_id=world["tenant_b"], user_id=world["user_b"], request_id="cap")
+    with tenant_context(other):
+        CapabilityActivation.objects.create(
+            tenant_id=world["tenant_b"],
+            company_id=None,
+            capability_key="inventory",
+            effective_from=date(2026, 1, 1),
+            initialisation_state=InitialisationState.NOT_REQUIRED,
+            activated_by_id=world["user_b"],
+            activated_at=datetime.now(UTC),
+            source=ActivationSource.MANUAL,
+        )
+
+    with tenant_context(context):
+        assert active_profile(mine, date(2026, 6, 1)).activated == frozenset()
