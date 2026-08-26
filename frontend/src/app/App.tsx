@@ -4,6 +4,7 @@ import { t } from '@/locales'
 import { ApiError } from '@/shared/api/client'
 import { LoginScreen } from './auth/LoginScreen'
 import { useIdentity } from './auth/useIdentity'
+import { ChartOfAccountsScreen } from './accounting/ChartOfAccountsScreen'
 import { AppLayout } from './layout/AppLayout'
 import { HomeScreen } from './layout/HomeScreen'
 
@@ -54,6 +55,7 @@ export function App() {
       <Routes>
         <Route element={<AppLayout tenantId={identity.data.tenant_id} />}>
           <Route index element={<HomeScreen />} />
+          <Route path="plan-de-conturi" element={<ChartOfAccountsScreen />} />
         </Route>
       </Routes>
     </BrowserRouter>

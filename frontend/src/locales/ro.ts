@@ -32,6 +32,36 @@ export const ro = {
     submit: 'Intră în cont',
     signOut: 'Ieși din cont',
   },
+  accounting: {
+    // Vocabularul din jurul contului, nu numele lui. Denumirea contului vine de la
+    // server si se afiseaza cum vine: contabilitatea se tine in romana prin lege
+    // (C33, ADR-016), deci e valoare stocata, nu sir de interfata.
+    classes: {
+      asset: 'Activ',
+      liability: 'Datorie',
+      equity: 'Capital propriu',
+      income: 'Venit',
+      expense: 'Cheltuială',
+    },
+    chart: {
+      title: 'Plan de conturi',
+      company: 'Companie',
+      code: 'Cod',
+      name: 'Denumire',
+      class: 'Clasă',
+      origin: 'Origine',
+      // C37: fara vocabular de model. „Cont de sistem" descrie de unde vine
+      // contul, nu tabela din care a fost copiat.
+      originSystem: 'Din plan',
+      originCompany: 'Propriu',
+      state: 'Stare',
+      open: 'Activ',
+      closed: 'Închis',
+      blocked: 'Blocat',
+      empty: 'Compania nu are încă un plan de conturi.',
+      noCompany: 'Nu aveți acces la nicio companie.',
+    },
+  },
   errors: {
     // Keyed by the stable code from C10, never by the server's message. A client
     // that branched on message text would break the first time a sentence is

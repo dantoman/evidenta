@@ -325,3 +325,37 @@ def test_an_account_of_another_tenant_is_absent_not_forbidden(
     response = get(signed_in, f"{BASE}/accounts/{foreign_id}")
     assert response.status_code == 404
     assert response.json()["code"] == "api.not_found"
+
+
+# --- the list every company-scoped screen starts from -----------------------
+
+
+def test_the_company_list_shows_only_what_the_caller_may_reach(
+    signed_in: Client,
+    world: dict[str, uuid.UUID],
+    company: uuid.UUID,
+    company_of: Callable[..., uuid.UUID],
+    grant_company: Callable[..., uuid.UUID],
+) -> None:
+    """No filtering in the view -- the policy on the table does it.
+
+    Three companies exist: one the caller has access to, one in the same tenant
+    without a grant, and one in another tenant entirely. Only the first is
+    visible, and the view contains no `.filter()` to make that true.
+    """
+    ungranted = company_of(world["tenant_a"], "1002600000501", "Alpha Fara Acces")
+    foreign = company_of(world["tenant_b"], "1002600000502", "Beta Straina")
+    grant_company(world["tenant_b"], foreign, world["user_b"], world["user_b"])
+
+    response = get(signed_in, "/api/v1/companies")
+    assert response.status_code == 200
+    visible = {row["id"] for row in response.json()}
+    assert visible == {str(company)}
+    assert str(ungranted) not in visible
+    assert str(foreign) not in visible
+
+
+def test_the_company_list_needs_a_session(company: uuid.UUID) -> None:
+    response = Client().get("/api/v1/companies", headers={"host": HOST_A})
+    assert response.status_code in (401, 403, 404)
+    assert "code" in response.json()

@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { Outlet } from 'react-router'
+import { NavLink, Outlet } from 'react-router'
 
 import { t } from '@/locales'
 import { logout } from '@/shared/api/auth'
@@ -29,7 +29,19 @@ export function AppLayout({ tenantId }: { tenantId: string }) {
   return (
     <div className="min-h-screen">
       <header className="flex items-center justify-between border-b border-border bg-surface px-4 py-3">
-        <span className="font-semibold">{t.app.name}</span>
+        <div className="flex items-center gap-6">
+          <span className="font-semibold">{t.app.name}</span>
+          {/* Navigatia apare cand exista mai mult de un ecran. Un singur link nu e
+              navigatie, e un buton -- si un meniu gol e mai rau decat niciunul. */}
+          <NavLink
+            to="/plan-de-conturi"
+            className={({ isActive }) =>
+              `text-sm ${isActive ? 'text-ink' : 'text-ink-muted'}`
+            }
+          >
+            {t.accounting.chart.title}
+          </NavLink>
+        </div>
         <div className="flex items-center gap-4">
           {/* The subdomain, not the identifier. The tenant is identified by the
               host the browser is already on (C8), and that is also the only part
