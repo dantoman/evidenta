@@ -55,6 +55,13 @@ Descompunerea completă: `_bootstrap/08-f1-backlog.md` — patru fire care pot m
   pe `C1`–`C5`. Mecanismul e înaintea primului producător deliberat: ieftin acum, scump după ce
   există calcule postate, fiindcă o coloană adăugată ulterior e goală pentru toată istoria.
 
+- **[ADR-039](decisions/039-valuta-si-perioade.md) §9.1 nou — tiparul dată economică / dată
+  tehnică.** S-a redescoperit de trei ori independent: linia de registru (`document_date` /
+  `accounting_date`), rezoluția regulii (ADR-044), linia de salariu (perioada de muncă / data
+  de angajament, Legea nr. 489/1999 anexa 1, art. 20 alin. (5)). Regula pentru data următoare:
+  cele două date se separă de la început, chiar dacă în cazul obișnuit coincid. Scris acum
+  fiindcă a patra oară ar fi în salarii, unde coloana lipsă nu se mai adaugă retroactiv.
+
 Suita: **744 trec, 1 sărit.**
 
 ## Sesiuni mai vechi

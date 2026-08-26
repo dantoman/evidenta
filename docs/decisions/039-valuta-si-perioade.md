@@ -199,6 +199,34 @@ Linia poartă trei date, fiecare cu rolul ei:
 `accounting_date` și `document_date` se indexează amândouă: rapoartele se construiesc pe una sau pe
 alta, după cerința fiecăruia.
 
+### 9.1 Tiparul, fiindcă a treia apariție nu mai e coincidență
+
+Distincția de mai sus s-a redescoperit de trei ori, independent, în module diferite, fără ca vreuna
+dintre dăți să pornească de la celelalte:
+
+| Unde | Data economică | Data tehnică |
+|---|---|---|
+| Linia de registru (§9) | `document_date` — când s-a produs faptul | `accounting_date` — unde intră în registru |
+| Rezoluția regulii ([ADR-044](044-data-de-rezolutie.md)) | data perioadei calculate | data calculului, păstrată ca metadată de audit |
+| Linia de salariu (F2) | perioada de muncă — declarația nominală, drepturile | data de angajament — rezoluția tarifului |
+
+Al treilea rând nu e presupunere: tarifele stau în anexa nr. 1 la **Legea nr. 489/1999**, iar legea
+se ancorează în momentul acumulării — art. 20 alin. (5), „contribuțiile aferente salariilor
+**calculate**", pe contabilitate de angajamente. Un salariu calculat în iunie pentru muncă din martie
+se acumulează în iunie: **fapt economic nou, nu recalculare a lui martie.** Așa s-a dizolvat `OD-66`,
+care presupunea contrariul și era gata să scrie o excepție la `R18` pentru un conflict inexistent.
+
+**Tiparul, ca regulă pentru data următoare:** când o entitate poartă un fapt economic și o
+înregistrare a lui, **cele două date sunt separate de la început, chiar dacă în cazul obișnuit
+coincid.** Data economică conduce ce regulă se aplică; data tehnică conduce unde aterizează
+înregistrarea. O singură coloană le confundă exact în cazurile care contează — documentul întârziat,
+salariul plătit retroactiv, perioada recalculată — adică precis acolo unde greșeala e vizibilă la un
+control și invizibilă în teste scrise pe cazul obișnuit.
+
+**De ce e scris aici și nu descoperit iar în F2:** a patra oară ar fi în modulul de salarii, unde
+coloana lipsă nu se adaugă retroactiv — o linie de salariu deja postată n-are de unde să-și afle data
+de angajament ulterior.
+
 ## 10. Închiderea
 
 **Două `event_type`, nu trei.**
