@@ -3,10 +3,10 @@
 /* Design tokens -- C26. Colours, spacing and typography are variables consumed
    everywhere; no literal values in components.
 
-   What is deliberately NOT here: the density scale. C21 requires grid screens to
-   use it and OD-35 has not established it, so the tokens do not exist yet and
-   nothing may invent them. The rule is active now: new spacing in a grid screen
-   is raised, not invented. There are no grid screens yet. */
+   The density scale arrived with ADR-042, which closed OD-35. Until then this
+   comment said the tokens did not exist and nothing might invent them -- and that
+   was correct: the first grid screen was written the day after the values were
+   decided, not before. */
 @theme {
   --color-surface: oklch(100% 0 0);
   --color-surface-muted: oklch(97% 0.005 250);
@@ -18,6 +18,40 @@
 
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
   --font-mono: ui-monospace, "SF Mono", "Cascadia Mono", monospace;
+
+  /* Scara de densitate -- ADR-042 (revizuit), `C21`, `C26`.
+
+     Spatiul de nume este `--spacing-*`, singurul care GENEREAZA utilitare in
+     Tailwind v4: `h-row-compact`, `px-cell-compact`. Prima versiune folosea
+     `--density-*` si nu genera niciunul -- variabila exista, utilitarul nu.
+     Verificat in CSS-ul construit, nu presupus.
+
+     Valorile 40/32/24 nu sunt aritmetica noastra, sunt prior art: Carbon, Sage si
+     SAP livreaza toate trei exact aceste trepte, independent. 28 e orfan -- doar
+     AG Grid Balham il are. Implicitul este 32: la SAP treapta se numeste literal
+     „compact" si e implicitul de desktop, iar Sage, care e vendor de contabilitate,
+     livreaza 24/32/40/48/64.
+
+     ACCESIBILITATE, de stiut inainte de a pune butoane pe rand: la 24px, minus 1px
+     bordura raman 23px -- sub minimul de 24x24 din WCAG 2.2 SC 2.5.8. Deci `dense`
+     nu poarta butoane-iconita in rand. */
+  --spacing-row-comfortable: 2.5rem;
+  --spacing-row-compact: 2rem;
+  --spacing-row-dense: 1.5rem;
+
+  --spacing-cell-x-comfortable: 0.75rem;
+  --spacing-cell-x-compact: 0.5rem;
+  --spacing-cell-x-dense: 0.375rem;
+
+  /* Antetul urmeaza randul, cu un prag jos: `max(rand, 2rem)`. Carbon spune
+     explicit ca antetul TREBUIE sa aiba aceeasi inaltime ca randul; se distinge
+     prin fundal si greutate, nu prin inaltime. Pragul exista doar fiindca sub
+     32px un cap de coloana cu text scurt devine greu de tintit. */
+  --spacing-header-comfortable: 2.5rem;
+  --spacing-header-compact: 2rem;
+  --spacing-header-dense: 2rem;
+
+  --spacing-grid-footer: 2.5rem;
 }
 
 /* C27. Every numeric column uses tabular figures. Applied as a token rather than

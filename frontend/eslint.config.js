@@ -44,6 +44,31 @@ export default tseslint.config(
     files: ['src/shared/DataGrid/**', 'src/shared/EntryGrid/**'],
     rules: {
       'no-restricted-imports': 'off',
+
+      // C21 / ADR-042. Row height and cell padding come from the density tokens.
+      // A literal here would opt one grid out of the scale silently, and the
+      // scale exists precisely because compressing forty screens later is a
+      // rewrite rather than an adjustment.
+      //
+      // Scoped to the two grid files on purpose, and the scope is the honest
+      // one: they are the only place that sets a row height at all. A screen
+      // never does -- it hands rows to the grid. This rule therefore covers
+      // where the scale can actually be defeated, not everywhere spacing is
+      // written.
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector:
+            'Literal[value=/\\b(h|min-h|max-h|py|pt|pb)-(\\d|\\[)/]',
+          message:
+            'C21: row height and cell padding come from the density tokens in index.css (ADR-042), never from a literal utility.',
+        },
+        {
+          selector: 'TemplateElement[value.raw=/\\b(h|min-h|max-h|py|pt|pb)-(\\d|\\[)/]',
+          message:
+            'C21: row height and cell padding come from the density tokens in index.css (ADR-042), never from a literal utility.',
+        },
+      ],
     },
   },
 )
