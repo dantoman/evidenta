@@ -23,6 +23,68 @@ Descompunerea completă: `_bootstrap/08-f1-backlog.md` — patru fire care pot m
 
 ## Ultima sesiune
 
+**2026-08-26, primul ecran real — și trei lucruri corectate de o cercetare care a ajuns la timp:**
+
+- **Întrebarea proprietarului a fost dreaptă:** 687 de teste în spate, iar pe ecran o demonstrație de
+  formatare. Interfața era la **o singură decizie** distanță — `OD-35` —, iar eu tot alesesem muncă
+  de backend fără să ofer vreodată să mișc decizia. `ADR-042` a scris-o ca propunere cu valori, nu ca
+  întrebare, iar proprietarul a cerut implementarea
+- **Livrat:** `shared/DataGrid` — singura intrare pentru grile de citire (`C16`, `C17`) —, regula
+  ESLint pentru `C21` **cu probă că refuză**, `GET /api/v1/companies`, și **planul de conturi ca
+  ecran**, peste API-ul care exista din F1.1 fără niciun consumator
+- **Un gol care nu se vedea din backend:** clientul n-avea cum să afle un `company_id`. `whoami`
+  întoarce tenantul și utilizatorul, iar rutele contabile cer o companie. Endpointul nu filtrează
+  nimic — politica de pe tabelă o face; un `.filter()` acolo ar fi creat impresia de siguranță pe
+  care `C3` o scoate din ecuație. Două teste: trei companii, doar cea cu acces e vizibilă
+- **`ADR-042` a fost revizuit în aceeași zi, după cercetarea sesiunii paralele — și revizuirea e
+  vizibilă tocmai fiindcă acceptarea fusese dată pe alte cifre.** Trei corecții, fiecare verificată
+  de mine înainte de a fi acceptată:
+  1. **`--density-*` nu generează niciun utilitar în Tailwind v4.** Construit CSS-ul: variabila e
+     emisă, utilitarul nu. Cu `--spacing-*`, build-ul produce
+     `.h-row-compact{height:var(--spacing-row-compact)}`. Cu numele greșit, §5 cerea ESLint-ului să
+     interzică ceva ce nimeni n-ar fi putut scrie
+  2. **Valorile sunt acum 40/32/24, implicit 32** — prior art, nu aritmetica mea. Carbon, Sage și SAP
+     livrează fiecare exact aceste trepte; **28 e orfan**, doar AG Grid Balham îl are. Treapta de 40
+     lipsea complet din propunerea mea, iar ea e modul de citire
+  3. **Motivarea antetului era greșită, deși valoarea era corectă.** Scrisesem că „o ancoră își pierde
+     rolul la aceeași înălțime cu conținutul"; Carbon spune explicit contrariul. Cea mai utilă dintre
+     cele trei: o valoare corectă cu o motivare greșită supraviețuiește până când cineva schimbă
+     valoarea urmând motivarea
+- **`WCAG 2.2 SC 2.5.8`, scris în ADR ca să nu vină de la un audit:** la 24px, minus 1px bordură,
+  rămân 23 — sub minimul de 24×24. Deci `dense` nu poartă butoane-iconiță în rând
+- **`DataGrid` nu virtualizează, și golul e numit în docstring.** Randează tot ce primește, ceea ce e
+  corect pentru un plan de conturi și greșit pentru o Carte Mare la volum. `ADR-001` rezervă CSS-ul
+  de mână exact pentru asta, exact în fișierul acela (`C25`); cusătura e `rows` și nimic deasupra ei
+  nu se schimbă când vine virtualizarea
+
+**2026-08-26, privilegiile funcțiilor `rls` — o apărare scrisă, crezută în vigoare, inexistentă:**
+
+- **Reparat defectul de securitate găsit ieri.** `0041_rls_function_privileges` retrage `EXECUTE`
+  de la PUBLIC pe toate cele 25 de funcții din schema `rls` — de data asta **sub rolul care le
+  deține**, deci cu efect — și îl acordă lui `evidenta_app` pe mulțimea măsurată: funcțiile apelate
+  din Python reunite cu cele care apar în expresiile politicilor, fiindcă o politică se evaluează ca
+  utilizatorul care interoghează. **Paisprezece.** [ADR-043](decisions/043-privilegiile-functiilor-rls.md)
+- **Măsurat înainte și după, pe baza reală:** 22 de funcții cu `EXECUTE` pentru PUBLIC → **0**.
+  `rls.journal_entry_balanced()` apelată sub rolul aplicației răspunde acum `permission denied`;
+  ieri executa. Suita: **673 trec** cu privilegiile retrase, deci mulțimea acordată e exactă — n-a
+  fost nevoie de nicio corecție după prima rulare
+- **Prevenirea nu stă în schemă, și asta s-a măsurat, nu presupus.**
+  `ALTER DEFAULT PRIVILEGES … REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC` pare mecanismul evident și
+  **nu funcționează**: încercat în ambele forme, în aceeași tranzacție și într-una nouă după commit,
+  o funcție creată ulterior iese cu ACL implicit, deci din nou deschisă. L-am scos din migrare în loc
+  să-l las acolo părând că apără ceva
+- **Doi gardieni, fiindcă nimic n-ar fi prins clasa asta.** `schema_guard/test_function_privileges.py`
+  interoghează catalogul pe o bază construită de la zero — prima migrare care adaugă o funcție fără
+  să-i retragă PUBLIC-ul face suita roșie; lista celor paisprezece e **declarată acolo**, deci
+  lărgirea ei e o editare pe care cineva o citește. `architecture/test_reverse_migrations.py` refuză
+  orice `.down.sql` **nou** care șterge o funcție `rls.` fără `SET LOCAL ROLE`
+- **`OD-64` înregistrată în `T0`:** cele opt fișiere `.down.sql` care nu se derulează înapoi. `C31`
+  le face append-only, deci corecția e fișier nou plus migrare nouă, peste șase module — sarcină
+  proprie. Sunt enumerate în gardian ca excepție care **poate doar să scadă**, cu un test care
+  refuză o listă rămasă în urma fișierelor
+- **Reversul migrării mele funcționează**, verificat rulând `migrate rls zero` și reaplicând — ceea
+  ce e chiar diferența față de cele opt
+
 **2026-08-26, restul neblocat din F1, orchestrat pe șase agenți — și două defecte găsite rulând:**
 
 - **Livrat, toate verzi:** `F1.4.3` cei șase invarianți ai motorului (22 teste), `F1.5.3` perioada

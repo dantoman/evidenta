@@ -126,6 +126,8 @@ acolo unde sunt: `OD-*` mai sus, `DN-*` în `../specs/spec-a-tenancy.md` §11, `
 
 ### T0 — De rezolvat acum
 
+`OD-64` *(opt fișiere `.down.sql` nu se derulează înapoi: creează funcții sub `SET LOCAL ROLE evidenta_rls` și le șterg ca owner, care e `NOINHERIT` — „must be owner of function". Confirmat rulând `migrate ledger zero`. `C30` cere `reverse_sql`; reversul există și nu rulează. `0036_ledger` e pe drumul de întoarcere al întregii contabilități, deci nimic din F1 nu se poate derula azi. `C31` le face append-only, deci corecția e un fișier nou și o migrare nouă, peste șase module — sarcină proprie. **Partea de privilegii a aceleiași cauze e reparată** prin [ADR-043](043-privilegiile-functiilor-rls.md); asta e ce a rămas. Cele opt sunt enumerate în `tests/architecture/test_reverse_migrations.py`, listă care poate doar să scadă)*.
+
 `OD-59` *(baza de dezvoltare a divergeat de migrări: șapte tabele fără RLS; repararea cere o decizie de om, fiindcă `make reset-db` e distructiv și partajat)*.
 
 `OD-63` *(aplicația și baza nu sunt de acord ce zi este; predicatul de acces decide pe ziua bazei, serviciile pe a aplicației — un eșec care se vindecă singur după două ore)*.
