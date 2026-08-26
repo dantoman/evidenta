@@ -13,7 +13,6 @@ what the tests do and what a data migration would do.
 
 from __future__ import annotations
 
-import calendar as _calendar
 import uuid
 from datetime import date
 
@@ -26,28 +25,16 @@ from evidenta.accounting.periods.errors import (
     InvalidFiscalYearWindowError,
 )
 from evidenta.accounting.periods.models import FiscalYear, FiscalYearStatus, Period
+from evidenta.accounting.periods.services.months import (
+    first_day_of_next_month,
+    last_day_of_month,
+    months_between,
+)
 from evidenta.platform.audit.services.recording import record
 from evidenta.platform.rls.context import MissingTenantContextError, current_context
 from evidenta.platform.tenancy.services.access import company_visible_in_context
 
 MAX_EXERCISE_MONTHS = 12
-
-
-def _last_day_of_month(day: date) -> date:
-    return day.replace(day=_calendar.monthrange(day.year, day.month)[1])
-
-
-def _first_day_of_next_month(day: date) -> date:
-    return (
-        day.replace(year=day.year + 1, month=1, day=1)
-        if day.month == 12
-        else day.replace(month=day.month + 1, day=1)
-    )
-
-
-def _months_between(start: date, end: date) -> int:
-    """Whole months covered by ``[start, end]``, both aligned to month edges."""
-    return (end.year - start.year) * 12 + (end.month - start.month) + 1
 
 
 def _validate_window(start_date: date, end_date: date) -> None:
@@ -70,11 +57,11 @@ def _validate_window(start_date: date, end_date: date) -> None:
             f"an exercise starts on the first of a month; {start_date} does not, and the "
             f"accounting period is strictly monthly (ADR-039 section 7)"
         )
-    if end_date != _last_day_of_month(end_date):
+    if end_date != last_day_of_month(end_date):
         raise InvalidFiscalYearWindowError(
             f"an exercise ends on the last day of a month; {end_date} does not"
         )
-    months = _months_between(start_date, end_date)
+    months = months_between(start_date, end_date)
     if months > MAX_EXERCISE_MONTHS:
         raise InvalidFiscalYearWindowError(
             f"{months} months: no exercise runs longer than {MAX_EXERCISE_MONTHS} "
@@ -147,10 +134,10 @@ def open_fiscal_year(
                 fiscal_year=year,
                 period_no=number,
                 start_date=month_start,
-                end_date=_last_day_of_month(month_start),
+                end_date=last_day_of_month(month_start),
             )
         )
-        month_start = _first_day_of_next_month(month_start)
+        month_start = first_day_of_next_month(month_start)
         number += 1
     Period.objects.bulk_create(periods)
 

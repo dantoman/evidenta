@@ -1,9 +1,11 @@
 """Accounting periods and the exercise that contains them -- F1.5, ADR-039 part II.
 
-Two entities, and the split is the point:
+Three entities, and the splits are the point:
 
 ``fiscal_year``   the exercise, with ``start_date`` and ``end_date`` **explicit**
 ``period``        the operational period, strictly one calendar month
+``vat_period``    the VAT fiscal period -- normally the same month, and not the
+                  same concept (Codul fiscal art. 114; see ``VatPeriod``)
 
 Law nr. 287/2017, art. 24 para. (1) makes the exercise the calendar year with
 four exceptions, and exception (b) -- an entity applying its parent's period --
@@ -132,9 +134,10 @@ class Period(models.Model):
     ADR-039 section 7: the accounting period is the month, always -- unlike the
     VAT fiscal period, which normally equals the month but goes irregular when a
     registration is cancelled (Codul fiscal art. 114 para. (2)). The two are
-    distinct entities on purpose; the VAT one is F1.5.3 and is not built here,
-    because nothing in F1 reads it yet and a table with no reader is the defect
-    this project has already caught twice.
+    distinct entities on purpose, and ``VatPeriod`` below is the other one. This
+    one is the container a posting falls into; that one is the container a
+    declaration is built on. Nothing links them, because on the month where they
+    differ a link would have to point at two rows.
 
     ``period_no`` counts within the exercise, not within the calendar year: for
     an April-to-March exercise, period 1 is April. Anything else would reintroduce
@@ -209,3 +212,101 @@ class Period(models.Model):
 
     def __str__(self) -> str:
         return f"{self.start_date:%Y-%m} ({self.status})"
+
+
+class VatPeriodKind(models.TextChoices):
+    """Why a VAT fiscal period has the shape it has -- Codul fiscal art. 114.
+
+    ``monthly``  para. (1): the calendar month. Every period but the last one of
+                 a cancelled registration is this, for every taxpayer -- there is
+                 no quarterly variant, on no threshold and for no category.
+    ``final``    para. (2): the period that closes a cancelled registration, and
+                 the only one allowed to run past the end of its own month.
+
+    The kind is carried rather than derived from the dates, because in the common
+    case it cannot be derived: when the cancellation and the entry into force of
+    the act fall in the same month, the final period *is* one calendar month and
+    is indistinguishable from a regular one by shape alone. What separates them
+    is that nothing follows the final period.
+    """
+
+    MONTHLY = "monthly"
+    FINAL = "final"
+
+
+class VatPeriod(models.Model):
+    """The VAT fiscal period -- Codul fiscal art. 114, ADR-039 section 7.
+
+    **A separate entity, not a column on ``period``, and not a view over it.**
+    Art. 114 para. (1) makes the VAT fiscal period the calendar month for
+    everyone, which is also what ``period`` is -- so for 99% of the months of
+    99% of companies the two coincide, and a model that merged them would look
+    right for years. Para. (2) is the 1%: when a VAT registration is cancelled,
+    the last fiscal period begins on the first day of the month in which the
+    cancellation happened and ends on the last day of the month in which the
+    cancelling act entered into force. If those are different months, **one VAT
+    fiscal period covers two or more accounting periods**. A merged model cannot
+    express that, and the declaration built on it would be wrong in exactly the
+    situation where someone is looking.
+
+    **There is no ``status`` column here, and its absence is deliberate.**
+    Closing is a state of the accounting period (ADR-039 section 8); what a VAT
+    period would close is the filing of a declaration, and that lifecycle belongs
+    to F2. More to the point, `DNB-07` -- one state for everything, per-module
+    locks, or periods per domain -- is **open**. This table is not option (C)
+    quietly chosen: it holds no lock, refuses no posting and gates nothing. It
+    exists because art. 114 gives VAT a period with different *edges*, not
+    because VAT wants a lock of its own. A ``status`` column added here would
+    answer `DNB-07` by accident, which is why there is not one.
+
+    **What this table cannot say, and nothing else says either.** A VAT period is
+    meaningful only while the company is registered, and the registration lives in
+    ``company_vat_registration`` (``platform/tenancy``). Nothing here reads it:
+    `D6` sends a service through another module's public surface, and `tenancy`
+    exposes no VAT accessor today. So the caller names the months, and a VAT
+    period for a company that never registered is refused by nobody. Recorded
+    rather than papered over with a check that reads a model it may not read.
+
+    ``end_date`` is the **last day, inclusive**, the same convention as ``period``
+    and deliberately unlike the half-open ``[valid_from, valid_to)`` windows of
+    fiscal parameters -- and unlike ``company_vat_registration``'s own window,
+    which is the neighbouring table most likely to be confused with this one.
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    tenant = models.ForeignKey(Tenant, on_delete=models.PROTECT, db_column="tenant_id")
+    company = models.ForeignKey(Company, on_delete=models.PROTECT, db_column="company_id")
+
+    start_date = models.DateField()
+    end_date = models.DateField()
+
+    kind = models.TextField(choices=VatPeriodKind.choices, default=VatPeriodKind.MONTHLY)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "vat_period"
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(kind__in=[c.value for c in VatPeriodKind]),
+                name="vat_period_kind_valid",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(end_date__gte=models.F("start_date")),
+                name="vat_period_dates_valid",
+            ),
+        ]
+        indexes = [
+            # The lookup every declaration makes: which VAT period holds this
+            # date. Starts with the context column, like every other index here.
+            models.Index(fields=["company", "start_date"], name="vat_period_company_start"),
+        ]
+
+    def __str__(self) -> str:
+        if (
+            self.start_date.year == self.end_date.year
+            and self.start_date.month == self.end_date.month
+        ):
+            return f"{self.start_date:%Y-%m} ({self.kind})"
+        return f"{self.start_date:%Y-%m}..{self.end_date:%Y-%m} ({self.kind})"

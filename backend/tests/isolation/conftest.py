@@ -43,6 +43,7 @@ SEEDED_TABLES = (
     "company_dimension",
     "accounting_event",
     # F1.5. `period` points at `fiscal_year`, both at `company`.
+    "vat_period",
     "period",
     "fiscal_year",
     # F1.1. Before `company` and `tenant`, and children before parents:

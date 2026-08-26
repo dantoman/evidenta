@@ -105,3 +105,53 @@ class PeriodLockedError(ApiError):
 
     code = "periods.period_locked"
     status = 409
+
+
+class VatPeriodNotFoundError(ApiError):
+    """No VAT fiscal period covers this date.
+
+    Distinct from ``PeriodNotFoundError`` and never a substitute for it: a
+    company can have an open accounting period for March and no VAT period at
+    all, because it is not registered. Answering the second question with the
+    first code would tell a caller to open an exercise that is already open.
+    """
+
+    code = "periods.vat_period_not_found"
+    status = 404
+
+
+class VatPeriodOverlapsError(ApiError):
+    """Two VAT fiscal periods over one day is two declarations for one day.
+
+    Also raised when closing a registration would swallow periods that already
+    exist for the months in between -- those months already have declarations
+    attached to their own period, and merging them is not a silent operation.
+    """
+
+    code = "periods.vat_period_overlaps"
+    status = 409
+
+
+class InvalidVatPeriodWindowError(ApiError):
+    """The window is not whole calendar months, or it ends before it starts.
+
+    Codul fiscal art. 114 para. (1) makes the VAT fiscal period the calendar
+    month, and para. (2) -- the only irregular case it names -- still begins on
+    the first day of a month and ends on the last day of one.
+    """
+
+    code = "periods.invalid_vat_period_window"
+    status = 400
+
+
+class VatRegistrationAlreadyClosedError(ApiError):
+    """A final period already covers these months.
+
+    Its own code rather than ``VatPeriodOverlapsError``: the remedies differ.
+    An overlap is fixed by naming different months; this one means the
+    cancellation is already recorded, and recording it twice would move the end
+    of the last fiscal period a taxpayer already declared on.
+    """
+
+    code = "periods.vat_registration_already_closed"
+    status = 409
