@@ -4,8 +4,10 @@
   fost găsit de proprietar în designul livrat
 - **Data:** 2026-08-26
 - **Afectează:** `fiscal_parameter`, `infra/rls/exceptions.toml` (`R1`), `R15`
+- **Înlocuită parțial de:** `OD-68` — ștampilarea versiunii de parametru la postare (§3)
+- **Blocată la scriere de:** `OD-67` — nu există rol de încărcare a datelor de referință (§6)
 - **Legate:** [ADR-044](044-data-de-rezolutie.md), [ADR-045](045-sursa-de-adevar-pentru-parametri.md),
-  [ADR-043](043-privilegiile-functiilor-rls.md), `OD-22`, `OD-56`
+  [ADR-043](043-privilegiile-functiilor-rls.md), `OD-22`
 
 ## 1. Golul
 
@@ -58,6 +60,11 @@ introducere într-un parametru, re-rezolvarea dă alt răspuns decât cel folosi
 **Ștampila aparține motorului de postare**, deci altui modul. Tabela asta e ce poate livra `fiscal` pe
 cont propriu — și e chiar ce ar înregistra ștampila.
 
+> **Sarcina care înlocuiește mecanismul de aici: `OD-68`.** Fără o trimitere pe nume, motivul e scris dar
+> nu e acționabil — cineva ar trebui să recitească ADR-ul ca să afle că a mai rămas ceva de făcut. Când
+> `OD-68` se închide, secțiunea asta se rescrie: istoricul rămâne util ca sursă pentru ștampilă, dar nu
+> mai e răspunsul la întrebarea de control.
+
 ## 4. Append-only impus de bază, nu de convenție
 
 Un trigger refuză `UPDATE` și `DELETE`. Motivul e același ca la registru: **starea la un moment trecut
@@ -82,7 +89,7 @@ aceluiași control despre același act normativ.
 **`P-4` nu are mecanism.** `fiscal_parameter` are `INSERT`/`UPDATE` retrase de la `evidenta_app`, iar
 politica admite doar `SELECT` — deci nici scrierea parametrilor, nici tranziția de încredere nu se pot
 executa end-to-end. **Este exact același gol ca `OD-56`** pentru încărcarea planului de conturi, pe altă
-tabelă.
+tabelă — iar cele două s-au unificat ca `OD-67`, fiindcă au un singur diagnostic.
 
 Serviciul primește de aceea conexiunea **explicit**, prin `using`, în loc s-o aleagă singur: un serviciu
 care ar întinde tăcut mâna după o conexiune privilegiată ar fi o cale privilegiată pe care n-a declarat-o
