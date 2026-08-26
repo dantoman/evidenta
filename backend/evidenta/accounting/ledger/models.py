@@ -357,6 +357,101 @@ class JournalLine(models.Model):
         return f"{self.journal_entry_id}/{self.line_number}"
 
 
+class EntryParameterStamp(models.Model):
+    """Which fiscal parameter version a posting used, and how firm it was *then*.
+
+    ``fiscal_parameter_confidence_event`` (ADR-046) records every state
+    ``source_confidence`` has been in and from when. That answers "how firm was
+    this parameter in March". It cannot answer "what did the March posting
+    actually stand on", and the two are not the same question: confirmation does
+    not change the value, so nothing about the parameter marks the calculations
+    made while it was still an inference. Once the tax service publishes, a
+    reader querying today's state is told nothing was ever provisional -- while
+    the March posting was, in fact, made on a deduction.
+
+    So the calculation stamps its own basis, at the moment it calculates. Not a
+    reference to be dereferenced later -- the confidence is **copied**, because
+    a reference resolves to whatever the world says now, which is exactly the
+    thing being lost.
+
+    Three things make it verifiable rather than merely asserted:
+
+    ``parameter_id`` names the version. Every version of a parameter is its own
+    row, so the id *is* the version -- no separate version column that could
+    disagree with it.
+
+    ``resolved_at`` names the instant. With it,
+    ``fiscal.confidence_at(parameter_id, resolved_at)`` reproduces the stamped
+    confidence from history. A stamp that cannot be re-derived is a claim; one
+    that can is evidence, and an inspection is where that difference is charged.
+
+    ``parameter_key`` is copied deliberately, denormalised on purpose. The stamp
+    has to stay readable when the parameter it names has been superseded,
+    renamed, or is being read by somebody without access to the fiscal module.
+
+    **No foreign key to the parameter** -- `D6`: modules talk through services and
+    events, never through model imports. The id is stored, the join is a service
+    call, and `accounting` keeps not knowing `fiscal`'s table names.
+
+    Append-only, by trigger: what a posting stood on is as immutable as the
+    posting (`R10`). It hangs off ``journal_entry``, which is *not* in
+    ``append_only.toml``, so the foreign key is allowed -- ``journal_line`` is the
+    one that must stay free of incoming references (`R21`).
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    tenant = models.ForeignKey(Tenant, on_delete=models.PROTECT, db_column="tenant_id")
+    company = models.ForeignKey(Company, on_delete=models.PROTECT, db_column="company_id")
+
+    journal_entry = models.ForeignKey(
+        JournalEntry,
+        on_delete=models.PROTECT,
+        db_column="journal_entry_id",
+        related_name="parameter_stamps",
+    )
+
+    #: The version used. No FK by `D6`; the id identifies the row in `fiscal`.
+    parameter_id = models.UUIDField()
+    #: Copied so the stamp reads without reaching into another module.
+    parameter_key = models.TextField()
+
+    #: The date the resolution was made *for* -- `R17`: the effective date of the
+    #: period being calculated, never "today".
+    effective_date = models.DateField()
+
+    #: What ``source_confidence`` was at ``resolved_at``. Copied, not referenced.
+    confidence = models.TextField()
+    #: The instant, so the confidence above can be re-derived from history.
+    resolved_at = models.DateTimeField()
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "entry_parameter_stamp"
+        constraints = [
+            # One stamp per parameter per entry. A second resolution of the same
+            # parameter inside one posting that disagreed with the first would be
+            # a defect, and this is where it surfaces rather than being averaged.
+            models.UniqueConstraint(
+                fields=["journal_entry", "parameter_id"], name="entry_parameter_stamp_unique"
+            ),
+        ]
+        indexes = [
+            # The question this table exists to answer: the tax service published,
+            # what did we post on an inference and must now re-examine?
+            models.Index(
+                fields=["tenant", "company", "confidence"],
+                name="entry_param_confidence_idx",
+            ),
+            # And the reverse direction: this parameter version turned out wrong,
+            # what stands on it?
+            models.Index(fields=["parameter_id"], name="entry_param_parameter_idx"),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.parameter_key}@{self.effective_date} ({self.confidence})"
+
+
 class CompanyDimension(models.Model):
     """What a generic slot means for one company -- ADR-029.
 

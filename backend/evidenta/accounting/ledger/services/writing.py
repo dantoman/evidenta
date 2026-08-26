@@ -44,13 +44,14 @@ from __future__ import annotations
 import uuid
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
-from datetime import date
+from datetime import date, datetime
 from decimal import Decimal
 
 from django.db import transaction
 
 from evidenta.accounting.coa.dimensions import DIMENSION_KEYS
 from evidenta.accounting.ledger.models import (
+    EntryParameterStamp,
     EntryStatus,
     EntryType,
     JournalEntry,
@@ -125,6 +126,28 @@ class LineToWrite:
     dimensions: Mapping[str, uuid.UUID] = field(default_factory=dict)
 
 
+@dataclass(frozen=True, slots=True)
+class ParameterStamp:
+    """One fiscal parameter a calculation stood on, as it stood at the time.
+
+    Produced by whoever resolved the parameter -- a posting handler -- and handed
+    to ``post_entry`` so it lands in the same transaction as the entry. A stamp
+    written afterwards is a stamp that can be missing, and the case it exists for
+    is precisely the one where nobody thought to go back.
+
+    ``confidence`` is the value **copied** at ``resolved_at``, not a reference to
+    be dereferenced later: confirmation does not change the parameter's value, so
+    a reference resolves to a world in which nothing was ever provisional
+    (ADR-046, ADR-047).
+    """
+
+    parameter_id: uuid.UUID
+    parameter_key: str
+    effective_date: date
+    confidence: str
+    resolved_at: datetime
+
+
 @transaction.atomic
 def post_entry(
     *,
@@ -140,6 +163,7 @@ def post_entry(
     entry_type: str = EntryType.STANDARD,
     posted_by_user_id: uuid.UUID | None = None,
     corrects_period_id: uuid.UUID | None = None,
+    parameter_stamps: Sequence[ParameterStamp] = (),
 ) -> uuid.UUID:
     """Write one posted entry with its lines. Returns the entry's id.
 
@@ -200,6 +224,25 @@ def post_entry(
             for number, line in enumerate(lines, start=1)
         ]
     )
+
+    # Same transaction as the entry, deliberately. What a calculation stood on is
+    # part of the posting, not an annotation added to it afterwards.
+    if parameter_stamps:
+        EntryParameterStamp.objects.bulk_create(
+            [
+                EntryParameterStamp(
+                    tenant_id=tenant_id,
+                    company_id=company_id,
+                    journal_entry=entry,
+                    parameter_id=stamp.parameter_id,
+                    parameter_key=stamp.parameter_key,
+                    effective_date=stamp.effective_date,
+                    confidence=stamp.confidence,
+                    resolved_at=stamp.resolved_at,
+                )
+                for stamp in parameter_stamps
+            ]
+        )
 
     entry.status = EntryStatus.POSTED
     entry.posted_at = entry.created_at

@@ -65,6 +65,7 @@ ALREADY_CORRECT = [
         "0039_opening_balances",
         "0040_operation_templates",
         "0041_rls_function_privileges",
+        "0043_entry_parameter_stamp",
     )
 ]
 

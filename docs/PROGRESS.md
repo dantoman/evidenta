@@ -23,6 +23,78 @@ Descompunerea completă: `_bootstrap/08-f1-backlog.md` — patru fire care pot m
 
 ## Ultima sesiune
 
+**2026-08-26, ștampila parametrului la postare — `OD-68` închisă prin
+[ADR-047](decisions/047-stampila-parametrului-la-postare.md):**
+
+- **Livrat: `entry_parameter_stamp`** — ce a stat sub un calcul, scris la postare, în aceeași
+  tranzacție cu înregistrarea. Tabelă atârnată de `journal_entry`, nu `jsonb`, fiindcă întrebarea
+  care o justifică se citește *înainte, peste toate înregistrările*: „SFS a publicat, ce am postat pe
+  o deducție?". Fără FK spre `fiscal_parameter` (`D6`); FK spre antet e permis — `journal_line` e cea
+  din `append_only.toml`, nu antetul.
+- **Încrederea se copiază, nu se referă**, iar `resolved_at` o face re-derivabilă din istoricul lui
+  ADR-046. Testul verifică ambele sensuri: la instantul ștampilei `provisional`, la instantul
+  publicării `confirmed`. Opt teste de izolare, toate sub rolul aplicației.
+- **Măsurat, și a schimbat migrarea:** un `GRANT SELECT, INSERT` restrâns nu *retrage* nimic —
+  tabela ajunsese la `evidenta_app` cu toate patru privilegiile, din cele implicite. Comentariul din
+  fișier spunea că privilegiul oprește aplicația; catalogul spunea altceva. `REVOKE` explicit.
+- **[ADR-043](decisions/043-privilegiile-functiilor-rls.md) §4.1 nou, și corectează o propoziție din
+  §3 al lui.** Revocarea lui PUBLIC din `0041` a scos de sub tiparul de creare a triggerelor
+  suportul pe care nimeni nu observase că stă: `CREATE TRIGGER` verifică `EXECUTE` la creare și se
+  emite ca `evidenta_owner`, care e `NOINHERIT`. §3 spunea „retragerea nu costă nimic" — adevărat
+  pentru starea măsurată, fals pentru tranziția nemăsurată. Găsit de `evidenta-2f`, lovind-o.
+- **Gardian nou, `tests/architecture/test_trigger_function_grants.py`**, cu referința la ADR **în
+  mesajul de eroare**. Alegerea e a proprietarului, și raționamentul merită păstrat: *documentația
+  ajunge la cine caută, mesajul de eroare ajunge la cine nu știe că trebuie să caute.* Mesajul e ușa,
+  ADR-ul e camera. Restrâns la migrările de după `0041`: cele zece de dinainte au rulat cât PUBLIC
+  încă avea `EXECUTE`, și rulează la fel la o reconstruire de la zero.
+- **`_TRIGGER_STATE` a crescut cu trei linii** — `entry_parameter_stamp`, `journal_entry`,
+  `journal_line`. Aceeași asimetrie descrisă acolo, a doua oară: modulul care deține tabela seamănă
+  prin ORM, deci suita lui trece fără linie; testul care seamănă prin `seed()` cade la setup, nu la
+  aserțiune.
+- **Nimic nu scrie încă ștampile.** Niciun handler nu rezolvă un parametru fiscal — F1.4.4 e blocată
+  pe `C1`–`C5`. Mecanismul e înaintea primului producător deliberat: ieftin acum, scump după ce
+  există calcule postate, fiindcă o coloană adăugată ulterior e goală pentru toată istoria.
+
+Suita: **744 trec, 1 sărit.**
+
+## Sesiuni mai vechi
+
+**2026-08-26, patru ecrane peste API-ul care exista — și o bază goală în spatele lor:**
+
+- **Livrat: `/companii`, planul de conturi cu compania în cale, inițializarea planului și fișa
+  contului** (redenumire, blocare, închidere, subcont). Toate peste endpointuri care existau și erau
+  testate din F1.1, niciunul nou. Ecranul de formatare (`HomeScreen`) a fost înlocuit de lista de
+  companii — era un substitut, iar întrebarea „care companie" e prima pe care o pune orice ecran
+  contabil
+- **Compania a intrat în cale, nu în starea componentei.** `/companii/:companyId/plan-de-conturi`,
+  ca în rutele serverului. Înainte, planul unei companii anume nu avea adresă: nimic nu putea trimite
+  un link spre el, iar o reîncărcare cădea tăcut pe prima companie din listă. Tenantul rămâne unde
+  era — în subdomeniu (`C8`), niciodată în cale
+- **`OD-57` a devenit scadentă azi.** Termenul ei scrie „înainte de primul ecran care alege o
+  companie"; acel ecran există acum. Îngustarea pe `company_id` e construită pe o treime din politici
+  și **calea de request n-o trimite deloc** — deci ecranele de mai sus se bazează pe RLS de tenant,
+  nu pe îngustare de companie. Nu am atins-o: e decizie, nu implementare
+- **Măsurat înainte de a promite ceva: baza de dezvoltare e goală** — 1 tenant, 32 de sesiuni,
+  **0 companii, 0 versiuni de plan, 0 conturi**. Deci fiecare ecran nou își arată azi starea goală,
+  iar cauza nu e în ecrane: conținutul planului nu poate fi încărcat (`OD-23` blocat de `OD-56` —
+  `coa_template` e globală, scrierile retrase rolului aplicației), iar compania se creează prin `P-9`
+  ([ADR-040](decisions/040-crearea-tenantului-si-a-companiei.md)), decisă și nescrisă
+- **Ieșirea din cont nu funcționa, și defectul era pe server, nu în buton.** `logout` răspundea
+  `JsonResponse({}, status=204)` — un 204 cu corp. RFC 9112 termină mesajul la antet pentru 204, deci
+  cei doi octeți se citesc ca începutul următorului răspuns: **măsurat, parserul HTTP al lui node —
+  cel pe care rulează proxy-ul de dezvoltare — respinge perechea cu `HPE_INVALID_CONSTANT`**. Sesiunea
+  era deja revocată, dar browserul vedea cererea eșuată, deci ecranul rămânea pe loc. Testul de
+  izolare asertează acum și corpul gol, nu doar codul 204
+- **Ce nu e acoperit de niciun test: tot ce am scris în frontend.** Nu există runner de teste
+  frontend în `package.json` și nu am adăugat unul — ar fi decizie de tooling luată în treacăt, iar
+  `C28` fixează lanțul de backend tocmai fiindcă astfel de alegeri se iau o dată. Verificat în schimb
+  ce se putea verifica fără browser: `tsc`, ESLint, build, și **fiecare cale pe care o cheamă
+  clientul rezolvată prin URL-conf-ul Django** — sonda HTTP nu putea dovedi nimic, fiindcă
+  autentificarea răspunde 401 înaintea rezolvării rutei, inclusiv pentru o cale inexistentă
+- **`amount` și `money` au rămas fără niciun consumator** odată cu ecranul de formatare; `date` are
+  trei. Primul ecran cu solduri le readuce — până atunci, dovada că formatarea e a Moldovei nu mai
+  stă nicăieri, iar locul ei era oricum un test, nu o pagină
+
 **2026-08-26, `OD-64` — opt inverse care nu rulau, și de ce clasificarea a schimbat sarcina:**
 
 - **Proprietarul a cerut lista înainte de tratament**, și a avut dreptate: nu toate „migrările

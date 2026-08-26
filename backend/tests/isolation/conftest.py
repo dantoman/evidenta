@@ -38,6 +38,8 @@ SEEDED_TABLES = (
     # F1.2. Lines before entries; entries before the period and the event they
     # name. `journal_line` receives no foreign key (R21), so nothing points at it
     # -- but it points at `journal_entry`, which is what fixes the order here.
+    # `entry_parameter_stamp` points at the entry too, so it goes first (ADR-047).
+    "entry_parameter_stamp",
     "journal_line",
     "journal_entry",
     "company_dimension",
@@ -149,6 +151,15 @@ _TRIGGER_STATE = (
     # setup -- which is how it was found.
     "ALTER TABLE fiscal_parameter_confidence_event {action} "
     "TRIGGER fiscal_confidence_event_append_only",
+    # What a posting stood on is append-only too (ADR-047), and the trigger
+    # test seeds a row through `seed()` -- both halves of the rule above.
+    "ALTER TABLE entry_parameter_stamp {action} TRIGGER entry_parameter_stamp_append_only",
+    # And the posted entry that stamp hangs off: the same test seeds one, and a
+    # posted entry refuses deletion (`R10`). The ledger's own suite posts through
+    # the ORM, so these two lines arrived with the stamp tests rather than with the
+    # ledger -- the asymmetry described above, a second time.
+    "ALTER TABLE journal_entry {action} TRIGGER journal_entry_stays_immutable",
+    "ALTER TABLE journal_line {action} TRIGGER journal_line_stays_immutable",
 )
 
 

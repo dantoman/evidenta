@@ -66,8 +66,9 @@ efect, și îl acordă lui `evidenta_app` pe **mulțimea măsurată**: funcțiil
 (`pg_policy`) — o politică se evaluează ca utilizatorul care interoghează. Paisprezece funcții.
 
 Cele unsprezece rămase sunt funcții de trigger sau ajutoare interne. PostgreSQL verifică `EXECUTE`
-pe funcția de trigger la `CREATE TRIGGER`, nu la declanșare, deci retragerea nu costă nimic — și
-scoate din raza aplicației opt funcții `SECURITY DEFINER` pe care n-avea de ce să le poată apela.
+pe funcția de trigger la `CREATE TRIGGER`, nu la declanșare, deci retragerea nu costă nimic
+**triggerelor deja create** — și scoate din raza aplicației opt funcții `SECURITY DEFINER` pe care
+n-avea de ce să le poată apela. Pentru triggerele **următoare** costă, și de aici nu se vedea: §4.1.
 
 ## 4. Prevenirea stă în gardian, nu în schemă — și asta s-a măsurat
 
@@ -84,7 +85,82 @@ Al doilea gardian, `tests/architecture/test_reverse_migrations.py`, refuză oric
 **nou** care șterge o funcție `rls.` fără `SET LOCAL ROLE`. Cele opt existente sunt enumerate ca
 excepție care **poate doar să scadă**.
 
+### 4.1 Ce a costat, și de aici nu se vedea: tiparul de creare a triggerelor
+
+Măsurat de sesiunea vecină la câteva ore după ce decizia fusese aplicată, dând peste el în timp ce
+scria `0042`.
+
+Verificarea lui `EXECUTE` la `CREATE TRIGGER` nu se face pentru rolul care va **declanșa** triggerul.
+Se face pentru rolul care **emite** `CREATE TRIGGER`, iar acela este proprietarul tabelei:
+`evidenta_owner`. Care e `NOINHERIT` și nu moștenește nimic de la `evidenta_rls`.
+
+Până la `0041`, tiparul „creează funcția sub `evidenta_rls` → `RESET ROLE` → `CREATE TRIGGER`" a
+mers în fiecare migrare — **fiindcă PUBLIC avea `EXECUTE` implicit**, iar `evidenta_owner` e în
+PUBLIC. Retrăgându-l, `0041` a scos de sub tipar suportul pe care nimeni nu observase că stă.
+Triggerele existente nu sunt atinse: verificarea s-a făcut o dată, la crearea lor, înainte de
+`0041`. Cad doar cele **noi**, cu „permission denied for function".
+
+Reparația e o linie, și trebuie emisă **sub `evidenta_rls`** ca să aibă efect — un `GRANT` venit de
+la un non-proprietar e un WARNING, nu o eroare, exact capcana din §2:
+
+```sql
+GRANT EXECUTE ON FUNCTION rls.<f>() TO evidenta_owner;
+```
+
+Nu slăbește nimic: `evidenta_app` nu primește nimic în plus, iar proprietarul oricum deține tabela
+pe care atașează triggerul.
+
+**Gardianul poartă mesajul, iar mesajul citează ADR-ul.** Prima variantă a acestei secțiuni spunea
+că detecția nu e necesară fiindcă eșecul e zgomotos oricum. Proprietarul a corectat raționamentul, și
+corectura e mai generală decât cazul: **documentația ajunge la cine caută, mesajul de eroare ajunge
+la cine nu știe că trebuie să caute** — exact situația de aici, unde cineva scrie un trigger, primește
+un refuz care nu pomenește `NOINHERIT`, și n-are niciun motiv să bănuiască existența unui ADR pe
+subiect. Condiția care desființează alternativa în loc s-o aleagă: mesajul conține referința. **Mesajul
+e ușa, ADR-ul e camera.**
+
+Gardianul e `backend/tests/architecture/test_trigger_function_grants.py` și citește fișierele, nu
+catalogul: pentru fiecare `CREATE TRIGGER … EXECUTE FUNCTION rls.<f>` dintr-un fișier `.up.sql`, dacă
+`<f>` e creată în același fișier sub `SET LOCAL ROLE evidenta_rls` și nu primește `GRANT EXECUTE …
+TO evidenta_owner` emis tot sub acel rol, migrarea **va** cădea la aplicare. Prinsă înainte de
+`make migrate`, nu în timpul lui.
+
+**Ce spune despre §3.** Propoziția „retragerea nu costă nimic" era adevărată pentru ce fusese
+măsurat — cele unsprezece funcții existente, cu triggerele lor deja create — și falsă pentru ce nu
+fusese măsurat: următoarea funcție de trigger. Diferența dintre a măsura o **stare** și a măsura o
+**tranziție**. Măsurătoarea era bună; concluzia era mai largă decât ea.
+
 ## 5. Inversele corectate — `OD-64`
+
+### 5.0 Criteriul: nu toate „migrările inverse" sunt același lucru
+
+Cele opt s-au clasificat **înainte** de a fi tratate, iar clasificarea a schimbat sarcina. Criteriul
+se scrie aici fiindcă el, nu reparația, e ce previne recidiva în afara gardianului: cele opt sunt
+gata, următoarea nu e scrisă încă.
+
+| Categoria | Ce înseamnă | Ce se declară |
+|---|---|---|
+| **Schemă pură** | adaugă o coloană, un index, o constrângere | reversibilă genuin, permanent — inversul restaurează exact starea |
+| **Transformă date** | rescrie valori existente | inversul **aproximează**, nu restaurează. `irreversible` **din clipa în care există date postate** |
+| **RLS și roluri** | politici, triggere, funcții `SECURITY DEFINER` | reversibilă, dar cu inversul **rulat** în test, nu declarat |
+
+A treia e cea mai periculoasă, și nu fiindcă ar fi cea mai complicată: **o inversare care lasă o
+politică pe jumătate detașată nu produce o eroare, produce acces greșit.** Fail-closed tăcut — exact
+modul de eșec găsit la funcțiile `SECURITY DEFINER` din §2. Un invers de schemă care cade, cade
+zgomotos; unul de politică reușește și minte.
+
+**Întrebarea care decide, pentru fiecare migrare, e una singură: atinge date deja postate?**
+
+- **Nu** → reversibilă, cu test care rulează inversarea și verifică starea, nu doar că n-a aruncat.
+- **Da** → `IrreversibleError` explicit. **Niciodată `noop`.**
+
+Un `noop` pe o migrare care a transformat date e o minciună consemnată în cod: rulează, nu eșuează,
+și lasă baza într-o stare pe care n-a descris-o nimeni. Într-un registru append-only e mai rău decât
+o eroare, fiindcă descoperirea vine mult mai târziu — și `R10` înseamnă că nu există `UPDATE` cu care
+s-o repari.
+
+Simetric, și la fel de dăunător: **`IrreversibleError` pe ceva reversibil de drept.** Ambele îl fac
+pe cel care citește codul peste un an să creadă altceva decât adevărul, doar în direcții opuse. De
+aceea gardianul acceptă ambele declarații și nu forțează niciuna.
 
 Cele opt fișiere nu se repară prin editare: `C31` le face append-only din clipa aplicării. Corecția
 sunt **opt fișiere noi**, `0042`–`0049`, iar `run_sql_file` primește un `down_name` care le indică.
