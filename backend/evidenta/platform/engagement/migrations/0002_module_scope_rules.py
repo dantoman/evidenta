@@ -75,6 +75,7 @@ class Migration(migrations.Migration):
         run_sql_file(
             "0015_module_scope_sync",
             up_sha256="3ddedc34040f8b1a00efcd1e09a032f31864b67f7b0e6871770d61e501565fb0",
-            down_sha256="94b3a394e3fdb6c5273e547823be2cbd62e52fc3f70d104ae9801800cfeeddbc",
+            down_sha256="e61a658d5691da5e29f58b728fe53e2a80d7d761ae12b1e511fee748796c399c",
+            down_name="0015_module_scope_sync_reverse",
         ),
     ]

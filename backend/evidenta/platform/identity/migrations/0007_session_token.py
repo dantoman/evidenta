@@ -26,7 +26,8 @@ class Migration(migrations.Migration):
                 run_sql_file(
                     "0028_auth_request_path",
                     up_sha256="9f68557bf57012b2b61272920b7f9d762c988c008da00b980975b512066e1171",
-                    down_sha256="8ffdfb6981dcbf330b8110d5658bf4b4a1ed1b70dd7bcf74a1e59a19ed43c185",
+                    down_sha256="62e0604302f8fa7eaece1164df75c44525c4685433c62a81dffa649ad3000aea",
+            down_name="0028_auth_request_path_reverse",
                 ),
             ],
             state_operations=[

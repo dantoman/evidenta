@@ -7,108 +7,213 @@ from django.db import migrations, models
 from evidenta.platform.rls.sql import run_sql_file
 
 
-class Migration(migrations.Migration):
+#: Reversibility, declared rather than assumed -- `OD-64`. A migration that
+#: touches `journal_entry`, `journal_line` or the periods says one of two things
+#: and never stays silent in between:
+#:
+#:   "reversible-tested"  the reverse runs, and a round trip is exercised in
+#:                        tests/schema_guard/test_reverse_sql.py under the role
+#:                        that will actually run it
+#:   "irreversible"       the reverse cannot restore the prior state; Django
+#:                        raises rather than pretending. Never a noop -- a noop
+#:                        runs, does not fail, and leaves the database in a state
+#:                        nobody described.
+#:
+#: This one desfaces structure only: policies, triggers, functions, collation.
+#: No row is deleted by the reverse; the tables themselves go with the Django
+#: operations above it.
+REVERSIBILITY = "reversible-tested"
 
+
+class Migration(migrations.Migration):
     initial = True
 
     dependencies = [
-        ('tenancy', '0005_resolver_grant'),
+        ("tenancy", "0005_resolver_grant"),
     ]
 
     operations = [
         migrations.CreateModel(
-            name='FiscalYear',
+            name="FiscalYear",
             fields=[
-                ('id', models.UUIDField(default=uuid.uuid4, editable=False, primary_key=True, serialize=False)),
-                ('code', models.TextField()),
-                ('start_date', models.DateField()),
-                ('end_date', models.DateField()),
-                ('status', models.TextField(choices=[('open', 'Open'), ('closed', 'Closed')], default='open')),
-                ('closed_at', models.DateTimeField(blank=True, null=True)),
-                ('closed_by_user_id', models.UUIDField(blank=True, null=True)),
-                ('created_at', models.DateTimeField(auto_now_add=True)),
-                ('updated_at', models.DateTimeField(auto_now=True)),
-                ('company', models.ForeignKey(db_column='company_id', on_delete=django.db.models.deletion.PROTECT, to='tenancy.company')),
-                ('tenant', models.ForeignKey(db_column='tenant_id', on_delete=django.db.models.deletion.PROTECT, to='tenancy.tenant')),
+                (
+                    "id",
+                    models.UUIDField(
+                        default=uuid.uuid4, editable=False, primary_key=True, serialize=False
+                    ),
+                ),
+                ("code", models.TextField()),
+                ("start_date", models.DateField()),
+                ("end_date", models.DateField()),
+                (
+                    "status",
+                    models.TextField(
+                        choices=[("open", "Open"), ("closed", "Closed")], default="open"
+                    ),
+                ),
+                ("closed_at", models.DateTimeField(blank=True, null=True)),
+                ("closed_by_user_id", models.UUIDField(blank=True, null=True)),
+                ("created_at", models.DateTimeField(auto_now_add=True)),
+                ("updated_at", models.DateTimeField(auto_now=True)),
+                (
+                    "company",
+                    models.ForeignKey(
+                        db_column="company_id",
+                        on_delete=django.db.models.deletion.PROTECT,
+                        to="tenancy.company",
+                    ),
+                ),
+                (
+                    "tenant",
+                    models.ForeignKey(
+                        db_column="tenant_id",
+                        on_delete=django.db.models.deletion.PROTECT,
+                        to="tenancy.tenant",
+                    ),
+                ),
             ],
             options={
-                'db_table': 'fiscal_year',
+                "db_table": "fiscal_year",
             },
         ),
         migrations.CreateModel(
-            name='Period',
+            name="Period",
             fields=[
-                ('id', models.UUIDField(default=uuid.uuid4, editable=False, primary_key=True, serialize=False)),
-                ('period_no', models.SmallIntegerField()),
-                ('start_date', models.DateField()),
-                ('end_date', models.DateField()),
-                ('status', models.TextField(choices=[('open', 'Open'), ('closed', 'Closed'), ('locked', 'Locked')], default='open')),
-                ('closed_at', models.DateTimeField(blank=True, null=True)),
-                ('closed_by_user_id', models.UUIDField(blank=True, null=True)),
-                ('reopened_count', models.SmallIntegerField(default=0)),
-                ('last_reopened_at', models.DateTimeField(blank=True, null=True)),
-                ('last_reopened_by_user_id', models.UUIDField(blank=True, null=True)),
-                ('created_at', models.DateTimeField(auto_now_add=True)),
-                ('updated_at', models.DateTimeField(auto_now=True)),
-                ('company', models.ForeignKey(db_column='company_id', on_delete=django.db.models.deletion.PROTECT, to='tenancy.company')),
-                ('fiscal_year', models.ForeignKey(db_column='fiscal_year_id', on_delete=django.db.models.deletion.PROTECT, related_name='periods', to='periods.fiscalyear')),
-                ('tenant', models.ForeignKey(db_column='tenant_id', on_delete=django.db.models.deletion.PROTECT, to='tenancy.tenant')),
+                (
+                    "id",
+                    models.UUIDField(
+                        default=uuid.uuid4, editable=False, primary_key=True, serialize=False
+                    ),
+                ),
+                ("period_no", models.SmallIntegerField()),
+                ("start_date", models.DateField()),
+                ("end_date", models.DateField()),
+                (
+                    "status",
+                    models.TextField(
+                        choices=[("open", "Open"), ("closed", "Closed"), ("locked", "Locked")],
+                        default="open",
+                    ),
+                ),
+                ("closed_at", models.DateTimeField(blank=True, null=True)),
+                ("closed_by_user_id", models.UUIDField(blank=True, null=True)),
+                ("reopened_count", models.SmallIntegerField(default=0)),
+                ("last_reopened_at", models.DateTimeField(blank=True, null=True)),
+                ("last_reopened_by_user_id", models.UUIDField(blank=True, null=True)),
+                ("created_at", models.DateTimeField(auto_now_add=True)),
+                ("updated_at", models.DateTimeField(auto_now=True)),
+                (
+                    "company",
+                    models.ForeignKey(
+                        db_column="company_id",
+                        on_delete=django.db.models.deletion.PROTECT,
+                        to="tenancy.company",
+                    ),
+                ),
+                (
+                    "fiscal_year",
+                    models.ForeignKey(
+                        db_column="fiscal_year_id",
+                        on_delete=django.db.models.deletion.PROTECT,
+                        related_name="periods",
+                        to="periods.fiscalyear",
+                    ),
+                ),
+                (
+                    "tenant",
+                    models.ForeignKey(
+                        db_column="tenant_id",
+                        on_delete=django.db.models.deletion.PROTECT,
+                        to="tenancy.tenant",
+                    ),
+                ),
             ],
             options={
-                'db_table': 'period',
+                "db_table": "period",
             },
         ),
         migrations.AddIndex(
-            model_name='fiscalyear',
-            index=models.Index(fields=['company', 'start_date'], name='fiscal_year_company_start'),
+            model_name="fiscalyear",
+            index=models.Index(fields=["company", "start_date"], name="fiscal_year_company_start"),
         ),
         migrations.AddConstraint(
-            model_name='fiscalyear',
-            constraint=models.UniqueConstraint(fields=('company', 'code'), name='fiscal_year_code_unique'),
+            model_name="fiscalyear",
+            constraint=models.UniqueConstraint(
+                fields=("company", "code"), name="fiscal_year_code_unique"
+            ),
         ),
         migrations.AddConstraint(
-            model_name='fiscalyear',
-            constraint=models.CheckConstraint(condition=models.Q(('status__in', ['open', 'closed'])), name='fiscal_year_status_valid'),
+            model_name="fiscalyear",
+            constraint=models.CheckConstraint(
+                condition=models.Q(("status__in", ["open", "closed"])),
+                name="fiscal_year_status_valid",
+            ),
         ),
         migrations.AddConstraint(
-            model_name='fiscalyear',
-            constraint=models.CheckConstraint(condition=models.Q(('end_date__gt', models.F('start_date'))), name='fiscal_year_period_valid'),
+            model_name="fiscalyear",
+            constraint=models.CheckConstraint(
+                condition=models.Q(("end_date__gt", models.F("start_date"))),
+                name="fiscal_year_period_valid",
+            ),
         ),
         migrations.AddConstraint(
-            model_name='fiscalyear',
-            constraint=models.CheckConstraint(condition=models.Q(('status', 'open'), ('closed_at__isnull', False), _connector='OR'), name='fiscal_year_closed_has_timestamp'),
+            model_name="fiscalyear",
+            constraint=models.CheckConstraint(
+                condition=models.Q(
+                    ("status", "open"), ("closed_at__isnull", False), _connector="OR"
+                ),
+                name="fiscal_year_closed_has_timestamp",
+            ),
         ),
         migrations.AddIndex(
-            model_name='period',
-            index=models.Index(fields=['company', 'start_date'], name='period_company_start'),
+            model_name="period",
+            index=models.Index(fields=["company", "start_date"], name="period_company_start"),
         ),
         migrations.AddIndex(
-            model_name='period',
-            index=models.Index(fields=['fiscal_year', 'period_no'], name='period_year_number'),
+            model_name="period",
+            index=models.Index(fields=["fiscal_year", "period_no"], name="period_year_number"),
         ),
         migrations.AddConstraint(
-            model_name='period',
-            constraint=models.UniqueConstraint(fields=('company', 'fiscal_year', 'period_no'), name='period_number_unique'),
+            model_name="period",
+            constraint=models.UniqueConstraint(
+                fields=("company", "fiscal_year", "period_no"), name="period_number_unique"
+            ),
         ),
         migrations.AddConstraint(
-            model_name='period',
-            constraint=models.CheckConstraint(condition=models.Q(('status__in', ['open', 'closed', 'locked'])), name='period_status_valid'),
+            model_name="period",
+            constraint=models.CheckConstraint(
+                condition=models.Q(("status__in", ["open", "closed", "locked"])),
+                name="period_status_valid",
+            ),
         ),
         migrations.AddConstraint(
-            model_name='period',
-            constraint=models.CheckConstraint(condition=models.Q(('end_date__gte', models.F('start_date'))), name='period_dates_valid'),
+            model_name="period",
+            constraint=models.CheckConstraint(
+                condition=models.Q(("end_date__gte", models.F("start_date"))),
+                name="period_dates_valid",
+            ),
         ),
         migrations.AddConstraint(
-            model_name='period',
-            constraint=models.CheckConstraint(condition=models.Q(('period_no__gte', 1)), name='period_no_positive'),
+            model_name="period",
+            constraint=models.CheckConstraint(
+                condition=models.Q(("period_no__gte", 1)), name="period_no_positive"
+            ),
         ),
         migrations.AddConstraint(
-            model_name='period',
-            constraint=models.CheckConstraint(condition=models.Q(('status', 'open'), ('closed_at__isnull', False), _connector='OR'), name='period_closed_has_timestamp'),
+            model_name="period",
+            constraint=models.CheckConstraint(
+                condition=models.Q(
+                    ("status", "open"), ("closed_at__isnull", False), _connector="OR"
+                ),
+                name="period_closed_has_timestamp",
+            ),
         ),
         migrations.AddConstraint(
-            model_name='period',
-            constraint=models.CheckConstraint(condition=models.Q(('reopened_count__gte', 0)), name='period_reopened_count_positive'),
+            model_name="period",
+            constraint=models.CheckConstraint(
+                condition=models.Q(("reopened_count__gte", 0)),
+                name="period_reopened_count_positive",
+            ),
         ),
         # Table and policy in the same transaction -- C30. Both tables are
         # created above, so the statements below can name their columns; a policy

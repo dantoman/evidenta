@@ -7,184 +7,387 @@ from django.db import migrations, models
 from evidenta.platform.rls.sql import run_sql_file
 
 
-class Migration(migrations.Migration):
+#: Reversibility, declared rather than assumed -- `OD-64`. A migration that
+#: touches `journal_entry`, `journal_line` or the periods says one of two things
+#: and never stays silent in between:
+#:
+#:   "reversible-tested"  the reverse runs, and a round trip is exercised in
+#:                        tests/schema_guard/test_reverse_sql.py under the role
+#:                        that will actually run it
+#:   "irreversible"       the reverse cannot restore the prior state; Django
+#:                        raises rather than pretending. Never a noop -- a noop
+#:                        runs, does not fail, and leaves the database in a state
+#:                        nobody described.
+#:
+#: This one desfaces structure only: policies, triggers, functions, collation.
+#: No row is deleted by the reverse; the tables themselves go with the Django
+#: operations above it.
+REVERSIBILITY = "reversible-tested"
 
+
+class Migration(migrations.Migration):
     initial = True
 
     dependencies = [
-        ('accounting_events', '0001_initial'),
-        ('periods', '0001_initial'),
-        ('tenancy', '0005_resolver_grant'),
+        ("accounting_events", "0001_initial"),
+        ("periods", "0001_initial"),
+        ("tenancy", "0005_resolver_grant"),
     ]
 
     operations = [
         migrations.CreateModel(
-            name='JournalEntry',
+            name="JournalEntry",
             fields=[
-                ('id', models.UUIDField(default=uuid.uuid4, editable=False, primary_key=True, serialize=False)),
-                ('entry_number', models.TextField()),
-                ('accounting_date', models.DateField()),
-                ('entry_type', models.TextField(choices=[('standard', 'Standard'), ('reversal', 'Reversal'), ('opening', 'Opening'), ('closing', 'Closing'), ('adjustment', 'Adjustment')], default='standard')),
-                ('status', models.TextField(choices=[('draft', 'Draft'), ('posted', 'Posted')], default='draft')),
-                ('posted_at', models.DateTimeField(blank=True, null=True)),
-                ('posted_by_user_id', models.UUIDField(blank=True, null=True)),
-                ('description', models.TextField()),
-                ('total_debit', models.DecimalField(decimal_places=4, default=0, max_digits=20)),
-                ('total_credit', models.DecimalField(decimal_places=4, default=0, max_digits=20)),
-                ('request_id', models.TextField()),
-                ('created_at', models.DateTimeField(auto_now_add=True)),
-                ('updated_at', models.DateTimeField(auto_now=True)),
-                ('accounting_event', models.ForeignKey(db_column='accounting_event_id', on_delete=django.db.models.deletion.PROTECT, related_name='entries', to='accounting_events.accountingevent')),
-                ('company', models.ForeignKey(db_column='company_id', on_delete=django.db.models.deletion.PROTECT, to='tenancy.company')),
-                ('corrects_period', models.ForeignKey(blank=True, db_column='corrects_period_id', null=True, on_delete=django.db.models.deletion.PROTECT, related_name='corrections', to='periods.period')),
-                ('period', models.ForeignKey(db_column='period_id', on_delete=django.db.models.deletion.PROTECT, related_name='entries', to='periods.period')),
-                ('reverses_entry', models.ForeignKey(blank=True, db_column='reverses_entry_id', null=True, on_delete=django.db.models.deletion.PROTECT, related_name='reversals', to='ledger.journalentry')),
-                ('tenant', models.ForeignKey(db_column='tenant_id', on_delete=django.db.models.deletion.PROTECT, to='tenancy.tenant')),
+                (
+                    "id",
+                    models.UUIDField(
+                        default=uuid.uuid4, editable=False, primary_key=True, serialize=False
+                    ),
+                ),
+                ("entry_number", models.TextField()),
+                ("accounting_date", models.DateField()),
+                (
+                    "entry_type",
+                    models.TextField(
+                        choices=[
+                            ("standard", "Standard"),
+                            ("reversal", "Reversal"),
+                            ("opening", "Opening"),
+                            ("closing", "Closing"),
+                            ("adjustment", "Adjustment"),
+                        ],
+                        default="standard",
+                    ),
+                ),
+                (
+                    "status",
+                    models.TextField(
+                        choices=[("draft", "Draft"), ("posted", "Posted")], default="draft"
+                    ),
+                ),
+                ("posted_at", models.DateTimeField(blank=True, null=True)),
+                ("posted_by_user_id", models.UUIDField(blank=True, null=True)),
+                ("description", models.TextField()),
+                ("total_debit", models.DecimalField(decimal_places=4, default=0, max_digits=20)),
+                ("total_credit", models.DecimalField(decimal_places=4, default=0, max_digits=20)),
+                ("request_id", models.TextField()),
+                ("created_at", models.DateTimeField(auto_now_add=True)),
+                ("updated_at", models.DateTimeField(auto_now=True)),
+                (
+                    "accounting_event",
+                    models.ForeignKey(
+                        db_column="accounting_event_id",
+                        on_delete=django.db.models.deletion.PROTECT,
+                        related_name="entries",
+                        to="accounting_events.accountingevent",
+                    ),
+                ),
+                (
+                    "company",
+                    models.ForeignKey(
+                        db_column="company_id",
+                        on_delete=django.db.models.deletion.PROTECT,
+                        to="tenancy.company",
+                    ),
+                ),
+                (
+                    "corrects_period",
+                    models.ForeignKey(
+                        blank=True,
+                        db_column="corrects_period_id",
+                        null=True,
+                        on_delete=django.db.models.deletion.PROTECT,
+                        related_name="corrections",
+                        to="periods.period",
+                    ),
+                ),
+                (
+                    "period",
+                    models.ForeignKey(
+                        db_column="period_id",
+                        on_delete=django.db.models.deletion.PROTECT,
+                        related_name="entries",
+                        to="periods.period",
+                    ),
+                ),
+                (
+                    "reverses_entry",
+                    models.ForeignKey(
+                        blank=True,
+                        db_column="reverses_entry_id",
+                        null=True,
+                        on_delete=django.db.models.deletion.PROTECT,
+                        related_name="reversals",
+                        to="ledger.journalentry",
+                    ),
+                ),
+                (
+                    "tenant",
+                    models.ForeignKey(
+                        db_column="tenant_id",
+                        on_delete=django.db.models.deletion.PROTECT,
+                        to="tenancy.tenant",
+                    ),
+                ),
             ],
             options={
-                'db_table': 'journal_entry',
+                "db_table": "journal_entry",
             },
         ),
         migrations.CreateModel(
-            name='JournalLine',
+            name="JournalLine",
             fields=[
-                ('id', models.BigAutoField(primary_key=True, serialize=False)),
-                ('tenant_id', models.UUIDField()),
-                ('company_id', models.UUIDField()),
-                ('accounting_date', models.DateField()),
-                ('document_date', models.DateField()),
-                ('rate_date', models.DateField()),
-                ('line_number', models.SmallIntegerField()),
-                ('account_id', models.UUIDField()),
-                ('debit', models.DecimalField(decimal_places=4, default=0, max_digits=20)),
-                ('credit', models.DecimalField(decimal_places=4, default=0, max_digits=20)),
-                ('currency', models.CharField(max_length=3)),
-                ('amount_currency', models.DecimalField(decimal_places=4, max_digits=20)),
-                ('exchange_rate', models.DecimalField(decimal_places=8, default=1, max_digits=18)),
-                ('quantity', models.DecimalField(blank=True, decimal_places=6, max_digits=20, null=True)),
-                ('uom_id', models.UUIDField(blank=True, null=True)),
-                ('description', models.TextField(blank=True, null=True)),
-                ('partner_id', models.UUIDField(blank=True, null=True)),
-                ('item_id', models.UUIDField(blank=True, null=True)),
-                ('employee_id', models.UUIDField(blank=True, null=True)),
-                ('contract_id', models.UUIDField(blank=True, null=True)),
-                ('warehouse_id', models.UUIDField(blank=True, null=True)),
-                ('project_id', models.UUIDField(blank=True, null=True)),
-                ('department_id', models.UUIDField(blank=True, null=True)),
-                ('cost_center_id', models.UUIDField(blank=True, null=True)),
-                ('asset_id', models.UUIDField(blank=True, null=True)),
-                ('production_order_id', models.UUIDField(blank=True, null=True)),
-                ('dim_1_id', models.UUIDField(blank=True, null=True)),
-                ('dim_2_id', models.UUIDField(blank=True, null=True)),
-                ('dim_3_id', models.UUIDField(blank=True, null=True)),
-                ('dim_4_id', models.UUIDField(blank=True, null=True)),
-                ('dim_5_id', models.UUIDField(blank=True, null=True)),
-                ('journal_entry', models.ForeignKey(db_column='journal_entry_id', on_delete=django.db.models.deletion.PROTECT, related_name='lines', to='ledger.journalentry')),
+                ("id", models.BigAutoField(primary_key=True, serialize=False)),
+                ("tenant_id", models.UUIDField()),
+                ("company_id", models.UUIDField()),
+                ("accounting_date", models.DateField()),
+                ("document_date", models.DateField()),
+                ("rate_date", models.DateField()),
+                ("line_number", models.SmallIntegerField()),
+                ("account_id", models.UUIDField()),
+                ("debit", models.DecimalField(decimal_places=4, default=0, max_digits=20)),
+                ("credit", models.DecimalField(decimal_places=4, default=0, max_digits=20)),
+                ("currency", models.CharField(max_length=3)),
+                ("amount_currency", models.DecimalField(decimal_places=4, max_digits=20)),
+                ("exchange_rate", models.DecimalField(decimal_places=8, default=1, max_digits=18)),
+                (
+                    "quantity",
+                    models.DecimalField(blank=True, decimal_places=6, max_digits=20, null=True),
+                ),
+                ("uom_id", models.UUIDField(blank=True, null=True)),
+                ("description", models.TextField(blank=True, null=True)),
+                ("partner_id", models.UUIDField(blank=True, null=True)),
+                ("item_id", models.UUIDField(blank=True, null=True)),
+                ("employee_id", models.UUIDField(blank=True, null=True)),
+                ("contract_id", models.UUIDField(blank=True, null=True)),
+                ("warehouse_id", models.UUIDField(blank=True, null=True)),
+                ("project_id", models.UUIDField(blank=True, null=True)),
+                ("department_id", models.UUIDField(blank=True, null=True)),
+                ("cost_center_id", models.UUIDField(blank=True, null=True)),
+                ("asset_id", models.UUIDField(blank=True, null=True)),
+                ("production_order_id", models.UUIDField(blank=True, null=True)),
+                ("dim_1_id", models.UUIDField(blank=True, null=True)),
+                ("dim_2_id", models.UUIDField(blank=True, null=True)),
+                ("dim_3_id", models.UUIDField(blank=True, null=True)),
+                ("dim_4_id", models.UUIDField(blank=True, null=True)),
+                ("dim_5_id", models.UUIDField(blank=True, null=True)),
+                (
+                    "journal_entry",
+                    models.ForeignKey(
+                        db_column="journal_entry_id",
+                        on_delete=django.db.models.deletion.PROTECT,
+                        related_name="lines",
+                        to="ledger.journalentry",
+                    ),
+                ),
             ],
             options={
-                'db_table': 'journal_line',
+                "db_table": "journal_line",
             },
         ),
         migrations.CreateModel(
-            name='CompanyDimension',
+            name="CompanyDimension",
             fields=[
-                ('id', models.UUIDField(default=uuid.uuid4, editable=False, primary_key=True, serialize=False)),
-                ('slot', models.TextField()),
-                ('name', models.TextField()),
-                ('is_active', models.BooleanField(default=True)),
-                ('created_at', models.DateTimeField(auto_now_add=True)),
-                ('updated_at', models.DateTimeField(auto_now=True)),
-                ('company', models.ForeignKey(db_column='company_id', on_delete=django.db.models.deletion.PROTECT, to='tenancy.company')),
-                ('tenant', models.ForeignKey(db_column='tenant_id', on_delete=django.db.models.deletion.PROTECT, to='tenancy.tenant')),
+                (
+                    "id",
+                    models.UUIDField(
+                        default=uuid.uuid4, editable=False, primary_key=True, serialize=False
+                    ),
+                ),
+                ("slot", models.TextField()),
+                ("name", models.TextField()),
+                ("is_active", models.BooleanField(default=True)),
+                ("created_at", models.DateTimeField(auto_now_add=True)),
+                ("updated_at", models.DateTimeField(auto_now=True)),
+                (
+                    "company",
+                    models.ForeignKey(
+                        db_column="company_id",
+                        on_delete=django.db.models.deletion.PROTECT,
+                        to="tenancy.company",
+                    ),
+                ),
+                (
+                    "tenant",
+                    models.ForeignKey(
+                        db_column="tenant_id",
+                        on_delete=django.db.models.deletion.PROTECT,
+                        to="tenancy.tenant",
+                    ),
+                ),
             ],
             options={
-                'db_table': 'company_dimension',
-                'constraints': [models.UniqueConstraint(fields=('company', 'slot'), name='company_dimension_slot_unique'), models.UniqueConstraint(fields=('company', 'name'), name='company_dimension_name_unique'), models.CheckConstraint(condition=models.Q(('slot__in', ['dim_1', 'dim_2', 'dim_3', 'dim_4', 'dim_5'])), name='company_dimension_slot_known')],
+                "db_table": "company_dimension",
+                "constraints": [
+                    models.UniqueConstraint(
+                        fields=("company", "slot"), name="company_dimension_slot_unique"
+                    ),
+                    models.UniqueConstraint(
+                        fields=("company", "name"), name="company_dimension_name_unique"
+                    ),
+                    models.CheckConstraint(
+                        condition=models.Q(
+                            ("slot__in", ["dim_1", "dim_2", "dim_3", "dim_4", "dim_5"])
+                        ),
+                        name="company_dimension_slot_known",
+                    ),
+                ],
             },
         ),
         migrations.AddIndex(
-            model_name='journalentry',
-            index=models.Index(fields=['tenant', 'company', 'accounting_date'], name='journal_entry_date_idx'),
+            model_name="journalentry",
+            index=models.Index(
+                fields=["tenant", "company", "accounting_date"], name="journal_entry_date_idx"
+            ),
         ),
         migrations.AddIndex(
-            model_name='journalentry',
-            index=models.Index(fields=['company', 'period'], name='journal_entry_period_idx'),
+            model_name="journalentry",
+            index=models.Index(fields=["company", "period"], name="journal_entry_period_idx"),
         ),
         migrations.AddIndex(
-            model_name='journalentry',
-            index=models.Index(fields=['accounting_event'], name='journal_entry_event_idx'),
+            model_name="journalentry",
+            index=models.Index(fields=["accounting_event"], name="journal_entry_event_idx"),
         ),
         migrations.AddIndex(
-            model_name='journalentry',
-            index=models.Index(condition=models.Q(('reverses_entry__isnull', False)), fields=['reverses_entry'], name='journal_entry_reverses_idx'),
+            model_name="journalentry",
+            index=models.Index(
+                condition=models.Q(("reverses_entry__isnull", False)),
+                fields=["reverses_entry"],
+                name="journal_entry_reverses_idx",
+            ),
         ),
         migrations.AddIndex(
-            model_name='journalentry',
-            index=models.Index(condition=models.Q(('corrects_period__isnull', False)), fields=['company', 'corrects_period'], name='journal_entry_corrects_idx'),
+            model_name="journalentry",
+            index=models.Index(
+                condition=models.Q(("corrects_period__isnull", False)),
+                fields=["company", "corrects_period"],
+                name="journal_entry_corrects_idx",
+            ),
         ),
         migrations.AddConstraint(
-            model_name='journalentry',
-            constraint=models.UniqueConstraint(fields=('company', 'entry_number'), name='journal_entry_number_unique'),
+            model_name="journalentry",
+            constraint=models.UniqueConstraint(
+                fields=("company", "entry_number"), name="journal_entry_number_unique"
+            ),
         ),
         migrations.AddConstraint(
-            model_name='journalentry',
-            constraint=models.CheckConstraint(condition=models.Q(('entry_type__in', ['standard', 'reversal', 'opening', 'closing', 'adjustment'])), name='journal_entry_type_valid'),
+            model_name="journalentry",
+            constraint=models.CheckConstraint(
+                condition=models.Q(
+                    ("entry_type__in", ["standard", "reversal", "opening", "closing", "adjustment"])
+                ),
+                name="journal_entry_type_valid",
+            ),
         ),
         migrations.AddConstraint(
-            model_name='journalentry',
-            constraint=models.CheckConstraint(condition=models.Q(('status__in', ['draft', 'posted'])), name='journal_entry_status_valid'),
+            model_name="journalentry",
+            constraint=models.CheckConstraint(
+                condition=models.Q(("status__in", ["draft", "posted"])),
+                name="journal_entry_status_valid",
+            ),
         ),
         migrations.AddConstraint(
-            model_name='journalentry',
-            constraint=models.CheckConstraint(condition=models.Q(models.Q(('status', 'posted'), _negated=True), ('posted_at__isnull', False), _connector='OR'), name='journal_entry_posted_has_timestamp'),
+            model_name="journalentry",
+            constraint=models.CheckConstraint(
+                condition=models.Q(
+                    models.Q(("status", "posted"), _negated=True),
+                    ("posted_at__isnull", False),
+                    _connector="OR",
+                ),
+                name="journal_entry_posted_has_timestamp",
+            ),
         ),
         migrations.AddConstraint(
-            model_name='journalentry',
-            constraint=models.CheckConstraint(condition=models.Q(models.Q(('entry_type', 'reversal'), _negated=True), ('reverses_entry__isnull', False), _connector='OR'), name='journal_entry_reversal_names_original'),
+            model_name="journalentry",
+            constraint=models.CheckConstraint(
+                condition=models.Q(
+                    models.Q(("entry_type", "reversal"), _negated=True),
+                    ("reverses_entry__isnull", False),
+                    _connector="OR",
+                ),
+                name="journal_entry_reversal_names_original",
+            ),
         ),
         migrations.AddConstraint(
-            model_name='journalentry',
-            constraint=models.CheckConstraint(condition=models.Q(('corrects_period__isnull', True), ('entry_type__in', ['reversal', 'adjustment']), _connector='OR'), name='journal_entry_corrects_only_when_correcting'),
+            model_name="journalentry",
+            constraint=models.CheckConstraint(
+                condition=models.Q(
+                    ("corrects_period__isnull", True),
+                    ("entry_type__in", ["reversal", "adjustment"]),
+                    _connector="OR",
+                ),
+                name="journal_entry_corrects_only_when_correcting",
+            ),
         ),
         migrations.AddIndex(
-            model_name='journalline',
-            index=models.Index(fields=['tenant_id', 'company_id', 'accounting_date'], name='journal_line_scope_idx'),
+            model_name="journalline",
+            index=models.Index(
+                fields=["tenant_id", "company_id", "accounting_date"], name="journal_line_scope_idx"
+            ),
         ),
         migrations.AddIndex(
-            model_name='journalline',
-            index=models.Index(fields=['company_id', 'account_id', 'accounting_date'], name='journal_line_account_idx'),
+            model_name="journalline",
+            index=models.Index(
+                fields=["company_id", "account_id", "accounting_date"],
+                name="journal_line_account_idx",
+            ),
         ),
         migrations.AddIndex(
-            model_name='journalline',
-            index=models.Index(condition=models.Q(('partner_id__isnull', False)), fields=['company_id', 'partner_id', 'accounting_date'], name='journal_line_partner_idx'),
+            model_name="journalline",
+            index=models.Index(
+                condition=models.Q(("partner_id__isnull", False)),
+                fields=["company_id", "partner_id", "accounting_date"],
+                name="journal_line_partner_idx",
+            ),
         ),
         migrations.AddIndex(
-            model_name='journalline',
-            index=models.Index(fields=['journal_entry'], name='journal_line_entry_idx'),
+            model_name="journalline",
+            index=models.Index(fields=["journal_entry"], name="journal_line_entry_idx"),
         ),
         migrations.AddIndex(
-            model_name='journalline',
-            index=models.Index(fields=['company_id', 'document_date'], name='journal_line_document_idx'),
+            model_name="journalline",
+            index=models.Index(
+                fields=["company_id", "document_date"], name="journal_line_document_idx"
+            ),
         ),
         migrations.AddConstraint(
-            model_name='journalline',
-            constraint=models.UniqueConstraint(fields=('journal_entry', 'line_number'), name='journal_line_number_unique'),
+            model_name="journalline",
+            constraint=models.UniqueConstraint(
+                fields=("journal_entry", "line_number"), name="journal_line_number_unique"
+            ),
         ),
         migrations.AddConstraint(
-            model_name='journalline',
-            constraint=models.CheckConstraint(condition=models.Q(models.Q(('credit__gt', 0), ('debit', 0)), models.Q(('credit', 0), ('debit__gt', 0)), _connector='OR'), name='journal_line_one_side_only'),
+            model_name="journalline",
+            constraint=models.CheckConstraint(
+                condition=models.Q(
+                    models.Q(("credit__gt", 0), ("debit", 0)),
+                    models.Q(("credit", 0), ("debit__gt", 0)),
+                    _connector="OR",
+                ),
+                name="journal_line_one_side_only",
+            ),
         ),
         migrations.AddConstraint(
-            model_name='journalline',
-            constraint=models.CheckConstraint(condition=models.Q(('debit__gte', 0), ('credit__gte', 0)), name='journal_line_amounts_not_negative'),
+            model_name="journalline",
+            constraint=models.CheckConstraint(
+                condition=models.Q(("debit__gte", 0), ("credit__gte", 0)),
+                name="journal_line_amounts_not_negative",
+            ),
         ),
         migrations.AddConstraint(
-            model_name='journalline',
-            constraint=models.CheckConstraint(condition=models.Q(('exchange_rate__gt', 0)), name='journal_line_rate_positive'),
+            model_name="journalline",
+            constraint=models.CheckConstraint(
+                condition=models.Q(("exchange_rate__gt", 0)), name="journal_line_rate_positive"
+            ),
         ),
         migrations.AddConstraint(
-            model_name='journalline',
-            constraint=models.CheckConstraint(condition=models.Q(('quantity__isnull', True), ('uom_id__isnull', False), _connector='OR'), name='journal_line_quantity_has_unit'),
+            model_name="journalline",
+            constraint=models.CheckConstraint(
+                condition=models.Q(
+                    ("quantity__isnull", True), ("uom_id__isnull", False), _connector="OR"
+                ),
+                name="journal_line_quantity_has_unit",
+            ),
         ),
         # Table and policy in one transaction (C30). The triggers are the three
         # invariants Django cannot express: the balance checked at commit,
@@ -192,6 +395,7 @@ class Migration(migrations.Migration):
         run_sql_file(
             "0036_ledger",
             up_sha256="38b36a4e2f9851c9666175251c6ba33cd617a9759c916551d9e957677fccbc42",
-            down_sha256="ab7ab72662069b609295d3a85b304006d07adfd3bc9072587f31ef0aa6f27c5b",
+            down_sha256="b560a0b60d69199c08346224edd13eb2052d3d88822407a778eaa9ecb5562421",
+            down_name="0036_ledger_reverse",
         ),
     ]

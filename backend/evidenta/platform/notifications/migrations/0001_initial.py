@@ -74,6 +74,7 @@ class Migration(migrations.Migration):
             run_sql_file(
             "0030_notifications",
             up_sha256="e9a016811908ecd582ea1f802cd8d8ed18643e443b3b1cfc7a37da1471828873",
-            down_sha256="7e5cd90a594419930b91efb42689a1d97c47ea77dbe19b4a2e18246837dc0532",
+            down_sha256="17efb9f841906e53eeee0df7d2ba681f58a798d61ac5ceb11a53762f24d350d3",
+            down_name="0030_notifications_reverse",
         ),
     ]

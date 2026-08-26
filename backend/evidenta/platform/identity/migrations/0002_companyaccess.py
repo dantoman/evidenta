@@ -42,6 +42,7 @@ class Migration(migrations.Migration):
         run_sql_file(
             "0014_company_access",
             up_sha256="bac73adf62979849f812a981e846771263de412294c8a8791cbcc87670fe7cd4",
-            down_sha256="203f130f388499c6e06b2b056430d8cab5f7aa6e67ee409aaa01d3a61075425c",
+            down_sha256="5a1e86c9d7736930164116b981a0c66884995910f2a2711385d9dcf60657574c",
+            down_name="0014_company_access_reverse",
         ),
     ]

@@ -7,103 +7,255 @@ from django.db import migrations, models
 from evidenta.platform.rls.sql import run_sql_file
 
 
-class Migration(migrations.Migration):
+#: Reversibility, declared rather than assumed -- `OD-64`. A migration that
+#: touches `journal_entry`, `journal_line` or the periods says one of two things
+#: and never stays silent in between:
+#:
+#:   "reversible-tested"  the reverse runs, and a round trip is exercised in
+#:                        tests/schema_guard/test_reverse_sql.py under the role
+#:                        that will actually run it
+#:   "irreversible"       the reverse cannot restore the prior state; Django
+#:                        raises rather than pretending. Never a noop -- a noop
+#:                        runs, does not fail, and leaves the database in a state
+#:                        nobody described.
+#:
+#: This one desfaces structure only: policies, triggers, functions, collation.
+#: No row is deleted by the reverse; the tables themselves go with the Django
+#: operations above it.
+REVERSIBILITY = "reversible-tested"
 
+
+class Migration(migrations.Migration):
     initial = True
 
     dependencies = [
-        ('tenancy', '0005_resolver_grant'),
+        ("tenancy", "0005_resolver_grant"),
     ]
 
     operations = [
         migrations.CreateModel(
-            name='OperationTemplate',
+            name="OperationTemplate",
             fields=[
-                ('id', models.UUIDField(default=uuid.uuid4, editable=False, primary_key=True, serialize=False)),
-                ('name', models.TextField()),
-                ('entry_description', models.TextField()),
-                ('is_active', models.BooleanField(default=True)),
-                ('created_at', models.DateTimeField(auto_now_add=True)),
-                ('updated_at', models.DateTimeField(auto_now=True)),
-                ('company', models.ForeignKey(db_column='company_id', on_delete=django.db.models.deletion.PROTECT, to='tenancy.company')),
-                ('tenant', models.ForeignKey(db_column='tenant_id', on_delete=django.db.models.deletion.PROTECT, to='tenancy.tenant')),
+                (
+                    "id",
+                    models.UUIDField(
+                        default=uuid.uuid4, editable=False, primary_key=True, serialize=False
+                    ),
+                ),
+                ("name", models.TextField()),
+                ("entry_description", models.TextField()),
+                ("is_active", models.BooleanField(default=True)),
+                ("created_at", models.DateTimeField(auto_now_add=True)),
+                ("updated_at", models.DateTimeField(auto_now=True)),
+                (
+                    "company",
+                    models.ForeignKey(
+                        db_column="company_id",
+                        on_delete=django.db.models.deletion.PROTECT,
+                        to="tenancy.company",
+                    ),
+                ),
+                (
+                    "tenant",
+                    models.ForeignKey(
+                        db_column="tenant_id",
+                        on_delete=django.db.models.deletion.PROTECT,
+                        to="tenancy.tenant",
+                    ),
+                ),
             ],
             options={
-                'db_table': 'operation_template',
+                "db_table": "operation_template",
             },
         ),
         migrations.CreateModel(
-            name='OperationTemplateLine',
+            name="OperationTemplateLine",
             fields=[
-                ('id', models.UUIDField(default=uuid.uuid4, editable=False, primary_key=True, serialize=False)),
-                ('line_number', models.IntegerField()),
-                ('account_id', models.UUIDField()),
-                ('side', models.TextField(choices=[('debit', 'Debit'), ('credit', 'Credit')])),
-                ('fixed_amount', models.DecimalField(blank=True, decimal_places=4, max_digits=20, null=True)),
-                ('input_key', models.TextField(blank=True, null=True)),
-                ('description', models.TextField(blank=True, null=True)),
-                ('company', models.ForeignKey(db_column='company_id', on_delete=django.db.models.deletion.PROTECT, to='tenancy.company')),
-                ('template', models.ForeignKey(db_column='template_id', on_delete=django.db.models.deletion.CASCADE, related_name='lines', to='posting.operationtemplate')),
-                ('tenant', models.ForeignKey(db_column='tenant_id', on_delete=django.db.models.deletion.PROTECT, to='tenancy.tenant')),
+                (
+                    "id",
+                    models.UUIDField(
+                        default=uuid.uuid4, editable=False, primary_key=True, serialize=False
+                    ),
+                ),
+                ("line_number", models.IntegerField()),
+                ("account_id", models.UUIDField()),
+                ("side", models.TextField(choices=[("debit", "Debit"), ("credit", "Credit")])),
+                (
+                    "fixed_amount",
+                    models.DecimalField(blank=True, decimal_places=4, max_digits=20, null=True),
+                ),
+                ("input_key", models.TextField(blank=True, null=True)),
+                ("description", models.TextField(blank=True, null=True)),
+                (
+                    "company",
+                    models.ForeignKey(
+                        db_column="company_id",
+                        on_delete=django.db.models.deletion.PROTECT,
+                        to="tenancy.company",
+                    ),
+                ),
+                (
+                    "template",
+                    models.ForeignKey(
+                        db_column="template_id",
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="lines",
+                        to="posting.operationtemplate",
+                    ),
+                ),
+                (
+                    "tenant",
+                    models.ForeignKey(
+                        db_column="tenant_id",
+                        on_delete=django.db.models.deletion.PROTECT,
+                        to="tenancy.tenant",
+                    ),
+                ),
             ],
             options={
-                'db_table': 'operation_template_line',
+                "db_table": "operation_template_line",
             },
         ),
         migrations.CreateModel(
-            name='OperationTemplateDimension',
+            name="OperationTemplateDimension",
             fields=[
-                ('id', models.UUIDField(default=uuid.uuid4, editable=False, primary_key=True, serialize=False)),
-                ('dimension', models.TextField()),
-                ('fixed_value_id', models.UUIDField(blank=True, null=True)),
-                ('input_key', models.TextField(blank=True, null=True)),
-                ('company', models.ForeignKey(db_column='company_id', on_delete=django.db.models.deletion.PROTECT, to='tenancy.company')),
-                ('tenant', models.ForeignKey(db_column='tenant_id', on_delete=django.db.models.deletion.PROTECT, to='tenancy.tenant')),
-                ('line', models.ForeignKey(db_column='line_id', on_delete=django.db.models.deletion.CASCADE, related_name='dimensions', to='posting.operationtemplateline')),
+                (
+                    "id",
+                    models.UUIDField(
+                        default=uuid.uuid4, editable=False, primary_key=True, serialize=False
+                    ),
+                ),
+                ("dimension", models.TextField()),
+                ("fixed_value_id", models.UUIDField(blank=True, null=True)),
+                ("input_key", models.TextField(blank=True, null=True)),
+                (
+                    "company",
+                    models.ForeignKey(
+                        db_column="company_id",
+                        on_delete=django.db.models.deletion.PROTECT,
+                        to="tenancy.company",
+                    ),
+                ),
+                (
+                    "tenant",
+                    models.ForeignKey(
+                        db_column="tenant_id",
+                        on_delete=django.db.models.deletion.PROTECT,
+                        to="tenancy.tenant",
+                    ),
+                ),
+                (
+                    "line",
+                    models.ForeignKey(
+                        db_column="line_id",
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="dimensions",
+                        to="posting.operationtemplateline",
+                    ),
+                ),
             ],
             options={
-                'db_table': 'operation_template_dimension',
+                "db_table": "operation_template_dimension",
             },
         ),
         migrations.AddIndex(
-            model_name='operationtemplate',
-            index=models.Index(fields=['tenant', 'company', 'is_active'], name='operation_template_company'),
+            model_name="operationtemplate",
+            index=models.Index(
+                fields=["tenant", "company", "is_active"], name="operation_template_company"
+            ),
         ),
         migrations.AddConstraint(
-            model_name='operationtemplate',
-            constraint=models.UniqueConstraint(condition=models.Q(('is_active', True)), fields=('company', 'name'), name='operation_template_name_unique'),
+            model_name="operationtemplate",
+            constraint=models.UniqueConstraint(
+                condition=models.Q(("is_active", True)),
+                fields=("company", "name"),
+                name="operation_template_name_unique",
+            ),
         ),
         migrations.AddConstraint(
-            model_name='operationtemplateline',
-            constraint=models.UniqueConstraint(fields=('template', 'line_number'), name='operation_template_line_number_unique'),
+            model_name="operationtemplateline",
+            constraint=models.UniqueConstraint(
+                fields=("template", "line_number"), name="operation_template_line_number_unique"
+            ),
         ),
         migrations.AddConstraint(
-            model_name='operationtemplateline',
-            constraint=models.CheckConstraint(condition=models.Q(('side__in', ['debit', 'credit'])), name='operation_template_line_side_valid'),
+            model_name="operationtemplateline",
+            constraint=models.CheckConstraint(
+                condition=models.Q(("side__in", ["debit", "credit"])),
+                name="operation_template_line_side_valid",
+            ),
         ),
         migrations.AddConstraint(
-            model_name='operationtemplateline',
-            constraint=models.CheckConstraint(condition=models.Q(('line_number__gt', 0)), name='operation_template_line_number_valid'),
+            model_name="operationtemplateline",
+            constraint=models.CheckConstraint(
+                condition=models.Q(("line_number__gt", 0)),
+                name="operation_template_line_number_valid",
+            ),
         ),
         migrations.AddConstraint(
-            model_name='operationtemplateline',
-            constraint=models.CheckConstraint(condition=models.Q(models.Q(('fixed_amount__isnull', True), ('input_key__isnull', False)), models.Q(('fixed_amount__isnull', False), ('input_key__isnull', True)), _connector='OR'), name='operation_template_line_one_amount_source'),
+            model_name="operationtemplateline",
+            constraint=models.CheckConstraint(
+                condition=models.Q(
+                    models.Q(("fixed_amount__isnull", True), ("input_key__isnull", False)),
+                    models.Q(("fixed_amount__isnull", False), ("input_key__isnull", True)),
+                    _connector="OR",
+                ),
+                name="operation_template_line_one_amount_source",
+            ),
         ),
         migrations.AddConstraint(
-            model_name='operationtemplateline',
-            constraint=models.CheckConstraint(condition=models.Q(('fixed_amount__isnull', True), ('fixed_amount__gt', 0), _connector='OR'), name='operation_template_line_amount_positive'),
+            model_name="operationtemplateline",
+            constraint=models.CheckConstraint(
+                condition=models.Q(
+                    ("fixed_amount__isnull", True), ("fixed_amount__gt", 0), _connector="OR"
+                ),
+                name="operation_template_line_amount_positive",
+            ),
         ),
         migrations.AddConstraint(
-            model_name='operationtemplatedimension',
-            constraint=models.UniqueConstraint(fields=('line', 'dimension'), name='operation_template_dimension_unique'),
+            model_name="operationtemplatedimension",
+            constraint=models.UniqueConstraint(
+                fields=("line", "dimension"), name="operation_template_dimension_unique"
+            ),
         ),
         migrations.AddConstraint(
-            model_name='operationtemplatedimension',
-            constraint=models.CheckConstraint(condition=models.Q(('dimension__in', ['partner', 'item', 'employee', 'contract', 'warehouse', 'project', 'department', 'cost_center', 'asset', 'production_order', 'dim_1', 'dim_2', 'dim_3', 'dim_4', 'dim_5'])), name='operation_template_dimension_known'),
+            model_name="operationtemplatedimension",
+            constraint=models.CheckConstraint(
+                condition=models.Q(
+                    (
+                        "dimension__in",
+                        [
+                            "partner",
+                            "item",
+                            "employee",
+                            "contract",
+                            "warehouse",
+                            "project",
+                            "department",
+                            "cost_center",
+                            "asset",
+                            "production_order",
+                            "dim_1",
+                            "dim_2",
+                            "dim_3",
+                            "dim_4",
+                            "dim_5",
+                        ],
+                    )
+                ),
+                name="operation_template_dimension_known",
+            ),
         ),
         migrations.AddConstraint(
-            model_name='operationtemplatedimension',
-            constraint=models.CheckConstraint(condition=models.Q(models.Q(('fixed_value_id__isnull', True), ('input_key__isnull', False)), models.Q(('fixed_value_id__isnull', False), ('input_key__isnull', True)), _connector='OR'), name='operation_template_dimension_one_source'),
+            model_name="operationtemplatedimension",
+            constraint=models.CheckConstraint(
+                condition=models.Q(
+                    models.Q(("fixed_value_id__isnull", True), ("input_key__isnull", False)),
+                    models.Q(("fixed_value_id__isnull", False), ("input_key__isnull", True)),
+                    _connector="OR",
+                ),
+                name="operation_template_dimension_one_source",
+            ),
         ),
         # Table and policy in the same transaction -- C30. The composite keys
         # that stop a line from drifting to another company, the byte collation

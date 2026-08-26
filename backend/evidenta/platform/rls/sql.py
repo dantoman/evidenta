@@ -61,16 +61,30 @@ def _read(path: Path, expected_sha256: str) -> str:
     return body.decode("utf-8")
 
 
-def run_sql_file(name: str, *, up_sha256: str, down_sha256: str) -> migrations.RunSQL:
+def run_sql_file(
+    name: str, *, up_sha256: str, down_sha256: str, down_name: str | None = None
+) -> migrations.RunSQL:
     """Return a ``RunSQL`` operation for the ``name`` pair, checksum-verified.
 
     Expects ``infra/migrations/<name>.up.sql`` and ``<name>.down.sql``. The
     reverse file is not optional: without it the migration is irreversible, and
     an irreversible policy migration cannot be rolled back with the table it
     protects -- which is the whole point of putting them in one transaction.
+
+    ``down_name`` points the reverse at a **different** file, and exists for one
+    situation: a reverse that was written wrong and has already been applied
+    forward. Eight of them were -- they drop functions in schema `rls` as the
+    owner, and `evidenta_owner` is NOINHERIT, so the DROP dies with "must be
+    owner of function" (`OD-64`, ADR-043).
+
+    The broken file cannot be edited: `C31` makes an applied SQL file
+    append-only, and the history has to keep showing what ran. Nothing about the
+    forward direction changes here -- same file, same checksum. What changes is
+    which file the reverse reads, and that reverse had never run, so no history
+    is falsified by correcting it.
     """
     up = _read(SQL_ROOT / f"{name}.up.sql", up_sha256)
-    down = _read(SQL_ROOT / f"{name}.down.sql", down_sha256)
+    down = _read(SQL_ROOT / f"{down_name or name}.down.sql", down_sha256)
     return migrations.RunSQL(sql=up, reverse_sql=down)
 
 

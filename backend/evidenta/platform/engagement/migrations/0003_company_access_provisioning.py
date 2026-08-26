@@ -22,6 +22,7 @@ class Migration(migrations.Migration):
         run_sql_file(
             "0032_engagement_provisioning",
             up_sha256="54e653ce153e169a687c289c63b7dd95b939402cb1339457ba71c2eb34cf4bcd",
-            down_sha256="1c6e95bda5483a5fb5ec69463bcb9f943c829792c99eb1c6a472410b115bc2f2",
+            down_sha256="a3b7ed6bab1ae20a14e6a46bc891fadf2f36272d486b8c212de41c896ade78d4",
+            down_name="0032_engagement_provisioning_reverse",
         ),
     ]

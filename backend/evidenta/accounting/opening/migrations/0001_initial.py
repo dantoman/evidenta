@@ -7,305 +7,588 @@ from django.db import migrations, models
 from evidenta.platform.rls.sql import run_sql_file
 
 
-class Migration(migrations.Migration):
+#: Reversibility, declared rather than assumed -- `OD-64`. A migration that
+#: touches `journal_entry`, `journal_line` or the periods says one of two things
+#: and never stays silent in between:
+#:
+#:   "reversible-tested"  the reverse runs, and a round trip is exercised in
+#:                        tests/schema_guard/test_reverse_sql.py under the role
+#:                        that will actually run it
+#:   "irreversible"       the reverse cannot restore the prior state; Django
+#:                        raises rather than pretending. Never a noop -- a noop
+#:                        runs, does not fail, and leaves the database in a state
+#:                        nobody described.
+#:
+#: This one desfaces structure only: policies, triggers, functions, collation.
+#: No row is deleted by the reverse; the tables themselves go with the Django
+#: operations above it.
+REVERSIBILITY = "reversible-tested"
 
+
+class Migration(migrations.Migration):
     initial = True
 
     dependencies = [
-        ('ledger', '0001_initial'),
-        ('tenancy', '0005_resolver_grant'),
+        ("ledger", "0001_initial"),
+        ("tenancy", "0005_resolver_grant"),
     ]
 
     operations = [
         migrations.CreateModel(
-            name='OpeningBalanceBatch',
+            name="OpeningBalanceBatch",
             fields=[
-                ('id', models.UUIDField(default=uuid.uuid4, editable=False, primary_key=True, serialize=False)),
-                ('as_of_date', models.DateField()),
-                ('source', models.TextField(choices=[('manual', 'Manual'), ('onec_import', 'Onec Import'), ('other_system', 'Other System')])),
-                ('status', models.TextField(choices=[('draft', 'Draft'), ('validated', 'Validated'), ('posted', 'Posted'), ('rejected', 'Rejected')], default='draft')),
-                ('counterpart_account_id', models.UUIDField()),
-                ('created_by_user_id', models.UUIDField()),
-                ('validated_at', models.DateTimeField(blank=True, null=True)),
-                ('posted_at', models.DateTimeField(blank=True, null=True)),
-                ('rejected_at', models.DateTimeField(blank=True, null=True)),
-                ('rejected_reason', models.TextField(blank=True, null=True)),
-                ('created_at', models.DateTimeField(auto_now_add=True)),
-                ('updated_at', models.DateTimeField(auto_now=True)),
-                ('company', models.ForeignKey(db_column='company_id', on_delete=django.db.models.deletion.PROTECT, to='tenancy.company')),
-                ('journal_entry', models.ForeignKey(blank=True, db_column='journal_entry_id', null=True, on_delete=django.db.models.deletion.PROTECT, related_name='opening_batches', to='ledger.journalentry')),
-                ('tenant', models.ForeignKey(db_column='tenant_id', on_delete=django.db.models.deletion.PROTECT, to='tenancy.tenant')),
+                (
+                    "id",
+                    models.UUIDField(
+                        default=uuid.uuid4, editable=False, primary_key=True, serialize=False
+                    ),
+                ),
+                ("as_of_date", models.DateField()),
+                (
+                    "source",
+                    models.TextField(
+                        choices=[
+                            ("manual", "Manual"),
+                            ("onec_import", "Onec Import"),
+                            ("other_system", "Other System"),
+                        ]
+                    ),
+                ),
+                (
+                    "status",
+                    models.TextField(
+                        choices=[
+                            ("draft", "Draft"),
+                            ("validated", "Validated"),
+                            ("posted", "Posted"),
+                            ("rejected", "Rejected"),
+                        ],
+                        default="draft",
+                    ),
+                ),
+                ("counterpart_account_id", models.UUIDField()),
+                ("created_by_user_id", models.UUIDField()),
+                ("validated_at", models.DateTimeField(blank=True, null=True)),
+                ("posted_at", models.DateTimeField(blank=True, null=True)),
+                ("rejected_at", models.DateTimeField(blank=True, null=True)),
+                ("rejected_reason", models.TextField(blank=True, null=True)),
+                ("created_at", models.DateTimeField(auto_now_add=True)),
+                ("updated_at", models.DateTimeField(auto_now=True)),
+                (
+                    "company",
+                    models.ForeignKey(
+                        db_column="company_id",
+                        on_delete=django.db.models.deletion.PROTECT,
+                        to="tenancy.company",
+                    ),
+                ),
+                (
+                    "journal_entry",
+                    models.ForeignKey(
+                        blank=True,
+                        db_column="journal_entry_id",
+                        null=True,
+                        on_delete=django.db.models.deletion.PROTECT,
+                        related_name="opening_batches",
+                        to="ledger.journalentry",
+                    ),
+                ),
+                (
+                    "tenant",
+                    models.ForeignKey(
+                        db_column="tenant_id",
+                        on_delete=django.db.models.deletion.PROTECT,
+                        to="tenancy.tenant",
+                    ),
+                ),
             ],
             options={
-                'db_table': 'opening_balance_batch',
+                "db_table": "opening_balance_batch",
             },
         ),
         migrations.CreateModel(
-            name='OpeningBalanceAsset',
+            name="OpeningBalanceAsset",
             fields=[
-                ('id', models.UUIDField(default=uuid.uuid4, editable=False, primary_key=True, serialize=False)),
-                ('tenant_id', models.UUIDField()),
-                ('company_id', models.UUIDField()),
-                ('created_at', models.DateTimeField(auto_now_add=True)),
-                ('updated_at', models.DateTimeField(auto_now=True)),
-                ('asset_id', models.UUIDField()),
-                ('cost_account_id', models.UUIDField()),
-                ('depreciation_account_id', models.UUIDField()),
-                ('entry_cost', models.DecimalField(decimal_places=4, max_digits=20)),
-                ('accumulated_depreciation', models.DecimalField(decimal_places=4, default=0, max_digits=20)),
-                ('in_service_date', models.DateField()),
-                ('remaining_months', models.SmallIntegerField(blank=True, null=True)),
-                ('batch', models.ForeignKey(db_column='batch_id', on_delete=django.db.models.deletion.PROTECT, related_name='%(class)s_rows', to='opening.openingbalancebatch')),
+                (
+                    "id",
+                    models.UUIDField(
+                        default=uuid.uuid4, editable=False, primary_key=True, serialize=False
+                    ),
+                ),
+                ("tenant_id", models.UUIDField()),
+                ("company_id", models.UUIDField()),
+                ("created_at", models.DateTimeField(auto_now_add=True)),
+                ("updated_at", models.DateTimeField(auto_now=True)),
+                ("asset_id", models.UUIDField()),
+                ("cost_account_id", models.UUIDField()),
+                ("depreciation_account_id", models.UUIDField()),
+                ("entry_cost", models.DecimalField(decimal_places=4, max_digits=20)),
+                (
+                    "accumulated_depreciation",
+                    models.DecimalField(decimal_places=4, default=0, max_digits=20),
+                ),
+                ("in_service_date", models.DateField()),
+                ("remaining_months", models.SmallIntegerField(blank=True, null=True)),
+                (
+                    "batch",
+                    models.ForeignKey(
+                        db_column="batch_id",
+                        on_delete=django.db.models.deletion.PROTECT,
+                        related_name="%(class)s_rows",
+                        to="opening.openingbalancebatch",
+                    ),
+                ),
             ],
             options={
-                'db_table': 'opening_balance_asset',
+                "db_table": "opening_balance_asset",
             },
         ),
         migrations.CreateModel(
-            name='OpeningBalanceGl',
+            name="OpeningBalanceGl",
             fields=[
-                ('id', models.UUIDField(default=uuid.uuid4, editable=False, primary_key=True, serialize=False)),
-                ('tenant_id', models.UUIDField()),
-                ('company_id', models.UUIDField()),
-                ('created_at', models.DateTimeField(auto_now_add=True)),
-                ('updated_at', models.DateTimeField(auto_now=True)),
-                ('account_id', models.UUIDField()),
-                ('debit', models.DecimalField(decimal_places=4, default=0, max_digits=20)),
-                ('credit', models.DecimalField(decimal_places=4, default=0, max_digits=20)),
-                ('currency', models.CharField(blank=True, max_length=3, null=True)),
-                ('amount_currency', models.DecimalField(blank=True, decimal_places=4, max_digits=20, null=True)),
-                ('batch', models.ForeignKey(db_column='batch_id', on_delete=django.db.models.deletion.PROTECT, related_name='%(class)s_rows', to='opening.openingbalancebatch')),
+                (
+                    "id",
+                    models.UUIDField(
+                        default=uuid.uuid4, editable=False, primary_key=True, serialize=False
+                    ),
+                ),
+                ("tenant_id", models.UUIDField()),
+                ("company_id", models.UUIDField()),
+                ("created_at", models.DateTimeField(auto_now_add=True)),
+                ("updated_at", models.DateTimeField(auto_now=True)),
+                ("account_id", models.UUIDField()),
+                ("debit", models.DecimalField(decimal_places=4, default=0, max_digits=20)),
+                ("credit", models.DecimalField(decimal_places=4, default=0, max_digits=20)),
+                ("currency", models.CharField(blank=True, max_length=3, null=True)),
+                (
+                    "amount_currency",
+                    models.DecimalField(blank=True, decimal_places=4, max_digits=20, null=True),
+                ),
+                (
+                    "batch",
+                    models.ForeignKey(
+                        db_column="batch_id",
+                        on_delete=django.db.models.deletion.PROTECT,
+                        related_name="%(class)s_rows",
+                        to="opening.openingbalancebatch",
+                    ),
+                ),
             ],
             options={
-                'db_table': 'opening_balance_gl',
+                "db_table": "opening_balance_gl",
             },
         ),
         migrations.CreateModel(
-            name='OpeningBalanceInventory',
+            name="OpeningBalanceInventory",
             fields=[
-                ('id', models.UUIDField(default=uuid.uuid4, editable=False, primary_key=True, serialize=False)),
-                ('tenant_id', models.UUIDField()),
-                ('company_id', models.UUIDField()),
-                ('created_at', models.DateTimeField(auto_now_add=True)),
-                ('updated_at', models.DateTimeField(auto_now=True)),
-                ('account_id', models.UUIDField()),
-                ('debit', models.DecimalField(decimal_places=4, default=0, max_digits=20)),
-                ('credit', models.DecimalField(decimal_places=4, default=0, max_digits=20)),
-                ('currency', models.CharField(blank=True, max_length=3, null=True)),
-                ('amount_currency', models.DecimalField(blank=True, decimal_places=4, max_digits=20, null=True)),
-                ('item_id', models.UUIDField()),
-                ('warehouse_id', models.UUIDField(blank=True, null=True)),
-                ('lot', models.TextField(blank=True, null=True)),
-                ('quantity', models.DecimalField(decimal_places=6, max_digits=20)),
-                ('uom_id', models.UUIDField()),
-                ('unit_cost', models.DecimalField(blank=True, decimal_places=6, max_digits=20, null=True)),
-                ('batch', models.ForeignKey(db_column='batch_id', on_delete=django.db.models.deletion.PROTECT, related_name='%(class)s_rows', to='opening.openingbalancebatch')),
+                (
+                    "id",
+                    models.UUIDField(
+                        default=uuid.uuid4, editable=False, primary_key=True, serialize=False
+                    ),
+                ),
+                ("tenant_id", models.UUIDField()),
+                ("company_id", models.UUIDField()),
+                ("created_at", models.DateTimeField(auto_now_add=True)),
+                ("updated_at", models.DateTimeField(auto_now=True)),
+                ("account_id", models.UUIDField()),
+                ("debit", models.DecimalField(decimal_places=4, default=0, max_digits=20)),
+                ("credit", models.DecimalField(decimal_places=4, default=0, max_digits=20)),
+                ("currency", models.CharField(blank=True, max_length=3, null=True)),
+                (
+                    "amount_currency",
+                    models.DecimalField(blank=True, decimal_places=4, max_digits=20, null=True),
+                ),
+                ("item_id", models.UUIDField()),
+                ("warehouse_id", models.UUIDField(blank=True, null=True)),
+                ("lot", models.TextField(blank=True, null=True)),
+                ("quantity", models.DecimalField(decimal_places=6, max_digits=20)),
+                ("uom_id", models.UUIDField()),
+                (
+                    "unit_cost",
+                    models.DecimalField(blank=True, decimal_places=6, max_digits=20, null=True),
+                ),
+                (
+                    "batch",
+                    models.ForeignKey(
+                        db_column="batch_id",
+                        on_delete=django.db.models.deletion.PROTECT,
+                        related_name="%(class)s_rows",
+                        to="opening.openingbalancebatch",
+                    ),
+                ),
             ],
             options={
-                'db_table': 'opening_balance_inventory',
+                "db_table": "opening_balance_inventory",
             },
         ),
         migrations.CreateModel(
-            name='OpeningBalancePayable',
+            name="OpeningBalancePayable",
             fields=[
-                ('id', models.UUIDField(default=uuid.uuid4, editable=False, primary_key=True, serialize=False)),
-                ('tenant_id', models.UUIDField()),
-                ('company_id', models.UUIDField()),
-                ('created_at', models.DateTimeField(auto_now_add=True)),
-                ('updated_at', models.DateTimeField(auto_now=True)),
-                ('account_id', models.UUIDField()),
-                ('debit', models.DecimalField(decimal_places=4, default=0, max_digits=20)),
-                ('credit', models.DecimalField(decimal_places=4, default=0, max_digits=20)),
-                ('currency', models.CharField(blank=True, max_length=3, null=True)),
-                ('amount_currency', models.DecimalField(blank=True, decimal_places=4, max_digits=20, null=True)),
-                ('partner_id', models.UUIDField()),
-                ('document_type', models.TextField(blank=True, null=True)),
-                ('document_number', models.TextField(blank=True, null=True)),
-                ('document_date', models.DateField(blank=True, null=True)),
-                ('due_date', models.DateField(blank=True, null=True)),
-                ('batch', models.ForeignKey(db_column='batch_id', on_delete=django.db.models.deletion.PROTECT, related_name='%(class)s_rows', to='opening.openingbalancebatch')),
+                (
+                    "id",
+                    models.UUIDField(
+                        default=uuid.uuid4, editable=False, primary_key=True, serialize=False
+                    ),
+                ),
+                ("tenant_id", models.UUIDField()),
+                ("company_id", models.UUIDField()),
+                ("created_at", models.DateTimeField(auto_now_add=True)),
+                ("updated_at", models.DateTimeField(auto_now=True)),
+                ("account_id", models.UUIDField()),
+                ("debit", models.DecimalField(decimal_places=4, default=0, max_digits=20)),
+                ("credit", models.DecimalField(decimal_places=4, default=0, max_digits=20)),
+                ("currency", models.CharField(blank=True, max_length=3, null=True)),
+                (
+                    "amount_currency",
+                    models.DecimalField(blank=True, decimal_places=4, max_digits=20, null=True),
+                ),
+                ("partner_id", models.UUIDField()),
+                ("document_type", models.TextField(blank=True, null=True)),
+                ("document_number", models.TextField(blank=True, null=True)),
+                ("document_date", models.DateField(blank=True, null=True)),
+                ("due_date", models.DateField(blank=True, null=True)),
+                (
+                    "batch",
+                    models.ForeignKey(
+                        db_column="batch_id",
+                        on_delete=django.db.models.deletion.PROTECT,
+                        related_name="%(class)s_rows",
+                        to="opening.openingbalancebatch",
+                    ),
+                ),
             ],
             options={
-                'db_table': 'opening_balance_payable',
+                "db_table": "opening_balance_payable",
             },
         ),
         migrations.CreateModel(
-            name='OpeningBalancePayrollCumulative',
+            name="OpeningBalancePayrollCumulative",
             fields=[
-                ('id', models.UUIDField(default=uuid.uuid4, editable=False, primary_key=True, serialize=False)),
-                ('tenant_id', models.UUIDField()),
-                ('company_id', models.UUIDField()),
-                ('created_at', models.DateTimeField(auto_now_add=True)),
-                ('updated_at', models.DateTimeField(auto_now=True)),
-                ('employee_id', models.UUIDField()),
-                ('code', models.TextField()),
-                ('amount', models.DecimalField(decimal_places=4, max_digits=20)),
-                ('from_date', models.DateField()),
-                ('batch', models.ForeignKey(db_column='batch_id', on_delete=django.db.models.deletion.PROTECT, related_name='%(class)s_rows', to='opening.openingbalancebatch')),
+                (
+                    "id",
+                    models.UUIDField(
+                        default=uuid.uuid4, editable=False, primary_key=True, serialize=False
+                    ),
+                ),
+                ("tenant_id", models.UUIDField()),
+                ("company_id", models.UUIDField()),
+                ("created_at", models.DateTimeField(auto_now_add=True)),
+                ("updated_at", models.DateTimeField(auto_now=True)),
+                ("employee_id", models.UUIDField()),
+                ("code", models.TextField()),
+                ("amount", models.DecimalField(decimal_places=4, max_digits=20)),
+                ("from_date", models.DateField()),
+                (
+                    "batch",
+                    models.ForeignKey(
+                        db_column="batch_id",
+                        on_delete=django.db.models.deletion.PROTECT,
+                        related_name="%(class)s_rows",
+                        to="opening.openingbalancebatch",
+                    ),
+                ),
             ],
             options={
-                'db_table': 'opening_balance_payroll_cumulative',
+                "db_table": "opening_balance_payroll_cumulative",
             },
         ),
         migrations.CreateModel(
-            name='OpeningBalanceReceivable',
+            name="OpeningBalanceReceivable",
             fields=[
-                ('id', models.UUIDField(default=uuid.uuid4, editable=False, primary_key=True, serialize=False)),
-                ('tenant_id', models.UUIDField()),
-                ('company_id', models.UUIDField()),
-                ('created_at', models.DateTimeField(auto_now_add=True)),
-                ('updated_at', models.DateTimeField(auto_now=True)),
-                ('account_id', models.UUIDField()),
-                ('debit', models.DecimalField(decimal_places=4, default=0, max_digits=20)),
-                ('credit', models.DecimalField(decimal_places=4, default=0, max_digits=20)),
-                ('currency', models.CharField(blank=True, max_length=3, null=True)),
-                ('amount_currency', models.DecimalField(blank=True, decimal_places=4, max_digits=20, null=True)),
-                ('partner_id', models.UUIDField()),
-                ('document_type', models.TextField(blank=True, null=True)),
-                ('document_number', models.TextField(blank=True, null=True)),
-                ('document_date', models.DateField(blank=True, null=True)),
-                ('due_date', models.DateField(blank=True, null=True)),
-                ('batch', models.ForeignKey(db_column='batch_id', on_delete=django.db.models.deletion.PROTECT, related_name='%(class)s_rows', to='opening.openingbalancebatch')),
+                (
+                    "id",
+                    models.UUIDField(
+                        default=uuid.uuid4, editable=False, primary_key=True, serialize=False
+                    ),
+                ),
+                ("tenant_id", models.UUIDField()),
+                ("company_id", models.UUIDField()),
+                ("created_at", models.DateTimeField(auto_now_add=True)),
+                ("updated_at", models.DateTimeField(auto_now=True)),
+                ("account_id", models.UUIDField()),
+                ("debit", models.DecimalField(decimal_places=4, default=0, max_digits=20)),
+                ("credit", models.DecimalField(decimal_places=4, default=0, max_digits=20)),
+                ("currency", models.CharField(blank=True, max_length=3, null=True)),
+                (
+                    "amount_currency",
+                    models.DecimalField(blank=True, decimal_places=4, max_digits=20, null=True),
+                ),
+                ("partner_id", models.UUIDField()),
+                ("document_type", models.TextField(blank=True, null=True)),
+                ("document_number", models.TextField(blank=True, null=True)),
+                ("document_date", models.DateField(blank=True, null=True)),
+                ("due_date", models.DateField(blank=True, null=True)),
+                (
+                    "batch",
+                    models.ForeignKey(
+                        db_column="batch_id",
+                        on_delete=django.db.models.deletion.PROTECT,
+                        related_name="%(class)s_rows",
+                        to="opening.openingbalancebatch",
+                    ),
+                ),
             ],
             options={
-                'db_table': 'opening_balance_receivable',
+                "db_table": "opening_balance_receivable",
             },
         ),
         migrations.AddIndex(
-            model_name='openingbalancebatch',
-            index=models.Index(fields=['company', 'as_of_date'], name='opening_batch_company_date'),
+            model_name="openingbalancebatch",
+            index=models.Index(fields=["company", "as_of_date"], name="opening_batch_company_date"),
         ),
         migrations.AddIndex(
-            model_name='openingbalancebatch',
-            index=models.Index(fields=['company', 'status'], name='opening_batch_company_status'),
+            model_name="openingbalancebatch",
+            index=models.Index(fields=["company", "status"], name="opening_batch_company_status"),
         ),
         migrations.AddConstraint(
-            model_name='openingbalancebatch',
-            constraint=models.CheckConstraint(condition=models.Q(('source__in', ['manual', 'onec_import', 'other_system'])), name='opening_balance_batch_source_valid'),
+            model_name="openingbalancebatch",
+            constraint=models.CheckConstraint(
+                condition=models.Q(("source__in", ["manual", "onec_import", "other_system"])),
+                name="opening_balance_batch_source_valid",
+            ),
         ),
         migrations.AddConstraint(
-            model_name='openingbalancebatch',
-            constraint=models.CheckConstraint(condition=models.Q(('status__in', ['draft', 'validated', 'posted', 'rejected'])), name='opening_balance_batch_status_valid'),
+            model_name="openingbalancebatch",
+            constraint=models.CheckConstraint(
+                condition=models.Q(("status__in", ["draft", "validated", "posted", "rejected"])),
+                name="opening_balance_batch_status_valid",
+            ),
         ),
         migrations.AddConstraint(
-            model_name='openingbalancebatch',
-            constraint=models.CheckConstraint(condition=models.Q(models.Q(('status', 'posted'), _negated=True), models.Q(('posted_at__isnull', False), ('journal_entry__isnull', False)), _connector='OR'), name='opening_balance_batch_posted_names_entry'),
+            model_name="openingbalancebatch",
+            constraint=models.CheckConstraint(
+                condition=models.Q(
+                    models.Q(("status", "posted"), _negated=True),
+                    models.Q(("posted_at__isnull", False), ("journal_entry__isnull", False)),
+                    _connector="OR",
+                ),
+                name="opening_balance_batch_posted_names_entry",
+            ),
         ),
         migrations.AddConstraint(
-            model_name='openingbalancebatch',
-            constraint=models.CheckConstraint(condition=models.Q(('journal_entry__isnull', True), ('status', 'posted'), _connector='OR'), name='opening_balance_batch_entry_only_when_posted'),
+            model_name="openingbalancebatch",
+            constraint=models.CheckConstraint(
+                condition=models.Q(
+                    ("journal_entry__isnull", True), ("status", "posted"), _connector="OR"
+                ),
+                name="opening_balance_batch_entry_only_when_posted",
+            ),
         ),
         migrations.AddConstraint(
-            model_name='openingbalancebatch',
-            constraint=models.CheckConstraint(condition=models.Q(models.Q(('status__in', ['validated', 'posted']), _negated=True), ('validated_at__isnull', False), _connector='OR'), name='opening_balance_batch_validated_has_timestamp'),
+            model_name="openingbalancebatch",
+            constraint=models.CheckConstraint(
+                condition=models.Q(
+                    models.Q(("status__in", ["validated", "posted"]), _negated=True),
+                    ("validated_at__isnull", False),
+                    _connector="OR",
+                ),
+                name="opening_balance_batch_validated_has_timestamp",
+            ),
         ),
         migrations.AddConstraint(
-            model_name='openingbalancebatch',
-            constraint=models.CheckConstraint(condition=models.Q(models.Q(('status', 'rejected'), _negated=True), ('rejected_at__isnull', False), _connector='OR'), name='opening_balance_batch_rejected_has_timestamp'),
+            model_name="openingbalancebatch",
+            constraint=models.CheckConstraint(
+                condition=models.Q(
+                    models.Q(("status", "rejected"), _negated=True),
+                    ("rejected_at__isnull", False),
+                    _connector="OR",
+                ),
+                name="opening_balance_batch_rejected_has_timestamp",
+            ),
         ),
         migrations.AddIndex(
-            model_name='openingbalanceasset',
-            index=models.Index(fields=['batch', 'cost_account_id'], name='opening_asset_cost_account'),
+            model_name="openingbalanceasset",
+            index=models.Index(
+                fields=["batch", "cost_account_id"], name="opening_asset_cost_account"
+            ),
         ),
         migrations.AddIndex(
-            model_name='openingbalanceasset',
-            index=models.Index(fields=['company_id', 'asset_id'], name='opening_asset_identity'),
+            model_name="openingbalanceasset",
+            index=models.Index(fields=["company_id", "asset_id"], name="opening_asset_identity"),
         ),
         migrations.AddConstraint(
-            model_name='openingbalanceasset',
-            constraint=models.UniqueConstraint(fields=('batch', 'asset_id'), name='opening_balance_asset_unique'),
+            model_name="openingbalanceasset",
+            constraint=models.UniqueConstraint(
+                fields=("batch", "asset_id"), name="opening_balance_asset_unique"
+            ),
         ),
         migrations.AddConstraint(
-            model_name='openingbalanceasset',
-            constraint=models.CheckConstraint(condition=models.Q(('entry_cost__gt', 0)), name='opening_balance_asset_cost_positive'),
+            model_name="openingbalanceasset",
+            constraint=models.CheckConstraint(
+                condition=models.Q(("entry_cost__gt", 0)),
+                name="opening_balance_asset_cost_positive",
+            ),
         ),
         migrations.AddConstraint(
-            model_name='openingbalanceasset',
-            constraint=models.CheckConstraint(condition=models.Q(('accumulated_depreciation__gte', 0)), name='opening_balance_asset_depreciation_not_negative'),
+            model_name="openingbalanceasset",
+            constraint=models.CheckConstraint(
+                condition=models.Q(("accumulated_depreciation__gte", 0)),
+                name="opening_balance_asset_depreciation_not_negative",
+            ),
         ),
         migrations.AddConstraint(
-            model_name='openingbalanceasset',
-            constraint=models.CheckConstraint(condition=models.Q(('remaining_months__isnull', True), ('remaining_months__gte', 0), _connector='OR'), name='opening_balance_asset_remaining_not_negative'),
+            model_name="openingbalanceasset",
+            constraint=models.CheckConstraint(
+                condition=models.Q(
+                    ("remaining_months__isnull", True),
+                    ("remaining_months__gte", 0),
+                    _connector="OR",
+                ),
+                name="opening_balance_asset_remaining_not_negative",
+            ),
         ),
         migrations.AddConstraint(
-            model_name='openingbalanceasset',
-            constraint=models.CheckConstraint(condition=models.Q(('cost_account_id', models.F('depreciation_account_id')), _negated=True), name='opening_balance_asset_two_accounts'),
+            model_name="openingbalanceasset",
+            constraint=models.CheckConstraint(
+                condition=models.Q(
+                    ("cost_account_id", models.F("depreciation_account_id")), _negated=True
+                ),
+                name="opening_balance_asset_two_accounts",
+            ),
         ),
         migrations.AddIndex(
-            model_name='openingbalancegl',
-            index=models.Index(fields=['company_id', 'batch'], name='opening_gl_company_batch'),
+            model_name="openingbalancegl",
+            index=models.Index(fields=["company_id", "batch"], name="opening_gl_company_batch"),
         ),
         migrations.AddConstraint(
-            model_name='openingbalancegl',
-            constraint=models.UniqueConstraint(fields=('batch', 'account_id'), name='opening_balance_gl_account_unique'),
+            model_name="openingbalancegl",
+            constraint=models.UniqueConstraint(
+                fields=("batch", "account_id"), name="opening_balance_gl_account_unique"
+            ),
         ),
         migrations.AddConstraint(
-            model_name='openingbalancegl',
-            constraint=models.CheckConstraint(condition=models.Q(models.Q(('credit__gt', 0), ('debit', 0)), models.Q(('credit', 0), ('debit__gt', 0)), _connector='OR'), name='opening_balance_gl_one_side_only'),
+            model_name="openingbalancegl",
+            constraint=models.CheckConstraint(
+                condition=models.Q(
+                    models.Q(("credit__gt", 0), ("debit", 0)),
+                    models.Q(("credit", 0), ("debit__gt", 0)),
+                    _connector="OR",
+                ),
+                name="opening_balance_gl_one_side_only",
+            ),
         ),
         migrations.AddConstraint(
-            model_name='openingbalancegl',
-            constraint=models.CheckConstraint(condition=models.Q(models.Q(('amount_currency__isnull', True), ('currency__isnull', True)), models.Q(('amount_currency__isnull', False), ('currency__isnull', False)), _connector='OR'), name='opening_balance_gl_currency_pairs'),
+            model_name="openingbalancegl",
+            constraint=models.CheckConstraint(
+                condition=models.Q(
+                    models.Q(("amount_currency__isnull", True), ("currency__isnull", True)),
+                    models.Q(("amount_currency__isnull", False), ("currency__isnull", False)),
+                    _connector="OR",
+                ),
+                name="opening_balance_gl_currency_pairs",
+            ),
         ),
         migrations.AddIndex(
-            model_name='openingbalanceinventory',
-            index=models.Index(fields=['batch', 'account_id'], name='opening_inventory_account'),
+            model_name="openingbalanceinventory",
+            index=models.Index(fields=["batch", "account_id"], name="opening_inventory_account"),
         ),
         migrations.AddIndex(
-            model_name='openingbalanceinventory',
-            index=models.Index(fields=['company_id', 'item_id'], name='opening_inventory_item'),
+            model_name="openingbalanceinventory",
+            index=models.Index(fields=["company_id", "item_id"], name="opening_inventory_item"),
         ),
         migrations.AddConstraint(
-            model_name='openingbalanceinventory',
-            constraint=models.CheckConstraint(condition=models.Q(models.Q(('credit__gt', 0), ('debit', 0)), models.Q(('credit', 0), ('debit__gt', 0)), _connector='OR'), name='opening_balance_inventory_one_side_only'),
+            model_name="openingbalanceinventory",
+            constraint=models.CheckConstraint(
+                condition=models.Q(
+                    models.Q(("credit__gt", 0), ("debit", 0)),
+                    models.Q(("credit", 0), ("debit__gt", 0)),
+                    _connector="OR",
+                ),
+                name="opening_balance_inventory_one_side_only",
+            ),
         ),
         migrations.AddConstraint(
-            model_name='openingbalanceinventory',
-            constraint=models.CheckConstraint(condition=models.Q(models.Q(('amount_currency__isnull', True), ('currency__isnull', True)), models.Q(('amount_currency__isnull', False), ('currency__isnull', False)), _connector='OR'), name='opening_balance_inventory_currency_pairs'),
+            model_name="openingbalanceinventory",
+            constraint=models.CheckConstraint(
+                condition=models.Q(
+                    models.Q(("amount_currency__isnull", True), ("currency__isnull", True)),
+                    models.Q(("amount_currency__isnull", False), ("currency__isnull", False)),
+                    _connector="OR",
+                ),
+                name="opening_balance_inventory_currency_pairs",
+            ),
         ),
         migrations.AddConstraint(
-            model_name='openingbalanceinventory',
-            constraint=models.CheckConstraint(condition=models.Q(('quantity__gt', 0)), name='opening_balance_inventory_has_quantity'),
+            model_name="openingbalanceinventory",
+            constraint=models.CheckConstraint(
+                condition=models.Q(("quantity__gt", 0)),
+                name="opening_balance_inventory_has_quantity",
+            ),
         ),
         migrations.AddIndex(
-            model_name='openingbalancepayable',
-            index=models.Index(fields=['batch', 'account_id'], name='opening_payable_account'),
+            model_name="openingbalancepayable",
+            index=models.Index(fields=["batch", "account_id"], name="opening_payable_account"),
         ),
         migrations.AddIndex(
-            model_name='openingbalancepayable',
-            index=models.Index(fields=['company_id', 'partner_id'], name='opening_payable_partner'),
+            model_name="openingbalancepayable",
+            index=models.Index(fields=["company_id", "partner_id"], name="opening_payable_partner"),
         ),
         migrations.AddConstraint(
-            model_name='openingbalancepayable',
-            constraint=models.CheckConstraint(condition=models.Q(models.Q(('credit__gt', 0), ('debit', 0)), models.Q(('credit', 0), ('debit__gt', 0)), _connector='OR'), name='opening_balance_payable_one_side_only'),
+            model_name="openingbalancepayable",
+            constraint=models.CheckConstraint(
+                condition=models.Q(
+                    models.Q(("credit__gt", 0), ("debit", 0)),
+                    models.Q(("credit", 0), ("debit__gt", 0)),
+                    _connector="OR",
+                ),
+                name="opening_balance_payable_one_side_only",
+            ),
         ),
         migrations.AddConstraint(
-            model_name='openingbalancepayable',
-            constraint=models.CheckConstraint(condition=models.Q(models.Q(('amount_currency__isnull', True), ('currency__isnull', True)), models.Q(('amount_currency__isnull', False), ('currency__isnull', False)), _connector='OR'), name='opening_balance_payable_currency_pairs'),
+            model_name="openingbalancepayable",
+            constraint=models.CheckConstraint(
+                condition=models.Q(
+                    models.Q(("amount_currency__isnull", True), ("currency__isnull", True)),
+                    models.Q(("amount_currency__isnull", False), ("currency__isnull", False)),
+                    _connector="OR",
+                ),
+                name="opening_balance_payable_currency_pairs",
+            ),
         ),
         migrations.AddIndex(
-            model_name='openingbalancepayrollcumulative',
-            index=models.Index(fields=['company_id', 'employee_id'], name='opening_payroll_employee'),
+            model_name="openingbalancepayrollcumulative",
+            index=models.Index(
+                fields=["company_id", "employee_id"], name="opening_payroll_employee"
+            ),
         ),
         migrations.AddConstraint(
-            model_name='openingbalancepayrollcumulative',
-            constraint=models.UniqueConstraint(fields=('batch', 'employee_id', 'code'), name='opening_balance_payroll_unique'),
+            model_name="openingbalancepayrollcumulative",
+            constraint=models.UniqueConstraint(
+                fields=("batch", "employee_id", "code"), name="opening_balance_payroll_unique"
+            ),
         ),
         migrations.AddIndex(
-            model_name='openingbalancereceivable',
-            index=models.Index(fields=['batch', 'account_id'], name='opening_receivable_account'),
+            model_name="openingbalancereceivable",
+            index=models.Index(fields=["batch", "account_id"], name="opening_receivable_account"),
         ),
         migrations.AddIndex(
-            model_name='openingbalancereceivable',
-            index=models.Index(fields=['company_id', 'partner_id'], name='opening_receivable_partner'),
+            model_name="openingbalancereceivable",
+            index=models.Index(
+                fields=["company_id", "partner_id"], name="opening_receivable_partner"
+            ),
         ),
         migrations.AddConstraint(
-            model_name='openingbalancereceivable',
-            constraint=models.CheckConstraint(condition=models.Q(models.Q(('credit__gt', 0), ('debit', 0)), models.Q(('credit', 0), ('debit__gt', 0)), _connector='OR'), name='opening_balance_receivable_one_side_only'),
+            model_name="openingbalancereceivable",
+            constraint=models.CheckConstraint(
+                condition=models.Q(
+                    models.Q(("credit__gt", 0), ("debit", 0)),
+                    models.Q(("credit", 0), ("debit__gt", 0)),
+                    _connector="OR",
+                ),
+                name="opening_balance_receivable_one_side_only",
+            ),
         ),
         migrations.AddConstraint(
-            model_name='openingbalancereceivable',
-            constraint=models.CheckConstraint(condition=models.Q(models.Q(('amount_currency__isnull', True), ('currency__isnull', True)), models.Q(('amount_currency__isnull', False), ('currency__isnull', False)), _connector='OR'), name='opening_balance_receivable_currency_pairs'),
+            model_name="openingbalancereceivable",
+            constraint=models.CheckConstraint(
+                condition=models.Q(
+                    models.Q(("amount_currency__isnull", True), ("currency__isnull", True)),
+                    models.Q(("amount_currency__isnull", False), ("currency__isnull", False)),
+                    _connector="OR",
+                ),
+                name="opening_balance_receivable_currency_pairs",
+            ),
         ),
         # Tables and policies in one transaction (C30). The SQL carries what
         # Django cannot express: the collations of the two code columns (C34),

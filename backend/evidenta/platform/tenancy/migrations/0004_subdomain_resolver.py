@@ -17,6 +17,7 @@ class Migration(migrations.Migration):
         run_sql_file(
             "0016_subdomain_resolver",
             up_sha256="db2f076742fa3160bbe834b68858a224a74205ae8a9d611a1b594f4060fdf477",
-            down_sha256="98d8294e6267233b2897aebafa5b145acfd2db821dfea6f9863b403d7d9f8007",
+            down_sha256="9418b0a670b95769508137d4f535d2e9c84e7a5bcda40f7477836757297f3653",
+            down_name="0016_subdomain_resolver_reverse",
         ),
     ]

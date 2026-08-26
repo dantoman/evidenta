@@ -7,30 +7,82 @@ from django.db import migrations, models
 from evidenta.platform.rls.sql import run_sql_file
 
 
-class Migration(migrations.Migration):
+#: Reversibility, declared rather than assumed -- `OD-64`. A migration that
+#: touches `journal_entry`, `journal_line` or the periods says one of two things
+#: and never stays silent in between:
+#:
+#:   "reversible-tested"  the reverse runs, and a round trip is exercised in
+#:                        tests/schema_guard/test_reverse_sql.py under the role
+#:                        that will actually run it
+#:   "irreversible"       the reverse cannot restore the prior state; Django
+#:                        raises rather than pretending. Never a noop -- a noop
+#:                        runs, does not fail, and leaves the database in a state
+#:                        nobody described.
+#:
+#: This one desfaces structure only: policies, triggers, functions, collation.
+#: No row is deleted by the reverse; the tables themselves go with the Django
+#: operations above it.
+REVERSIBILITY = "reversible-tested"
 
+
+class Migration(migrations.Migration):
     dependencies = [
-        ('periods', '0001_initial'),
-        ('tenancy', '0005_resolver_grant'),
+        ("periods", "0001_initial"),
+        ("tenancy", "0005_resolver_grant"),
     ]
 
     operations = [
         migrations.CreateModel(
-            name='VatPeriod',
+            name="VatPeriod",
             fields=[
-                ('id', models.UUIDField(default=uuid.uuid4, editable=False, primary_key=True, serialize=False)),
-                ('start_date', models.DateField()),
-                ('end_date', models.DateField()),
-                ('kind', models.TextField(choices=[('monthly', 'Monthly'), ('final', 'Final')], default='monthly')),
-                ('created_at', models.DateTimeField(auto_now_add=True)),
-                ('updated_at', models.DateTimeField(auto_now=True)),
-                ('company', models.ForeignKey(db_column='company_id', on_delete=django.db.models.deletion.PROTECT, to='tenancy.company')),
-                ('tenant', models.ForeignKey(db_column='tenant_id', on_delete=django.db.models.deletion.PROTECT, to='tenancy.tenant')),
+                (
+                    "id",
+                    models.UUIDField(
+                        default=uuid.uuid4, editable=False, primary_key=True, serialize=False
+                    ),
+                ),
+                ("start_date", models.DateField()),
+                ("end_date", models.DateField()),
+                (
+                    "kind",
+                    models.TextField(
+                        choices=[("monthly", "Monthly"), ("final", "Final")], default="monthly"
+                    ),
+                ),
+                ("created_at", models.DateTimeField(auto_now_add=True)),
+                ("updated_at", models.DateTimeField(auto_now=True)),
+                (
+                    "company",
+                    models.ForeignKey(
+                        db_column="company_id",
+                        on_delete=django.db.models.deletion.PROTECT,
+                        to="tenancy.company",
+                    ),
+                ),
+                (
+                    "tenant",
+                    models.ForeignKey(
+                        db_column="tenant_id",
+                        on_delete=django.db.models.deletion.PROTECT,
+                        to="tenancy.tenant",
+                    ),
+                ),
             ],
             options={
-                'db_table': 'vat_period',
-                'indexes': [models.Index(fields=['company', 'start_date'], name='vat_period_company_start')],
-                'constraints': [models.CheckConstraint(condition=models.Q(('kind__in', ['monthly', 'final'])), name='vat_period_kind_valid'), models.CheckConstraint(condition=models.Q(('end_date__gte', models.F('start_date'))), name='vat_period_dates_valid')],
+                "db_table": "vat_period",
+                "indexes": [
+                    models.Index(fields=["company", "start_date"], name="vat_period_company_start")
+                ],
+                "constraints": [
+                    models.CheckConstraint(
+                        condition=models.Q(("kind__in", ["monthly", "final"])),
+                        name="vat_period_kind_valid",
+                    ),
+                    models.CheckConstraint(
+                        condition=models.Q(("end_date__gte", models.F("start_date"))),
+                        name="vat_period_dates_valid",
+                    ),
+                ],
             },
         ),
         # Table and policy in the same transaction -- C30. The exclusion
