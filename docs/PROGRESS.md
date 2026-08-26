@@ -23,6 +23,38 @@ Descompunerea completă: `_bootstrap/08-f1-backlog.md` — patru fire care pot m
 
 ## Ultima sesiune
 
+**2026-08-26, `OD-64` — opt inverse care nu rulau, și de ce clasificarea a schimbat sarcina:**
+
+- **Proprietarul a cerut lista înainte de tratament**, și a avut dreptate: nu toate „migrările
+  inverse" sunt același lucru. Clasificate pe conținut măsurat — DML **în afara** corpurilor de
+  funcție, nu grep naiv: **șapte din opt sunt pur RLS/roluri**, categoria cea mai periculoasă,
+  fiindcă un invers pe jumătate nu produce eroare, produce acces greșit. `0028` e singura care
+  transformă date
+- **Corecția e opt fișiere noi**, `0042`–`0049`, cu `run_sql_file` extins să primească `down_name`.
+  Direcția de dus nu se schimbă deloc — același fișier, aceeași amprentă. Se schimbă din ce fișier se
+  citește inversul, iar acel invers **nu rulase niciodată**, deci nu se falsifică niciun istoric.
+  `C31` rămâne respectat: niciun fișier aplicat nu e editat
+- **Patru cerințe ale proprietarului, toate intrate ca test, nu ca intenție:** ordinea triggere →
+  politici → funcții, verificată; **fără `CASCADE`**, fiindcă un `CASCADE` nu se oprește la ce a
+  creat migrarea și poate șterge tăcut obiecte atașate între timp de altă migrare; rotația rulată
+  **sub `evidenta_owner`**, rolul real, fiindcă drept superuser ar trece întotdeauna și ar eșua în
+  producție; și **rotație, nu inversare** — `down`, apoi `up`, cu catalogul comparat înainte și după
+- **A doua aplicare e cea care prinde ce scapă primei verificări:** funcția rămasă, numele de
+  politică ciocnit, triggerul orfan. „N-a aruncat" nu e afirmația; „baza e unde a plecat" este
+- **Un test asertează că inversul ORIGINAL încă eșuează** cu „must be owner of function". Fără el,
+  nimic n-ar distinge „am reparat un defect" de „am rescris un fișier care mergea"
+- **Motivul reversibilității lui `0028` era greșit la mine, deși concluzia era corectă.** Scrisesem
+  „șterge doar datele pe care el le-a creat" — adevărat azi, **se rupe tăcut** din clipa în care
+  producția scrie token-uri reale. Motivul real e **regenerabilitatea**: o amprentă de token e
+  efemeră, deci nu se pierde informație, se pierd sesiuni. Scris în fișier ca atare, cu consecința
+  operațională: **cine derulează înapoi deloghează pe toată lumea**
+- **Gardianul de recidivă acceptă ambele declarații**, și asta e cerința, nu o slăbiciune:
+  ireversibilitatea forțată acolo unde ceva e reversibil de drept e o minciună la fel de dăunătoare
+  ca `noop`-ul pe ceva ireversibil. Iar `"reversible-tested"` nu e etichetă — gardianul cere ca
+  fișierul să fie în lista rotită efectiv
+- **`OD-64` închisă.** 41 de teste noi (27 de rotație, 14 de convenție); `0036_ledger` declară
+  „reversibil, cu invers testat"
+
 **2026-08-26, primul ecran real — și trei lucruri corectate de o cercetare care a ajuns la timp:**
 
 - **Întrebarea proprietarului a fost dreaptă:** 687 de teste în spate, iar pe ecran o demonstrație de

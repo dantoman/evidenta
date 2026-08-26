@@ -454,7 +454,7 @@ deschisă toată F0, acum pe drumul critic al criteriului de ieșire.
 | F1.4.4 | `C1`–`C5` din ADR-036 §11 | Domeniu contabil — SNC citat |
 | F1.5.4, F1.6 | `OD-22` | Domeniu contabil — Planul general de conturi, ordinul care îl aprobă |
 | F1.6 | `DNB-08` → ADR-037 | Extern — ghidul de integrare SFS (`OD-24`) |
-| F1.8 | `OD-29`, `OD-35` | Produs — deblocate de modelul de volum, respectiv nedecise |
+| F1.8 | `OD-29` | Produs — ~~`OD-35`~~ închisă prin [ADR-042](../decisions/042-scara-de-densitate.md); rămâne ținta numerică de performanță |
 | F1.9, F1.G0 | `OD-28` | Extern — acces la o bază 1C reală |
 | F1.G2 | `OD-36` | Produs — contractul de tastatură |
 | F1.10 | — | Domeniu contabil — cazuri cu rezultat verificat |
