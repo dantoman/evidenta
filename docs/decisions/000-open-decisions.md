@@ -219,8 +219,27 @@ definiție greșită a *perioadei* pentru CAS, sub aparența unei reguli bine g�
 implementare, e una de încadrare care se implementează impecabil.
 
 Deci: **o rată mare de dizolvări înseamnă că formulăm întrebări înainte să citim sursele.** E o metrică
-despre proces, nu despre cod, și e singurul semnal pe care îl avem pentru clasa asta de greșeală.
-Marcajul stă în coloana *Decizie*, la început.
+despre proces, nu despre cod. Marcajul stă în coloana *Decizie*, la început.
+
+**Condiția în care se produc este mecanică, chiar dacă încadrarea greșită nu e.** Toate trei dizolvările
+de până acum au avut aceeași formă: decizia s-a format **peste o sinteză, nu peste textul primar** —
+`OD-66` citită prin ordinul CNAS în loc de anexa la lege, `C3` cu CTA presupus ca alegere în loc de citit
+la pct. 15, `C5` cu variante de handler presupuse în loc de citit la pct. 30–31. Trei din trei. De aceea
+gardianul posibil nu întreabă *„e greșită încadrarea?"*, ci *„această decizie citează un text primar sau
+doar o sinteză?"* — verificabil pe registru, nu pe cod, și implementat în
+`backend/tests/architecture/test_domain_decisions_cite_sources.py`. Nu e o garanție; e o **listă de
+suspecți generată automat, pe care o citește un om**, ceea ce e mai mult decât aveam.
+
+**Există însă o formă pe care nici citarea n-o prinde: sursa primară citită corect, dar întrebarea pusă
+greșit.** `OD-66` a fost aproape asta — sinteza fusese citită exact, era chiar acolo, iar problema era că
+se întreba *„ce excepție are nevoie `R18`"* în loc de *„ce înseamnă perioadă pentru CAS"*.
+
+> **Singurul semnal observat, retrospectiv, în toate trei cazurile: soluția pregătită era mai complicată
+> decât problema aparentă.** Un criteriu de excepție pentru un invariant de o propoziție. Doi handleri
+> pentru CTA. Variante de handler pentru o formulă impusă integral de standard.
+>
+> **Dacă mecanismul pe care te pregătești să-l scrii e mai elaborat decât regula pe care o implementează,
+> oprește-te și recitește sursa.** Nu e diagnostic — e miros.
 
 | # | Decizie | ADR | Data |
 |---|---|---|---|
