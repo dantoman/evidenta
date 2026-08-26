@@ -68,6 +68,7 @@ INSTALLED_APPS: list[str] = [
     "evidenta.accounting.coa.apps.CoaConfig",
     "evidenta.accounting.periods.apps.PeriodsConfig",
     "evidenta.accounting.ledger.apps.LedgerConfig",
+    "evidenta.accounting.posting.apps.PostingConfig",
 ]
 
 MIDDLEWARE: list[str] = [
