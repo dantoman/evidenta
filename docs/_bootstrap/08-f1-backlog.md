@@ -213,7 +213,17 @@ redeschide. Unde o sarcină pare să ceară altceva, ADR-ul câștigă și sarci
   legarea are `valid_from`/`valid_to` și nu afectează postările existente. Granița din
   [ADR-036](../decisions/036-forma-postarii.md) §5.1 e respectată: maparea **impusă de lege** stă în
   `fiscal_parameter`, global; subcontul propriu al tenantului e configurare.
-- **Blocat de:** —
+- **Blocat de:** **`OD-55`** — mulțimea cheilor de context la legarea condiționată rol → cont.
+  Registrul o dă cu termen „înainte de F1.4", iar diferența nu e cosmetică: chei definibile de
+  client înseamnă un evaluator de expresii peste `payload`, adică chiar DSL-ul respins ca opțiunea 1
+  în ADR-036 §2. **Forma tabelei de legare depinde de răspuns.** Și, peste asta,
+  [ADR-036](../decisions/036-forma-postarii.md) este `Propus`: §6.1 — rolurile de cont — *este*
+  conținutul acestei sarcini, iar cazurile `C1`–`C5` din §11 cer confirmare contabilă.
+
+> **`Blocat de: —` era greșit, și e clasa inversă celei curățate în §12.** Nu un blocaj expirat, ci
+> unul **nescris**: registrul îl avea, backlogul nu. Cine ar fi luat sarcina citind doar backlogul ar
+> fi construit tabela de legare înainte să se știe ce formă are. Găsit de sesiunea care a livrat
+> F1.4.1, când s-a oprit înainte s-o continue.
 
 ### F1.4.3 — Cei șase invarianți
 
@@ -440,6 +450,7 @@ deschisă toată F0, acum pe drumul critic al criteriului de ieșire.
 
 | Sarcină | Decizie | Natura |
 |---|---|---|
+| F1.4.2 | `OD-55`; ADR-036 `Propus` | Arhitectură + domeniu contabil — forma tabelei de legare depinde de amândouă |
 | F1.4.4 | `C1`–`C5` din ADR-036 §11 | Domeniu contabil — SNC citat |
 | F1.5.4, F1.6 | `OD-22` | Domeniu contabil — Planul general de conturi, ordinul care îl aprobă |
 | F1.6 | `DNB-08` → ADR-037 | Extern — ghidul de integrare SFS (`OD-24`) |

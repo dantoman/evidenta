@@ -7,6 +7,13 @@
 
 ## Faza curentă
 
+**F1 — Accounting Core. Firul de implementare s-a oprit pe decizii, nu pe cod.** `F1.4.2` — rolurile
+de cont și legarea — e blocată de două ori: [ADR-036](decisions/036-forma-postarii.md) e `Propus`
+(cazurile `C1`–`C5` cer SNC citat), iar `OD-55` decide forma tabelei de legare, fiindcă chei de
+context definibile de client înseamnă evaluator de expresii peste `payload` — chiar DSL-ul respins
+în același ADR. *Backlogul spune pentru `F1.4.2` „Blocat de: —"; registrul spune contrariul. Cine
+citește doar backlogul construiește tabela înainte să se știe ce formă are.*
+
 **F1 — Accounting Core.** F0 este închisă (criteriul de ieșire îndeplinit, mai jos). Livrate:
 **F1.1** (planul de conturi, structura fără conținut) cu API-ul lui, **F1.3** (evenimentele),
 **F1.5** (perioadele) și **F1.2** (registrul). Trei sesiuni lucrează în paralel în același checkout.
@@ -15,6 +22,152 @@ Descompunerea completă: `_bootstrap/08-f1-backlog.md` — patru fire care pot m
 `F1.2.1` ca singur punct de sincronizare timpuriu, și tabelul de blocaje la final.
 
 ## Ultima sesiune
+
+**2026-08-26, restul neblocat din F1, orchestrat pe șase agenți — și două defecte găsite rulând:**
+
+- **Livrat, toate verzi:** `F1.4.3` cei șase invarianți ai motorului (22 teste), `F1.5.3` perioada
+  fiscală TVA ca entitate distinctă (20), `F1.7.1` nota manuală prin motor (36), `F1.7.2` soldurile
+  inițiale (45), `F1.7.3` șabloanele de operațiuni (42). Suita: **673 trec**, 1 sărit — verificată
+  independent, de două ori, cu rezultat identic. `ruff`, `mypy` și gardienii curați
+- **`REVOKE ... FROM PUBLIC` nu revocă nimic dacă nu-l emite proprietarul funcției — și nu-l emite.**
+  Măsurat pe `pg_proc.proacl`, apoi **demonstrat prin apel**: **18 funcții `SECURITY DEFINER` din
+  schema `rls` sunt executabile de PUBLIC**, deși niciuna n-a fost acordată lui `evidenta_app`.
+  Printre ele cele patru `auth_*` (calea de dinaintea contextului, ADR-026), `resolve_session`,
+  `resolve_tenant_by_subdomain`, `provision_engagement_company_access` și
+  `revoke_engagement_company_access`. Rulate sub rolul aplicației: `auth_lookup_user` **execută**;
+  `provision_engagement_company_access` ajunge la linia 9 din corpul ei și e oprită doar de garda
+  internă, nu de privilegii. Cauza: funcțiile se creează sub `SET LOCAL ROLE evidenta_rls`, iar
+  `REVOKE`-ul e emis după `RESET ROLE`, de owner — iar un `REVOKE` de la cine nu deține funcția dă
+  **WARNING, nu eroare**. Apărarea e scrisă în migrare, se crede în vigoare, și nu e
+- **Opt fișiere `.down.sql` nu se pot derula înapoi.** `evidenta_owner` e `NOINHERIT`, deci
+  apartenența la `evidenta_rls` nu-i dă privilegiile fără `SET ROLE`: fișierele de dus creează
+  funcțiile sub `SET LOCAL ROLE`, cele de întors le șterg ca owner și cad cu „must be owner of
+  function". Confirmat rulând `migrate ledger zero`. Afectate: `0014`, `0015`, `0016`, `0023`,
+  `0028`, `0030`, `0032`, `0036`. `C30` spune „`reverse_sql` nu este opțional" — reversul **există
+  și nu rulează**. `0036_ledger` e pe drumul de întoarcere al întregii contabilități, deci nimic
+  din F1 nu se poate derula azi
+- **Amândouă sunt din aceeași familie ca restul zilei:** SQL-ul a rulat, nimic n-a strigat, efectul
+  n-a existat. Niciuna nu e regresie a sesiunii — sunt în fișiere din F0, comise; `0036` e singurul
+  al meu. Corecția e fișier nou și migrare nouă (`C31`), peste șase module: **sarcină proprie, cu
+  ADR**, nu reparație în trecere
+- **Ce au refuzat agenții să decidă, fiecare cu motivul:** formulele de sumă din șabloane și nota în
+  valută (`DNB-08`, rotunjirea — deschisă); cumulativele payroll modelate ca formă, fără conținut
+  (`OD-04`); clauza „linie zero declarată de handler" din ADR-036 §5.2.5, care **contrazice**
+  `journal_line_one_side_only` din `0036_ledger` — ori se schimbă `CHECK`-ul, ori se șterge clauza
+  înainte de `Acceptat`; și niciun cod de cont nicăieri (`OD-22`/`OD-23`)
+- **Backlogul numește un `event_type` pe care vocabularul îl refuză:** `opening.balance.posted` are
+  trei segmente, iar `registry.NAME` impune două (Spec B §1.4, ADR-038). A doborât `check`, `mypy` și
+  suita întregului arbore partajat vreo cincisprezece minute. Livrat ca `opening.balance_posted`;
+  **rândul din backlog trebuie corectat**, altfel următorul îl retastează
+
+**2026-08-25, F1.4.1 și un dezacord de o zi între aplicație și bază:**
+
+- **F1.4.1, partea care e a mea, e livrată:** `accounting/posting/resolution.py` — transformă un
+  eveniment stocat în cele trei argumente de care are nevoie selecția, iar selecția însăși rămâne
+  unde e, în `events.registry`. **Nu ia niciodată un `AccountingEvent`**: `D6` interzice atingerea
+  modelelor altui modul, iar excepția de compunere de schemă acoperă `models`, nu servicii — deci
+  apelantul, care are evenimentul, dă valorile. Semnătura *este* granița. 10 teste, fără bază de date
+- **Un `{}` nu mai poate trece drept „nicio capabilitate".** Instantaneul e citit dintr-o formă
+  versionată, iar lipsa versiunii sau o versiune mai nouă sunt **refuz**, nu implicit. Alternativa
+  tentantă — „nu știu, deci nimic" — e cel mai prost răspuns disponibil: o companie cu TVA ar primi
+  tăcut tratamentul scris pentru una fără, înregistrarea ar fi echilibrată, iar nimic din aval n-ar
+  părea greșit
+- **Forma pe care o ceruserăm era greșită, și sesiunea paralelă a corectat-o.** Cerusem `requires`
+  ca **poartă** — refuză când lipsește o capabilitate. `R26` cere altceva: „aceeași operațiune **se
+  contabilizează diferit**". Un refuz nu e „diferit". `requires` e **criteriu de selecție**: două
+  tratamente ale aceluiași eveniment coexistă pe aceeași zi, unul pentru o companie plătitoare de
+  TVA și unul pentru una care nu e
+- **Suita a picat pe un test care nu e al meu, și defectul e de sistem, nu de test.** Măsurat **pe
+  calea reală**, prin conexiunea Django: `SHOW timezone` întoarce **`UTC`**, fiindcă `USE_TZ = True`
+  face Django să seteze fusul sesiunii la UTC la fiecare conexiune. `date.today()` întoarce
+  **2026-08-26** (fusul `Europe/Chisinau` din settings, pus în mediu), iar `current_date` întoarce
+  **2026-08-25**. Două zile calendaristice diferite, simultan, în același proces
+- **Prima mea măsurătoare era pe calea greșită și am corectat-o.** Prin `psql`, `SHOW timezone` dă
+  `Europe/London` — implicitul mașinii din `postgresql.conf`. Dar aplicația nu trece niciodată pe
+  acolo. Diferența reală e deci **Chișinău față de UTC: trei ore în fiecare noapte**, nu două, iar
+  varianta „aliniem sesiunea de bază la fusul produsului" **este** o singură linie, dar nu oricare:
+  măsurat, `DATABASES['OPTIONS'] = {'options': '-c timezone=...'}` e **suprascris** cu UTC în
+  `init_connection_state`, în timp ce `DATABASES['TIME_ZONE'] = 'Europe/Chisinau'` **ține**. Nu
+  lupți cu framework-ul, îi spui — afirmația mea anterioară era prea tare
+- **Cele două precauții pe care le ridicasem sunt măsurate, și amândouă cad.** (1) `manage.py check`
+  cu `DATABASES['TIME_ZONE'] = 'Europe/Chisinau'` și `USE_TZ = True`: „no issues". (2) `__date`
+  **nu depinde de fusul conexiunii**: un moment stocat la `2026-08-25 22:30 UTC` iese ca
+  **26 august** și cu sesiunea pe `UTC`, și cu ea pe `Europe/Chisinau` — Django trimite numele
+  fusului ca **parametru** în `AT TIME ZONE %s`, luat din fusul Django activ, nu din conexiune
+- **Ceea ce schimbă diagnosticul, nu doar o precauție: ORM-ul răspunde deja corect.** Fiecare
+  interogare Django grupează pe **ziua de la Chișinău**. Singurele care răspund în UTC sunt cele
+  care citesc `current_date` în SQL scris de mână. Deci nu e o problemă sistemică de fus — e
+  **izolată exact acolo unde am găsit-o**
+- **Raza de acțiune, numărată:** `current_date` apare de **7 ori, în 2 fișiere** —
+  `infra/bootstrap/0003_access_predicates.sql` (4, în `has_tenant_access` și `has_company_access`)
+  și `infra/migrations/0032_engagement_provisioning.up.sql` (3). Restul apariţiilor de ceas din
+  `infra/` sunt `now()`, care compară **momente**, nu zile: un `timestamptz` față de `now()` e
+  corect în orice fus. `OD-63` e deci o decizie despre șapte linii, nu despre sistem
+  *Găsit fiindcă `evidenta-2f` a măsurat `UTC` unde eu măsurasem `Europe/London`, în aceeași oră pe
+  aceeași mașină; amândouă erau adevărate, pentru căi diferite*
+- **Consecință secundară:** `make bootstrap` rulează prin `psql` (London), migrațiile prin Django
+  (UTC). Astăzi niciuna nu conține logică de dată, deci nu produce nimic — dar cele două jumătăți
+  ale schemei se aplică sub fusuri diferite
+- **Consecința nu e testul.** `rls.has_tenant_access` decide dacă un engagement e viu prin
+  `valid_to >= current_date` — **ziua bazei** —, iar serviciile calculează datele în Python — **ziua
+  aplicației**. În fiecare noapte, timp de **trei ore** (00:00–03:00 la Chișinău), un engagement pe
+  care aplicația îl consideră
+  expirat e încă viu pentru predicat. Și nu doar engagement-ul: fiecare fereastră de valabilitate din
+  produs e interogată cu o dată din Python, iar predicatul citește ceasul bazei. Într-un sistem
+  contabil, ziua decide în ce perioadă cade o postare
+- **Testul a prins-o din întâmplare** — e singurul care compară o dată calculată în Python cu un
+  `current_date` din SQL. A trecut toată ziua fiindcă până la 22:00 BST cele două zile coincid, și
+  **va redeveni verde singur după 01:00**, ceea ce e partea neplăcută. **Nu l-am adaptat ca să
+  treacă**: `CLAUDE.md` §4 interzice exact asta, iar aici testul are dreptate și codul nu
+- **Fusul serverului nu e ales de nimeni, e nimerit** — `pg_settings` dă `TimeZone = Europe/London`
+  cu `source = configuration file`, fișier **din afara repository-ului**, iar nimic din `infra/`,
+  `.env.example`, `infra/docker/` sau `DATABASES.OPTIONS` nu-l setează. Pentru aplicație asta e însă
+  **irelevant**, fiindcă Django îl suprascrie cu UTC; rămâne relevant pentru tot ce trece prin
+  `psql`, adică pentru bootstrap
+- **Proiectul are deja tiparul reparației.** `0000_locale_guard.sql` există fiindcă *colația* e o
+  proprietate de mașină care „funcționează perfect și sortează greșit pentru totdeauna", iar antetul
+  lui spune exact ce se aplică și fusului: „fail-closed nu ajunge, trebuie și fail-loud". Un gardian
+  de fus la bootstrap costă cincisprezece linii. Nu înlocuiește direcția de mai jos, o completează:
+  una scoate ceasul din predicat, cealaltă verifică faptul că baza e configurată cum crede produsul
+- **Direcția pe care o propun, nu o iau:** predicatele să nu mai citească `current_date`, ci să
+  primească data ca parametru. Proiectul a decis deja de mai multe ori că un rezolvator care poate
+  citi ceasul e un defect — `R18`, `postable_accounts`, `resolve_parameter`, `active_profile` iau
+  toate data ca parametru. Predicatul de acces e singurul loc care și-o ia singur
+
+**2026-08-25, profilul de capabilități — coloana pe care nimeni n-o putea completa:**
+
+- **Pornit ca F1.4.1 și prima constatare a schimbat sarcina:** jumătate din ea era deja scrisă.
+  `events.registry.resolve_handler(name, accounting_date)` face exact selecția „`event_type` + dată
+  efectivă, zero sau două e eroare", livrată la F1.3.2 de sesiunea paralelă. Nu am rescris-o — ar fi
+  fost a doua copie a aceleiași reguli. Ce lipsea din criteriu e filtrarea pe **profilul de
+  capabilități**, pe care `R26` o cere ca input **explicit**
+- **`capability_snapshot` era un argument obligatoriu pe care nimic din produs nu-l putea produce.**
+  `platform/capabilities` avea doar modele, **niciun serviciu** — deci fiecare apelant al lui
+  `emit(...)` își inventa valoarea, iar unul care trimitea `{}` obținea o companie fără nicio
+  capabilitate: tăcut, plauzibil, și exact opusul a ce cere `R26`
+- **Livrat `platform.capabilities.services.profile`.** Trei alegeri, fiecare derivată, nu preferată:
+  (1) **două mulțimi, nu una** — `activated` și `usable`; `R25` face din activare o entitate cu
+  stare de inițializare, iar o capabilitate `in_progress` e pornită și **nefolosibilă**, fiindcă
+  postarea sub ea produce chiar înregistrările pe care inițializarea urmează să le pună la punct;
+  (2) **uniune între nivelul de tenant și cel de companie, nu precedență** — modelul n-are cum să
+  exprime o negare, deci „oricare rând în vigoare" e singura citire pe care schema o suportă, iar
+  Spec A §1.8 nu spune nimic despre precedență, deci n-am ales, am derivat; (3) `as_snapshot()` cu
+  `version` și liste sortate, fiindcă ajunge în `jsonb` și e citit peste ani — două profiluri
+  identice nu trebuie să arate diferit
+- **Fereastra e half-open, rescrisă, nu împrumutată.** `platform` nu importă niciun alt strat, deci
+  `fiscal.parameters.in_force` nu se poate refolosi; patru linii de query duplicate sunt mai ieftine
+  decât o inversare a grafului de dependențe, iar testul fixează ziua de graniță
+- **Restanță scadentă, semnalată, neluată:** Spec A §1.8 cere ca `effective_from` să coincidă cu
+  începutul unei perioade contabile — „în F0 în serviciu, **mutată în bază la F1.5**". Nu există
+  nici serviciul (modulul n-avea niciunul până azi), nici constrângerea. F1.5 tocmai a aterizat,
+  deci partea a doua e scadentă acum
+- **O gaură a mea, găsită și reparată în aceeași sesiune:** profilul unei companii **invizibile**
+  întorcea capabilitățile de tenant ale apelantului. RLS nu acoperă cazul — rândurile de nivel
+  tenant sunt chiar ale apelantului, deci supraviețuiesc politicii oricare ar fi identificatorul de
+  companie cerut. Un motor care citea profilul ar fi postat ca și cum acele capabilități se aplicau.
+  Acum se verifică vizibilitatea întâi, cu refuz `api.not_found` — absent, nu interzis (IZ-04)
+- **6 teste noi** (18 în fișier); suita completă **481 trece**, 1 sărit — numărul crește și de la
+  celelalte două sesiuni, care lucrează în același arbore. `ruff`, `mypy` și gardienii curați
 
 **2026-08-25, F1.2.4 — stornoul, plus suprafața publică pe care o uitasem:**
 
@@ -149,6 +302,36 @@ Descompunerea completă: `_bootstrap/08-f1-backlog.md` — patru fire care pot m
 - **Nu s-a construit F1.5.3** (perioada fiscală TVA). Are entitate proprie prin ADR-039 §7 și rămâne
   sarcină proprie: în F1 n-are încă niciun cititor, iar o tabelă fără cititor e chiar tiparul prins de
   două ori aici
+
+**Continuarea aceleiași sesiuni, după livrare — cinci decizii deschise, niciuna găsită citind
+documente:**
+
+- **`OD-59`** — baza de dezvoltare a divergeat de migrări: șapte tabele business cu RLS oprit și zero
+  politici, deși toate cele 33 de migrări sunt înregistrate ca aplicate. Discriminantul care arată că
+  SQL-ul **n-a rulat niciodată** acolo: lipsesc și colațiile din aceleași fișiere. Cauza probabilă —
+  `run_sql_file` adăugat într-o migrare **deja aplicată**, pe care Django n-o mai rulează
+- **`OD-63`** — aplicația și baza nu sunt de acord ce zi este: `TIME_ZONE = Europe/Chisinau` în
+  settings, iar sesiunea de bază rulează pe **UTC**, fiindcă `USE_TZ = True` o setează la fiecare
+  conexiune; `rls.has_tenant_access` decide valabilitatea cu `current_date`. **Trei ore pe noapte**,
+  un engagement expirat pentru aplicație e viu pentru predicat. Testul care a prins-o **se vindecă
+  singur** după 03:00. *Prima măsurare, a mea, dădea `Europe/London` — corectă, dar făcută prin
+  `psql`, o cale pe care aplicația n-o folosește; prinsă de `evidenta-2f`, reverificată prin
+  conexiunea Django*
+- **`OD-62`** — F1.5, așa cum e livrat, **refuză cazul din ADR-039 §6 lit. (d)**: exercițiul unei
+  entități nou-create începe la data înregistrării de stat, iar `_validate_window` cere ziua întâi a
+  lunii. Am impus în validare o regulă mai largă decât e legea. Nereparată deliberat: dacă prima
+  perioadă e martie întreagă sau 12–31 martie e întrebare de tratament, nu de cod
+- **`OD-61`** — obligația din Spec A §1.8 („`effective_from` coincide cu începutul unei perioade")
+  n-a existat niciodată, nici în serviciu, nici în bază, și e scadentă acum. Mutarea în bază ar
+  inversa graful de module tăcut, fiindcă **gardianul de dependențe nu vede SQL**. Variantă propusă:
+  cerința se reduce la o regulă de dată pură, fiindcă perioada e strict lunară
+- **`OD-60`** — un eveniment eșuat pe o perioadă închisă nu se repostează singur, iar coada l-ar
+  plimba tăcut. Găsită la interfața dintre două sesiuni, nu în niciuna dintre ele
+- **Blocajul nescris:** `F1.4.2` spunea `Blocat de: —`, deși registrul are `OD-55` cu termen „înainte
+  de F1.4" și ADR-036 e `Propus`. Clasa inversă celei curățate dimineață — nu expirat, ci **nescris**
+- **Ce leagă patru dintre defectele zilei:** nu mecanismul, ci semnalul. **Verde nu înseamnă
+  verificat, înseamnă că nimic n-a strigat** — proprietate a mașinii, stare divergentă de la migrări,
+  sau calea care ar fi eșuat n-a fost atinsă
 
 **2026-08-25, API-ul planului de conturi — și un mecanism decis, construit pe sfert:**
 
