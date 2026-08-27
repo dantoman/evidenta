@@ -615,3 +615,79 @@ def _audit(
         old_value=old,
         new_value=new,
     )
+
+
+# --- reading ------------------------------------------------------------------
+
+
+def templates_of(company_id: uuid.UUID, *, include_inactive: bool = False) -> list[dict[str, Any]]:
+    """The company's templates, as a list a screen can render.
+
+    A service rather than a queryset in the view, for the reason `C3` gives about
+    managers: the filtering that matters is RLS's, and a view that assembled this
+    itself would be a second place where "which templates does this company have"
+    is decided.
+
+    ``include_inactive`` is off by default. A retired template still explains
+    entries posted from it, so it is never deleted -- but offering it in a list of
+    things to post is offering a shortcut somebody deliberately withdrew.
+    """
+    rows = OperationTemplate.objects.filter(company_id=company_id)
+    if not include_inactive:
+        rows = rows.filter(is_active=True)
+    return [
+        {
+            "id": str(template.id),
+            "name": template.name,
+            "entry_description": template.entry_description,
+            "is_active": template.is_active,
+            "inputs": list(_required_inputs(_lines_of(template))),
+            "line_count": _line_count(template),
+        }
+        for template in rows.order_by("name")
+    ]
+
+
+def definition_of(template_id: uuid.UUID, *, company_id: uuid.UUID) -> dict[str, Any]:
+    """One template with its lines, in the shape the definition was given in.
+
+    Round-trips: what comes out of here can be handed back to
+    ``redefine_template`` unchanged. An editing screen that had to translate
+    between two shapes would be the place the two drift apart.
+    """
+    # Not `_template`: that one hides retired templates, because *expansion* must
+    # not reach them. Reading is the opposite case -- an entry posted last year
+    # names a template that may since have been withdrawn, and a definition that
+    # became unreadable would leave that entry explaining itself with an id.
+    template = OperationTemplate.objects.filter(id=template_id, company_id=company_id).first()
+    if template is None:
+        raise TemplateNotFoundError(f"template {template_id} is not visible in this context")
+    lines = _lines_of(template)
+    dimensions_by_line: dict[uuid.UUID, dict[str, Any]] = {}
+    for row in OperationTemplateDimension.objects.filter(line__template_id=template.id):
+        dimensions_by_line.setdefault(row.line_id, {})[row.dimension] = (
+            {"from_input": row.input_key} if row.input_key is not None else str(row.fixed_value_id)
+        )
+
+    return {
+        "id": str(template.id),
+        "name": template.name,
+        "entry_description": template.entry_description,
+        "is_active": template.is_active,
+        "inputs": list(_required_inputs(lines)),
+        "lines": [
+            {
+                "line_number": line.line_number,
+                "account_id": str(line.account_id),
+                "side": line.side,
+                "amount": (
+                    {"from_input": line.input_key}
+                    if line.input_key is not None
+                    else str(line.fixed_amount)
+                ),
+                "description": line.description,
+                "dimensions": dimensions_by_line.get(line.id, {}),
+            }
+            for line in lines
+        ],
+    }

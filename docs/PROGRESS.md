@@ -130,7 +130,18 @@ Descompunerea completă: `_bootstrap/08-f1-backlog.md` — patru fire care pot m
   reluare, se explică fără rest: `AdminShutdown` — sesiunea vecină recrea `test_evidenta` sub
   conexiunile mele. Nu în `.env`, care e partajat; pe linia de comandă.
 
-Suita: **760 trec, 1 sărit.**
+- **Șabloanele de operațiuni au API** (`entries/companies/<id>/templates`) — al treilea serviciu
+  complet fără cale de intrare, găsit în aceeași zi. Layer 4 din [ADR-036](decisions/036-forma-postarii.md)
+  §7: un șablon se expandează într-un payload `manual.journal_entry` și trece prin **același**
+  motor ca o notă tastată. De-aia nu există tip de eveniment `template.posted`: registrul
+  consemnează ce s-a întâmplat, iar ce s-a întâmplat a fost o notă manuală. Cum a completat
+  omul formularul e proprietate a interfeței, nu a faptului contabil — asertat prin registru.
+- **Citirea vede șabloanele retrase, expandarea nu.** `_template` filtrează pe `is_active` fiindcă
+  un șablon retras nu mai are voie să producă înregistrări. Dar o înregistrare postată anul trecut
+  îl numește, deci o definiție devenită necitibilă ar lăsa acea înregistrare explicându-se cu un
+  id. `definition_of` are acum propria căutare, cu motivul lângă ea.
+
+Suita: **766 trec, 1 sărit.**
 
 ## Sesiuni mai vechi
 
