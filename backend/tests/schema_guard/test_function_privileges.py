@@ -59,6 +59,9 @@ GRANTED_TO_APP = frozenset(
         "resolve_tenant_by_subdomain",
         # Privileged paths enumerated in Spec A section 6.2.
         "provision_engagement_company_access",
+        # `P-9` (ADR-040): the application role cannot insert a company at all --
+        # the policy wants an access row that wants the company.
+        "provision_company",
         "revoke_engagement_company_access",
         # Notification dispatch, which runs with no user identity (OD-50).
         "create_notification",

@@ -7,19 +7,51 @@ access, company access. Adding a `.filter()` would create the impression of safe
 and mask the absence of context (C3), which is the failure the invariant exists to
 prevent.
 
-Read-only, deliberately. Creating a company is `P-9`
-([ADR-040](../../../../docs/decisions/040-crearea-tenantului-si-a-companiei.md)) --
-a privileged path, decided and unwritten -- and an endpoint that could create one
-here would be the shortcut around it.
+Creating one is `P-9`
+([ADR-040](../../../../docs/decisions/040-crearea-tenantului-si-a-companiei.md)),
+now written: `POST` goes through `rls.provision_company` and nowhere else. The
+endpoint is not the shortcut around the privileged path, it is its only caller.
+
+**No fiscal year is opened here.** Opening an exercise is `accounting`, and
+`platform` does not import it (DG). The client creates the company, then opens
+the exercise -- two calls, both explicit, rather than one endpoint that quietly
+reaches across the module graph.
 """
 
 from __future__ import annotations
 
+from typing import Any
+
+from rest_framework import serializers
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from evidenta.platform.tenancy.models import Company
+from evidenta.platform.tenancy.services.provisioning import provision_company
+
+
+def _rendered(company: Company) -> dict[str, Any]:
+    return {
+        "id": str(company.id),
+        "legal_name": company.legal_name,
+        "idno": company.idno,
+        "functional_currency": company.functional_currency,
+        "accounting_start_date": str(company.accounting_start_date),
+    }
+
+
+class CreateCompanySerializer(serializers.Serializer[dict[str, Any]]):
+    """Shape only. Whether the caller may create anything is the function's
+    question, and answering it here would mean answering it twice."""
+
+    # IDNO is thirteen digits in Moldova. Validated as a shape, not as a
+    # checksum: the checksum rule is not in a text this repository has, and a
+    # made-up one would refuse real companies.
+    idno = serializers.RegexField(r"^\d{13}$")
+    legal_name = serializers.CharField(max_length=255)
+    functional_currency = serializers.RegexField(r"^[A-Z]{3}$", default="MDL")
+    accounting_start_date = serializers.DateField(required=False)
 
 
 class CompanyListView(APIView):
@@ -32,14 +64,18 @@ class CompanyListView(APIView):
 
     def get(self, request: Request) -> Response:
         rows = Company.objects.all().order_by("legal_name", "idno")
-        return Response(
-            [
-                {
-                    "id": str(company.id),
-                    "legal_name": company.legal_name,
-                    "idno": company.idno,
-                    "functional_currency": company.functional_currency,
-                }
-                for company in rows
-            ]
+        return Response([_rendered(company) for company in rows])
+
+    def post(self, request: Request) -> Response:
+        """Create one company -- `P-9`."""
+        payload = CreateCompanySerializer(data=request.data)
+        payload.is_valid(raise_exception=True)
+        data = dict(payload.validated_data)
+
+        company = provision_company(
+            idno=data["idno"],
+            legal_name=data["legal_name"],
+            functional_currency=data["functional_currency"],
+            accounting_start=data.get("accounting_start_date"),
         )
+        return Response(_rendered(company), status=201)

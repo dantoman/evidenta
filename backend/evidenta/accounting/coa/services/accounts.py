@@ -17,7 +17,7 @@ where a chart gets mangled.
 from __future__ import annotations
 
 import uuid
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
 from datetime import date
 
 from django.db import transaction
@@ -228,3 +228,25 @@ def postable_accounts(company_id: uuid.UUID, on_date: date) -> list[CompanyAccou
     """
     rows = in_force(CompanyAccount.objects.filter(company_id=company_id, is_blocked=False), on_date)
     return list(rows.order_by("account_code"))
+
+
+def names_for(
+    company_id: uuid.UUID, account_ids: Iterable[uuid.UUID]
+) -> dict[uuid.UUID, tuple[str, str]]:
+    """Code and name for each id, for a report that has to label its rows.
+
+    A public service rather than a model import, because a journal line carries
+    **no foreign key** to the account (R21) -- the link is by id and points the
+    other way, so there is nothing to join and the reader has to ask. `D6` is the
+    rule; this is the shape it asks for.
+
+    Ids this context cannot see are simply absent from the answer. The caller
+    decides what to show in their place, and a report that silently dropped the
+    row would be a report whose totals stop adding up with nothing saying why.
+    """
+    return {
+        account.id: (account.account_code, account.name_ro)
+        for account in CompanyAccount.objects.filter(
+            company_id=company_id, id__in=list(account_ids)
+        )
+    }

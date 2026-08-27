@@ -1,0 +1,477 @@
+account_code,name_ro,class_code,group_code,grade,kind,status,account_class,normal_balance,allows_subaccounts,parent_code,valid_from
+111,Imobilizări necorporale în curs de execuţie,1,11,i,activ,obligatoriu,asset,debit,true,,2020-01-01
+112,Imobilizări necorporale în exploatare,1,11,i,activ,obligatoriu,asset,debit,true,,2020-01-01
+1121,"Concesiuni, licenţe şi mărci",1,11,ii,activ,recomandare,asset,debit,false,112,2020-01-01
+1122,Drepturi de autor şi titluri de protecţie,1,11,ii,activ,recomandare,asset,debit,false,112,2020-01-01
+1123,Programe informatice,1,11,ii,activ,recomandare,asset,debit,false,112,2020-01-01
+1124,Alte imobilizări necorporale,1,11,ii,activ,recomandare,asset,debit,false,112,2020-01-01
+113,Amortizarea imobilizărilor necorporale,1,11,i,rectificativ_pasiv,obligatoriu,asset,credit,true,,2020-01-01
+1131,"Amortizarea concesiunilor, licenţelor şi mărcilor",1,11,ii,activ,recomandare,asset,debit,false,113,2020-01-01
+1132,Amortizarea drepturilor de autor şi titlurilor de protecţie,1,11,ii,activ,recomandare,asset,debit,false,113,2020-01-01
+1133,Amortizarea programelor informatice,1,11,ii,activ,recomandare,asset,debit,false,113,2020-01-01
+1134,Amortizarea altor imobilizări necorporale,1,11,ii,activ,recomandare,asset,debit,false,113,2020-01-01
+114,Deprecierea imobilizărilor necorporale,1,11,i,rectificativ_pasiv,obligatoriu,asset,credit,true,,2020-01-01
+115,Fond comercial pozitiv,1,11,i,activ,obligatoriu,asset,debit,true,,2020-01-01
+116,Fond comercial negativ,1,11,i,activ,obligatoriu,asset,debit,true,,2020-01-01
+117,Deprecierea fondului comercial pozitiv,1,11,i,rectificativ_pasiv,obligatoriu,asset,credit,true,,2020-01-01
+121,Imobilizări corporale în curs de execuţie,1,12,i,activ,obligatoriu,asset,debit,true,,2020-01-01
+1211,Construcţii în curs de execuţie,1,12,ii,activ,recomandare,asset,debit,false,121,2020-01-01
+1212,Utilaj destinat instalării,1,12,ii,activ,recomandare,asset,debit,false,121,2020-01-01
+1213,Imobilizări corporale pînă la punerea în utilizare,1,12,ii,activ,recomandare,asset,debit,false,121,2020-01-01
+1214,Costuri ulterioare în curs de execuţie,1,12,ii,activ,recomandare,asset,debit,false,121,2020-01-01
+122,Terenuri,1,12,i,activ,obligatoriu,asset,debit,true,,2020-01-01
+1221,Terenuri în curs de pregătire pentru utilizare prestabilită,1,12,ii,activ,recomandare,asset,debit,false,122,2020-01-01
+1222,Terenuri fără construcţii,1,12,ii,activ,recomandare,asset,debit,false,122,2020-01-01
+1223,Terenuri cu construcţii,1,12,ii,activ,recomandare,asset,debit,false,122,2020-01-01
+1224,Terenuri cu zăcăminte,1,12,ii,activ,recomandare,asset,debit,false,122,2020-01-01
+1225,Terenuri cu plantaţii perene,1,12,ii,activ,recomandare,asset,debit,false,122,2020-01-01
+1226,Terenuri primite în gestiune economică,1,12,ii,activ,recomandare,asset,debit,false,122,2020-01-01
+1227,Alte terenuri,1,12,ii,activ,recomandare,asset,debit,false,122,2020-01-01
+123,Mijloace fixe,1,12,i,activ,obligatoriu,asset,debit,true,,2020-01-01
+1231,Clădiri,1,12,ii,activ,recomandare,asset,debit,false,123,2020-01-01
+1232,Construcţii speciale,1,12,ii,activ,recomandare,asset,debit,false,123,2020-01-01
+1233,"Maşini, utilaje şi instalaţii tehnice",1,12,ii,activ,recomandare,asset,debit,false,123,2020-01-01
+1234,Mijloace de transport,1,12,ii,activ,recomandare,asset,debit,false,123,2020-01-01
+1235,Inventar şi mobilier,1,12,ii,activ,recomandare,asset,debit,false,123,2020-01-01
+1236,Costuri ulterioare aferente obiectelor neînregistrate în bilanţ,1,12,ii,activ,recomandare,asset,debit,false,123,2020-01-01
+1237,Mijloace fixe primite în leasing financiar,1,12,ii,activ,recomandare,asset,debit,false,123,2020-01-01
+1238,Mijloace fixe primite în gestiune economică,1,12,ii,activ,recomandare,asset,debit,false,123,2020-01-01
+1239,Alte mijloace fix,1,12,ii,activ,recomandare,asset,debit,false,123,2020-01-01
+124,Amortizarea mijloacelor fixe,1,12,i,rectificativ_pasiv,obligatoriu,asset,credit,true,,2020-01-01
+1241,Amortizarea clădirilor,1,12,ii,activ,recomandare,asset,debit,false,124,2020-01-01
+1242,Amortizarea construcţiilor speciale,1,12,ii,activ,recomandare,asset,debit,false,124,2020-01-01
+1243,"Amortizarea maşinilor, utilajelor şi instalaţiilor tehnice",1,12,ii,activ,recomandare,asset,debit,false,124,2020-01-01
+1244,Amortizarea mijloacelor de transport,1,12,ii,activ,recomandare,asset,debit,false,124,2020-01-01
+1245,Amortizarea inventarului şi mobilierului,1,12,ii,activ,recomandare,asset,debit,false,124,2020-01-01
+1246,Amortizarea costurilor ulterioare aferente obiectelor neînregistrate în bilanţ,1,12,ii,activ,recomandare,asset,debit,false,124,2020-01-01
+1247,Amortizarea mijloacelor fixe primite în leasing financiar,1,12,ii,activ,recomandare,asset,debit,false,124,2020-01-01
+1248,Amortizarea mijloacelor fixe primite în gestiune economică,1,12,ii,activ,recomandare,asset,debit,false,124,2020-01-01
+1249,Amortizarea altor mijloace fixe,1,12,ii,activ,recomandare,asset,debit,false,124,2020-01-01
+125,Resurse minerale,1,12,i,activ,obligatoriu,asset,debit,true,,2020-01-01
+126,Amortizarea şi deprecierea resurselor minerale,1,12,i,rectificativ_pasiv,obligatoriu,asset,credit,true,,2020-01-01
+127,Deprecierea imobilizărilor corporale în curs de execuţie,1,12,i,rectificativ_pasiv,obligatoriu,asset,credit,true,,2020-01-01
+128,Deprecierea terenurilor,1,12,i,rectificativ_pasiv,obligatoriu,asset,credit,true,,2020-01-01
+129,Deprecierea mijloacelor fixe,1,12,i,rectificativ_pasiv,obligatoriu,asset,credit,true,,2020-01-01
+131,Active biologice imobilizate în curs de execuţie,1,13,i,activ,obligatoriu,asset,debit,true,,2020-01-01
+132,Active biologice imobilizate în exploatare,1,13,i,activ,obligatoriu,asset,debit,true,,2020-01-01
+133,Amortizarea şi deprecierea activelor biologice imobilizate,1,13,i,rectificativ_pasiv,obligatoriu,asset,credit,true,,2020-01-01
+1331,Amortizarea activelor biologice imobilizate,1,13,ii,activ,recomandare,asset,debit,false,133,2020-01-01
+1332,Deprecierea activelor biologice imobilizate,1,13,ii,activ,recomandare,asset,debit,false,133,2020-01-01
+141,Investiţii financiare pe termen lung în părţi neafiliate,1,14,i,activ,obligatoriu,asset,debit,true,,2020-01-01
+1411,Valori mobiliare,1,14,ii,activ,recomandare,asset,debit,false,141,2020-01-01
+1412,Cote de participaţie,1,14,ii,activ,recomandare,asset,debit,false,141,2020-01-01
+1413,Depozite,1,14,ii,activ,recomandare,asset,debit,false,141,2020-01-01
+1414,Împrumuturi acordate,1,14,ii,activ,recomandare,asset,debit,false,141,2020-01-01
+1415,Alte investiţii financiare,1,14,ii,activ,recomandare,asset,debit,false,141,2020-01-01
+142,Investiţii financiare pe termen lung în părţi afiliate,1,14,i,activ,obligatoriu,asset,debit,true,,2020-01-01
+1421,Acţiuni şi cote de participaţie deţinute în părţile afiliate,1,14,ii,activ,recomandare,asset,debit,false,142,2020-01-01
+1422,Împrumuturi acordate părţilor afiliate,1,14,ii,activ,recomandare,asset,debit,false,142,2020-01-01
+1423,Împrumuturi acordate aferente intereselor de participare,1,14,ii,activ,recomandare,asset,debit,false,142,2020-01-01
+1424,Alte investiţii financiare în părţi afiliate,1,14,ii,activ,recomandare,asset,debit,false,142,2020-01-01
+143,Deprecierea investiţiilor financiare pe termen lung,1,14,i,rectificativ_pasiv,obligatoriu,asset,credit,true,,2020-01-01
+1431,Deprecierea investiţiilor financiare pe termen lung în părţi neafiliate,1,14,ii,activ,recomandare,asset,debit,false,143,2020-01-01
+1432,Deprecierea investiţiilor financiare pe termen lung în părţi afiliate,1,14,ii,activ,recomandare,asset,debit,false,143,2020-01-01
+151,Investiţii imobiliare,1,15,i,activ,obligatoriu,asset,debit,true,,2020-01-01
+152,Amortizarea şi deprecierea investiţiilor imobiliare,1,15,i,rectificativ_pasiv,obligatoriu,asset,credit,true,,2020-01-01
+1521,Amortizarea investiţiilor imobiliare,1,15,ii,activ,recomandare,asset,debit,false,152,2020-01-01
+1522,Deprecierea investiţiilor imobiliare,1,15,ii,activ,recomandare,asset,debit,false,152,2020-01-01
+161,Creanţe pe termen lung,1,16,i,activ,obligatoriu,asset,debit,true,,2020-01-01
+1611,Creanţe comerciale pe termen lung,1,16,ii,activ,recomandare,asset,debit,false,161,2020-01-01
+1612,Creanţe pe termen lung privind leasingul,1,16,ii,activ,recomandare,asset,debit,false,161,2020-01-01
+1613,Alte creanţe pe termen lung,1,16,ii,activ,recomandare,asset,debit,false,161,2020-01-01
+162,Creanţe ale părţilor afiliate pe termen lung,1,16,i,activ,obligatoriu,asset,debit,true,,2020-01-01
+1621,Creanţe aferente intereselor de participare,1,16,ii,activ,recomandare,asset,debit,false,162,2020-01-01
+1622,Alte creanţe ale părţilor afiliate,1,16,ii,activ,recomandare,asset,debit,false,162,2020-01-01
+163,Avansuri acordate pe termen lung,1,16,i,activ,obligatoriu,asset,debit,true,,2020-01-01
+1631,Avansuri acordate pentru imobilizări necorporale,1,16,ii,activ,recomandare,asset,debit,false,163,2020-01-01
+1632,Avansuri acordate pentru imobilizări corporale,1,16,ii,activ,recomandare,asset,debit,false,163,2020-01-01
+1633,Avansuri acordate pentru stocuri,1,16,ii,activ,recomandare,asset,debit,false,163,2020-01-01
+1634,Alte avansuri acordate pe termen lung,1,16,ii,activ,recomandare,asset,debit,false,163,2020-01-01
+171,Cheltuieli anticipate pe termen lung,1,17,i,activ,obligatoriu,asset,debit,true,,2020-01-01
+172,Alte active imobilizate,1,17,i,activ,obligatoriu,asset,debit,true,,2020-01-01
+211,Materiale,2,21,i,activ,obligatoriu,asset,debit,true,,2020-01-01
+2111,Materii prime şi materiale de bază,2,21,ii,activ,recomandare,asset,debit,false,211,2020-01-01
+2112,Materiale auxiliare,2,21,ii,activ,recomandare,asset,debit,false,211,2020-01-01
+2113,Piese de schimb,2,21,ii,activ,recomandare,asset,debit,false,211,2020-01-01
+2114,Combustibil,2,21,ii,activ,recomandare,asset,debit,false,211,2020-01-01
+2115,Ambalaje,2,21,ii,activ,recomandare,asset,debit,false,211,2020-01-01
+2116,Anvelope şi acumulatoare procurate separat de mijloacele de transport,2,21,ii,activ,recomandare,asset,debit,false,211,2020-01-01
+2117,Materiale cu destinaţia agricolă,2,21,ii,activ,recomandare,asset,debit,false,211,2020-01-01
+2118,Materiale transmise temporar terţilor,2,21,ii,activ,recomandare,asset,debit,false,211,2020-01-01
+2119,Alte materiale,2,21,ii,activ,recomandare,asset,debit,false,211,2020-01-01
+212,Active biologice circulante,2,21,i,activ,obligatoriu,asset,debit,true,,2020-01-01
+213,Obiecte de mică valoare şi scurtă durată,2,21,i,activ,obligatoriu,asset,debit,true,,2020-01-01
+2131,Obiecte de mică valoare şi scurtă durată în stoc,2,21,ii,activ,recomandare,asset,debit,false,213,2020-01-01
+2132,Obiecte de mică valoare şi scurtă durată în exploatare,2,21,ii,activ,recomandare,asset,debit,false,213,2020-01-01
+2133,Construcţii şi dispozitive provizorii,2,21,ii,activ,recomandare,asset,debit,false,213,2020-01-01
+2134,Obiecte de mică valoare şi scurtă durată transmise temporar terţilor,2,21,ii,activ,recomandare,asset,debit,false,213,2020-01-01
+214,Uzura obiectelor de mică valoare şi scurtă durată,2,21,i,rectificativ_pasiv,obligatoriu,asset,credit,true,,2020-01-01
+2141,Uzura obiectelor de mică valoare şi scurtă durată,2,21,ii,activ,recomandare,asset,debit,false,214,2020-01-01
+2142,Uzura construcţiilor şi dispozitivelor provizorii,2,21,ii,activ,recomandare,asset,debit,false,214,2020-01-01
+215,Producţia în curs de execuţie,2,21,i,activ,obligatoriu,asset,debit,true,,2020-01-01
+2151,Produse în curs de execuţie,2,21,ii,activ,recomandare,asset,debit,false,215,2020-01-01
+2152,Servicii în curs de execuţie,2,21,ii,activ,recomandare,asset,debit,false,215,2020-01-01
+2153,Lucrări în curs de execuţie,2,21,ii,activ,recomandare,asset,debit,false,215,2020-01-01
+216,Produse,2,21,i,activ,obligatoriu,asset,debit,true,,2020-01-01
+2161,Produse finite,2,21,ii,activ,recomandare,asset,debit,false,216,2020-01-01
+2162,Semifabricate din producţie proprie,2,21,ii,activ,recomandare,asset,debit,false,216,2020-01-01
+2163,Produse secundare,2,21,ii,activ,recomandare,asset,debit,false,216,2020-01-01
+2164,Produse transmise temporar terţilor,2,21,ii,activ,recomandare,asset,debit,false,216,2020-01-01
+217,Mărfuri,2,21,i,activ,obligatoriu,asset,debit,true,,2020-01-01
+2171,Bunuri procurate în vederea revînzării,2,21,ii,activ,recomandare,asset,debit,false,217,2020-01-01
+2172,Produse transmise spre vînzare magazinelor proprii,2,21,ii,activ,recomandare,asset,debit,false,217,2020-01-01
+2173,Active imobilizate deţinute pentru vînzare,2,21,ii,activ,recomandare,asset,debit,false,217,2020-01-01
+2174,Mărfuri transmise temporar terţilor,2,21,ii,activ,recomandare,asset,debit,false,217,2020-01-01
+218,Ajustări pentru deprecierea stocurilor,2,21,i,rectificativ_pasiv,obligatoriu,asset,credit,true,,2020-01-01
+2181,Ajustări pentru deprecierea materialelor,2,21,ii,activ,recomandare,asset,debit,false,218,2020-01-01
+2182,Ajustări pentru deprecierea activelor biologice circulante,2,21,ii,activ,recomandare,asset,debit,false,218,2020-01-01
+2183,Ajustări pentru deprecierea obiectelor de mică valoare şi scurtă durată,2,21,ii,activ,recomandare,asset,debit,false,218,2020-01-01
+2184,Ajustări pentru deprecierea producţiei în curs de execuţie,2,21,ii,activ,recomandare,asset,debit,false,218,2020-01-01
+2185,Ajustări pentru deprecierea produselor,2,21,ii,activ,recomandare,asset,debit,false,218,2020-01-01
+2186,Ajustări pentru deprecierea mărfurilor,2,21,ii,activ,recomandare,asset,debit,false,218,2020-01-01
+221,Creanţe comerciale,2,22,i,activ,obligatoriu,asset,debit,true,,2020-01-01
+2211,Creanţe comerciale din ţară,2,22,ii,activ,recomandare,asset,debit,false,221,2020-01-01
+2212,Creanţe comerciale din străinătate,2,22,ii,activ,recomandare,asset,debit,false,221,2020-01-01
+2213,Alte creanţe comerciale,2,22,ii,activ,recomandare,asset,debit,false,221,2020-01-01
+222,Corecţii (provizioane) privind creanţele compromise,2,22,i,rectificativ_pasiv,obligatoriu,asset,credit,true,,2020-01-01
+223,Creanţe ale părţilor afiliate,2,22,i,activ,obligatoriu,asset,debit,true,,2020-01-01
+2231,Creanţe aferente intereselor de participare,2,22,ii,activ,recomandare,asset,debit,false,223,2020-01-01
+2232,Alte creanţe ale părţilor afiliate,2,22,ii,activ,recomandare,asset,debit,false,223,2020-01-01
+224,Avansuri acordate curente,2,22,i,activ,obligatoriu,asset,debit,true,,2020-01-01
+2241,Avansuri acordate pentru imobilizări necorporale,2,22,ii,activ,recomandare,asset,debit,false,224,2020-01-01
+2242,Avansuri acordate pentru imobilizări corporale,2,22,ii,activ,recomandare,asset,debit,false,224,2020-01-01
+2243,Avansuri acordate pentru stocuri,2,22,ii,activ,recomandare,asset,debit,false,224,2020-01-01
+2244,Alte avansuri acordate curente,2,22,ii,activ,recomandare,asset,debit,false,224,2020-01-01
+225,Creanţe ale bugetului,2,22,i,activ,obligatoriu,asset,debit,true,,2020-01-01
+2251,Creanţe privind impozitul pe venit,2,22,ii,activ,recomandare,asset,debit,false,225,2020-01-01
+2252,Creanţe privind taxa pe valoarea adăugată,2,22,ii,activ,recomandare,asset,debit,false,225,2020-01-01
+2253,Creanţe privind accizele,2,22,ii,activ,recomandare,asset,debit,false,225,2020-01-01
+2254,Creanţe privind alte impozite şi taxe,2,22,ii,activ,recomandare,asset,debit,false,225,2020-01-01
+2255,Alte creanţe ale bugetului,2,22,ii,activ,recomandare,asset,debit,false,225,2020-01-01
+226,Creanţe ale personalului,2,22,i,activ,obligatoriu,asset,debit,true,,2020-01-01
+2261,Creanţe ale titularilor de avans,2,22,ii,activ,recomandare,asset,debit,false,226,2020-01-01
+2262,Creanţe privind recuperarea prejudiciului material,2,22,ii,activ,recomandare,asset,debit,false,226,2020-01-01
+2263,Creanţe privind împrumuturile acordate personalului,2,22,ii,activ,recomandare,asset,debit,false,226,2020-01-01
+2264,Alte creanţe ale personalului,2,22,ii,activ,recomandare,asset,debit,false,226,2020-01-01
+231,Creanţe privind veniturile din utilizarea de către terţi a activelor entităţii,2,23,i,activ,obligatoriu,asset,debit,true,,2020-01-01
+2311,Creanţe privind leasingul,2,23,ii,activ,recomandare,asset,debit,false,231,2020-01-01
+2312,Creanţe privind dobînzile şi redevenţele calculate,2,23,ii,activ,recomandare,asset,debit,false,231,2020-01-01
+2313,Creanţe privind dividendele calculate,2,23,ii,activ,recomandare,asset,debit,false,231,2020-01-01
+2314,Alte creanţe privind veniturile,2,23,ii,activ,recomandare,asset,debit,false,231,2020-01-01
+232,Creanţe preliminate,2,23,i,activ,obligatoriu,asset,debit,true,,2020-01-01
+2321,Creanţe preliminate privind decontările cu bugetul,2,23,ii,activ,recomandare,asset,debit,false,232,2020-01-01
+2322,Creanţe preliminate privind leasingul,2,23,ii,activ,recomandare,asset,debit,false,232,2020-01-01
+2323,Alte creanţe preliminate,2,23,ii,activ,recomandare,asset,debit,false,232,2020-01-01
+233,Creanţe curente privind asigurările,2,23,i,activ,obligatoriu,asset,debit,true,,2020-01-01
+234,Alte creanţe curente,2,23,i,activ,obligatoriu,asset,debit,true,,2020-01-01
+2341,Creanţe privind ieşirea activelor imobilizate,2,23,ii,activ,recomandare,asset,debit,false,234,2020-01-01
+2342,Creanţe privind ieşirea altor active circulante,2,23,ii,activ,recomandare,asset,debit,false,234,2020-01-01
+2343,Creanţe privind subvenţiile,2,23,ii,activ,recomandare,asset,debit,false,234,2020-01-01
+2344,Creanţe privind finanţările şi încasările cu destinaţie specială,2,23,ii,activ,recomandare,asset,debit,false,234,2020-01-01
+2345,Creanţele aferente parteneriatului public-privat,2,23,ii,activ,recomandare,asset,debit,false,234,2020-01-01
+2346,Creanţe privind reclamaţiile înaintate şi recunoscute,2,23,ii,activ,recomandare,asset,debit,false,234,2020-01-01
+2347,Creanţe privind alte operaţiuni,2,23,ii,activ,recomandare,asset,debit,false,234,2020-01-01
+241,Casa,2,24,i,activ,obligatoriu,asset,debit,true,,2020-01-01
+2411,Casa în monedă naţională,2,24,ii,activ,recomandare,asset,debit,false,241,2020-01-01
+2412,Casa în valută străină,2,24,ii,activ,recomandare,asset,debit,false,241,2020-01-01
+2413,Numerar în casierie legat,2,24,ii,activ,recomandare,asset,debit,false,241,2020-01-01
+242,Conturi curente în monedă naţională,2,24,i,activ,obligatoriu,asset,debit,true,,2020-01-01
+2421,Numerar la conturi nelegat,2,24,ii,activ,recomandare,asset,debit,false,242,2020-01-01
+2422,Numerar la conturi legat,2,24,ii,activ,recomandare,asset,debit,false,242,2020-01-01
+243,Conturi curente în valută străină,2,24,i,activ,obligatoriu,asset,debit,true,,2020-01-01
+2431,Numerar la conturi în ţară,2,24,ii,activ,recomandare,asset,debit,false,243,2020-01-01
+2432,Numerar la conturi în străinătate,2,24,ii,activ,recomandare,asset,debit,false,243,2020-01-01
+2433,Numerar la conturi legat,2,24,ii,activ,recomandare,asset,debit,false,243,2020-01-01
+244,Alte conturi bancare,2,24,i,activ,obligatoriu,asset,debit,true,,2020-01-01
+2441,Acreditive,2,24,ii,activ,recomandare,asset,debit,false,244,2020-01-01
+2442,Carduri bancare,2,24,ii,activ,recomandare,asset,debit,false,244,2020-01-01
+2443,Numerar la alte conturi bancare,2,24,ii,activ,recomandare,asset,debit,false,244,2020-01-01
+245,Transferuri de numerar în expediţie,2,24,i,activ,obligatoriu,asset,debit,true,,2020-01-01
+246,Documente băneşti,2,24,i,activ,obligatoriu,asset,debit,true,,2020-01-01
+251,Investiţii financiare curente în părţi neafiliate,2,25,i,activ,obligatoriu,asset,debit,true,,2020-01-01
+2511,Valori mobiliare,2,25,ii,activ,recomandare,asset,debit,false,251,2020-01-01
+2512,Cote de participaţie,2,25,ii,activ,recomandare,asset,debit,false,251,2020-01-01
+2513,Depozite,2,25,ii,activ,recomandare,asset,debit,false,251,2020-01-01
+2514,Împrumuturi acordate,2,25,ii,activ,recomandare,asset,debit,false,251,2020-01-01
+2515,Alte investiţii financiare curente,2,25,ii,activ,recomandare,asset,debit,false,251,2020-01-01
+252,Investiţii financiare curente în părţi afiliate,2,25,i,activ,obligatoriu,asset,debit,true,,2020-01-01
+2521,Acţiuni şi cote de participaţie deţinute în părţile afiliate,2,25,ii,activ,recomandare,asset,debit,false,252,2020-01-01
+2522,Împrumuturi acordate părţilor afiliate,2,25,ii,activ,recomandare,asset,debit,false,252,2020-01-01
+2523,Împrumuturi acordate aferente intereselor de participare,2,25,ii,activ,recomandare,asset,debit,false,252,2020-01-01
+2524,Alte investiţii financiare în părţi afiliate,2,25,ii,activ,recomandare,asset,debit,false,252,2020-01-01
+253,Provizioane pentru pierderi din împrumuturi neachitate la termen,2,25,i,rectificativ_pasiv,obligatoriu,asset,credit,true,,2020-01-01
+254,Ajustări pentru deprecierea investiţiilor financiare curente,2,25,i,rectificativ_pasiv,obligatoriu,asset,credit,true,,2020-01-01
+2541,Ajustări pentru deprecierea investiţiilor financiare curente în părţi neafiliate,2,25,ii,activ,recomandare,asset,debit,false,254,2020-01-01
+2542,Ajustări pentru deprecierea investiţiilor financiare curente în părţi afiliate,2,25,ii,activ,recomandare,asset,debit,false,254,2020-01-01
+261,Cheltuieli anticipate curente,2,26,i,activ,obligatoriu,asset,debit,true,,2020-01-01
+262,Alte active circulante,2,26,i,activ,obligatoriu,asset,debit,true,,2020-01-01
+311,Capital social,3,31,i,pasiv,obligatoriu,equity,credit,true,,2020-01-01
+313,Capital nevărsat,3,31,i,rectificativ_activ,obligatoriu,equity,debit,true,,2020-01-01
+3131,Capital nevărsat privind părţile sociale neachitate de proprietari,3,31,ii,pasiv,recomandare,equity,credit,false,313,2020-01-01
+3132,Capital nevărsat privind acoperirea pierderilor anilor precedenţi,3,31,ii,pasiv,recomandare,equity,credit,false,313,2020-01-01
+314,Capital neînregistrat,3,31,i,pasiv,obligatoriu,equity,credit,true,,2020-01-01
+3141,Acţiuni neînregistrate emise la înfiinţarea societăţii,3,31,ii,pasiv,recomandare,equity,credit,false,314,2020-01-01
+3142,Părţi sociale depuse pînă la înregistrarea de stat a majorării capitalului social,3,31,ii,pasiv,recomandare,equity,credit,false,314,2020-01-01
+315,Capital retras,3,31,i,rectificativ_activ,obligatoriu,equity,debit,true,,2020-01-01
+316,Patrimoniul primit de la stat cu drept de proprietate,3,31,i,pasiv,obligatoriu,equity,credit,true,,2020-01-01
+317,Prime de capital,3,31,i,pasiv,obligatoriu,equity,credit,true,,2020-01-01
+321,Capital de rezervă,3,32,i,pasiv,obligatoriu,equity,credit,true,,2020-01-01
+322,Rezerve statutare,3,32,i,pasiv,obligatoriu,equity,credit,true,,2020-01-01
+323,Alte rezerve,3,32,i,pasiv,obligatoriu,equity,credit,true,,2020-01-01
+331,Corecţii ale rezultatelor anilor precedenţi,3,33,i,pasiv,obligatoriu,equity,credit,true,,2020-01-01
+332,Profit nerepartizat (pierdere neacoperită) al anilor precedenţi,3,33,i,pasiv,obligatoriu,equity,credit,true,,2020-01-01
+333,Profit net (pierdere netă) al perioadei de gestiune,3,33,i,pasiv,obligatoriu,equity,credit,true,,2020-01-01
+334,Profit utilizat al perioadei de gestiune,3,33,i,rectificativ_activ,obligatoriu,equity,debit,true,,2020-01-01
+335,Rezultat din tranziţia la noile reglementări contabile,3,33,i,pasiv,obligatoriu,equity,credit,true,,2020-01-01
+336,Excedent net (deficit net) al perioadei de gestiune,3,33,i,pasiv,obligatoriu,equity,credit,true,,2020-01-01
+341,Fonduri,3,34,i,pasiv,obligatoriu,equity,credit,true,,2020-01-01
+3411,Aporturi iniţiale ale fondatorilor fundaţiilor,3,34,ii,pasiv,recomandare,equity,credit,false,341,2020-01-01
+3412,Fondul de active imobilizate,3,34,ii,pasiv,recomandare,equity,credit,false,341,2020-01-01
+3413,Fondul de autofinanţare,3,34,ii,pasiv,recomandare,equity,credit,false,341,2020-01-01
+3414,Alte fonduri,3,34,ii,pasiv,recomandare,equity,credit,false,341,2020-01-01
+342,Subvenţii aferente activelor entităţilor cu proprietate publică,3,34,i,pasiv,obligatoriu,equity,credit,true,,2020-01-01
+343,Rezerve din reevaluare,3,34,i,pasiv,obligatoriu,equity,credit,true,,2020-01-01
+344,Alte elemente de capital propriu,3,34,i,pasiv,obligatoriu,equity,credit,true,,2020-01-01
+351,Rezultat financiar total,3,35,i,pasiv,obligatoriu,equity,credit,true,,2020-01-01
+411,Credite bancare pe termen lung,4,41,i,pasiv,obligatoriu,liability,credit,true,,2020-01-01
+4111,Credite bancare în monedă naţională,4,41,ii,pasiv,recomandare,liability,credit,false,411,2020-01-01
+4112,Credite bancare în valută străină,4,41,ii,pasiv,recomandare,liability,credit,false,411,2020-01-01
+4113,Datorii convertibile privind creditele bancare,4,41,ii,pasiv,recomandare,liability,credit,false,411,2020-01-01
+4114,Alte credite bancare pe termen lung,4,41,ii,pasiv,recomandare,liability,credit,false,411,2020-01-01
+412,Împrumuturi pe termen lung,4,41,i,pasiv,obligatoriu,liability,credit,true,,2020-01-01
+4121,Împrumuturi din părţi neafiliate,4,41,ii,pasiv,recomandare,liability,credit,false,412,2020-01-01
+4122,Împrumuturi din părţi afiliate,4,41,ii,pasiv,recomandare,liability,credit,false,412,2020-01-01
+4123,Împrumuturi din emisiunea de obligaţiuni,4,41,ii,pasiv,recomandare,liability,credit,false,412,2020-01-01
+4124,Împrumuturi de la personalul entităţii,4,41,ii,pasiv,recomandare,liability,credit,false,412,2020-01-01
+4125,Datorii convertibile privind împrumuturile,4,41,ii,pasiv,recomandare,liability,credit,false,412,2020-01-01
+4126,Alte împrumuturi pe termen lung,4,41,ii,pasiv,recomandare,liability,credit,false,412,2020-01-01
+414,Datorii privind depunerile de economii pe termen lung ale membrilor asociaţiilor de economii şi împrumut,4,41,i,pasiv,obligatoriu,liability,credit,true,,2020-01-01
+4141,Depuneri de economii pe termen lung ale membrilor asociaţiilor de economii şi împrumut,4,41,ii,pasiv,recomandare,liability,credit,false,414,2020-01-01
+4142,Dobînzi aferente depunerilor de economii pe termen lung ale membrilor asociaţiilor de economii şi împrumut,4,41,ii,pasiv,recomandare,liability,credit,false,414,2020-01-01
+421,Datorii comerciale pe termen lung,4,42,i,pasiv,obligatoriu,liability,credit,true,,2020-01-01
+4211,Datorii comerciale în ţară,4,42,ii,pasiv,recomandare,liability,credit,false,421,2020-01-01
+4212,Datorii comerciale în străinătate,4,42,ii,pasiv,recomandare,liability,credit,false,421,2020-01-01
+4213,Datorii privind leasingul financiar,4,42,ii,pasiv,recomandare,liability,credit,false,421,2020-01-01
+4214,Alte datorii comerciale pe termen lung,4,42,ii,pasiv,recomandare,liability,credit,false,421,2020-01-01
+422,Datorii faţă de părţile afiliate pe termen lung,4,42,i,pasiv,obligatoriu,liability,credit,true,,2020-01-01
+4221,Datorii aferente intereselor de participare,4,42,ii,pasiv,recomandare,liability,credit,false,422,2020-01-01
+4222,Alte datorii faţă de părţile afiliate,4,42,ii,pasiv,recomandare,liability,credit,false,422,2020-01-01
+423,Avansuri primite pe termen lung,4,42,i,pasiv,obligatoriu,liability,credit,true,,2020-01-01
+4231,Avansuri primite din ţară,4,42,ii,pasiv,recomandare,liability,credit,false,423,2020-01-01
+4232,Avansuri primite din străinătate,4,42,ii,pasiv,recomandare,liability,credit,false,423,2020-01-01
+424,Venituri anticipate pe termen lung,4,42,i,pasiv,obligatoriu,liability,credit,true,,2020-01-01
+4241,Subvenţii,4,42,ii,pasiv,recomandare,liability,credit,false,424,2020-01-01
+4242,Alte venituri anticipate pe termen lung,4,42,ii,pasiv,recomandare,liability,credit,false,424,2020-01-01
+425,Finanţări şi încasări cu destinaţie specială pe termen lung,4,42,i,pasiv,obligatoriu,liability,credit,true,,2020-01-01
+426,Provizioane pe termen lung,4,42,i,pasiv,obligatoriu,liability,credit,true,,2020-01-01
+4261,Provizioane pentru beneficiile angajaţilor,4,42,ii,pasiv,recomandare,liability,credit,false,426,2020-01-01
+4262,Provizioane pentru garanţii acordate cumpărătorilor/clienţilor,4,42,ii,pasiv,recomandare,liability,credit,false,426,2020-01-01
+4263,Provizioane pentru impozite,4,42,ii,pasiv,recomandare,liability,credit,false,426,2020-01-01
+4264,Alte provizioane,4,42,ii,pasiv,recomandare,liability,credit,false,426,2020-01-01
+427,Datorii pe termen lung privind bunurile primite în gestiune economică,4,42,i,pasiv,obligatoriu,liability,credit,true,,2020-01-01
+428,Alte datorii pe termen lung,4,42,i,pasiv,obligatoriu,liability,credit,true,,2020-01-01
+511,Credite bancare pe termen scurt,5,51,i,pasiv,obligatoriu,liability,credit,true,,2020-01-01
+5111,Credite bancare în monedă naţională,5,51,ii,pasiv,recomandare,liability,credit,false,511,2020-01-01
+5112,Credite bancare în valută străină,5,51,ii,pasiv,recomandare,liability,credit,false,511,2020-01-01
+5113,Credite bancare în monedă naţională restante,5,51,ii,pasiv,recomandare,liability,credit,false,511,2020-01-01
+5114,Credite bancare în valută străină restante,5,51,ii,pasiv,recomandare,liability,credit,false,511,2020-01-01
+5115,Alte credite bancare pe termen scurt,5,51,ii,pasiv,recomandare,liability,credit,false,511,2020-01-01
+5116,Dobînzi aferente creditelor bancare,5,51,ii,pasiv,recomandare,liability,credit,false,511,2020-01-01
+512,Împrumuturi pe termen scurt,5,51,i,pasiv,obligatoriu,liability,credit,true,,2020-01-01
+5121,Împrumuturi de la părţi neafiliate,5,51,ii,pasiv,recomandare,liability,credit,false,512,2020-01-01
+5122,Împrumuturi de la părţi afiliate,5,51,ii,pasiv,recomandare,liability,credit,false,512,2020-01-01
+5123,Împrumuturi din emisiunea de obligaţiuni,5,51,ii,pasiv,recomandare,liability,credit,false,512,2020-01-01
+5124,Împrumuturi de la personalul entităţii,5,51,ii,pasiv,recomandare,liability,credit,false,512,2020-01-01
+5125,Alte împrumuturi pe termen scurt,5,51,ii,pasiv,recomandare,liability,credit,false,512,2020-01-01
+5126,Dobînzi aferente împrumuturilor,5,51,ii,pasiv,recomandare,liability,credit,false,512,2020-01-01
+513,Datorii privind depunerile de economii pe termen scurt ale membrilor asociaţiilor de economii şi împrumut,5,51,i,pasiv,obligatoriu,liability,credit,true,,2020-01-01
+5131,Depuneri de economii pe termen scurt ale membrilor asociaţiilor de economii şi împrumut,5,51,ii,pasiv,recomandare,liability,credit,false,513,2020-01-01
+5132,Dobînzi aferente depunerilor de economii pe termen scurt ale membrilor asociaţiilor de economii şi împrumut,5,51,ii,pasiv,recomandare,liability,credit,false,513,2020-01-01
+521,Datorii comerciale curente,5,52,i,pasiv,obligatoriu,liability,credit,true,,2020-01-01
+5211,Datorii comerciale în ţară,5,52,ii,pasiv,recomandare,liability,credit,false,521,2020-01-01
+5212,Datorii comerciale în străinătate,5,52,ii,pasiv,recomandare,liability,credit,false,521,2020-01-01
+5213,Datorii privind leasingul,5,52,ii,pasiv,recomandare,liability,credit,false,521,2020-01-01
+5214,Alte datorii comerciale curente,5,52,ii,pasiv,recomandare,liability,credit,false,521,2020-01-01
+522,Datorii curente faţă de părţile afiliate,5,52,i,pasiv,obligatoriu,liability,credit,true,,2020-01-01
+5221,Datorii aferente intereselor de participare,5,52,ii,pasiv,recomandare,liability,credit,false,522,2020-01-01
+5222,Alte datorii faţă de părţile afiliate,5,52,ii,pasiv,recomandare,liability,credit,false,522,2020-01-01
+523,Avansuri primite curente,5,52,i,pasiv,obligatoriu,liability,credit,true,,2020-01-01
+5231,Avansuri primite din ţară,5,52,ii,pasiv,recomandare,liability,credit,false,523,2020-01-01
+5232,Avansuri primite din străinătate,5,52,ii,pasiv,recomandare,liability,credit,false,523,2020-01-01
+531,Datorii faţă de personal privind retribuirea muncii,5,53,i,pasiv,obligatoriu,liability,credit,true,,2020-01-01
+5311,Datorii salariale,5,53,ii,pasiv,recomandare,liability,credit,false,531,2020-01-01
+5312,Datorii faţă de deponenţi,5,53,ii,pasiv,recomandare,liability,credit,false,531,2020-01-01
+532,Datorii faţă de personal privind alte operaţii,5,53,i,pasiv,obligatoriu,liability,credit,true,,2020-01-01
+5321,Datorii faţă de titularii de avans,5,53,ii,pasiv,recomandare,liability,credit,false,532,2020-01-01
+5322,Datorii faţă de personal privind alte operaţii,5,53,ii,pasiv,recomandare,liability,credit,false,532,2020-01-01
+533,Datorii privind asigurările sociale şi medicale,5,53,i,pasiv,obligatoriu,liability,credit,true,,2020-01-01
+5331,Datorii faţă de bugetul asigurărilor sociale de stat,5,53,ii,pasiv,recomandare,liability,credit,false,533,2020-01-01
+5332,Datorii faţă de fondurile asigurării obligatorii de asistenţă medicală,5,53,ii,pasiv,recomandare,liability,credit,false,533,2020-01-01
+5333,Alte datorii privind asigurările sociale şi medicale,5,53,ii,pasiv,recomandare,liability,credit,false,533,2020-01-01
+534,Datorii faţă de buget,5,53,i,pasiv,obligatoriu,liability,credit,true,,2020-01-01
+5341,Datorii privind impozitul pe venit din activitatea de întreprinzător şi profesională,5,53,ii,pasiv,recomandare,liability,credit,false,534,2020-01-01
+5342,Datorii privind impozitul pe venit din salariu,5,53,ii,pasiv,recomandare,liability,credit,false,534,2020-01-01
+5343,Datorii privind impozitul pe venit reţinut la sursa de plată,5,53,ii,pasiv,recomandare,liability,credit,false,534,2020-01-01
+5344,Datorii privind taxa pe valoarea adăugată,5,53,ii,pasiv,recomandare,liability,credit,false,534,2020-01-01
+5345,Datorii privind accizele,5,53,ii,pasiv,recomandare,liability,credit,false,534,2020-01-01
+5346,Datorii privind alte impozite şi taxe,5,53,ii,pasiv,recomandare,liability,credit,false,534,2020-01-01
+5347,Datorii privind sancţiunile,5,53,ii,pasiv,recomandare,liability,credit,false,534,2020-01-01
+5348,Alte datorii faţă de buget,5,53,ii,pasiv,recomandare,liability,credit,false,534,2020-01-01
+535,Venituri anticipate curente,5,53,i,pasiv,obligatoriu,liability,credit,true,,2020-01-01
+5351,Subvenţii,5,53,ii,pasiv,recomandare,liability,credit,false,535,2020-01-01
+5352,Valoarea activelor circulante intrate cu titlu gratuit,5,53,ii,pasiv,recomandare,liability,credit,false,535,2020-01-01
+5353,Alte venituri anticipate curente,5,53,ii,pasiv,recomandare,liability,credit,false,535,2020-01-01
+536,Datorii faţă de proprietari,5,53,i,pasiv,obligatoriu,liability,credit,true,,2020-01-01
+5361,Datorii privind dividendele calculate,5,53,ii,pasiv,recomandare,liability,credit,false,536,2020-01-01
+5362,Datorii privind alte operaţiuni,5,53,ii,pasiv,recomandare,liability,credit,false,536,2020-01-01
+537,Finanţări şi încasări cu destinaţie specială curente,5,53,i,pasiv,obligatoriu,liability,credit,true,,2020-01-01
+538,Provizioane curente,5,53,i,pasiv,obligatoriu,liability,credit,true,,2020-01-01
+5381,Provizioane pentru beneficiile angajaţilor,5,53,ii,pasiv,recomandare,liability,credit,false,538,2020-01-01
+5382,Provizioane pentru garanţii acordate cumpărătorilor/clienţilor,5,53,ii,pasiv,recomandare,liability,credit,false,538,2020-01-01
+5383,Provizioane pentru impozite,5,53,ii,pasiv,recomandare,liability,credit,false,538,2020-01-01
+5384,Alte provizioane,5,53,ii,pasiv,recomandare,liability,credit,false,538,2020-01-01
+541,Datorii preliminate,5,54,i,pasiv,obligatoriu,liability,credit,true,,2020-01-01
+5411,Datorii preliminate privind decontările cu bugetul,5,54,ii,pasiv,recomandare,liability,credit,false,541,2020-01-01
+5412,Datorii preliminate privind primele de asigurare obligatorie de asistenţă medicală,5,54,ii,pasiv,recomandare,liability,credit,false,541,2020-01-01
+5413,Alte datorii preliminate,5,54,ii,pasiv,recomandare,liability,credit,false,541,2020-01-01
+542,Datorii privind asigurarea bunurilor şi a persoanelor,5,54,i,pasiv,obligatoriu,liability,credit,true,,2020-01-01
+543,Datorii curente privind bunurile primite în gestiune economică,5,54,i,pasiv,obligatoriu,liability,credit,true,,2020-01-01
+544,Alte datorii curente,5,54,i,pasiv,obligatoriu,liability,credit,true,,2020-01-01
+5441,Datorii privind sancţiunile comerciale,5,54,ii,pasiv,recomandare,liability,credit,false,544,2020-01-01
+5442,Datorii aferente mijloacelor nepredestinate în organizaţiile necomerciale,5,54,ii,pasiv,recomandare,liability,credit,false,544,2020-01-01
+5443,Alte datorii calculate curente,5,54,ii,pasiv,recomandare,liability,credit,false,544,2020-01-01
+611,Venituri din vînzări,6,61,i,pasiv,obligatoriu,income,credit,true,,2020-01-01
+6111,Venituri din vînzarea produselor,6,61,ii,pasiv,recomandare,income,credit,false,611,2020-01-01
+6112,Venituri din vînzarea mărfurilor,6,61,ii,pasiv,recomandare,income,credit,false,611,2020-01-01
+6113,Venituri din prestarea serviciilor,6,61,ii,pasiv,recomandare,income,credit,false,611,2020-01-01
+6114,Venituri din executarea lucrărilor,6,61,ii,pasiv,recomandare,income,credit,false,611,2020-01-01
+6115,Venituri din contracte de construcţie,6,61,ii,pasiv,recomandare,income,credit,false,611,2020-01-01
+6116,"Venituri din contracte de leasing operaţional şi financiar (arendă, locaţiune)",6,61,ii,pasiv,recomandare,income,credit,false,611,2020-01-01
+6117,Venituri din contracte de microfinanţare,6,61,ii,pasiv,recomandare,income,credit,false,611,2020-01-01
+6118,Alte venituri din vînzări,6,61,ii,pasiv,recomandare,income,credit,false,611,2020-01-01
+612,Alte venituri din activitatea operaţională,6,61,i,pasiv,obligatoriu,income,credit,true,,2020-01-01
+6121,Venituri din ieşirea altor active circulante,6,61,ii,pasiv,recomandare,income,credit,false,612,2020-01-01
+6122,Venituri din sancţiuni,6,61,ii,pasiv,recomandare,income,credit,false,612,2020-01-01
+6123,Venituri din recuperarea prejudiciului material,6,61,ii,pasiv,recomandare,income,credit,false,612,2020-01-01
+6124,Venituri din plusurile de active imobilizate şi circulante constatate la inventariere,6,61,ii,pasiv,recomandare,income,credit,false,612,2020-01-01
+6125,Venituri din decontarea datoriilor cu termen de prescripţie expirat,6,61,ii,pasiv,recomandare,income,credit,false,612,2020-01-01
+6126,Venituri din ajustările privind deprecierea activelor circulante,6,61,ii,pasiv,recomandare,income,credit,false,612,2020-01-01
+6127,Venituri aferente diferenţelor favorabile dintre cursul oficial al BNM şi cursul de cumpărare-vînzare a valutei străine,6,61,ii,pasiv,recomandare,income,credit,false,612,2020-01-01
+6128,Alte venituri operaţionale,6,61,ii,pasiv,recomandare,income,credit,false,612,2020-01-01
+613,Venituri din dobînzile aferente împrumuturilor acordate,6,61,i,pasiv,obligatoriu,income,credit,true,,2020-01-01
+6131,Venituri din dobînzile aferente împrumuturilor pe termen lung acordate,6,61,ii,pasiv,recomandare,income,credit,false,613,2020-01-01
+6132,Venituri din dobînzile aferente împrumuturilor pe termen scurt acordate,6,61,ii,pasiv,recomandare,income,credit,false,613,2020-01-01
+616,Venituri aferente mijloacelor cu destinaţie specială,6,61,i,pasiv,obligatoriu,income,credit,true,,2020-01-01
+617,Alte venituri (cu excepţia veniturilor din activitatea economică),6,61,i,pasiv,obligatoriu,income,credit,true,,2020-01-01
+618,Venituri din activitatea economică,6,61,i,pasiv,obligatoriu,income,credit,true,,2020-01-01
+621,Venituri din operaţiuni cu active imobilizate,6,62,i,pasiv,obligatoriu,income,credit,true,,2020-01-01
+6211,Venituri din ieşirea imobilizărilor necorporale,6,62,ii,pasiv,recomandare,income,credit,false,621,2020-01-01
+6212,Venituri din ieşirea imobilizărilor corporale,6,62,ii,pasiv,recomandare,income,credit,false,621,2020-01-01
+6213,Venituri din ieşirea investiţiilor imobiliare,6,62,ii,pasiv,recomandare,income,credit,false,621,2020-01-01
+6214,Venituri din ieşirea altor active imobilizate,6,62,ii,pasiv,recomandare,income,credit,false,621,2020-01-01
+6215,Venituri din reluarea pierderilor din deprecierea activelor imobilizate,6,62,ii,pasiv,recomandare,income,credit,false,621,2020-01-01
+6216,Venituri din decontarea fondului comercial negativ,6,62,ii,pasiv,recomandare,income,credit,false,621,2020-01-01
+6217,Alte venituri din operaţiuni cu active imobilizate,6,62,ii,pasiv,recomandare,income,credit,false,621,2020-01-01
+622,Venituri financiare,6,62,i,pasiv,obligatoriu,income,credit,true,,2020-01-01
+6221,Venituri din interese de participare,6,62,ii,pasiv,recomandare,income,credit,false,622,2020-01-01
+6222,Venituri din dobînzi,6,62,ii,pasiv,recomandare,income,credit,false,622,2020-01-01
+6223,Venituri din alte investiţii financiare pe termen lung,6,62,ii,pasiv,recomandare,income,credit,false,622,2020-01-01
+6224,Venituri aferente ajustărilor de valoare privind investiţiile financiare pe termen lung şi curente,6,62,ii,pasiv,recomandare,income,credit,false,622,2020-01-01
+6225,Venituri din ieşirea investiţiilor financiare,6,62,ii,pasiv,recomandare,income,credit,false,622,2020-01-01
+6226,Venituri din diferenţe de curs valutar,6,62,ii,pasiv,recomandare,income,credit,false,622,2020-01-01
+6227,Venituri din diferenţe de sumă,6,62,ii,pasiv,recomandare,income,credit,false,622,2020-01-01
+6228,Alte venituri financiare,6,62,ii,pasiv,recomandare,income,credit,false,622,2020-01-01
+623,Venituri excepţionale,6,62,i,pasiv,obligatoriu,income,credit,true,,2020-01-01
+6231,Venituri din compensarea pierderilor din calamităţi,6,62,ii,pasiv,recomandare,income,credit,false,623,2020-01-01
+6232,Venituri din compensarea pierderilor din alte evenimente excepţionale,6,62,ii,pasiv,recomandare,income,credit,false,623,2020-01-01
+6233,Alte venituri excepţionale,6,62,ii,pasiv,recomandare,income,credit,false,623,2020-01-01
+711,Costul vînzărilor,7,71,i,activ,obligatoriu,expense,debit,true,,2020-01-01
+7111,Valoarea contabilă a produselor vîndute,7,71,ii,activ,recomandare,expense,debit,false,711,2020-01-01
+7112,Valoarea contabilă a mărfurilor vîndute,7,71,ii,activ,recomandare,expense,debit,false,711,2020-01-01
+7113,Costul serviciilor prestate,7,71,ii,activ,recomandare,expense,debit,false,711,2020-01-01
+7114,Costul lucrărilor executate terţilor,7,71,ii,activ,recomandare,expense,debit,false,711,2020-01-01
+7115,Costuri aferente contractelor de construcţie,7,71,ii,activ,recomandare,expense,debit,false,711,2020-01-01
+7116,"Costuri aferente contractelor de leasing operaţional şi financiar (arendă, locaţiune)",7,71,ii,activ,recomandare,expense,debit,false,711,2020-01-01
+7117,Costuri aferente contractelor de microfinanţare,7,71,ii,activ,recomandare,expense,debit,false,711,2020-01-01
+7118,Alte costuri aferente veniturilor din vînzări,7,71,ii,activ,recomandare,expense,debit,false,711,2020-01-01
+712,Cheltuieli de distribuire,7,71,i,activ,obligatoriu,expense,debit,true,,2020-01-01
+7121,Cheltuieli cu personalul comercial,7,71,ii,activ,recomandare,expense,debit,false,712,2020-01-01
+7122,"Cheltuieli privind amortizarea, întreţinerea şi reparaţia activelor imobilizate cu destinaţie comercială",7,71,ii,activ,recomandare,expense,debit,false,712,2020-01-01
+7123,Cheltuieli cu ambalajele şi alte materiale utilizate la comercializarea produselor şi mărfurilor,7,71,ii,activ,recomandare,expense,debit,false,712,2020-01-01
+7124,Cheltuieli de transportare a produselor şi mărfurilor,7,71,ii,activ,recomandare,expense,debit,false,712,2020-01-01
+7125,Cheltuieli de publicitate şi marketing,7,71,ii,activ,recomandare,expense,debit,false,712,2020-01-01
+7126,Cheltuieli privind reparaţiile şi deservirea produselor şi mărfurilor în perioada de garanţie,7,71,ii,activ,recomandare,expense,debit,false,712,2020-01-01
+7127,Cheltuieli privind creanţele comerciale compromise,7,71,ii,activ,recomandare,expense,debit,false,712,2020-01-01
+7128,Cheltuieli privind returnările şi reducerile,7,71,ii,activ,recomandare,expense,debit,false,712,2020-01-01
+7129,Alte cheltuieli de distribuire,7,71,ii,activ,recomandare,expense,debit,false,712,2020-01-01
+713,Cheltuieli administrative,7,71,i,activ,obligatoriu,expense,debit,true,,2020-01-01
+7131,Cheltuieli cu personalul administrativ,7,71,ii,activ,recomandare,expense,debit,false,713,2020-01-01
+7132,"Cheltuieli privind amortizarea, întreţinerea şi reparaţia activelor imobilizate cu destinaţie administrativă",7,71,ii,activ,recomandare,expense,debit,false,713,2020-01-01
+7133,"Cheltuieli cu impozitele şi taxele, cu excepţia impozitului pe venit",7,71,ii,activ,recomandare,expense,debit,false,713,2020-01-01
+7134,Cheltuieli în scopuri de filantropie şi sponsorizare,7,71,ii,activ,recomandare,expense,debit,false,713,2020-01-01
+7135,Cheltuieli privind serviciile cu destinaţie administrativă,7,71,ii,activ,recomandare,expense,debit,false,713,2020-01-01
+7136,Cheltuieli de protocol (reprezentanţă),7,71,ii,activ,recomandare,expense,debit,false,713,2020-01-01
+7137,Cheltuieli privind delegarea personalului administrativ,7,71,ii,activ,recomandare,expense,debit,false,713,2020-01-01
+7138,Alte cheltuieli administrative,7,71,ii,activ,recomandare,expense,debit,false,713,2020-01-01
+714,Alte cheltuieli din activitatea operaţională,7,71,i,activ,obligatoriu,expense,debit,true,,2020-01-01
+7141,Valoarea contabilă şi cheltuielile aferente altor active circulante ieşite,7,71,ii,activ,recomandare,expense,debit,false,714,2020-01-01
+7142,Cheltuieli privind sancţiunile,7,71,ii,activ,recomandare,expense,debit,false,714,2020-01-01
+7144,Cheltuieli privind lipsurile şi pierderile din deteriorarea activelor imobilizate şi circulante,7,71,ii,activ,recomandare,expense,debit,false,714,2020-01-01
+7145,"Cheltuieli privind creanţele compromise decontate, cu excepţia celor comerciale",7,71,ii,activ,recomandare,expense,debit,false,714,2020-01-01
+7146,Cheltuieli aferente ajustărilor privind deprecierea activelor circulante,7,71,ii,activ,recomandare,expense,debit,false,714,2020-01-01
+7147,Cheltuieli aferente diferenţelor nefavorabile dintre cursul oficial al BNM şi cursul de cumpărare-vînzare a valutei străine,7,71,ii,activ,recomandare,expense,debit,false,714,2020-01-01
+7148,Alte cheltuieli operaţionale,7,71,ii,activ,recomandare,expense,debit,false,714,2020-01-01
+715,Cheltuieli aferente dobînzilor calculate,7,71,i,activ,obligatoriu,expense,debit,true,,2020-01-01
+7151,Cheltuieli aferente dobînzilor calculate la depunerile de economii ale membrilor asociaţiilor de economii şi împrumut,7,71,ii,activ,recomandare,expense,debit,false,715,2020-01-01
+7152,Cheltuieli aferente dobînzilor calculate la împrumuturile/creditele primite,7,71,ii,activ,recomandare,expense,debit,false,715,2020-01-01
+716,Cheltuieli aferente mijloacelor cu destinaţie specială,7,71,i,activ,obligatoriu,expense,debit,true,,2020-01-01
+717,Alte cheltuieli (cu excepţia cheltuielilor din activitatea economică),7,71,i,activ,obligatoriu,expense,debit,true,,2020-01-01
+718,Cheltuieli din activitatea economică,7,71,i,activ,obligatoriu,expense,debit,true,,2020-01-01
+721,Cheltuieli cu active imobilizate,7,72,i,activ,obligatoriu,expense,debit,true,,2020-01-01
+7211,Valoarea contabilă şi cheltuielile aferente imobilizărilor necorporale ieşite,7,72,ii,activ,recomandare,expense,debit,false,721,2020-01-01
+7212,Valoarea contabilă şi cheltuielile aferente imobilizărilor corporale ieşite,7,72,ii,activ,recomandare,expense,debit,false,721,2020-01-01
+7213,Valoarea contabilă şi cheltuielile aferente investiţiilor imobiliare ieşite,7,72,ii,activ,recomandare,expense,debit,false,721,2020-01-01
+7214,Valoarea contabilă şi cheltuielile aferente altor active imobilizate ieşite,7,72,ii,activ,recomandare,expense,debit,false,721,2020-01-01
+7215,Pierderi din deprecierea activelor imobilizate,7,72,ii,activ,recomandare,expense,debit,false,721,2020-01-01
+7216,Pierderi din decontarea fondului comercial pozitiv,7,72,ii,activ,recomandare,expense,debit,false,721,2020-01-01
+7217,Cheltuieli privind provizioanele aferente activelor imobilizate,7,72,ii,activ,recomandare,expense,debit,false,721,2020-01-01
+7218,Alte cheltuieli cu active imobilizate,7,72,ii,activ,recomandare,expense,debit,false,721,2020-01-01
+722,Cheltuieli financiare,7,72,i,activ,obligatoriu,expense,debit,true,,2020-01-01
+7221,Cheltuieli privind dobînzile,7,72,ii,activ,recomandare,expense,debit,false,722,2020-01-01
+7222,Cheltuieli aferente ajustărilor de valoare privind investiţiile financiare pe termen lung şi curente,7,72,ii,activ,recomandare,expense,debit,false,722,2020-01-01
+7223,Cheltuieli aferente ieşirii investiţiilor financiare,7,72,ii,activ,recomandare,expense,debit,false,722,2020-01-01
+7224,Cheltuieli din diferenţe de curs valutar,7,72,ii,activ,recomandare,expense,debit,false,722,2020-01-01
+7225,Cheltuieli din diferenţe de sumă,7,72,ii,activ,recomandare,expense,debit,false,722,2020-01-01
+7226,Alte cheltuieli financiare,7,72,ii,activ,recomandare,expense,debit,false,722,2020-01-01
+723,Cheltuieli excepţionale,7,72,i,activ,obligatoriu,expense,debit,true,,2020-01-01
+7231,Cheltuieli privind calamităţile,7,72,ii,activ,recomandare,expense,debit,false,723,2020-01-01
+7232,Cheltuieli privind alte evenimente excepţionale,7,72,ii,activ,recomandare,expense,debit,false,723,2020-01-01
+7233,Alte cheltuieli excepţionale,7,72,ii,activ,recomandare,expense,debit,false,723,2020-01-01
+731,Cheltuieli privind impozitul pe venit,7,73,i,activ,obligatoriu,expense,debit,true,,2020-01-01
+811,Activităţi de bază,8,81,i,activ,recomandare,expense,debit,true,,2020-01-01
+812,Activităţi auxiliare,8,81,i,activ,recomandare,expense,debit,true,,2020-01-01
+821,Costuri indirecte de producţie,8,82,i,activ,recomandare,expense,debit,true,,2020-01-01
+822,Costuri indirecte aferente contractelor de construcţie,8,82,i,activ,recomandare,expense,debit,true,,2020-01-01
+823,Costuri de regie aferente contractelor de construcţie,8,82,i,activ,recomandare,expense,debit,true,,2020-01-01
+824,Alte costuri repartizabile,8,82,i,activ,recomandare,expense,debit,true,,2020-01-01
+831,Adaos comercial,8,83,i,rectificativ_pasiv,recomandare,expense,credit,true,,2020-01-01
+832,Încasări din vînzarea bunurilor în numerar,8,83,i,activ,recomandare,expense,debit,true,,2020-01-01
+833,Returnarea şi reducerea preţurilor la bunurile vîndute,8,83,i,activ,recomandare,expense,debit,true,,2020-01-01
+834,Costuri aferente bunurilor transmise spre prelucrare terţilor,8,83,i,activ,recomandare,expense,debit,true,,2020-01-01
+835,Producţii şi unităţi de deservire,8,83,i,activ,recomandare,expense,debit,true,,2020-01-01
+836,Costuri refacturate,8,83,i,activ,recomandare,expense,debit,true,,2020-01-01
+911,"Imobilizări corporale primite în leasing (arendă, locaţiune) operaţional",9,,i,extrabilantier,recomandare,asset,debit,true,,2020-01-01
+912,Bunuri primite pentru montare,9,,i,extrabilantier,recomandare,asset,debit,true,,2020-01-01
+913,Imobilizări corporale transmise în leasing financiar,9,,i,extrabilantier,recomandare,asset,debit,true,,2020-01-01
+914,Bunuri primite în custodie,9,,i,extrabilantier,recomandare,asset,debit,true,,2020-01-01
+915,Bunuri primite spre prelucrare sau reparare,9,,i,extrabilantier,recomandare,asset,debit,true,,2020-01-01
+916,Bunuri primite în baza contractelor de comision,9,,i,extrabilantier,recomandare,asset,debit,true,,2020-01-01
+917,Bunuri obţinute din materialele prelucrate ale terţilor,9,,i,extrabilantier,recomandare,asset,debit,true,,2020-01-01
+918,Formulare cu regim special,9,,i,extrabilantier,recomandare,asset,debit,true,,2020-01-01
+919,Creanţe compromise decontate,9,,i,extrabilantier,recomandare,asset,debit,true,,2020-01-01
+920,Creanţe contingente,9,,i,extrabilantier,recomandare,asset,debit,true,,2020-01-01
+921,Datorii contingente,9,,i,extrabilantier,recomandare,asset,debit,true,,2020-01-01
+922,Garanţii acordate,9,,i,extrabilantier,recomandare,asset,debit,true,,2020-01-01
+923,Garanţii primite,9,,i,extrabilantier,recomandare,asset,debit,true,,2020-01-01
+924,Pierderi fiscale,9,,i,extrabilantier,recomandare,asset,debit,true,,2020-01-01
+925,Facilităţi fiscale,9,,i,extrabilantier,recomandare,asset,debit,true,,2020-01-01
