@@ -46,6 +46,11 @@ Un test de integrare o parcurge prin HTTP, sub rolul aplicației
   rolul aplicației `INSERT` e refuzat de RLS, iar `UPDATE`/`DELETE` n-au politică și au și trigger
   append-only. Retras oricum prin `0047`, ca declarația și baza să spună același lucru și ca apărarea
   să nu depindă de absența unei politici
+- **Inventar: fiecare rută a serverului are un apelant în client.** 25 de rute, toate acoperite —
+  clasa „serviciu complet fără ușă", care a produs patru cazuri într-o zi, e goală acum. Verificarea
+  a rămas măsurătoare, nu unealtă: scrisă naiv, dă **fals negativ** pe propriul meu cod, fiindcă
+  `templates.ts` compune adresa dintr-un `base()` și calea literală nu apare niciodată întreagă. Un
+  gardian care strigă lupul se ignoră, ca euristica pe triggere de append-only
 - **Ecranul de parteneri**, la nivel de spațiu de lucru — fără segment de companie, fiindcă aceeași
   entitate juridică e aceeași pentru toate companiile firmei. Formularul de solduri putea **alege** un
   partener și nimic nu putea **crea** unul: același gol care ținea stornoul, soldurile și șabloanele
