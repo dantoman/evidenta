@@ -46,6 +46,16 @@ Un test de integrare o parcurge prin HTTP, sub rolul aplicației
   rolul aplicației `INSERT` e refuzat de RLS, iar `UPDATE`/`DELETE` n-au politică și au și trigger
   append-only. Retras oricum prin `0047`, ca declarația și baza să spună același lucru și ca apărarea
   să nu depindă de absența unei politici
+- **Ecranul de solduri inițiale** peste API-ul sesiunii paralele: lot → rânduri GL → validare →
+  postare, cei patru pași ai serverului, nu un wizard inventat. Doar rânduri GL: creanțele și
+  datoriile cer `partner_id`, iar `masterdata/partners` n-are nicio cale HTTP — scris pe ecran, nu
+  doar în cod. Parcurs pe serverul viu: contul de contrapartidă iese **0.0000** după postare, adică
+  proba de completitudine din Spec B §8.3, citită din balanță
+- **Un defect prins de propriul test de fum:** parserul de sume era cel de la nota manuală, cu două
+  zecimale, iar serverul trimite patru (`"5000.0000"`) — deci totalurile ieșeau zero și avertismentul
+  de set dezechilibrat nu apărea niciodată. Sumele se adună acum la scara serverului
+- **Măsurat pe server, scris pe ecran:** data lotului trebuie să cadă într-un exercițiu deschis
+  (`periods.period_not_found` la `2025-12-31`), deci „ziua dinaintea primului exercițiu" nu merge
 - **Un checkout curat nu putea ajunge la ecranul de autentificare, și acum poate:**
   `manage.py create_tenant` (`make create-tenant`) creează tenantul, utilizatorul, rolurile de
   sistem, membership-ul și **înrolează al doilea factor**, fiindcă `authenticate()` refuză un cont

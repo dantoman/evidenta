@@ -133,6 +133,51 @@ export const ro = {
       needDescription: 'Nota are nevoie de o descriere.',
       noChart: 'Compania nu are încă un plan de conturi.',
     },
+    opening: {
+      title: 'Solduri inițiale',
+      lead:
+        'O companie care vine din alt sistem pornește cu solduri, nu cu registrul gol. Setul se echilibrează pe contul de contrapartidă ales mai jos.',
+      asOfDate: 'La data de',
+      // Masurat pe server: data lotului trebuie sa cada intr-o perioada deschisa,
+      // altfel refuzul e `periods.period_not_found`. Deci exercitiul se deschide
+      // inainte, iar „ziua dinaintea primului exercitiu" nu functioneaza.
+      asOfDateHint:
+        'Data trebuie să cadă într-un exercițiu deschis — de exemplu prima zi a primului exercițiu.',
+      source: 'Proveniență',
+      sourceManual: 'Introduse manual',
+      sourceOnec: 'Import 1C',
+      sourceOther: 'Alt sistem',
+      counterpart: 'Cont de contrapartidă',
+      counterpartHint:
+        'Contul pe care se oglindește fiecare sold. Soldul lui după înregistrare este proba de completitudine: trebuie să fie zero.',
+      create: 'Creează lotul',
+      state: 'Stare',
+      draft: 'În lucru',
+      validated: 'Validat',
+      posted: 'Postat',
+      rejected: 'Respins',
+      account: 'Cont',
+      debit: 'Debit',
+      credit: 'Credit',
+      addRow: 'Adaugă rând',
+      removeRow: 'Șterge',
+      saveRows: 'Salvează rândurile',
+      total: 'Total',
+      difference: 'Diferență',
+      // Reconcilierea la zero e conditia importului, nu scopul lui: serverul
+      // refuza un set GL dezechilibrat, nu il absoarbe pe contrapartida.
+      unbalanced:
+        'Setul nu se închide: totalul debitului diferă de cel al creditului. Contrapartida nu absoarbe diferența.',
+      validate: 'Validează lotul',
+      post: 'Postează soldurile',
+      postedNote: 'Soldurile au fost postate. Lotul nu se mai modifică.',
+      rowsSaved: 'Rândurile au fost salvate.',
+      validatedNote: 'Lotul e validat. Rândurile sunt înghețate.',
+      // Onestitate despre ce nu e livrat, pe ecran, nu doar in cod.
+      partnersMissing:
+        'Creanțele și datoriile pe parteneri nu se introduc încă: nu există o cale de a căuta un partener.',
+      empty: 'Lotul nu are încă niciun rând.',
+    },
     register: {
       title: 'Registrul înregistrărilor',
       number: 'Număr',
@@ -298,6 +343,22 @@ export const ro = {
       'Exercițiul începe în prima zi a unei luni și se termină în ultima.',
     'periods.company_not_visible': 'Compania nu există sau nu aveți acces la ea.',
     'ledger.entry_not_found': 'Înregistrarea nu a fost găsită.',
+    // Soldurile initiale. Codurile sunt culese din `opening/errors.py`.
+    'opening.refused': 'Operațiunea a fost refuzată.',
+    'opening.batch_not_found': 'Lotul nu a fost găsit.',
+    'opening.batch_not_draft': 'Lotul nu mai este în lucru, deci rândurile nu se mai schimbă.',
+    'opening.illegal_batch_transition': 'Trecerea aceasta de stare nu este permisă.',
+    'opening.empty_gl_set': 'Lotul nu are niciun sold de cont.',
+    'opening.gl_out_of_balance':
+      'Setul nu se închide: totalul debitului diferă de cel al creditului.',
+    'opening.analytical_mismatch':
+      'Detaliul analitic nu se potrivește cu soldul contului de control.',
+    'opening.account_missing_from_gl': 'Un cont din detaliul analitic lipsește din soldurile de cont.',
+    'opening.counterpart_in_gl': 'Contul de contrapartidă nu poate apărea și între solduri.',
+    'opening.foreign_currency_unsupported':
+      'Soldurile în valută nu se pot introduce încă.',
+    'opening.start_period_fixed': 'Data soldurilor inițiale este deja fixată.',
+    'opening.batch_already_posted': 'Lotul a fost deja postat.',
     'ledger.entry_already_reversed': 'Înregistrarea a fost deja stornată.',
     'ledger.entry_not_posted': 'Înregistrarea nu este postată, deci nu are ce anula.',
     'posting.reversal_payload_invalid': 'Stornarea are nevoie de un motiv.',

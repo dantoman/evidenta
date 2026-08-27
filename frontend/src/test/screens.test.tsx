@@ -20,6 +20,7 @@ import { AccountScreen } from '@/app/accounting/AccountScreen'
 import { ChartOfAccountsScreen } from '@/app/accounting/ChartOfAccountsScreen'
 import { ChartSetupScreen } from '@/app/accounting/ChartSetupScreen'
 import { ManualEntryScreen } from '@/app/accounting/ManualEntryScreen'
+import { OpeningBalancesScreen } from '@/app/accounting/OpeningBalancesScreen'
 import { RegisterScreen } from '@/app/accounting/RegisterScreen'
 import { TrialBalanceScreen } from '@/app/accounting/TrialBalanceScreen'
 import { CompaniesScreen } from '@/app/companies/CompaniesScreen'
@@ -159,6 +160,31 @@ describe('ecranele', () => {
     })
 
     expect(await screen.findByRole('button', { name: 'Postează nota' })).toBeDisabled()
+  })
+
+  it('soldurile inițiale arată lotul, totalurile lui și de ce lipsesc partenerii', async () => {
+    const BATCH = '33333333-3333-4333-8333-333333333333'
+    stubFetch({
+      [`/api/v1/accounting/coa/companies/${COMPANY}/accounts`]: ACCOUNTS,
+      [`/api/v1/accounting/opening-balances/${BATCH}`]: {
+        id: BATCH, company_id: COMPANY, as_of_date: '2025-12-31', source: 'onec_import',
+        status: 'draft', counterpart_account_id: ACCOUNT,
+        gl: [{ account_id: ACCOUNT, debit: '5000.0000', credit: '0', currency: null }],
+        receivables: [], payables: [], decomposition: {},
+      },
+    })
+    renderScreen(<OpeningBalancesScreen />, {
+      path: '/companii/:companyId/solduri-initiale/:batchId',
+      route: `/companii/${COMPANY}/solduri-initiale/${BATCH}`,
+    })
+
+    expect(await screen.findByText('Import 1C')).toBeInTheDocument()
+    expect(screen.getByText('În lucru')).toBeInTheDocument()
+    // Setul nu se închide (5000 debit, 0 credit) — și ecranul spune că
+    // contrapartida NU absoarbe diferența, fiindcă serverul o refuză.
+    expect(screen.getByText(/Contrapartida nu absoarbe diferența/)).toBeInTheDocument()
+    // Ce nu e livrat se scrie pe ecran, nu doar în cod.
+    expect(screen.getByText(/Creanțele și datoriile pe parteneri/)).toBeInTheDocument()
   })
 
   it('registrul arată înregistrarea cu rândurile ei și spune dacă e stornată', async () => {
