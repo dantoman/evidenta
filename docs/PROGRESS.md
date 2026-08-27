@@ -87,34 +87,36 @@ Descompunerea completă: `_bootstrap/08-f1-backlog.md` — patru fire care pot m
 
 ## Ultima sesiune
 
-**2026-08-27, stornoul are în sfârșit o cale prin motor:**
+**2026-08-27, două servicii complete care n-aveau cale de intrare — stornoul și soldurile inițiale:**
 
-- **`accounting/posting/services/reversal.py`**, fișier nou. `ledger/services/reversal.py` știa să
-  oglindească o înregistrare postată din F1.2 și **nimic nu-l apela**: registrul putea anula, produsul
-  nu. O notă manuală postată pe un cont greșit era, până acum, necorectabilă altfel decât dintr-o
-  sesiune de bază de date — exact corecția pentru care există `R10`.
-- **Tipul e derivat, nu ales.** [ADR-038 §7.2](decisions/038-vocabularul-de-evenimente.md): fiecare tip
-  stornabil are perechea lui. Serviciul citește tipul evenimentului original și îi formează perechea,
-  deci merge pentru factura de vânzare și pentru salarii când apar, fără a doua cale de storno.
-- **Coliziune de notație, rezolvată prin măsurare.** §7.2 scrie convenția ca `*.reversed`, ceea ce se
-  citește ca segment adăugat tipului. Nu poate fi: Spec B §1.4 fixează tipul ca `<domain>.<action>`,
-  iar registrul îl impune cu un tipar de două segmente — `manual.journal_entry.reversed` e refuzat la
-  înregistrare. Singura citire care satisface ambele e perechea formată **în interiorul acțiunii**:
-  `manual.journal_entry_reversed`. Scris întâi celălalt și văzut `register()` refuzându-l.
-- **Handlerul e `reverse_entry` însuși.** §7.2 spune că handlerul inversează semnele, iar semnele se
-  inversează într-un singur loc. Consecința care merită numită: o oglindă **nu poate deriva** cu
-  capabilitățile, fiindcă nu recalculează nimic — o companie care capătă o capabilitate în iunie nu
-  poate, corectând martie, să posteze corecția sub regulile lui iunie (`R18`).
-- **Data stornoului rămâne a apelantului.** ADR-007 e `Propus`, cu trei întrebări de tratament
-  deschise. Perioada se derivă din dată — asta nu e ghicire; alegerea datei ar fi, și serviciul n-o
-  face.
-- Douăsprezece teste de izolare, sub rolul aplicației: oglindirea prin schimb de părți (nu prin sume
-  negative — altfel rulajul lunii **scade** cu corecția), cele două legături din `R14`, perechea de
-  tip derivată, documentul sursă păstrat, al doilea storno refuzat, motivul obligatoriu, perioada
-  închisă refuzată cu cod stabil, idempotența pe cheie, originalul neatins, și suma perechii zero pe
-  fiecare cont.
+- **Stornoul prin motor** (`accounting/posting/services/reversal.py`). `ledger/services/reversal.py`
+  știa să oglindească o înregistrare postată din F1.2 și **nimic nu-l apela**. Tipul evenimentului e
+  derivat din al originalului — [ADR-038 §7.2](decisions/038-vocabularul-de-evenimente.md), fiecare tip
+  stornabil are perechea lui — deci merge pentru factura de vânzare și pentru salarii când apar.
+- **Coliziune de notație, rezolvată prin măsurare.** §7.2 scrie `*.reversed`, ceea ce se citește ca al
+  treilea segment. Nu poate fi: Spec B §1.4 fixează tipul ca `<domain>.<action>`, iar `NAME` din
+  registru e un tipar de două segmente. Scris întâi `manual.journal_entry.reversed` și văzut
+  `register()` refuzându-l. Singura citire care satisface ambele formează perechea **în acțiune**:
+  `manual.journal_entry_reversed`.
+- **Handlerul e `reverse_entry` însuși**, deci semnele se inversează într-un singur loc. Consecința:
+  o oglindă **nu poate deriva** cu capabilitățile, fiindcă nu recalculează nimic (`R18`).
+- **API-ul soldurilor inițiale** (`accounting/opening/`) — cinci endpointuri peste servicii complete
+  din F1.7.2 care nu erau apelate de nimic. Consecința practică a lipsei: produsul era utilizabil
+  doar de o companie fondată azi, fiindcă o firmă venită din alt sistem nu-și putea aduce soldurile,
+  iar balanța ei pornea de la zero.
+- **Expuse doar rândurile GL, creanțe și datorii**, din cele șase pe care le acceptă serviciul.
+  Celelalte trei referă `item_id` (F4), `asset_id` și `employee_id` (F2) — entități care nu există.
+  Un endpoint pentru un id fără tabelă în spate arată ca funcționalitate livrată și nu poate fi apelat
+  corect de nimeni.
+- **Un defect găsit de propriul `REVOKE`:** prima versiune a testului era `transaction=True`, iar
+  golirea bazei la teardown rulează **sub rolul aplicației** — care n-are `DELETE` pe
+  `entry_parameter_stamp`, prin ADR-047. Cade cu „permission denied" în teardown, ceea ce se citește
+  ca fixture stricat și e de fapt garanția append-only funcționând. Motivul e scris în fișier.
+- **`TEST_DB_NAME` adoptat.** Două rulări ale mele, cu 273 și 530 de erori urmate de verde la
+  reluare, se explică fără rest: `AdminShutdown` — sesiunea vecină recrea `test_evidenta` sub
+  conexiunile mele. Nu în `.env`, care e partajat; pe linia de comandă.
 
-Suita: **757 trec, 1 sărit.**
+Suita: **760 trec, 1 sărit.**
 
 ## Sesiuni mai vechi
 
