@@ -46,6 +46,13 @@ Un test de integrare o parcurge prin HTTP, sub rolul aplicației
   rolul aplicației `INSERT` e refuzat de RLS, iar `UPDATE`/`DELETE` n-au politică și au și trigger
   append-only. Retras oricum prin `0047`, ca declarația și baza să spună același lucru și ca apărarea
   să nu depindă de absența unei politici
+- **Ecranul de șabloane de operațiuni**: definire (sumă fixă sau cerută la postare — casetă, nu
+  convenție de șir), listă care ascunde retrasele, folosire. Parcurs pe serverul viu: postarea din
+  șablon produce o înregistrare `standard`, **nedistinsă de una tastată linie cu linie**, exact cum e
+  proiectat; după retragere, postarea e refuzată și lista implicită nu-l mai arată
+- **O ciocnire de nume prinsă de typecheck, nu de citire:** `accounting.templates` era deja al
+  versiunilor publicate ale planului de conturi. Blocul nou e `operationTemplates` — două lucruri
+  diferite nu se prescurtează la fel
 - **Ecranul de solduri inițiale** peste API-ul sesiunii paralele: lot → rânduri GL → validare →
   postare, cei patru pași ai serverului, nu un wizard inventat. Doar rânduri GL: creanțele și
   datoriile cer `partner_id`, iar `masterdata/partners` n-are nicio cale HTTP — scris pe ecran, nu
@@ -151,7 +158,23 @@ Descompunerea completă: `_bootstrap/08-f1-backlog.md` — patru fire care pot m
   îl numește, deci o definiție devenită necitibilă ar lăsa acea înregistrare explicându-se cu un
   id. `definition_of` are acum propria căutare, cu motivul lângă ea.
 
-Suita: **766 trec, 1 sărit.**
+- **Lista de loturi de solduri inițiale** (`GET .../opening-balances/companies/<id>`) — gol
+  găsit de sesiunea vecină citind suprafața. Un lot nu se șterge niciodată și trei din cele
+  patru stări supraviețuiesc sesiunii care le-a creat, deci un `draft` abandonat ieri rămâne
+  acolo. Fără drum înapoi la el, următorul import începe de la zero lângă el, iar compania
+  ajunge cu două tablouri parțiale ale aceleiași poziții de deschidere.
+- **Directorul de parteneri** (`/api/v1/masterdata/partners/`) — modulul avea o tabelă și
+  nimic altceva: niciun serviciu, nicio rută. Consecința apărea cu un strat mai încolo, într-un
+  ecran care nu putea oferi creanțe, fiindcă **un formular care cere un `partner_id` e un
+  formular pe care nimeni nu-l poate completa corect.** Căutarea potrivește exact ce are omul
+  în față: numele de pe document și IDNO-ul de pe el.
+- Partenerul e la nivel de **tenant**, nu de companie: aceeași entitate juridică e aceeași
+  entitate pentru toate companiile firmei, iar o copie per companie e felul în care un holding
+  ajunge cu doi furnizori identici ale căror solduri nu mai reconciliază. `CompanyPartner` —
+  conturile pe care le folosește o companie anume — n-are suprafață, fiindcă nimic din F1 nu-l
+  citește, iar o suprafață neapelată se depărtează de ce pretinde.
+
+Suita: **772 trec, 1 sărit.**
 
 ## Sesiuni mai vechi
 

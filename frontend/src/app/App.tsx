@@ -9,6 +9,7 @@ import { ChartOfAccountsScreen } from './accounting/ChartOfAccountsScreen'
 import { ChartSetupScreen } from './accounting/ChartSetupScreen'
 import { ManualEntryScreen } from './accounting/ManualEntryScreen'
 import { OpeningBalancesScreen } from './accounting/OpeningBalancesScreen'
+import { OperationTemplatesScreen } from './accounting/OperationTemplatesScreen'
 import { RegisterScreen } from './accounting/RegisterScreen'
 import { TrialBalanceScreen } from './accounting/TrialBalanceScreen'
 import { CompaniesScreen } from './companies/CompaniesScreen'
@@ -83,6 +84,7 @@ export function App() {
           <Route path="companii/:companyId/note" element={<ManualEntryScreen />} />
           <Route path="companii/:companyId/balanta" element={<TrialBalanceScreen />} />
           <Route path="companii/:companyId/registru" element={<RegisterScreen />} />
+          <Route path="companii/:companyId/sabloane" element={<OperationTemplatesScreen />} />
           {/* With and without a batch: the batch id is in the path so a draft
               survives a reload -- the server has no way to list a company's
               batches yet, so an address is the only way back to one. */}

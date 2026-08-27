@@ -21,6 +21,7 @@ import { ChartOfAccountsScreen } from '@/app/accounting/ChartOfAccountsScreen'
 import { ChartSetupScreen } from '@/app/accounting/ChartSetupScreen'
 import { ManualEntryScreen } from '@/app/accounting/ManualEntryScreen'
 import { OpeningBalancesScreen } from '@/app/accounting/OpeningBalancesScreen'
+import { OperationTemplatesScreen } from '@/app/accounting/OperationTemplatesScreen'
 import { RegisterScreen } from '@/app/accounting/RegisterScreen'
 import { TrialBalanceScreen } from '@/app/accounting/TrialBalanceScreen'
 import { CompaniesScreen } from '@/app/companies/CompaniesScreen'
@@ -160,6 +161,34 @@ describe('ecranele', () => {
     })
 
     expect(await screen.findByRole('button', { name: 'Postează nota' })).toBeDisabled()
+  })
+
+  it('șabloanele arată ce cer la postare, iar unul retras nu se poate folosi', async () => {
+    stubFetch({
+      [`/api/v1/accounting/coa/companies/${COMPANY}/accounts`]: ACCOUNTS,
+      [`/api/v1/accounting/entries/companies/${COMPANY}/templates`]: [
+        {
+          id: 'tpl1', name: 'Încasare de la client', entry_description: 'Încasare',
+          is_active: true, inputs: ['suma'], line_count: 2,
+        },
+        {
+          id: 'tpl2', name: 'Șablon retras', entry_description: 'Vechi',
+          is_active: false, inputs: [], line_count: 2,
+        },
+      ],
+    })
+    renderScreen(<OperationTemplatesScreen />, {
+      path: '/companii/:companyId/sabloane',
+      route: `/companii/${COMPANY}/sabloane`,
+    })
+
+    expect(await screen.findByText('Încasare de la client')).toBeInTheDocument()
+    // Valorile cerute la postare sunt pe listă, nu descoperite la apăsare.
+    expect(screen.getByText(/Valori cerute la postare: suma/)).toBeInTheDocument()
+    // Unul singur poate fi folosit: cel retras nu produce înregistrări noi, deci
+    // nu oferă butonul.
+    expect(screen.getAllByRole('button', { name: 'Folosește' })).toHaveLength(1)
+    expect(screen.getByText('Retras')).toBeInTheDocument()
   })
 
   it('soldurile inițiale arată lotul, totalurile lui și de ce lipsesc partenerii', async () => {

@@ -178,6 +178,40 @@ export const ro = {
         'Creanțele și datoriile pe parteneri nu se introduc încă: nu există o cale de a căuta un partener.',
       empty: 'Lotul nu are încă niciun rând.',
     },
+    // `templates` era luat de versiunile publicate ale planului de conturi, iar
+    // ciocnirea a fost prinsa de typecheck, nu de citire. Numele lung e cel corect
+    // oricum: sunt doua lucruri diferite si nu se prescurteaza la fel.
+    operationTemplates: {
+      title: 'Șabloane de operațiuni',
+      lead:
+        'Un șablon e o scurtătură către o notă contabilă, nu un al doilea fel de a înregistra. Ce postează el este o notă obișnuită.',
+      name: 'Denumire',
+      entryDescription: 'Descrierea înregistrării',
+      lines: 'Rânduri',
+      inputs: 'Valori cerute la postare',
+      state: 'Stare',
+      active: 'Activ',
+      inactive: 'Retras',
+      showInactive: 'Arată și retrasele',
+      empty: 'Compania nu are încă șabloane.',
+      // Retragerea nu sterge: o inregistrare postata anul trecut numeste sablonul,
+      // iar o definitie necitibila ar lasa-o sa se explice cu un identificator.
+      retire: 'Retrage',
+      restore: 'Reactivează',
+      use: 'Folosește',
+      post: 'Postează nota',
+      date: 'Data înregistrării',
+      description: 'Descriere',
+      descriptionHint: 'Lăsat gol, se folosește descrierea din șablon.',
+      inputValue: 'Valoare',
+      posted: 'Nota a fost postată din șablon.',
+      postedAgain: 'Nota era deja postată cu aceeași cheie.',
+      fromInput: 'se cere la postare',
+      debit: 'Debit',
+      credit: 'Credit',
+      account: 'Cont',
+      amount: 'Sumă',
+    },
     register: {
       title: 'Registrul înregistrărilor',
       number: 'Număr',
@@ -326,6 +360,15 @@ export const ro = {
     'posting.mixed_tenant': 'Toate rândurile aparțin aceluiași spațiu de lucru.',
     'posting.mixed_period': 'Toate rândurile cad în aceeași perioadă contabilă.',
     'posting.refused': 'Postarea a fost refuzată de motor.',
+    // Sabloane de operatiuni.
+    'posting.template_not_found': 'Șablonul nu a fost găsit.',
+    'posting.template_name_taken': 'Există deja un șablon cu această denumire.',
+    'posting.template_malformed': 'Șablonul nu are forma cerută.',
+    'posting.template_input_missing': 'Lipsește o valoare pe care șablonul o cere.',
+    'posting.template_input_unexpected': 'A fost trimisă o valoare pe care șablonul nu o cere.',
+    'posting.template_input_invalid': 'Valoarea trimisă nu este validă.',
+    'posting.template_amount_not_storable': 'Suma rezultată nu poate fi stocată exact.',
+    'posting.template_unknown_dimension': 'Dimensiune analitică necunoscută în șablon.',
     'accounting.idempotency_key_required': 'Cerere respinsă: lipsește cheia de idempotență.',
     'accounting.idempotency_conflict':
       'Aceeași cheie de idempotență a fost folosită pentru altă operațiune.',
