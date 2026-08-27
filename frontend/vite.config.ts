@@ -110,6 +110,15 @@ export default defineConfig(({ mode }) => {
         '@': fileURLToPath(new URL('./src', import.meta.url)),
       },
     },
+    // Vitest reads this same config, so `@/` and the React plugin are defined
+    // once. `jsdom` because every test here mounts a component; a node
+    // environment would fail on the first `document`.
+    test: {
+      environment: 'jsdom',
+      globals: true,
+      setupFiles: ['./src/test/setup.ts'],
+      css: false,
+    },
     server: {
       // The tenant comes from the subdomain and never from a path or a payload
       // (C8), so development runs on `*.evidenta.localhost` -- ADR-025. Browsers

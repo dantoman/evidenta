@@ -7,6 +7,8 @@ import { useIdentity } from './auth/useIdentity'
 import { AccountScreen } from './accounting/AccountScreen'
 import { ChartOfAccountsScreen } from './accounting/ChartOfAccountsScreen'
 import { ChartSetupScreen } from './accounting/ChartSetupScreen'
+import { ManualEntryScreen } from './accounting/ManualEntryScreen'
+import { TrialBalanceScreen } from './accounting/TrialBalanceScreen'
 import { CompaniesScreen } from './companies/CompaniesScreen'
 import { AppLayout } from './layout/AppLayout'
 
@@ -76,6 +78,8 @@ export function App() {
             element={<ChartSetupScreen />}
           />
           <Route path="companii/:companyId/conturi/:accountId" element={<AccountScreen />} />
+          <Route path="companii/:companyId/note" element={<ManualEntryScreen />} />
+          <Route path="companii/:companyId/balanta" element={<TrialBalanceScreen />} />
         </Route>
       </Routes>
     </BrowserRouter>

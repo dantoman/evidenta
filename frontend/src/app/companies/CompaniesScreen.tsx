@@ -14,11 +14,17 @@
  * `legal_name` is what appears, never an internal name (C39).
  */
 
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router'
 
 import { t } from '@/locales'
-import { listCompanies, type Company } from '@/shared/api/companies'
+import {
+  createCompany,
+  listCompanies,
+  openFiscalYear,
+  type Company,
+} from '@/shared/api/companies'
 import { DataGrid, type Column } from '@/shared/DataGrid'
 import { Failure } from '@/shared/Failure'
 
@@ -57,7 +63,31 @@ const columns: Column<Company>[] = [
 
 export function CompaniesScreen() {
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
+  const [adding, setAdding] = useState(false)
   const companies = useQuery({ queryKey: ['companies'], queryFn: listCompanies })
+
+  const create = useMutation({
+    mutationFn: async (form: { idno: string; legal_name: string; currency: string }) => {
+      const company = await createCompany({
+        idno: form.idno,
+        legal_name: form.legal_name,
+        functional_currency: form.currency,
+      })
+      // The exercise, as a second call. Opening one belongs to `accounting` and
+      // creating a company to `platform`, which does not import it -- so the
+      // server has two endpoints and the client makes two calls. A company
+      // without an exercise cannot be posted into, so this is not optional
+      // politeness: it is the other half of "created".
+      await openFiscalYear(company.id)
+      return company
+    },
+    onSuccess: async (company) => {
+      await queryClient.invalidateQueries({ queryKey: ['companies'] })
+      setAdding(false)
+      void navigate(chartPath(company))
+    },
+  })
 
   if (companies.isPending) {
     return <p className="text-sm text-ink-muted">{t.app.loading}</p>
@@ -69,7 +99,16 @@ export function CompaniesScreen() {
 
   return (
     <section className="flex flex-col gap-4">
-      <h1 className="text-base font-semibold">{t.companies.title}</h1>
+      <header className="flex items-center justify-between">
+        <h1 className="text-base font-semibold">{t.companies.title}</h1>
+        <button type="button" onClick={() => setAdding((open) => !open)} className={BUTTON}>
+          {adding ? t.companies.cancel : t.companies.add}
+        </button>
+      </header>
+
+      {adding && <NewCompanyForm pending={create.isPending} onSubmit={create.mutate} />}
+      {create.isError && <Failure error={create.error} />}
+
       <DataGrid
         columns={columns}
         rows={companies.data}
@@ -78,5 +117,74 @@ export function CompaniesScreen() {
         onRowClick={(company) => void navigate(chartPath(company))}
       />
     </section>
+  )
+}
+
+const FIELD = 'rounded border border-border bg-surface px-2 text-sm'
+const BUTTON =
+  'rounded border border-border bg-surface px-3 text-sm text-accent disabled:text-ink-muted'
+
+/**
+ * Three fields, which is what the server needs to create a company.
+ *
+ * The IDNO is checked here for shape only -- thirteen digits -- and the server
+ * checks the same thing again. It is not a checksum: the checksum rule is not in
+ * any text this repository holds, and an invented one would refuse real
+ * companies.
+ */
+function NewCompanyForm({
+  pending,
+  onSubmit,
+}: {
+  pending: boolean
+  onSubmit: (form: { idno: string; legal_name: string; currency: string }) => void
+}) {
+  const [legalName, setLegalName] = useState('')
+  const [idno, setIdno] = useState('')
+  const [currency, setCurrency] = useState('MDL')
+
+  const complete = /^\d{13}$/.test(idno) && legalName.trim() !== ''
+
+  return (
+    <form
+      className="flex flex-wrap items-end gap-4 rounded border border-border bg-surface p-4"
+      onSubmit={(event: FormEvent) => {
+        event.preventDefault()
+        onSubmit({ idno, legal_name: legalName.trim(), currency })
+      }}
+    >
+      <label className="flex flex-col gap-1 text-sm">
+        <span className="text-ink-muted">{t.companies.legalName}</span>
+        <input
+          value={legalName}
+          onChange={(event) => setLegalName(event.target.value)}
+          maxLength={255}
+          className={`${FIELD} w-96`}
+        />
+      </label>
+      <label className="flex flex-col gap-1 text-sm">
+        <span className="text-ink-muted">{t.companies.idno}</span>
+        <input
+          value={idno}
+          onChange={(event) => setIdno(event.target.value.replace(/\D/g, ''))}
+          maxLength={13}
+          inputMode="numeric"
+          placeholder={t.companies.idnoHint}
+          className={`${FIELD} w-48 font-mono`}
+        />
+      </label>
+      <label className="flex flex-col gap-1 text-sm">
+        <span className="text-ink-muted">{t.companies.currency}</span>
+        <input
+          value={currency}
+          onChange={(event) => setCurrency(event.target.value.toUpperCase().slice(0, 3))}
+          className={`${FIELD} w-24 font-mono`}
+          title={t.companies.currencyHint}
+        />
+      </label>
+      <button type="submit" disabled={!complete || pending} className={BUTTON}>
+        {pending ? t.companies.creating : t.companies.create}
+      </button>
+    </form>
   )
 }

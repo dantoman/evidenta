@@ -48,6 +48,14 @@ export const ro = {
     idno: 'IDNO',
     currency: 'Monedă funcțională',
     empty: 'Nu aveți acces la nicio companie.',
+    add: 'Companie nouă',
+    // Formularul: trei campuri, atat cat cere serverul. Restul datelor companiei
+    // se completeaza mai tarziu, din ecranele care le folosesc.
+    create: 'Creează compania',
+    creating: 'Se creează…',
+    currencyHint: 'Moneda în care se țin registrele.',
+    idnoHint: '13 cifre.',
+    cancel: 'Renunță',
   },
   accounting: {
     // Vocabularul din jurul contului, nu numele lui. Denumirea contului vine de la
@@ -100,6 +108,46 @@ export const ro = {
       submit: 'Inițializează planul',
       empty: 'Nu există nicio versiune publicată.',
       already: 'Compania are deja un plan de conturi.',
+    },
+    entry: {
+      title: 'Notă contabilă manuală',
+      date: 'Data înregistrării',
+      description: 'Descriere',
+      account: 'Cont',
+      lineDescription: 'Explicație',
+      debit: 'Debit',
+      credit: 'Credit',
+      addLine: 'Adaugă rând',
+      removeLine: 'Șterge',
+      total: 'Total',
+      difference: 'Diferență',
+      // Σ Debit = Σ Credit este invariant de baza (R11), verificat pe server. Aici
+      // se blocheaza doar butonul: refuzul adevarat nu e al ecranului.
+      unbalanced: 'Notă neechilibrată: totalul debitului diferă de cel al creditului.',
+      post: 'Postează nota',
+      posting: 'Se postează…',
+      posted: 'Nota a fost postată.',
+      postedAgain: 'Nota era deja postată cu aceeași cheie; nu s-a postat a doua oară.',
+      empty: 'Adăugați cel puțin un rând.',
+      needAccount: 'Fiecare rând are nevoie de un cont.',
+      needDescription: 'Nota are nevoie de o descriere.',
+      noChart: 'Compania nu are încă un plan de conturi.',
+    },
+    balance: {
+      title: 'Balanța de verificare',
+      from: 'De la',
+      to: 'Până la',
+      show: 'Afișează',
+      code: 'Cont',
+      name: 'Denumire',
+      opening: 'Sold inițial',
+      debit: 'Rulaj debit',
+      credit: 'Rulaj credit',
+      closing: 'Sold final',
+      total: 'Total',
+      empty: 'Nicio înregistrare în perioada aleasă.',
+      balanced: 'Balanța este echilibrată.',
+      unbalanced: 'Balanța NU este echilibrată.',
     },
     account: {
       title: 'Fișa contului',
@@ -186,6 +234,47 @@ export const ro = {
     'coa.unknown_dimension': 'Dimensiune analitică din afara vocabularului.',
     'coa.invalid_validity_window': 'Perioada de valabilitate nu este validă.',
     'coa.invalid_date': 'Data nu este o dată validă.',
+    'ledger.invalid_period': 'Perioada cerută nu este validă.',
+    'tenancy.company_idno_taken': 'Există deja o companie cu acest IDNO.',
+    'tenancy.company_provisioning_refused':
+      'Nu aveți dreptul să creați o companie în acest spațiu de lucru.',
+    // Postarea. Fiecare cod e cules din sursa serverului, nu scris din memorie:
+    // prima versiune a acestui bloc inventase `posting.out_of_balance` cu alt
+    // nume si doua coduri care nu exista nicaieri, adica exact cazul pentru care
+    // `C10` cere ca cele doua jumatati sa fie scrise din acelasi loc.
+    'posting.out_of_balance': 'Suma debitului nu este egală cu suma creditului.',
+    'posting.no_lines': 'Nota nu are niciun rând.',
+    'posting.zero_amount_line': 'Un rând fără sumă nu se postează.',
+    'posting.malformed_line_amount': 'Suma nu poate fi stocată exact.',
+    'posting.manual_payload_malformed': 'Nota nu are forma cerută.',
+    'posting.manual_foreign_currency_unsupported':
+      'Nota manuală se scrie în moneda în care compania își ține registrele.',
+    'posting.account_not_postable':
+      'Contul nu poate primi înregistrări la această dată: este închis sau blocat.',
+    'posting.missing_required_dimension': 'Contul cere o dimensiune analitică obligatorie.',
+    'posting.mixed_company': 'Toate rândurile aparțin aceleiași companii.',
+    'posting.mixed_tenant': 'Toate rândurile aparțin aceluiași spațiu de lucru.',
+    'posting.mixed_period': 'Toate rândurile cad în aceeași perioadă contabilă.',
+    'posting.refused': 'Postarea a fost refuzată de motor.',
+    'accounting.idempotency_key_required': 'Cerere respinsă: lipsește cheia de idempotență.',
+    'accounting.idempotency_conflict':
+      'Aceeași cheie de idempotență a fost folosită pentru altă operațiune.',
+    'accounting.no_handler': 'Nu există tratament pentru acest tip de eveniment la data cerută.',
+    'accounting.payload_malformed': 'Datele evenimentului nu au forma cerută.',
+    // Perioadele. `R12`: refuzul e al motorului, nu al interfetei.
+    'periods.period_not_open': 'Perioada este închisă. Corecția se face prin storno.',
+    'periods.period_not_found': 'Nu există o perioadă contabilă pentru această dată.',
+    'periods.period_locked': 'Perioada este blocată.',
+    'periods.fiscal_year_closed': 'Exercițiul este închis.',
+    'periods.fiscal_year_code_taken': 'Compania are deja un exercițiu cu acest cod.',
+    'periods.fiscal_year_overlaps': 'Exercițiul se suprapune cu altul existent.',
+    'periods.fiscal_year_not_found': 'Exercițiul nu a fost găsit.',
+    'periods.invalid_fiscal_year_window':
+      'Exercițiul începe în prima zi a unei luni și se termină în ultima.',
+    'periods.company_not_visible': 'Compania nu există sau nu aveți acces la ea.',
+    'ledger.entry_not_found': 'Înregistrarea nu a fost găsită.',
+    'ledger.nothing_to_write': 'Nu există nimic de înregistrat.',
+    'ledger.unknown_dimension': 'Dimensiune analitică necunoscută.',
     unknown: 'A apărut o eroare neașteptată.',
     network: 'Serverul nu răspunde.',
     hintSubdomain:

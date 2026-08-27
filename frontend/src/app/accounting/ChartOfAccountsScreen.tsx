@@ -149,6 +149,14 @@ export function ChartOfAccountsScreen() {
         <div className="flex flex-col">
           <h1 className="text-base font-semibold">{t.accounting.chart.title}</h1>
           {company && <span className="text-sm text-ink-muted">{company.legal_name}</span>}
+          <nav className="flex gap-4 pt-1 text-sm">
+            <Link to={`/companii/${companyId}/note`} className="text-accent">
+              {t.accounting.entry.title}
+            </Link>
+            <Link to={`/companii/${companyId}/balanta`} className="text-accent">
+              {t.accounting.balance.title}
+            </Link>
+          </nav>
         </div>
 
         <div className="flex flex-wrap items-center gap-4">

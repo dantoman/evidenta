@@ -1,16 +1,14 @@
 /**
- * Date formatting -- C18. One module, and no formatting in components.
+ * Amount and date formatting -- C18. One module, and no formatting in components.
  *
- * **This module used to format money as well, and those functions are gone.**
- * They lost their last consumer when the formatting demonstration screen was
- * replaced by the companies list, and an unused money formatter is worse than a
- * missing one: six months on, somebody reuses it assuming it was exercised. It
- * comes back with the first screen that has amounts on it -- balances -- written
- * against real values rather than a demonstration.
+ * `amount` was deleted when the formatting demonstration screen went, because an
+ * unused money formatter is worse than a missing one -- somebody reuses it six
+ * months later assuming it was exercised. It is back because the trial balance
+ * is here: a screen with real amounts on it, which is what it was waiting for.
+ * `money`, `count` and `dateTime` are still gone, and come back the same way.
  *
- * What must not be lost with them is the reason they were shaped that way, so it
- * is recorded here rather than in deleted code. **Amounts arrive as decimal
- * strings and are formatted from strings, never from numbers.** The server sends
+ * **Amounts arrive as decimal strings and are formatted from strings, never from
+ * numbers.** The server sends
  * `numeric` as a string precisely so the value never passes through a float, and
  * parsing it into one at the last step would undo that -- the damage appearing as
  * a few bani nobody can attribute to anything. Measured, not assumed:
@@ -31,6 +29,26 @@
  */
 
 const LOCALE = 'ro-MD'
+
+/**
+ * What `Intl.NumberFormat.format` actually accepts. TypeScript's bundled lib
+ * types still declare only `number | bigint`, so the cast lives here, once,
+ * rather than at every call site -- which is how a rule stops being visible.
+ */
+type Decimal = number | bigint | string
+interface ExactNumberFormat {
+  format(value: Decimal): string
+}
+
+const decimal = new Intl.NumberFormat(LOCALE, {
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+}) as unknown as ExactNumberFormat
+
+/** An amount with two decimals. Pass the server's string unchanged. */
+export function amount(value: Decimal): string {
+  return decimal.format(value)
+}
 
 const dateOnly = new Intl.DateTimeFormat(LOCALE, {
   year: 'numeric',
