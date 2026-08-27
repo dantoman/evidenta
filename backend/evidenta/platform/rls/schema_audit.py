@@ -1,8 +1,19 @@
-"""Suite 2 -- the model guard.
+"""The model guard -- what the live schema must look like, checked against it.
 
 Suite 1 catches today's bug. This one catches the table someone adds in three
 years without knowing the rule, which is why it is the more valuable of the two
 in the long run.
+
+**It lives in the product, not in the test suite, because it has two callers and
+only one of them is a test.** The other is `manage.py check_schema_drift`, which
+points it at a *running* database. That distinction is the whole reason it moved:
+the suite builds its database from the migrations every time, so by construction
+it can only ever confirm that the migrations are right -- never that the database
+somebody is actually using still matches them. Two sessions found four tables
+with no row security and an application role holding write privileges on fiscal
+parameters, days apart, both by tripping over them. `audit()` takes a cursor and
+has always been able to answer for any connection; nothing here needed to change
+except where it sits.
 
 It enumerates the schema and compares it against two contracts that live in
 exactly one place each:
@@ -24,7 +35,11 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-REPO_ROOT = Path(__file__).resolve().parents[3]
+# `backend/evidenta/platform/rls/schema_audit.py` -> repository root. Five levels,
+# and it is a constant that breaks silently if the file moves: the contracts
+# would simply not be found, and a guard that reads no contract reports nothing
+# wrong. `Contract.__init__` raises on a missing file for that reason.
+REPO_ROOT = Path(__file__).resolve().parents[4]
 RLS_CONTRACT = REPO_ROOT / "infra" / "rls" / "exceptions.toml"
 APPEND_ONLY_CONTRACT = REPO_ROOT / "infra" / "schema" / "append_only.toml"
 

@@ -17,7 +17,7 @@ from collections.abc import Iterator
 import pytest
 from django.db import connections
 
-from tests.schema_guard.audit import Contract, Finding, audit
+from evidenta.platform.rls.schema_audit import Contract, Finding, audit
 
 pytestmark = pytest.mark.django_db(databases=["default", "migration"])
 

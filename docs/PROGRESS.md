@@ -7,6 +7,57 @@
 
 ## Faza curentă
 
+**Felia verticală merge cap-coadă: companie → plan de conturi → notă manuală → balanță echilibrată.**
+Un test de integrare o parcurge prin HTTP, sub rolul aplicației
+(`backend/tests/integration/test_vertical_slice.py`). Suita: **745 trec, 1 sărit.**
+
+- **A1** — planul SNC ca date: `accounting/coa/data/snc_2020.csv`, 476 de conturi (156 gradul I,
+  320 gradul II), transcrise din extragerea proprie a actului; încărcător idempotent
+  `manage.py load_coa_template`, rulat ca owner, a doua rulare nu schimbă nimic
+- **A2** — `P-9` scris: `rls.provision_company` (`infra/migrations/0045`), serviciu
+  `tenancy.services.provisioning`, `POST /api/v1/companies`. Creatorul primește acces în aceeași
+  tranzacție, altfel compania e invizibilă chiar creatorului ei
+- **A3** — inițializarea planului: endpointul exista din F1.1, e acum conectat la ecran și acoperit
+  de testul feliei (al doilea plan refuzat, `coa.chart_already_instantiated`)
+- **A4** — `manual.journal_entry` avea motorul, nu avea ușă: `POST /api/v1/accounting/entries/manual`,
+  cu `Idempotency-Key` obligatoriu; aceeași cheie de două ori postează o dată
+- **A5** — balanța: agregare pe `journal_line` (sold inițial, rulaje, sold final), totaluri pe server
+  (`C19`), `GET /api/v1/accounting/ledger/companies/<id>/trial-balance`
+- **A6** — `OD-57` **măsurată, nu închisă**: cu parametrul absent, `app.current_company_id()` e NULL
+  și clauza cade **permisiv**, nu fail-closed. Nu e breșă — ceilalți trei conjuncți (tenant,
+  `has_tenant_access`, `has_company_access`) rămân în picioare, deci absența înseamnă „toate
+  companiile la care ai deja acces". Amânată, ca toate OD-urile care nu sunt breșe
+- **Derivă reparată în baza de dezvoltare:** `document`, `document_event`, `numbering_template`,
+  `numbering_counter` aveau RLS dezactivat și zero politici — `0024` fusese derulat înapoi și nu
+  reaplicat. Codul era corect (baza de test le avea); reaplicat sub owner
+- **Două corecții de migrare:** `0044` — `FORCE RLS` blochează și proprietarul, deci încărcătorul de
+  date de referință n-avea cum să scrie; `0046` — `0045` emisese REVOKE/GRANT după `RESET ROLE`,
+  adică de la un rol care nu deține funcția, deci nu retrăsese nimic. Gardianul de privilegii a
+  prins-o, `C31` respectat: fișier nou, nu editare
+- **Trei violări `D6` prinse de gardian și reparate prin servicii publice**, nu prin import de
+  modele: `coa.names_for`, `tenancy.functional_currency`, `numbering.create_general_template`
+- **Gardianul de model rulează acum și pe baza vie:** `audit()` lua dintotdeauna un cursor, deci putea
+  răspunde pentru orice conexiune — lipsea doar apelantul. Mutat din `tests/schema_guard/` în
+  `platform/rls/schema_audit.py` (produs, nu suită), plus `manage.py check_schema_drift` și
+  `make drift-check`. Suita își construiește baza din migrații la fiecare rulare, deci **prin
+  construcție nu poate vedea deriva** — două sesiuni au dat peste ea de două ori, la zile distanță
+- **Prima rulare a găsit una:** `evidenta_app` avea `INSERT, UPDATE, DELETE` pe
+  `fiscal_parameter_confidence_event`, declarată `global_read_only`. **Nu e breșă, măsurat:** sub
+  rolul aplicației `INSERT` e refuzat de RLS, iar `UPDATE`/`DELETE` n-au politică și au și trigger
+  append-only. Retras oricum prin `0047`, ca declarația și baza să spună același lucru și ca apărarea
+  să nu depindă de absența unei politici
+- **Nu am extins `drift-check` la append-only, și motivul e măsurat:** un trigger pe UPDATE/DELETE nu
+  distinge „append-only" de „mașină de stări cu gardă" — 19 tabele au un astfel de trigger, iar 15 au
+  legitim `UPDATE` (engagement, period, role, solduri inițiale în lucru). Verificarea ar fi produs 15
+  false pozitive, adică un gardian care se ignoră. Golul real — o tabelă append-only care poartă FK
+  n-are unde să se declare — cere un contract, deci ADR, deci e amânat
+- **B1–B5** — creare companie (formular pe `/companii`, cu deschiderea exercițiului ca al doilea
+  apel, fiindcă `platform` nu importă `accounting`), ecran de notă manuală (tabel simplu, nu
+  `EntryGrid` — `OD-36` e deschisă), ecran de balanță, plus **Vitest**: 7 teste de fum, câte unul
+  per ecran, peste `fetch` stubuit — nu peste modulul API, ca ecranul și clientul să nu poată devia
+  împreună
+
+
 **F1 — Accounting Core. Firul de implementare s-a oprit pe decizii, nu pe cod.** `F1.4.2` — rolurile
 de cont și legarea — e blocată de două ori: [ADR-036](decisions/036-forma-postarii.md) e `Propus`
 (cazurile `C1`–`C5` cer SNC citat), iar `OD-55` decide forma tabelei de legare, fiindcă chei de

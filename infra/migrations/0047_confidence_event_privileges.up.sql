@@ -1,0 +1,25 @@
+-- 0047 — retragerea scrierii aplicatiei pe istoricul de incredere
+--
+-- Context:     infra/rls/exceptions.toml — `fiscal_parameter_confidence_event`,
+--                  `policy_shape = "global_read_only"`
+--              infra/migrations/0042_fiscal_confidence.up.sql — politica de citire
+--              docs/decisions/047-*.md (ADR-047)
+--
+-- Gasit de `manage.py check_schema_drift`, la prima rulare pe baza vie: rolul
+-- aplicatiei avea `INSERT, UPDATE, DELETE` pe o tabela declarata read-only pentru
+-- el. Privilegiile vin din cele implicite acordate in `0001_roles.sql`; `0042` a
+-- creat doar politica de citire, iar **un GRANT restrans nu retrage nimic**.
+--
+-- Ce s-a masurat inainte de a numi asta breșă, fiindca nu este una: sub rolul
+-- aplicatiei, `INSERT` este refuzat de RLS — „new row violates row-level security
+-- policy" —, fiindca singura politica de pe tabela e `FOR SELECT`. `UPDATE` si
+-- `DELETE` n-au nici ele politica, deci nu vad niciun rand, si peste asta sta
+-- triggerul `fiscal_confidence_event_append_only`. Usa era inchisa de doua ori.
+--
+-- Se retrage totusi, din doua motive care nu sunt „ordine": declaratia din
+-- `exceptions.toml` si baza trebuie sa spuna acelasi lucru, altfel cine citeste
+-- declaratia crede ca stie ceva ce nu e verificat; si aparerea nu are voie sa
+-- depinda de absenta unei politici, fiindca urmatoarea politica adaugata pe
+-- tabela ar deschide tacit ce nimeni n-a decis sa deschida.
+
+REVOKE INSERT, UPDATE, DELETE ON fiscal_parameter_confidence_event FROM evidenta_app;

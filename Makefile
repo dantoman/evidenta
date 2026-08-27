@@ -220,6 +220,10 @@ isolation-check: ## Rulează suitele de izolare, sub rolul de aplicație (T1)
 test: ## Rulează suita de teste
 	cd backend && uv run pytest
 
+.PHONY: drift-check
+drift-check: ## Compară baza VIE cu contractele RLS (suita rulează pe baza de test, care nu poate vedea deriva)
+	cd backend && uv run python manage.py check_schema_drift
+
 .PHONY: lint
 lint: ## Lint + verificarea formatării (ruff)
 	cd backend && uv run ruff check .
