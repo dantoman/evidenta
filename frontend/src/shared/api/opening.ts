@@ -103,3 +103,41 @@ export function postBatch(batchId: string, idempotencyKey: string): Promise<Post
     idempotencyKey,
   })
 }
+
+export interface BatchListRow extends BatchSummary {
+  created_at: string
+  gl_rows: number
+  receivable_rows: number
+  payable_rows: number
+  /** Why it was abandoned, in the words of whoever abandoned it. */
+  rejected_reason: string | null
+}
+
+/**
+ * Every batch of a company, newest first.
+ *
+ * A list exists because a batch is never deleted: a draft abandoned yesterday is
+ * still there, and without a way back to it the next import starts from zero
+ * beside it -- two partial pictures of the same opening position, both plausible.
+ */
+export function listBatches(companyId: string): Promise<BatchListRow[]> {
+  return request<BatchListRow[]>(`/api/v1/accounting/opening-balances/companies/${companyId}`)
+}
+
+/** A receivable or a payable: a balance, plus who owes it. */
+export interface PartnerRowInput {
+  account_id: string
+  partner_id: string
+  debit: string
+  credit: string
+}
+
+export function addPartnerRows(
+  batchId: string,
+  rows: { receivables?: PartnerRowInput[]; payables?: PartnerRowInput[] },
+): Promise<BatchSummary> {
+  return request<BatchSummary>(`/api/v1/accounting/opening-balances/${batchId}/rows`, {
+    method: 'POST',
+    body: rows,
+  })
+}

@@ -174,9 +174,25 @@ export const ro = {
       rowsSaved: 'Rândurile au fost salvate.',
       validatedNote: 'Lotul e validat. Rândurile sunt înghețate.',
       // Onestitate despre ce nu e livrat, pe ecran, nu doar in cod.
-      partnersMissing:
-        'Creanțele și datoriile pe parteneri nu se introduc încă: nu există o cale de a căuta un partener.',
       empty: 'Lotul nu are încă niciun rând.',
+      // Lista de loturi: un lot nu se sterge niciodata, deci unul abandonat ieri
+      // e tot acolo si trebuie sa se poata regasi.
+      batches: 'Loturi',
+      batchesEmpty: 'Compania nu are încă niciun lot de solduri.',
+      newBatch: 'Lot nou',
+      rows: 'rânduri',
+      rejectedReason: 'Motivul respingerii',
+      created: 'Creat',
+      // Creante si datorii pe partener.
+      receivables: 'Creanțe',
+      payables: 'Datorii',
+      partner: 'Partener',
+      partnerSearch: 'Caută după denumire sau IDNO',
+      partnerNone: 'Niciun partener găsit.',
+      addReceivable: 'Adaugă creanță',
+      addPayable: 'Adaugă datorie',
+      analyticalHint:
+        'Detaliul pe parteneri trebuie să se potrivească cu soldul contului de control din rândurile de mai sus.',
     },
     // `templates` era luat de versiunile publicate ale planului de conturi, iar
     // ciocnirea a fost prinsa de typecheck, nu de citire. Numele lung e cel corect
@@ -402,6 +418,9 @@ export const ro = {
       'Soldurile în valută nu se pot introduce încă.',
     'opening.start_period_fixed': 'Data soldurilor inițiale este deja fixată.',
     'opening.batch_already_posted': 'Lotul a fost deja postat.',
+    'partners.malformed': 'Datele partenerului nu au forma cerută.',
+    'partners.idno_taken': 'Există deja un partener cu acest IDNO.',
+    'partners.not_found': 'Partenerul nu a fost găsit.',
     'ledger.entry_already_reversed': 'Înregistrarea a fost deja stornată.',
     'ledger.entry_not_posted': 'Înregistrarea nu este postată, deci nu are ce anula.',
     'posting.reversal_payload_invalid': 'Stornarea are nevoie de un motiv.',

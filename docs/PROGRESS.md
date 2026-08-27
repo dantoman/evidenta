@@ -46,6 +46,15 @@ Un test de integrare o parcurge prin HTTP, sub rolul aplicației
   rolul aplicației `INSERT` e refuzat de RLS, iar `UPDATE`/`DELETE` n-au politică și au și trigger
   append-only. Retras oricum prin `0047`, ca declarația și baza să spună același lucru și ca apărarea
   să nu depindă de absența unei politici
+- **Creanțe, datorii și lista de loturi pe ecranul de solduri**, imediat ce directorul de parteneri a
+  aterizat: partenerul se **caută** după denumire sau IDNO, nu se tastează ca identificator. Lista de
+  loturi era golul real — un lot nu se șterge niciodată, deci unul abandonat ieri rămâne acolo, iar
+  fără drum înapoi la el următorul import începe de la zero lângă el. Parcurs live: detaliul analitic
+  potrivit cu contul de control trece validarea, descompunerea vine de la server
+- **O regulă de lucru în checkout partajat, plătită o dată:** `git commit -- <căi>`, niciodată `add`
+  urmat de `commit`. Indexul e stare comună, iar un commit al meu a înghițit nouă fișiere ale
+  sesiunii paralele, în lucru la ei. Reparat prin `reset --soft` și re-comis pe căi; fișierele lor au
+  rămas stagiate și neatinse, verificat de amândoi
 - **Ecranul de șabloane de operațiuni**: definire (sumă fixă sau cerută la postare — casetă, nu
   convenție de șir), listă care ascunde retrasele, folosire. Parcurs pe serverul viu: postarea din
   șablon produce o înregistrare `standard`, **nedistinsă de una tastată linie cu linie**, exact cum e

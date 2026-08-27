@@ -191,12 +191,19 @@ describe('ecranele', () => {
     expect(screen.getByText('Retras')).toBeInTheDocument()
   })
 
-  it('soldurile inițiale arată lotul, totalurile lui și de ce lipsesc partenerii', async () => {
+  it('soldurile inițiale arată lotul, totalurile lui și formularele de partener', async () => {
     const BATCH = '33333333-3333-4333-8333-333333333333'
     stubFetch({
       [`/api/v1/accounting/coa/companies/${COMPANY}/accounts`]: ACCOUNTS,
+      '/api/v1/masterdata/partners/': [
+        {
+          id: 'p1', legal_name: 'Client SRL', short_name: null, kind: 'legal_entity',
+          idno: '1003600011111', idnp: null, vat_code: null,
+          is_customer: true, is_supplier: false, is_active: true,
+        },
+      ],
       [`/api/v1/accounting/opening-balances/${BATCH}`]: {
-        id: BATCH, company_id: COMPANY, as_of_date: '2025-12-31', source: 'onec_import',
+        id: BATCH, company_id: COMPANY, as_of_date: '2026-01-01', source: 'onec_import',
         status: 'draft', counterpart_account_id: ACCOUNT,
         gl: [{ account_id: ACCOUNT, debit: '5000.0000', credit: '0', currency: null }],
         receivables: [], payables: [], decomposition: {},
@@ -212,8 +219,11 @@ describe('ecranele', () => {
     // Setul nu se închide (5000 debit, 0 credit) — și ecranul spune că
     // contrapartida NU absoarbe diferența, fiindcă serverul o refuză.
     expect(screen.getByText(/Contrapartida nu absoarbe diferența/)).toBeInTheDocument()
-    // Ce nu e livrat se scrie pe ecran, nu doar în cod.
-    expect(screen.getByText(/Creanțele și datoriile pe parteneri/)).toBeInTheDocument()
+    // Creanțele și datoriile există de când există directorul de parteneri, iar
+    // partenerul se caută, nu se tastează ca identificator.
+    expect(screen.getByText('Creanțe')).toBeInTheDocument()
+    expect(screen.getByText('Datorii')).toBeInTheDocument()
+    expect(await screen.findByRole('option', { name: /Client SRL/ })).toBeInTheDocument()
   })
 
   it('registrul arată înregistrarea cu rândurile ei și spune dacă e stornată', async () => {

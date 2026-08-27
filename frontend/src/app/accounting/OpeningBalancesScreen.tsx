@@ -11,10 +11,16 @@
  * posting are separate calls because they are separate decisions -- the checks
  * can pass on numbers somebody still wants to look at again.
  *
- * **Only general-ledger rows.** Receivables and payables need a `partner_id`,
- * and `masterdata/partners` has no HTTP surface at all -- so a field asking for
- * one would be a field nobody can fill. The screen says that out loud rather
- * than leaving a reader to conclude the feature is broken.
+ * **Receivables and payables arrived with the partner directory.** They were
+ * absent while `masterdata/partners` had no HTTP surface, because a field asking
+ * for a `partner_id` the interface cannot search is a field nobody can fill; the
+ * screen said so rather than leaving a reader to conclude it was broken. The
+ * partner is searched by name or IDNO, never typed as an identifier.
+ *
+ * **The analytical detail must agree with its control account**, and the server
+ * is what checks it (`opening.analytical_mismatch`). This screen says the rule
+ * next to the fields rather than re-checking it: two opinions about the same
+ * arithmetic drift, and the one on the client is the one nobody audits.
  *
  * The totals below are read by a person deciding whether the set is complete, so
  * they are added as integers rather than through floating point, **at the
@@ -38,12 +44,15 @@ import { amount } from '@/shared/format'
 import { listAccounts, type Account } from '@/shared/api/coa'
 import {
   addGlRows,
+  addPartnerRows,
   createBatch,
   getBatch,
+  listBatches,
   postBatch,
   validateBatch,
   type BatchSource,
 } from '@/shared/api/opening'
+import { listPartners, type Partner } from '@/shared/api/partners'
 import { Failure } from '@/shared/Failure'
 
 const FIELD = 'w-full rounded border border-border bg-surface px-2 text-sm'
@@ -129,12 +138,15 @@ export function OpeningBalancesScreen() {
       {accounts.isError && <Failure error={accounts.error} />}
 
       {batchId === undefined ? (
-        <NewBatch
-          accounts={accounts.data ?? []}
-          onCreated={(created) =>
-            void navigate(`/companii/${companyId}/solduri-initiale/${created}`)
-          }
-        />
+        <>
+          <Batches companyId={companyId} />
+          <NewBatch
+            accounts={accounts.data ?? []}
+            onCreated={(created) =>
+              void navigate(`/companii/${companyId}/solduri-initiale/${created}`)
+            }
+          />
+        </>
       ) : (
         <>
           {batch.isPending && <p className="text-sm text-ink-muted">{t.app.loading}</p>}
@@ -151,6 +163,59 @@ export function OpeningBalancesScreen() {
         </>
       )}
     </section>
+  )
+}
+
+/**
+ * Every batch the company has, newest first.
+ *
+ * The screen worked without this and was worse for it: a draft abandoned
+ * yesterday had an address and no way back to it, so the next import would start
+ * from zero beside it -- two partial pictures of the same opening position, both
+ * plausible. A batch is never deleted, which is exactly why it has to be findable.
+ */
+function Batches({ companyId }: { companyId: string }) {
+  const batches = useQuery({
+    queryKey: ['opening-batches', companyId],
+    queryFn: () => listBatches(companyId),
+  })
+
+  if (batches.isError) return <Failure error={batches.error} />
+  if (!batches.data) return null
+  if (batches.data.length === 0) {
+    return <p className="text-sm text-ink-muted">{t.accounting.opening.batchesEmpty}</p>
+  }
+
+  return (
+    <div className="flex flex-col gap-2">
+      <h2 className="text-sm font-semibold">{t.accounting.opening.batches}</h2>
+      {batches.data.map((batch) => (
+        <Link
+          key={batch.id}
+          to={`/companii/${companyId}/solduri-initiale/${batch.id}`}
+          className="flex flex-wrap items-baseline justify-between gap-4 rounded border border-border bg-surface px-3 py-2 text-sm"
+        >
+          <span className="flex items-baseline gap-3">
+            <span className="font-medium">{batch.as_of_date}</span>
+            <span className="text-ink-muted">{SOURCE_LABEL[batch.source]}</span>
+            <span className="text-ink-muted">
+              {batch.gl_rows + batch.receivable_rows + batch.payable_rows}{' '}
+              {t.accounting.opening.rows}
+            </span>
+          </span>
+          <span className="flex items-baseline gap-3">
+            {batch.rejected_reason && (
+              <span className="text-ink-muted">
+                {t.accounting.opening.rejectedReason}: {batch.rejected_reason}
+              </span>
+            )}
+            <span className={batch.status === 'posted' ? 'text-ink-muted' : 'text-accent'}>
+              {t.accounting.opening[batch.status]}
+            </span>
+          </span>
+        </Link>
+      ))}
+    </div>
   )
 }
 
@@ -434,7 +499,26 @@ function Batch({
         </form>
       )}
 
-      <p className="text-sm text-ink-muted">{t.accounting.opening.partnersMissing}</p>
+      {editable && (
+        <>
+          <PartnerRows
+            accounts={accounts}
+            batchId={contents.id}
+            kind="receivables"
+            onSaved={onChanged}
+          />
+          <PartnerRows
+            accounts={accounts}
+            batchId={contents.id}
+            kind="payables"
+            onSaved={onChanged}
+          />
+        </>
+      )}
+
+      {(contents.receivables.length > 0 || contents.payables.length > 0) && (
+        <p className="text-sm text-ink-muted">{t.accounting.opening.analyticalHint}</p>
+      )}
 
       <div className="flex flex-wrap items-center gap-4">
         {contents.status === 'draft' && (
@@ -468,5 +552,157 @@ function Batch({
       {validate.isError && <Failure error={validate.error} />}
       {post.isError && <Failure error={post.error} />}
     </div>
+  )
+}
+
+/**
+ * Receivables or payables: a balance, plus who owes it.
+ *
+ * The partner is searched, never typed. `masterdata/partners` answers at most
+ * 200 rows and does not paginate, so narrowing is the query's job -- a client
+ * that paged over that on its own would be inventing an order the server never
+ * promised.
+ *
+ * Whether the detail agrees with its control account is checked by the server
+ * (`opening.analytical_mismatch`). Nothing here re-checks it: two opinions about
+ * the same arithmetic drift, and the one in the browser is the one nobody audits.
+ */
+function PartnerRows({
+  accounts,
+  batchId,
+  kind,
+  onSaved,
+}: {
+  accounts: Account[]
+  batchId: string
+  kind: 'receivables' | 'payables'
+  onSaved: () => Promise<void> | void
+}) {
+  const [search, setSearch] = useState('')
+  const [partnerId, setPartnerId] = useState('')
+  const [accountId, setAccountId] = useState('')
+  const [amount, setAmount] = useState('')
+
+  // A receivable is a debit balance and a payable a credit one. Not a choice the
+  // form offers: offering it would be offering the mistake.
+  const receivable = kind === 'receivables'
+
+  const partners = useQuery({
+    queryKey: ['partners', search, receivable ? 'customer' : 'supplier'],
+    queryFn: () =>
+      listPartners({ q: search || undefined, role: receivable ? 'customer' : 'supplier' }),
+  })
+
+  const add = useMutation({
+    mutationFn: () => {
+      const row = {
+        account_id: accountId,
+        partner_id: partnerId,
+        debit: receivable ? amount.replace(',', '.') : '0',
+        credit: receivable ? '0' : amount.replace(',', '.'),
+      }
+      return addPartnerRows(batchId, receivable ? { receivables: [row] } : { payables: [row] })
+    },
+    onSuccess: async () => {
+      setPartnerId('')
+      setAmount('')
+      await onSaved()
+    },
+  })
+
+  return (
+    <form
+      className="flex flex-wrap items-end gap-3 rounded border border-border bg-surface p-3"
+      onSubmit={(event) => {
+        event.preventDefault()
+        add.mutate()
+      }}
+    >
+      <span className="w-full text-sm font-semibold">
+        {receivable ? t.accounting.opening.receivables : t.accounting.opening.payables}
+      </span>
+
+      <label className="flex flex-col gap-1 text-sm">
+        <span className="text-ink-muted">{t.accounting.opening.partner}</span>
+        <input
+          value={search}
+          onChange={(event) => setSearch(event.target.value)}
+          placeholder={t.accounting.opening.partnerSearch}
+          className={`${FIELD} w-64`}
+          aria-label={t.accounting.opening.partnerSearch}
+        />
+      </label>
+
+      <label className="flex flex-1 flex-col gap-1 text-sm">
+        <span className="text-ink-muted">&nbsp;</span>
+        <select
+          value={partnerId}
+          onChange={(event) => setPartnerId(event.target.value)}
+          className={FIELD}
+          aria-label={`${t.accounting.opening.partner} ${
+            receivable ? t.accounting.opening.receivables : t.accounting.opening.payables
+          }`}
+        >
+          <option value="" />
+          {(partners.data ?? []).map((partner: Partner) => (
+            <option key={partner.id} value={partner.id}>
+              {partner.legal_name}
+              {partner.idno ? ` — ${partner.idno}` : ''}
+            </option>
+          ))}
+        </select>
+      </label>
+
+      <label className="flex flex-1 flex-col gap-1 text-sm">
+        <span className="text-ink-muted">{t.accounting.opening.account}</span>
+        <select
+          value={accountId}
+          onChange={(event) => setAccountId(event.target.value)}
+          className={FIELD}
+          aria-label={`${t.accounting.opening.account} ${
+            receivable ? t.accounting.opening.receivables : t.accounting.opening.payables
+          }`}
+        >
+          <option value="" />
+          {accounts.map((account) => (
+            <option key={account.id} value={account.id}>
+              {account.account_code} — {account.name_ro}
+            </option>
+          ))}
+        </select>
+      </label>
+
+      <label className="flex flex-col gap-1 text-sm">
+        <span className="text-ink-muted">
+          {receivable ? t.accounting.opening.debit : t.accounting.opening.credit}
+        </span>
+        <input
+          value={amount}
+          onChange={(event) => setAmount(event.target.value)}
+          inputMode="decimal"
+          className={`${FIELD} tabular w-36 text-right`}
+          aria-label={`${t.accounting.opening.total} ${
+            receivable ? t.accounting.opening.receivables : t.accounting.opening.payables
+          }`}
+        />
+      </label>
+
+      <button
+        type="submit"
+        disabled={partnerId === '' || accountId === '' || amount === '' || add.isPending}
+        className={BUTTON}
+      >
+        {receivable ? t.accounting.opening.addReceivable : t.accounting.opening.addPayable}
+      </button>
+
+      {partners.data?.length === 0 && (
+        <span className="text-sm text-ink-muted">{t.accounting.opening.partnerNone}</span>
+      )}
+      {add.isError && (
+        <div className="w-full">
+          <Failure error={add.error} />
+        </div>
+      )}
+    </form>
   )
 }
