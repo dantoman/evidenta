@@ -25,6 +25,7 @@ import { OperationTemplatesScreen } from '@/app/accounting/OperationTemplatesScr
 import { RegisterScreen } from '@/app/accounting/RegisterScreen'
 import { TrialBalanceScreen } from '@/app/accounting/TrialBalanceScreen'
 import { CompaniesScreen } from '@/app/companies/CompaniesScreen'
+import { PartnersScreen } from '@/app/partners/PartnersScreen'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { renderScreen } from './render'
 
@@ -161,6 +162,30 @@ describe('ecranele', () => {
     })
 
     expect(await screen.findByRole('button', { name: 'Postează nota' })).toBeDisabled()
+  })
+
+  it('partenerii se listează cu rolurile lor, iar unul retras se poate reactiva', async () => {
+    stubFetch({
+      '/api/v1/masterdata/partners/': [
+        {
+          id: 'p1', legal_name: 'Client SRL', short_name: 'Client', kind: 'legal_entity',
+          idno: '1003600011111', idnp: null, vat_code: null,
+          is_customer: true, is_supplier: false, is_active: true,
+        },
+        {
+          id: 'p2', legal_name: 'Furnizor Retras SRL', short_name: null, kind: 'legal_entity',
+          idno: '1003600022222', idnp: null, vat_code: null,
+          is_customer: false, is_supplier: true, is_active: false,
+        },
+      ],
+    })
+    renderScreen(<PartnersScreen />, { path: '/parteneri', route: '/parteneri' })
+
+    expect(await screen.findByText(/Client SRL/)).toBeInTheDocument()
+    expect(screen.getByText('Furnizor')).toBeInTheDocument()
+    // Retragerea nu sterge: randul ramane, iar butonul propune inversul starii.
+    expect(screen.getByText('Retras')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Reactivează' })).toBeInTheDocument()
   })
 
   it('șabloanele arată ce cer la postare, iar unul retras nu se poate folosi', async () => {

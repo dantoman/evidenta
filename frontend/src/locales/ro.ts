@@ -57,6 +57,40 @@ export const ro = {
     idnoHint: '13 cifre.',
     cancel: 'Renunță',
   },
+  partners: {
+    // Partenerul e al spatiului de lucru, nu al unei companii: aceeasi entitate
+    // juridica e aceeasi pentru toate companiile firmei. O copie per companie e
+    // felul in care un holding ajunge cu doi furnizori identici ale caror solduri
+    // nu mai reconciliaza.
+    title: 'Parteneri',
+    add: 'Partener nou',
+    // C39: denumirea legala ajunge pe documente si in registre; cea scurta exista
+    // doar pentru interfata si cautare.
+    legalName: 'Denumire legală',
+    shortName: 'Denumire scurtă',
+    shortNameHint: 'Doar pentru interfață și căutare. Nu ajunge pe documente.',
+    kind: 'Fel',
+    legalEntity: 'Persoană juridică',
+    naturalPerson: 'Persoană fizică',
+    idno: 'IDNO',
+    idnp: 'IDNP',
+    vatCode: 'Cod TVA',
+    roles: 'Roluri',
+    customer: 'Client',
+    supplier: 'Furnizor',
+    state: 'Stare',
+    active: 'Activ',
+    inactive: 'Retras',
+    retire: 'Retrage',
+    restore: 'Reactivează',
+    showInactive: 'Arată și retrașii',
+    search: 'Caută după denumire sau IDNO',
+    empty: 'Niciun partener.',
+    create: 'Creează partenerul',
+    rolesRequired: 'Alegeți cel puțin un rol.',
+    // Masurat: serverul intoarce cel mult 200 de randuri si nu pagineaza.
+    truncated: 'Se afișează cel mult 200. Restrângeți căutarea.',
+  },
   accounting: {
     // Vocabularul din jurul contului, nu numele lui. Denumirea contului vine de la
     // server si se afiseaza cum vine: contabilitatea se tine in romana prin lege

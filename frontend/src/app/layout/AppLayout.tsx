@@ -63,6 +63,15 @@ export function AppLayout({ tenantId }: { tenantId: string }) {
           >
             {t.companies.title}
           </NavLink>
+          {/* Alaturi de companii, nu sub ele: partenerul e al spatiului de lucru. */}
+          <NavLink
+            to="/parteneri"
+            className={({ isActive }) =>
+              `text-sm ${isActive ? 'text-ink' : 'text-ink-muted'}`
+            }
+          >
+            {t.partners.title}
+          </NavLink>
         </div>
         <div className="flex items-center gap-4">
           {/* The subdomain, not the identifier. The tenant is identified by the

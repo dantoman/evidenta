@@ -45,3 +45,29 @@ export function listPartners({ q, role, includeInactive }: PartnerQuery = {}): P
   const suffix = query.toString()
   return request<Partner[]>(`/api/v1/masterdata/partners/${suffix ? `?${suffix}` : ''}`)
 }
+
+export interface NewPartner {
+  legal_name: string
+  kind?: string
+  short_name?: string | null
+  idno?: string | null
+  idnp?: string | null
+  vat_code?: string | null
+  is_customer?: boolean
+  is_supplier?: boolean
+}
+
+export function createPartner(partner: NewPartner): Promise<Partner> {
+  return request<Partner>('/api/v1/masterdata/partners/', { method: 'POST', body: partner })
+}
+
+/**
+ * Retiring, not deleting. A partner named by a posted entry stays readable --
+ * the same reason a withdrawn operation template keeps its definition.
+ */
+export function setPartnerActive(partnerId: string, active: boolean): Promise<Partner> {
+  return request<Partner>(`/api/v1/masterdata/partners/${partnerId}/activation`, {
+    method: 'POST',
+    body: { active },
+  })
+}

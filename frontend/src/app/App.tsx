@@ -13,6 +13,7 @@ import { OperationTemplatesScreen } from './accounting/OperationTemplatesScreen'
 import { RegisterScreen } from './accounting/RegisterScreen'
 import { TrialBalanceScreen } from './accounting/TrialBalanceScreen'
 import { CompaniesScreen } from './companies/CompaniesScreen'
+import { PartnersScreen } from './partners/PartnersScreen'
 import { AppLayout } from './layout/AppLayout'
 
 /**
@@ -72,6 +73,9 @@ export function App() {
               rendering the list a second time under a second URL. */}
           <Route index element={<Navigate to="/companii" replace />} />
           <Route path="companii" element={<CompaniesScreen />} />
+          {/* No company segment: a partner belongs to the workspace, and the
+              same legal entity is the same entity for every company of it. */}
+          <Route path="parteneri" element={<PartnersScreen />} />
           <Route
             path="companii/:companyId/plan-de-conturi"
             element={<ChartOfAccountsScreen />}

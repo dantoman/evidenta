@@ -46,6 +46,11 @@ Un test de integrare o parcurge prin HTTP, sub rolul aplicației
   rolul aplicației `INSERT` e refuzat de RLS, iar `UPDATE`/`DELETE` n-au politică și au și trigger
   append-only. Retras oricum prin `0047`, ca declarația și baza să spună același lucru și ca apărarea
   să nu depindă de absența unei politici
+- **Ecranul de parteneri**, la nivel de spațiu de lucru — fără segment de companie, fiindcă aceeași
+  entitate juridică e aceeași pentru toate companiile firmei. Formularul de solduri putea **alege** un
+  partener și nimic nu putea **crea** unul: același gol care ținea stornoul, soldurile și șabloanele
+  inaccesibile. Parcurs live: creare, IDNO duplicat refuzat (`partners.idno_taken`), retragere care
+  scoate din lista implicită și păstrează rândul, filtrele `role` și `include_inactive` combinate
 - **`make check-committed`**, fiindcă defectul de mai jos a trecut de `tsc`, ESLint, Vitest și build:
   toate patru citesc discul, unde fișierul uitat există. Verificarea rulează același typecheck peste
   `git archive HEAD`, deci peste un arbore în care fișierul lipsă chiar lipsește. Are `--self-test`
