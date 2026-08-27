@@ -1,4 +1,4 @@
-"""Posting a manual journal note over HTTP -- the one write path into the ledger.
+"""Posting a manual note, and cancelling one -- the write paths into the ledger.
 
 The endpoint composes and refuses; it computes nothing. Everything it hands the
 engine is either the user's (the lines, the date, the description) or read from a
@@ -10,6 +10,16 @@ through a model of another business module.
 `Idempotency-Key` is required (C9) and is the engine's key, not the endpoint's
 (R19): the same key posts once, and a retry answers with the entry the first
 attempt wrote instead of writing a second one.
+
+A correction is a storno and never an edit (R10). It goes through the same engine
+as the note it cancels -- `posting.services.reversal` -- so the endpoint below
+composes and refuses exactly like the other one, and there is no path here that
+touches a posted row.
+
+**The correction's date is required and has no default.** Which date a reversal
+carries is ADR-007, open, and the service refuses to guess it; an HTTP layer that
+filled it in with today would close that decision from the worst possible place --
+silently, in the module least able to argue about it.
 """
 
 from __future__ import annotations
@@ -24,6 +34,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from evidenta.accounting.posting.services.manual import post_manual_entry
+from evidenta.accounting.posting.services.reversal import post_reversal
 from evidenta.platform.api.idempotency import read_key
 from evidenta.platform.capabilities.services.profile import active_profile
 from evidenta.platform.rls.context import MissingTenantContextError, current_context
@@ -105,6 +116,64 @@ class ManualEntryView(APIView):
                 "journal_entry_id": str(result.journal_entry_id),
                 # False when the key found an entry an earlier arrival wrote.
                 # A caller that cannot tell the two apart reports "posted" twice.
+                "posted_now": result.posted_now,
+            },
+            status=201 if result.posted_now else 200,
+        )
+
+
+class ReverseEntrySerializer(serializers.Serializer[dict[str, Any]]):
+    """What a storno needs beyond the entry it cancels.
+
+    `reason` is not decoration and is not defaulted: it is the only part of a
+    correction a reader cannot reconstruct from the ledger itself. The amounts,
+    the accounts and the link are all in the mirror entry; why somebody decided
+    to cancel is not.
+    """
+
+    company_id = serializers.UUIDField()
+    accounting_date = serializers.DateField()
+    reason = serializers.CharField(max_length=500)
+    # ADR-006's other half: where the correction belongs, when that differs from
+    # where it posts. Absent for a correction inside its own open period.
+    corrects_period_id = serializers.UUIDField(required=False)
+
+
+class ReverseEntryView(APIView):
+    def post(self, request: Request, entry_id: uuid.UUID) -> Response:
+        context = current_context()
+        if context is None:  # pragma: no cover -- the middleware refuses first
+            raise MissingTenantContextError("posting needs a tenant context")
+
+        key = read_key(request._request)
+
+        payload = ReverseEntrySerializer(data=request.data)
+        payload.is_valid(raise_exception=True)
+        data = dict(payload.validated_data)
+
+        company_id = data["company_id"]
+        accounting_date = data["accounting_date"]
+        # Read for its side effect as much as its value: it refuses a company
+        # this context cannot see, before anything is emitted.
+        functional_currency(company_id)
+
+        result = post_reversal(
+            tenant_id=context.tenant_id,
+            company_id=company_id,
+            entry_id=entry_id,
+            accounting_date=accounting_date,
+            reason=data["reason"],
+            idempotency_key=key,
+            actor_user_id=context.user_id,
+            request_id=context.request_id,
+            capability_snapshot=active_profile(company_id, accounting_date).as_snapshot(),
+            corrects_period_id=data.get("corrects_period_id"),
+        )
+
+        return Response(
+            {
+                "accounting_event_id": str(result.accounting_event_id),
+                "journal_entry_id": str(result.journal_entry_id),
                 "posted_now": result.posted_now,
             },
             status=201 if result.posted_now else 200,

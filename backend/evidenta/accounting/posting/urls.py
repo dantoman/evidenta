@@ -13,4 +13,12 @@ app_name = "posting"
 
 urlpatterns = [
     path("manual", views.ManualEntryView.as_view(), name="manual-entry"),
+    # The entry is in the path because the correction is *of* it; the reason and
+    # the correction's own date are in the body, because they are new facts
+    # rather than identifiers.
+    path(
+        "<uuid:entry_id>/reversal",
+        views.ReverseEntryView.as_view(),
+        name="reverse-entry",
+    ),
 ]

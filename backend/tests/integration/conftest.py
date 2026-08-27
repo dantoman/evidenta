@@ -25,7 +25,15 @@ from evidenta.platform.identity.services.authentication import (
     generate_secret_key,
 )
 from evidenta.platform.rls.context import TenantContext, tenant_context
-from tests.isolation.conftest import seed, world  # noqa: F401 -- re-exported fixtures
+from tests.isolation import conftest as isolation
+
+# Re-exported by assignment rather than by `from ... import world`, and the
+# difference is not style: an imported name is shadowed by the fixture parameter
+# of the same name one function below, which reads as a redefinition -- ruff says
+# `F811`, and it is right that the two cannot be told apart at a glance. Bound
+# through the module, the parameter shadows nothing.
+seed = isolation.seed
+world = isolation.world
 
 PASSWORD = "o-parola-suficient-de-lunga"
 HOST_A = "alpha.evidenta.localhost"

@@ -46,6 +46,19 @@ Un test de integrare o parcurge prin HTTP, sub rolul aplicației
   rolul aplicației `INSERT` e refuzat de RLS, iar `UPDATE`/`DELETE` n-au politică și au și trigger
   append-only. Retras oricum prin `0047`, ca declarația și baza să spună același lucru și ca apărarea
   să nu depindă de absența unei politici
+- **Registrul înregistrărilor** — `GET .../ledger/companies/<id>/entries`, antete cu rândurile lor,
+  ambele sensuri ale `R14` pe sârmă, plus ecranul. Exista un gol de fond: după postare nu se vedea
+  ce s-a postat, deci nici nu se putea alege ce se corectează
+- **Stornoul e complet cap-coadă:** serviciul de motor e al sesiunii paralele (`a49db20`),
+  endpointul `POST .../entries/<id>/reversal` și butonul din registru sunt aici. Data corecției e
+  obligatorie și fără implicit — `ADR-007` e deschisă, iar un default în HTTP ar fi închis-o din
+  stratul cel mai puțin îndreptățit. Testul feliei acoperă acum și corecția: al doilea storno refuzat,
+  ambele legături vizibile, balanța revenită la zero
+- **Bazele de test se ciocneau între sesiuni:** două suite pe `test_evidenta` au produs 594 de erori
+  `AdminShutdown` — una recreează baza sub conexiunile celeilalte, și nu arată ca o coliziune, arată
+  ca un defect. `TEST_DB_NAME` face numele configurabil; implicitul rămâne neschimbat
+- **`make test` rulează și frontendul** (`web-test`), altfel Vitest era un runner pe care nu-l pornea
+  nimic. `make seed-coa` pentru încărcătorul de plan de conturi
 - **Nu am extins `drift-check` la append-only, și motivul e măsurat:** un trigger pe UPDATE/DELETE nu
   distinge „append-only" de „mașină de stări cu gardă" — 19 tabele au un astfel de trigger, iar 15 au
   legitim `UPDATE` (engagement, period, role, solduri inițiale în lucru). Verificarea ar fi produs 15

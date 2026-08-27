@@ -195,6 +195,10 @@ describe('ecranele', () => {
     // R14 în ambele sensuri: ecranul spune că a fost stornată, în loc să lase
     // cititorul să deducă dintr-o a doua înregistrare cu semn opus.
     expect(screen.getByText('Stornată')).toBeInTheDocument()
+    // Și, fiind deja stornată, nu mai oferă butonul: serverul ar refuza al
+    // doilea storno, iar un control care se refuză la apăsare e o minciună de
+    // interfață.
+    expect(screen.queryByRole('button', { name: 'Stornează' })).not.toBeInTheDocument()
   })
 
   it('balanța afișează totalurile serverului, nu ale ei', async () => {

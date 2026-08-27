@@ -147,6 +147,16 @@ export const ro = {
       empty: 'Nicio înregistrare în perioada aleasă.',
       truncated: 'Lista a fost tăiată. Restrângeți perioada pentru a vedea restul.',
       lines: 'Rânduri',
+      // Corectia unei inregistrari postate e storno, niciodata modificare (R10).
+      reverse: 'Stornează',
+      reverseDate: 'Data corecției',
+      reverseReason: 'Motivul corecției',
+      reverseHint:
+        'Înregistrarea postată nu se modifică. Se anulează printr-o înregistrare în oglindă, iar cele două rămân legate.',
+      reverseSubmit: 'Confirmă stornarea',
+      reversing: 'Se stornează…',
+      reverseDone: 'Înregistrarea a fost stornată.',
+      cancel: 'Renunță',
     },
     balance: {
       title: 'Balanța de verificare',
@@ -288,6 +298,11 @@ export const ro = {
       'Exercițiul începe în prima zi a unei luni și se termină în ultima.',
     'periods.company_not_visible': 'Compania nu există sau nu aveți acces la ea.',
     'ledger.entry_not_found': 'Înregistrarea nu a fost găsită.',
+    'ledger.entry_already_reversed': 'Înregistrarea a fost deja stornată.',
+    'ledger.entry_not_posted': 'Înregistrarea nu este postată, deci nu are ce anula.',
+    'posting.reversal_payload_invalid': 'Stornarea are nevoie de un motiv.',
+    'posting.reversal_origin_missing':
+      'Înregistrarea nu are un eveniment contabil vizibil, deci nu poate fi stornată.',
     'ledger.nothing_to_write': 'Nu există nimic de înregistrat.',
     'ledger.unknown_dimension': 'Dimensiune analitică necunoscută.',
     unknown: 'A apărut o eroare neașteptată.',

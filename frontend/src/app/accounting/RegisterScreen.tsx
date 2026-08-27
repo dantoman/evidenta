@@ -16,13 +16,13 @@
  * where totals across entries belong (C19).
  */
 
-import { useQuery } from '@tanstack/react-query'
-import { useState } from 'react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useState, type FormEvent } from 'react'
 import { Link, useParams } from 'react-router'
 
 import { t } from '@/locales'
 import { amount, date as formatDate } from '@/shared/format'
-import { listEntries, type JournalEntryRead } from '@/shared/api/ledger'
+import { listEntries, reverseEntry, type JournalEntryRead } from '@/shared/api/ledger'
 import { Failure } from '@/shared/Failure'
 
 const FIELD = 'rounded border border-border bg-surface px-2 text-sm'
@@ -109,12 +109,22 @@ export function RegisterScreen() {
         <p className="text-sm text-ink-muted">{t.accounting.register.empty}</p>
       )}
 
-      {register.data?.entries.map((entry) => <Entry key={entry.id} entry={entry} />)}
+      {register.data?.entries.map((entry) => (
+        <Entry key={entry.id} entry={entry} companyId={companyId} />
+      ))}
     </section>
   )
 }
 
-function Entry({ entry }: { entry: JournalEntryRead }) {
+function Entry({ entry, companyId }: { entry: JournalEntryRead; companyId: string }) {
+  const queryClient = useQueryClient()
+  const [correcting, setCorrecting] = useState(false)
+
+  // Posted, and not already cancelled. The service refuses a second storno
+  // anyway; the screen says so first, rather than offering a control whose
+  // refusal the person has to discover by pressing it.
+  const correctable = entry.status === 'posted' && entry.reversed_by_entry_id === null
+
   return (
     <article className="rounded border border-border bg-surface">
       <header className="flex flex-wrap items-baseline justify-between gap-4 border-b border-border px-3 py-2">
@@ -135,8 +145,32 @@ function Entry({ entry }: { entry: JournalEntryRead }) {
             <span className="text-danger">{t.accounting.register.reversed}</span>
           )}
           <span className="tabular font-medium">{amount(entry.total_debit)}</span>
+          {correctable && (
+            <button
+              type="button"
+              onClick={() => setCorrecting((open) => !open)}
+              className="text-sm text-accent"
+            >
+              {correcting ? t.accounting.register.cancel : t.accounting.register.reverse}
+            </button>
+          )}
         </div>
       </header>
+
+      {correcting && (
+        <Reversal
+          entry={entry}
+          companyId={companyId}
+          onDone={async () => {
+            setCorrecting(false)
+            // The register and the balance both changed. Invalidated rather than
+            // patched: what the server wrote is what should be shown, not what
+            // the client assumed it wrote.
+            await queryClient.invalidateQueries({ queryKey: ['register', companyId] })
+            await queryClient.invalidateQueries({ queryKey: ['trial-balance', companyId] })
+          }}
+        />
+      )}
 
       <table className="w-full border-collapse text-sm">
         <thead>
@@ -162,5 +196,83 @@ function Entry({ entry }: { entry: JournalEntryRead }) {
         </tbody>
       </table>
     </article>
+  )
+}
+
+/**
+ * The correction form: a date and a reason, both required, neither guessed.
+ *
+ * The date is the correction's own (ADR-006's second date) and has no default,
+ * because which date a storno carries is open (ADR-007) and the server refuses
+ * to answer it. Seeding this field with today would answer it here instead --
+ * quietly, and in the layer with the least standing to.
+ */
+function Reversal({
+  entry,
+  companyId,
+  onDone,
+}: {
+  entry: JournalEntryRead
+  companyId: string
+  onDone: () => void
+}) {
+  const [accountingDate, setAccountingDate] = useState('')
+  const [reason, setReason] = useState('')
+  // One key per correction, allocated when the form opens: a second press must
+  // not become a second storno.
+  const [idempotencyKey] = useState(() => crypto.randomUUID())
+
+  const reverse = useMutation({
+    mutationFn: () =>
+      reverseEntry(
+        entry.id,
+        { company_id: companyId, accounting_date: accountingDate, reason: reason.trim() },
+        idempotencyKey,
+      ),
+    onSuccess: onDone,
+  })
+
+  return (
+    <form
+      className="flex flex-wrap items-end gap-4 border-b border-border px-3 py-2"
+      onSubmit={(event: FormEvent) => {
+        event.preventDefault()
+        reverse.mutate()
+      }}
+    >
+      <p className="w-full text-sm text-ink-muted">{t.accounting.register.reverseHint}</p>
+      <label className="flex flex-col gap-1 text-sm">
+        <span className="text-ink-muted">{t.accounting.register.reverseDate}</span>
+        <input
+          type="date"
+          value={accountingDate}
+          onChange={(event) => setAccountingDate(event.target.value)}
+          className={FIELD}
+        />
+      </label>
+      <label className="flex flex-1 flex-col gap-1 text-sm">
+        <span className="text-ink-muted">{t.accounting.register.reverseReason}</span>
+        <input
+          value={reason}
+          onChange={(event) => setReason(event.target.value)}
+          maxLength={500}
+          className={FIELD}
+        />
+      </label>
+      <button
+        type="submit"
+        disabled={accountingDate === '' || reason.trim() === '' || reverse.isPending}
+        className="rounded border border-border bg-surface px-3 text-sm text-accent disabled:text-ink-muted"
+      >
+        {reverse.isPending
+          ? t.accounting.register.reversing
+          : t.accounting.register.reverseSubmit}
+      </button>
+      {reverse.isError && (
+        <div className="w-full">
+          <Failure error={reverse.error} />
+        </div>
+      )}
+    </form>
   )
 }

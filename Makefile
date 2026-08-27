@@ -217,8 +217,13 @@ isolation-check: ## Rulează suitele de izolare, sub rolul de aplicație (T1)
 	cd backend && uv run pytest -q tests/isolation tests/test_harness.py
 
 .PHONY: test
-test: ## Rulează suita de teste
+test: ## Rulează suita de teste (backend și frontend)
 	cd backend && uv run pytest
+	$(NPM) run test
+
+.PHONY: web-test
+web-test: ## Doar testele de frontend (Vitest)
+	$(NPM) run test
 
 .PHONY: seed-coa
 seed-coa: ## Încarcă planul general de conturi (SNC 2020) — idempotent, rulează ca owner

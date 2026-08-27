@@ -149,6 +149,16 @@ TEMPLATES = [
 # harness must create the database as owner and then connect as the application
 # role -- otherwise the isolation suites either fail to start or, worse, get run
 # as owner and prove nothing (T1).
+#: The test database, named separately so two people working in the same checkout
+#: do not share one. Measured the hard way: two suites running at once against
+#: `test_evidenta` produced 594 errors reading
+#: `AdminShutdown: terminating connection due to administrator command` -- one run
+#: had dropped and recreated the database under the other's connections. Neither
+#: was a defect in the code, and both looked like one.
+#:
+#: Default unchanged, so a single-session checkout behaves exactly as before.
+TEST_DATABASE_NAME = env("TEST_DB_NAME", f"test_{env('POSTGRES_DB', 'evidenta')}")
+
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.postgresql",
@@ -161,6 +171,7 @@ DATABASES = {
         # tenant context, lives only for the transaction -- so this is not a
         # convenience, it is what makes R3 hold.
         "ATOMIC_REQUESTS": True,
+        "TEST": {"NAME": TEST_DATABASE_NAME},
     },
     "migration": {
         "ENGINE": "django.db.backends.postgresql",
@@ -170,6 +181,7 @@ DATABASES = {
         "HOST": env("POSTGRES_HOST", "localhost"),
         "PORT": env("POSTGRES_PORT", "5432"),
         "ATOMIC_REQUESTS": False,
+        "TEST": {"NAME": TEST_DATABASE_NAME},
     },
 }
 

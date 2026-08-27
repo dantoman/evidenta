@@ -23,8 +23,8 @@ from typing import Any
 import pytest
 
 from evidenta.accounting.coa.models import CompanyAccount
-from evidenta.accounting.ledger.models import JournalEntry, JournalLine
 from evidenta.accounting.events.models import AccountingEvent
+from evidenta.accounting.ledger.models import JournalEntry, JournalLine
 from evidenta.platform.rls.context import tenant_context
 
 pytestmark = pytest.mark.django_db(databases=["default", "migration"])
@@ -87,8 +87,11 @@ def test_the_whole_slice(
     # 2. The exercise, then the chart.
     year = post(
         f"/api/v1/accounting/periods/companies/{company_id}/fiscal-years",
-        {"code": str(TODAY.year), "start_date": f"{TODAY.year}-01-01",
-         "end_date": f"{TODAY.year}-12-31"},
+        {
+            "code": str(TODAY.year),
+            "start_date": f"{TODAY.year}-01-01",
+            "end_date": f"{TODAY.year}-12-31",
+        },
     )
     assert year.status_code == 201, year.content
     assert year.json()["periods"] == 12
@@ -199,7 +202,59 @@ def test_the_whole_slice(
     assert body["total_debit"] == body["total_credit"] == "5000.0000"
     assert body["balanced"] is True
 
-    # 7. The window is inclusive at both ends and the opening is what came before:
+    # 7. The correction. A posted entry is never edited (R10): it is cancelled by
+    #    its mirror, and the pair stays visible from both ends (R14).
+    entry_id = posted.json()["journal_entry_id"]
+    reversal = post(
+        f"/api/v1/accounting/entries/{entry_id}/reversal",
+        {
+            "company_id": company_id,
+            # Required, never defaulted: which date a storno carries is ADR-007,
+            # open. An endpoint that filled in today would close it silently.
+            "accounting_date": str(TODAY),
+            "reason": "Sumă greșită la aport",
+        },
+        **{"Idempotency-Key": "slice-0002"},
+    )
+    assert reversal.status_code == 201, reversal.content
+    assert reversal.json()["posted_now"] is True
+
+    # A second storno is refused: the mirror already exists, and two of them
+    # would cancel the entry twice.
+    twice = post(
+        f"/api/v1/accounting/entries/{entry_id}/reversal",
+        {"company_id": company_id, "accounting_date": str(TODAY), "reason": "din nou"},
+        **{"Idempotency-Key": "slice-0003"},
+    )
+    assert twice.status_code == 409
+    assert twice.json()["code"] == "ledger.entry_already_reversed"
+
+    corrected = get(
+        f"/api/v1/accounting/ledger/companies/{company_id}/entries"
+        f"?from={TODAY.year}-01-01&to={TODAY.year}-12-31"
+    ).json()["entries"]
+    assert len(corrected) == 2
+
+    by_id = {row["id"]: row for row in corrected}
+    mirror = next(row for row in corrected if row["reverses_entry_id"] == entry_id)
+    # Both directions, which is the whole point of the second link: the original
+    # names its cancellation and the cancellation names the original.
+    assert by_id[entry_id]["reversed_by_entry_id"] == mirror["id"]
+    assert mirror["reverses_entry_id"] == entry_id
+
+    # And the books are flat again -- the storno is the only thing that could
+    # have made them so, since nothing may update a posted line.
+    after = get(
+        f"/api/v1/accounting/ledger/companies/{company_id}/trial-balance"
+        f"?from={TODAY.year}-01-01&to={TODAY.year}-12-31"
+    ).json()
+    closing = {row["account_code"]: row["closing"] for row in after["rows"]}
+    assert closing["242"] == "0.0000"
+    assert closing["311"] == "0.0000"
+    assert after["total_debit"] == after["total_credit"] == "10000.0000"
+    assert after["balanced"] is True
+
+    # 8. The window is inclusive at both ends and the opening is what came before:
     # asked for tomorrow onwards, today's posting is an opening balance, not a
     # movement.
     tomorrow = date.fromordinal(TODAY.toordinal() + 1)
@@ -208,5 +263,7 @@ def test_the_whole_slice(
         f"?from={tomorrow}&to={TODAY.year + 1}-12-31"
     ).json()
     opening = {row["account_code"]: row for row in later["rows"]}
-    assert opening["242"]["opening"] == "5000.0000"
+    # Zero, because the storno carries today's date too: what came before the
+    # window is the pair, and the pair cancels.
+    assert opening["242"]["opening"] == "0.0000"
     assert opening["242"]["debit"] == "0"

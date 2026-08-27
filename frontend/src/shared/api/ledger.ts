@@ -114,3 +114,33 @@ export function listEntries(companyId: string, from: string, to: string): Promis
       `?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`,
   )
 }
+
+/**
+ * Cancelling a posted entry -- a storno, never an edit (R10).
+ *
+ * `accounting_date` is required and is deliberately not defaulted here. Which
+ * date a correction carries is an open decision (ADR-007) and the server refuses
+ * to guess it; a client that filled in today would answer that question from the
+ * layer least able to argue about it.
+ *
+ * `reason` is the only part of a correction a reader cannot reconstruct from the
+ * ledger: the amounts, the accounts and the link are all in the mirror entry.
+ */
+export interface Reversal {
+  company_id: string
+  accounting_date: string
+  reason: string
+  corrects_period_id?: string
+}
+
+export function reverseEntry(
+  entryId: string,
+  reversal: Reversal,
+  idempotencyKey: string,
+): Promise<PostedEntry> {
+  return request<PostedEntry>(`/api/v1/accounting/entries/${entryId}/reversal`, {
+    method: 'POST',
+    body: reversal,
+    idempotencyKey,
+  })
+}
