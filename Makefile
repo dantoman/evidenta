@@ -225,6 +225,13 @@ test: ## Rulează suita de teste (backend și frontend)
 web-test: ## Doar testele de frontend (Vitest)
 	$(NPM) run test
 
+.PHONY: create-tenant
+create-tenant: ## Creează un tenant și utilizatorul lui (SUBDOMAIN=..., NAME=..., EMAIL=...)
+	@test -n "$(SUBDOMAIN)" -a -n "$(NAME)" -a -n "$(EMAIL)" || { \
+	  echo "folosire: make create-tenant SUBDOMAIN=alpha NAME=\"Alpha SRL\" EMAIL=cineva@example.md"; exit 1; }
+	cd backend && uv run python manage.py create_tenant \
+	  --subdomain "$(SUBDOMAIN)" --legal-name "$(NAME)" --email "$(EMAIL)"
+
 .PHONY: seed-coa
 seed-coa: ## Încarcă planul general de conturi (SNC 2020) — idempotent, rulează ca owner
 	cd backend && uv run python manage.py load_coa_template

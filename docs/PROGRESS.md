@@ -46,6 +46,20 @@ Un test de integrare o parcurge prin HTTP, sub rolul aplicației
   rolul aplicației `INSERT` e refuzat de RLS, iar `UPDATE`/`DELETE` n-au politică și au și trigger
   append-only. Retras oricum prin `0047`, ca declarația și baza să spună același lucru și ca apărarea
   să nu depindă de absența unei politici
+- **Un checkout curat nu putea ajunge la ecranul de autentificare, și acum poate:**
+  `manage.py create_tenant` (`make create-tenant`) creează tenantul, utilizatorul, rolurile de
+  sistem, membership-ul și **înrolează al doilea factor**, fiindcă `authenticate()` refuză un cont
+  fără el (`ADR-021`) — o comandă care s-ar fi oprit la utilizator ar fi produs un cont care nu poate
+  intra, iar eșecul s-ar fi citit ca parolă greșită. Comandă de operator, nu endpoint: `DN-26` rămâne
+  exact la fel de deschisă
+- **Rulează sub rolul de instalare, măsurat, nu ales din comoditate:** politicile pe `tenant`,
+  `user`, `membership` și `role` sunt scrise `TO evidenta_app`, deci sub `FORCE RLS` proprietarul
+  n-are nicio politică aplicabilă și e refuzat la fiecare inserare. Alternativele erau lărgirea
+  politicilor spre owner sau `rls.provision_tenant`, care ar fi trebuit să creeze un utilizator —
+  ceea ce ADR-040 spune că `P-9` nu face
+- **Felia parcursă cap-coadă pe baza de dezvoltare, nu doar în teste:** tenant nou → login cu TOTP →
+  companie → exercițiu (12 perioade) → planul real de 476 de conturi → notă postată (a doua oară cu
+  aceeași cheie: `posted_now = false`) → registru → balanță echilibrată → storno → balanță la zero
 - **Registrul înregistrărilor** — `GET .../ledger/companies/<id>/entries`, antete cu rândurile lor,
   ambele sensuri ale `R14` pe sârmă, plus ecranul. Exista un gol de fond: după postare nu se vedea
   ce s-a postat, deci nici nu se putea alege ce se corectează

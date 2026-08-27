@@ -39,6 +39,13 @@ def _template(seed: Callable[..., None]) -> uuid.UUID:
     Not the real nomenclature: this suite is about the chain, and a 476-row
     fixture would make every assertion here depend on the act's content instead
     of on the posting. The loader that reads the act has its own test.
+
+    The two codes are the act's, and they are not asserted from memory: the whole
+    slice was walked against a database with the real chart loaded, where `242`
+    is "Conturi curente în monedă naţională" and `311` is "Capital social". A
+    plausible-looking code invented here would be act content entering through
+    the back door while `OD-23` is open, which is why this says where it came
+    from.
     """
     template_id, cash_id, capital_id = uuid.uuid4(), uuid.uuid4(), uuid.uuid4()
     seed(

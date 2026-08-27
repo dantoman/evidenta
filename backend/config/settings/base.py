@@ -159,6 +159,18 @@ TEMPLATES = [
 #: Default unchanged, so a single-session checkout behaves exactly as before.
 TEST_DATABASE_NAME = env("TEST_DB_NAME", f"test_{env('POSTGRES_DB', 'evidenta')}")
 
+#: The installation role, present only where its credentials are configured.
+#:
+#: Not a third runtime connection: nothing in the product may use it, and the one
+#: command that does -- `create_tenant` -- is the same act as running the
+#: migrations. It exists because the first tenant cannot be created any other way.
+#: Every policy on `tenant`, `user`, `membership` and `role` is written `TO
+#: evidenta_app`, so under `FORCE ROW LEVEL SECURITY` the owner has no policy at
+#: all and is refused every insert -- measured, not assumed. Creating the first
+#: tenant is therefore a DBA act, exactly like `make bootstrap`, and it is
+#: spelled that way rather than smuggled in by widening a policy.
+_ADMIN_USER = env("DB_ADMIN_USER", "")
+
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.postgresql",
@@ -184,6 +196,18 @@ DATABASES = {
         "TEST": {"NAME": TEST_DATABASE_NAME},
     },
 }
+
+if _ADMIN_USER:
+    DATABASES["admin"] = {
+        "ENGINE": "django.db.backends.postgresql",
+        "NAME": env("POSTGRES_DB", "evidenta"),
+        "USER": _ADMIN_USER,
+        "PASSWORD": env("DB_ADMIN_PASSWORD", ""),
+        "HOST": env("POSTGRES_HOST", "localhost"),
+        "PORT": env("POSTGRES_PORT", "5432"),
+        "ATOMIC_REQUESTS": False,
+        "TEST": {"NAME": TEST_DATABASE_NAME},
+    }
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
