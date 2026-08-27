@@ -155,7 +155,32 @@ def test_the_whole_slice(
         assert event.status == "posted"
         assert event.event_type == "manual.journal_entry"
 
-    # 5. The trial balance, from the server, balanced.
+    # 5. The register: what was posted, readable as an entry rather than as a
+    #    balance movement. It is also the precondition for correcting anything --
+    #    a storno has to name an entry, and until this existed nothing showed one.
+    register = get(
+        f"/api/v1/accounting/ledger/companies/{company_id}/entries"
+        f"?from={TODAY.year}-01-01&to={TODAY.year}-12-31"
+    )
+    assert register.status_code == 200, register.content
+    listed = register.json()
+    assert listed["truncated"] is False
+    assert len(listed["entries"]) == 1
+
+    entry = listed["entries"][0]
+    assert entry["description"] == "Aport la capitalul social"
+    assert entry["status"] == "posted"
+    assert entry["entry_number"], "a posted entry carries a number from the company's template"
+    # Not yet corrected, and the register says so rather than leaving the screen
+    # to find out by being refused.
+    assert entry["reverses_entry_id"] is None
+    assert entry["reversed_by_entry_id"] is None
+    # The account codes come from the chart, joined by id in the service: a
+    # journal line carries no foreign key to the account (R21).
+    assert {line["account_code"] for line in entry["lines"]} == {"242", "311"}
+    assert sorted(line["debit"] for line in entry["lines"]) == ["0.0000", "5000.0000"]
+
+    # 6. The trial balance, from the server, balanced.
     balance = get(
         f"/api/v1/accounting/ledger/companies/{company_id}/trial-balance"
         f"?from={TODAY.year}-01-01&to={TODAY.year}-12-31"
@@ -174,7 +199,7 @@ def test_the_whole_slice(
     assert body["total_debit"] == body["total_credit"] == "5000.0000"
     assert body["balanced"] is True
 
-    # The window is inclusive at both ends and the opening is what came before:
+    # 7. The window is inclusive at both ends and the opening is what came before:
     # asked for tomorrow onwards, today's posting is an opening balance, not a
     # movement.
     tomorrow = date.fromordinal(TODAY.toordinal() + 1)

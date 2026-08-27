@@ -12,6 +12,11 @@ app_name = "ledger"
 
 urlpatterns = [
     path(
+        "companies/<uuid:company_id>/entries",
+        views.EntryListView.as_view(),
+        name="entries",
+    ),
+    path(
         "companies/<uuid:company_id>/trial-balance",
         views.TrialBalanceView.as_view(),
         name="trial-balance",

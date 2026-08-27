@@ -20,6 +20,7 @@ import { AccountScreen } from '@/app/accounting/AccountScreen'
 import { ChartOfAccountsScreen } from '@/app/accounting/ChartOfAccountsScreen'
 import { ChartSetupScreen } from '@/app/accounting/ChartSetupScreen'
 import { ManualEntryScreen } from '@/app/accounting/ManualEntryScreen'
+import { RegisterScreen } from '@/app/accounting/RegisterScreen'
 import { TrialBalanceScreen } from '@/app/accounting/TrialBalanceScreen'
 import { CompaniesScreen } from '@/app/companies/CompaniesScreen'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
@@ -158,6 +159,42 @@ describe('ecranele', () => {
     })
 
     expect(await screen.findByRole('button', { name: 'Postează nota' })).toBeDisabled()
+  })
+
+  it('registrul arată înregistrarea cu rândurile ei și spune dacă e stornată', async () => {
+    stubFetch({
+      [`/api/v1/accounting/ledger/companies/${COMPANY}/entries`]: {
+        start_date: '2026-01-01',
+        end_date: '2026-12-31',
+        truncated: false,
+        entries: [
+          {
+            id: 'e1', entry_number: 'NC-2026-000001', accounting_date: '2026-03-07',
+            description: 'Aport la capitalul social', status: 'posted', entry_type: 'manual',
+            total_debit: '5000.0000', total_credit: '5000.0000',
+            reverses_entry_id: null, reversed_by_entry_id: 'e2',
+            accounting_event_id: 'ev1',
+            lines: [
+              {
+                line_number: 1, account_id: ACCOUNT, account_code: '242',
+                name_ro: 'Conturi curente în monedă națională',
+                debit: '5000.0000', credit: '0', description: null,
+              },
+            ],
+          },
+        ],
+      },
+    })
+    renderScreen(<RegisterScreen />, {
+      path: '/companii/:companyId/registru',
+      route: `/companii/${COMPANY}/registru`,
+    })
+
+    expect(await screen.findByText('NC-2026-000001')).toBeInTheDocument()
+    expect(screen.getByText('Aport la capitalul social')).toBeInTheDocument()
+    // R14 în ambele sensuri: ecranul spune că a fost stornată, în loc să lase
+    // cititorul să deducă dintr-o a doua înregistrare cu semn opus.
+    expect(screen.getByText('Stornată')).toBeInTheDocument()
   })
 
   it('balanța afișează totalurile serverului, nu ale ei', async () => {

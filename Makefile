@@ -220,6 +220,10 @@ isolation-check: ## Rulează suitele de izolare, sub rolul de aplicație (T1)
 test: ## Rulează suita de teste
 	cd backend && uv run pytest
 
+.PHONY: seed-coa
+seed-coa: ## Încarcă planul general de conturi (SNC 2020) — idempotent, rulează ca owner
+	cd backend && uv run python manage.py load_coa_template
+
 .PHONY: drift-check
 drift-check: ## Compară baza VIE cu contractele RLS (suita rulează pe baza de test, care nu poate vedea deriva)
 	cd backend && uv run python manage.py check_schema_drift

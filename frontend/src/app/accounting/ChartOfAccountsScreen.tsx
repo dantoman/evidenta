@@ -153,6 +153,9 @@ export function ChartOfAccountsScreen() {
             <Link to={`/companii/${companyId}/note`} className="text-accent">
               {t.accounting.entry.title}
             </Link>
+            <Link to={`/companii/${companyId}/registru`} className="text-accent">
+              {t.accounting.register.title}
+            </Link>
             <Link to={`/companii/${companyId}/balanta`} className="text-accent">
               {t.accounting.balance.title}
             </Link>

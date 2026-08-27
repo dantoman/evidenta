@@ -73,3 +73,44 @@ export function trialBalance(companyId: string, from: string, to: string): Promi
       `?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`,
   )
 }
+
+export interface JournalLineRead {
+  line_number: number
+  account_id: string
+  account_code: string
+  name_ro: string
+  debit: string
+  credit: string
+  description: string | null
+}
+
+export interface JournalEntryRead {
+  id: string
+  entry_number: string
+  accounting_date: string
+  description: string
+  status: string
+  entry_type: string
+  total_debit: string
+  total_credit: string
+  /** What this entry cancels, and what cancelled it -- both halves of R14. */
+  reverses_entry_id: string | null
+  reversed_by_entry_id: string | null
+  accounting_event_id: string
+  lines: JournalLineRead[]
+}
+
+export interface Register {
+  start_date: string
+  end_date: string
+  /** True when the page was cut. Said out loud so a short list is not read as all of it. */
+  truncated: boolean
+  entries: JournalEntryRead[]
+}
+
+export function listEntries(companyId: string, from: string, to: string): Promise<Register> {
+  return request<Register>(
+    `/api/v1/accounting/ledger/companies/${companyId}/entries` +
+      `?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`,
+  )
+}

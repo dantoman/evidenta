@@ -133,6 +133,21 @@ export const ro = {
       needDescription: 'Nota are nevoie de o descriere.',
       noChart: 'Compania nu are încă un plan de conturi.',
     },
+    register: {
+      title: 'Registrul înregistrărilor',
+      number: 'Număr',
+      date: 'Data',
+      description: 'Descriere',
+      debit: 'Debit',
+      credit: 'Credit',
+      account: 'Cont',
+      // C37: „stornată" descrie inregistrarea, nu tabela.
+      reversed: 'Stornată',
+      reverses: 'Stornează',
+      empty: 'Nicio înregistrare în perioada aleasă.',
+      truncated: 'Lista a fost tăiată. Restrângeți perioada pentru a vedea restul.',
+      lines: 'Rânduri',
+    },
     balance: {
       title: 'Balanța de verificare',
       from: 'De la',
