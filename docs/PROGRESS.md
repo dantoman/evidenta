@@ -74,6 +74,37 @@ Descompunerea completă: `_bootstrap/08-f1-backlog.md` — patru fire care pot m
 
 ## Ultima sesiune
 
+**2026-08-27, stornoul are în sfârșit o cale prin motor:**
+
+- **`accounting/posting/services/reversal.py`**, fișier nou. `ledger/services/reversal.py` știa să
+  oglindească o înregistrare postată din F1.2 și **nimic nu-l apela**: registrul putea anula, produsul
+  nu. O notă manuală postată pe un cont greșit era, până acum, necorectabilă altfel decât dintr-o
+  sesiune de bază de date — exact corecția pentru care există `R10`.
+- **Tipul e derivat, nu ales.** [ADR-038 §7.2](decisions/038-vocabularul-de-evenimente.md): fiecare tip
+  stornabil are perechea lui. Serviciul citește tipul evenimentului original și îi formează perechea,
+  deci merge pentru factura de vânzare și pentru salarii când apar, fără a doua cale de storno.
+- **Coliziune de notație, rezolvată prin măsurare.** §7.2 scrie convenția ca `*.reversed`, ceea ce se
+  citește ca segment adăugat tipului. Nu poate fi: Spec B §1.4 fixează tipul ca `<domain>.<action>`,
+  iar registrul îl impune cu un tipar de două segmente — `manual.journal_entry.reversed` e refuzat la
+  înregistrare. Singura citire care satisface ambele e perechea formată **în interiorul acțiunii**:
+  `manual.journal_entry_reversed`. Scris întâi celălalt și văzut `register()` refuzându-l.
+- **Handlerul e `reverse_entry` însuși.** §7.2 spune că handlerul inversează semnele, iar semnele se
+  inversează într-un singur loc. Consecința care merită numită: o oglindă **nu poate deriva** cu
+  capabilitățile, fiindcă nu recalculează nimic — o companie care capătă o capabilitate în iunie nu
+  poate, corectând martie, să posteze corecția sub regulile lui iunie (`R18`).
+- **Data stornoului rămâne a apelantului.** ADR-007 e `Propus`, cu trei întrebări de tratament
+  deschise. Perioada se derivă din dată — asta nu e ghicire; alegerea datei ar fi, și serviciul n-o
+  face.
+- Douăsprezece teste de izolare, sub rolul aplicației: oglindirea prin schimb de părți (nu prin sume
+  negative — altfel rulajul lunii **scade** cu corecția), cele două legături din `R14`, perechea de
+  tip derivată, documentul sursă păstrat, al doilea storno refuzat, motivul obligatoriu, perioada
+  închisă refuzată cu cod stabil, idempotența pe cheie, originalul neatins, și suma perechii zero pe
+  fiecare cont.
+
+Suita: **757 trec, 1 sărit.**
+
+## Sesiuni mai vechi
+
 **2026-08-26, ștampila parametrului la postare — `OD-68` închisă prin
 [ADR-047](decisions/047-stampila-parametrului-la-postare.md):**
 

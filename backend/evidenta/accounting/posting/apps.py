@@ -28,4 +28,7 @@ class PostingConfig(AppConfig):
         # puts that in the processes that serve, because in `ready()` it would
         # also fail `migrate`, and a deploy could not run the migration that
         # fixes it.
-        from evidenta.accounting.posting.services import manual  # noqa: F401
+        from evidenta.accounting.posting.services import (
+            manual,  # noqa: F401
+            reversal,  # noqa: F401
+        )
