@@ -247,3 +247,45 @@ def test_posting_without_an_idempotency_key_is_refused(
 
     keyless = post(f"/api/v1/accounting/opening-balances/{batch_id}/posting", {})
     assert keyless.status_code == 400
+
+
+def test_an_abandoned_batch_can_be_found_again(
+    seed: Callable[..., None], post: Callable[..., Any], get: Callable[..., Any]
+) -> None:
+    """The listing, and the reason it is not a convenience.
+
+    A batch is never deleted, and three of its four states outlive the session
+    that created them. Without a way back to yesterday's draft, the next import
+    starts from zero beside it and the company ends up holding two partial
+    pictures of one opening position -- both plausible, neither complete.
+    """
+    company_id, by_code = _company_with_chart(seed, post, get)
+
+    started = post(
+        f"/api/v1/accounting/opening-balances/companies/{company_id}",
+        {
+            "as_of_date": AS_OF.isoformat(),
+            "source": "onec_import",
+            "counterpart_account_id": by_code[OPENING],
+        },
+    ).json()["id"]
+    post(
+        f"/api/v1/accounting/opening-balances/{started}/rows",
+        {
+            "gl": [
+                {"account_id": by_code[CASH], "debit": "40.0000", "credit": "0"},
+                {"account_id": by_code[EQUITY], "debit": "0", "credit": "40.0000"},
+            ]
+        },
+    )
+
+    listed = get(f"/api/v1/accounting/opening-balances/companies/{company_id}")
+    assert listed.status_code == 200, listed.content.decode()
+    rows = listed.json()
+
+    assert [row["id"] for row in rows] == [started]
+    assert rows[0]["status"] == "draft"
+    # Counts, not contents: a list screen needs to know the batch holds two rows,
+    # not what they are.
+    assert rows[0]["gl_rows"] == 2
+    assert rows[0]["receivable_rows"] == 0

@@ -41,6 +41,7 @@ from evidenta.accounting.opening.services.batches import (
     PartnerRow,
     add_rows,
     batch_in_context,
+    batches_of,
     create_batch,
     decomposition,
     load_contents,
@@ -112,7 +113,18 @@ class AddRowsSerializer(serializers.Serializer[dict[str, Any]]):
 
 
 class BatchListView(APIView):
-    """Create a batch for one company. The company is in the path (`C8`)."""
+    """The company's batches, and the way to start one. Company in the path (`C8`).
+
+    The listing is not a convenience. A batch is never deleted -- four states,
+    three of which outlive the session that created them -- so a `draft`
+    abandoned yesterday is still there. Without a way back to it, the next import
+    starts from zero beside it, and the company ends up with two partial pictures
+    of one opening position.
+    """
+
+    def get(self, request: Request, company_id: uuid.UUID) -> Response:
+        functional_currency(company_id)
+        return Response(batches_of(company_id))
 
     def post(self, request: Request, company_id: uuid.UUID) -> Response:
         context = _context()

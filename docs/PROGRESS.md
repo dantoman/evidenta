@@ -174,7 +174,7 @@ Descompunerea completă: `_bootstrap/08-f1-backlog.md` — patru fire care pot m
   conturile pe care le folosește o companie anume — n-are suprafață, fiindcă nimic din F1 nu-l
   citește, iar o suprafață neapelată se depărtează de ce pretinde.
 
-Suita: **772 trec, 1 sărit.**
+Suita: **773 trec, 1 sărit.**
 
 ## Sesiuni mai vechi
 

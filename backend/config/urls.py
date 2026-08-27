@@ -22,6 +22,7 @@ urlpatterns: list[URLPattern | URLResolver] = [
         "api/v1/accounting/opening-balances/",
         include("evidenta.accounting.opening.urls"),
     ),
+    path("api/v1/masterdata/partners/", include("evidenta.masterdata.partners.urls")),
     path("api/v1/", include("evidenta.platform.tenancy.urls")),
     # Operational, not API. They sit outside /api/v1/ because they are not
     # resources and are not versioned with the product: an orchestrator probe

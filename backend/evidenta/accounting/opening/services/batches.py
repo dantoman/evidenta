@@ -744,3 +744,39 @@ def summary(contents: BatchContents) -> dict[str, object]:
         "payroll": len(contents.payroll),
         "total_debit": str(sum((row.debit for row in contents.gl), ZERO)),
     }
+
+
+def batches_of(company_id: uuid.UUID) -> list[dict[str, Any]]:
+    """Every batch a company has, newest first, with what each one holds.
+
+    A list exists because a batch is never deleted. Four states, and three of
+    them outlive the session that created them: a `draft` abandoned yesterday is
+    still there, and without a way back to it the next import starts from zero
+    beside it -- two partial pictures of the same opening position, both
+    plausible.
+
+    Counts rather than contents: a list screen needs to know a batch has
+    thirty-one rows, not what they are. The one being worked on is fetched whole.
+    """
+    rows = OpeningBalanceBatch.objects.filter(company_id=company_id).order_by(
+        "-as_of_date", "-created_at"
+    )
+    return [
+        {
+            "id": str(batch.id),
+            "company_id": str(batch.company_id),
+            "as_of_date": batch.as_of_date.isoformat(),
+            "source": batch.source,
+            "status": batch.status,
+            "counterpart_account_id": str(batch.counterpart_account_id),
+            "created_at": batch.created_at.isoformat(),
+            "gl_rows": OpeningBalanceGl.objects.filter(batch_id=batch.id).count(),
+            "receivable_rows": OpeningBalanceReceivable.objects.filter(batch_id=batch.id).count(),
+            "payable_rows": OpeningBalancePayable.objects.filter(batch_id=batch.id).count(),
+            #: Free text in Romanian, written by whoever abandoned it. A list that
+            #: showed `rejected` without it makes the reader open the batch to
+            #: learn what a sentence would have told them.
+            "rejected_reason": batch.rejected_reason,
+        }
+        for batch in rows
+    ]
