@@ -85,11 +85,30 @@ echo "check-committed: peste arborele comis ($(git -C "$root" rev-parse --short 
 (cd "$work/frontend" && npx tsc -b --noEmit)
 echo "check-committed: frontendul comis se compilează."
 
-# Fără conductă și fără `| tail`: codul de ieșire citit printr-o conductă este al
-# ultimei comenzi din ea, deci un `tsc` căzut raportat prin `head` iese cu zero.
-# S-a întâmplat exact așa în această sesiune, de două ori.
-(cd "$work/backend" && ./.venv/bin/python manage.py check)
-echo "check-committed: backendul comis se încarcă."
+# Ieșirea se strânge într-un fișier și se tipărește **doar la eșec**. Nu e
+# cosmetică: `makemigrations` încearcă să verifice istoricul migrațiilor pe bază,
+# copia n-are `.env`, iar avertismentul conține „FATAL: password authentication
+# failed". Un gardian care tipărește `FATAL` și trece îi învață pe oameni să-l
+# citească pe diagonală, iar următorul `FATAL` adevărat va arăta la fel.
+#
+# Baza chiar nu e necesară pentru ce se cere aici, și nu e presupunere: proba din
+# `--self-test` scoate un `.up.sql` și `makemigrations` cade cu
+# `SqlFileMissingError` fără nicio bază la dispoziție.
+#
+# Fără conductă: codul de ieșire citit printr-o conductă este al ultimei comenzi
+# din ea, deci un verificator căzut raportat prin `head` iese cu zero. S-a
+# întâmplat exact așa în această sesiune, de două ori.
+run_quietly() {
+    local label="$1"
+    shift
+    if ! (cd "$work/backend" && "$@") >"$work/check.log" 2>&1; then
+        cat "$work/check.log" >&2
+        echo "check-committed: $label — a eșuat." >&2
+        exit 1
+    fi
+    echo "check-committed: $label"
+}
 
-(cd "$work/backend" && ./.venv/bin/python manage.py makemigrations --check --dry-run >/dev/null)
-echo "check-committed: graful de migrații comis e complet."
+run_quietly "backendul comis se încarcă." ./.venv/bin/python manage.py check
+run_quietly "graful de migrații comis e complet." \
+    ./.venv/bin/python manage.py makemigrations --check --dry-run
