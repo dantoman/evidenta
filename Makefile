@@ -236,6 +236,10 @@ create-tenant: ## Creează un tenant și utilizatorul lui (SUBDOMAIN=..., NAME=.
 seed-coa: ## Încarcă planul general de conturi (SNC 2020) — idempotent, rulează ca owner
 	cd backend && uv run python manage.py load_coa_template
 
+.PHONY: check-committed
+check-committed: ## Se compilează ce e COMIS? (verificările obișnuite citesc discul, unde fișierul uitat există)
+	./scripts/check-committed.sh
+
 .PHONY: drift-check
 drift-check: ## Compară baza VIE cu contractele RLS (suita rulează pe baza de test, care nu poate vedea deriva)
 	cd backend && uv run python manage.py check_schema_drift

@@ -46,6 +46,11 @@ Un test de integrare o parcurge prin HTTP, sub rolul aplicației
   rolul aplicației `INSERT` e refuzat de RLS, iar `UPDATE`/`DELETE` n-au politică și au și trigger
   append-only. Retras oricum prin `0047`, ca declarația și baza să spună același lucru și ca apărarea
   să nu depindă de absența unei politici
+- **`make check-committed`**, fiindcă defectul de mai jos a trecut de `tsc`, ESLint, Vitest și build:
+  toate patru citesc discul, unde fișierul uitat există. Verificarea rulează același typecheck peste
+  `git archive HEAD`, deci peste un arbore în care fișierul lipsă chiar lipsește. Are `--self-test`
+  care scoate un fișier și cere ca typecheck-ul **să cadă** — un gardian pe care nimeni nu l-a văzut
+  căzând e un gardian despre care nimeni nu știe că e legat
 - **Creanțe, datorii și lista de loturi pe ecranul de solduri**, imediat ce directorul de parteneri a
   aterizat: partenerul se **caută** după denumire sau IDNO, nu se tastează ca identificator. Lista de
   loturi era golul real — un lot nu se șterge niciodată, deci unul abandonat ieri rămâne acolo, iar
