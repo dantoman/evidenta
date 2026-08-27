@@ -188,6 +188,17 @@ Descompunerea completă: `_bootstrap/08-f1-backlog.md` — patru fire care pot m
   conturile pe care le folosește o companie anume — n-are suprafață, fiindcă nimic din F1 nu-l
   citește, iar o suprafață neapelată se depărtează de ce pretinde.
 
+- **`make check-committed` acoperă acum și backendul.** Frontendul îl construise sesiunea
+  vecină după ce un commit uitase un fișier și toate cele patru verificări locale rămăseseră
+  verzi — citeau discul, unde fișierul era. Backendul are aceeași expunere **plus una proprie:**
+  `manage.py check` **nu încarcă migrațiile**, deci un fișier SQL uitat trece de el. De-aia
+  rulează și `makemigrations --check`, care construiește graful și acolo `run_sql_file` verifică
+  existența și suma de control. Ambele măsurate prin mutație pe copia comisă:
+  `ModuleNotFoundError` la modulul scos, `SqlFileMissingError` la `.up.sql` scos.
+- **Fiecare jumătate își dovedește separat căderea** în `--self-test`. O probă care acoperă doar
+  frontendul lasă backendul indistinct, din afară, de un script care tipărește o linie
+  liniștitoare.
+
 Suita: **773 trec, 1 sărit.**
 
 ## Sesiuni mai vechi
