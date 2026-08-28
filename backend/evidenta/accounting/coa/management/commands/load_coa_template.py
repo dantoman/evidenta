@@ -8,7 +8,12 @@ serves a request.
 
 **Idempotent and re-runnable.** Accounts are matched on ``(template,
 account_code)``, which is the table's own unique key: a second run updates what
-changed and creates what is missing. Nothing is deleted, ever. A code that
+changed and creates what is missing. That match is a **read**, and it passes
+through the owner policy from ``0044`` -- written for the write side, with the
+read half arriving as a side effect. Narrowing that policy to
+``FOR INSERT``/``FOR UPDATE`` would leave this command inserting everything on
+every run. The dependency is asserted, not merely noted, in
+``tests/schema_guard/test_reference_load_policy.py``. Nothing is deleted, ever. A code that
 disappears from the file is reported and left in place: charts built on this
 version reference these rows, and deleting one would silently unlink a company's
 account from the version it was copied from.
