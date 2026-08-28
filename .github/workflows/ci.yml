@@ -104,7 +104,14 @@ jobs:
       OWNER_DB_PASSWORD: ci-owner
 
     steps:
+      # `fetch-depth: 0` here too, and the omission is why this line exists:
+      # the full suite runs in THIS job, and it contains the commit-attribution
+      # guard. Setting the depth only on `quality` left the guard reading a
+      # shallow clone -- it refused out loud, which is what it was built to do,
+      # and the thing it caught was the half-applied change that created it.
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
 
       # Pinned to an immutable tag, not a major one: astral-sh/setup-uv stopped
       # publishing major and minor tags at v8, so `@v5` was both five majors
