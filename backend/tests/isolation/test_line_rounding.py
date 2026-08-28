@@ -30,7 +30,11 @@ from decimal import Decimal
 
 import pytest
 
-from evidenta.accounting.currency.services.amounts import AmountMalformedError, line_amounts
+from evidenta.accounting.currency.services.amounts import (
+    AmountMalformedError,
+    LineAmounts,
+    line_amounts,
+)
 from evidenta.fiscal.parameters.services.resolution import FiscalResolutionError
 from evidenta.platform.rls.context import TenantContext, tenant_context
 
@@ -89,7 +93,7 @@ def convention(seed: Callable[..., None], world: dict[str, uuid.UUID], source: u
     direction(seed, world, "half_up")
 
 
-def line(quantity: str, price: str, rate: str = "20") -> object:
+def line(quantity: str, price: str, rate: str = "20") -> LineAmounts:
     return line_amounts(
         quantity=Decimal(quantity),
         unit_price=Decimal(price),
