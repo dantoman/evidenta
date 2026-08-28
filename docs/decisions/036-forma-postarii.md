@@ -482,7 +482,7 @@ Nimic încă — Posting Engine nu există. Ce va verifica, la implementare:
 
 | Referință | Ce blochează | Stare |
 |---|---|---|
-| `C1`–`C5` din §11 | Trecerea acestui ADR în `Acceptat` | Deschis — cere SNC citat |
+| `C1`–`C5` din §11 | Trecerea acestui ADR în `Acceptat` | Deschis — **SNC-ul e citat de la `3c3fccc`** ([cercetare](../_input/cercetare/c1-c3-c5-stocuri.md), [C2](../_input/cercetare/c2-amortizarea.md), [C4](../_input/cercetare/c4-diferente-de-curs.md)); rămâne de făcut **clasificarea**, care e a proprietarului |
 | `DNB-01` | Vocabularul `event_type` — intrarea handler-elor din §5 | **Închisă** prin [ADR-038](038-vocabularul-de-evenimente.md): nucleul deține vocabularul |
 | `DN-04` | Câmpurile de valută pe linia de jurnal | **Închisă** prin [ADR-039](039-valuta-si-perioade.md): moneda funcțională MDL fixă, linia poartă valuta din ziua 1 |
 | `DN-05` | Modelul de perioade și exercițiu fiscal — invariantul 3 din §5.2 se sprijină pe el | **Închisă** prin [ADR-039](039-valuta-si-perioade.md): perioada operațională e luna, exercițiul are date explicite |
@@ -544,5 +544,17 @@ există**, iar asta contează pentru cine citește ADR-ul ca stare de fapt:
   „conturi de evidență", операции типовые, subconto definibile).
 - Benchmark UNA (Unisim-Soft): materiale publice — „limbaj de contabilitate universal", trei
   registre, 160+ specialiști formați din 2000, ~30 de angajați permanenți.
-- SNC „Stocuri", SNC „Imobilizări" — **de citit**, pentru `C1`–`C5`. Nu au fost consultate.
+- SNC „Stocuri", SNC „Imobilizări necorporale şi corporale", SNC „Diferenţe de curs valutar şi de
+  sumă" — **citite**, pentru `C1`–`C5`. Textul consolidat servit de Ministerul Finanțelor (Ordinul
+  nr. 118 din 06.08.2013, 263 p., consolidat până la Ordinul MF nr. 73 din 10.06.2022), transcris cu
+  numărul punctului pe fiecare citat în
+  [`_input/cercetare/c1-c3-c5-stocuri.md`](../_input/cercetare/c1-c3-c5-stocuri.md),
+  [`c2-amortizarea.md`](../_input/cercetare/c2-amortizarea.md) și
+  [`c4-diferente-de-curs.md`](../_input/cercetare/c4-diferente-de-curs.md).
+  > **Corectură factuală, `3c3fccc` (2026-08-26).** Rândul de mai sus spunea „**de citit** […] Nu au
+  > fost consultate", și a rămas fals două zile după ce cercetarea a fost comisă. Se corectează aici
+  > **numai afirmația despre surse**: `§11` rămâne `NECESITĂ VALIDARE`, fiindcă a citi standardul și
+  > a clasifica un caz sunt două acte diferite, iar al doilea îi aparține proprietarului (ADR-002,
+  > ADR-010). Ce a devenit fals prin cercetare — patru din cele cinci presupuneri din `§11` — se
+  > consemnează acolo, de el, nu aici.
 - Conversație 2026-08-25 (versiunea 2 a documentului, după clarificarea domeniului de configurare).

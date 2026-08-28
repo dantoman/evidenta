@@ -242,6 +242,11 @@ redeschide. Unde o sarcină pare să ceară altceva, ADR-ul câștigă și sarci
 - **Blocat de:** **cazurile `C1`–`C5` din [ADR-036](../decisions/036-forma-postarii.md) §11** —
   metoda de cost la ieșire, amortizarea, cheltuielile de transport-aprovizionare, diferențele de
   curs, repartizarea indirectelor. Cer lista permisă de SNC, **citată**, nu dedusă.
+  **Citarea există de la `3c3fccc` (2026-08-26)** —
+  [`_input/cercetare/c1-c3-c5-stocuri.md`](../_input/cercetare/c1-c3-c5-stocuri.md),
+  [`c2-amortizarea.md`](../_input/cercetare/c2-amortizarea.md),
+  [`c4-diferente-de-curs.md`](../_input/cercetare/c4-diferente-de-curs.md). Ce lipsește nu mai e
+  lectura standardului, ci **clasificarea** din §11, care e a proprietarului.
 
 ---
 
