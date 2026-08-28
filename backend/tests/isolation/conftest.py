@@ -39,6 +39,9 @@ SEEDED_TABLES = (
     # name. `journal_line` receives no foreign key (R21), so nothing points at it
     # -- but it points at `journal_entry`, which is what fixes the order here.
     # `entry_parameter_stamp` points at the entry too, so it goes first (ADR-047).
+    # Before their allocations: the number points at the range (art. 118²).
+    "strict_form_number",
+    "strict_form_allocation",
     "entry_parameter_stamp",
     "journal_line",
     "journal_entry",
@@ -160,6 +163,9 @@ _TRIGGER_STATE = (
     # ledger -- the asymmetry described above, a second time.
     "ALTER TABLE journal_entry {action} TRIGGER journal_entry_stays_immutable",
     "ALTER TABLE journal_line {action} TRIGGER journal_line_stays_immutable",
+    # A number leaves its range once (art. 118²), and the register test seeds
+    # one through `seed()` -- both halves of the rule above.
+    "ALTER TABLE strict_form_number {action} TRIGGER strict_form_number_append_only",
 )
 
 

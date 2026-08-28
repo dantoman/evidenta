@@ -66,6 +66,7 @@ ALREADY_CORRECT = [
         "0040_operation_templates",
         "0041_rls_function_privileges",
         "0043_entry_parameter_stamp",
+        "0048_strict_forms",
     )
 ]
 

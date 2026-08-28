@@ -54,6 +54,9 @@ INSTALLED_APPS: list[str] = [
     "evidenta.platform.capabilities.apps.CapabilitiesConfig",
     "evidenta.platform.flags.apps.FlagsConfig",
     "evidenta.platform.numbering.apps.NumberingConfig",
+    # Numbering generates; this consumes from a range the tax service issued.
+    # Two mechanisms, deliberately not one (art. 118²).
+    "evidenta.platform.strictforms.apps.StrictFormsConfig",
     "evidenta.platform.documents.apps.DocumentsConfig",
     "evidenta.masterdata.counterparties.apps.CounterpartiesConfig",
     "evidenta.masterdata.uom.apps.UomConfig",

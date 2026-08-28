@@ -142,6 +142,40 @@ Descompunerea completă: `_bootstrap/08-f1-backlog.md` — patru fire care pot m
 
 ## Ultima sesiune
 
+**2026-08-28, modulul 2 din briefing — registrul formularelor cu regim special (`art. 118²`):**
+
+- **Entitatea nu își alege seria.** Asta e faptul pe care stă tot modulul, și e **opusul** regimului
+  românesc, unde entitatea își definește seriile și le resetează anual. SFS asigură sistemul unitar
+  de înseriere; o entitate care imprimă de sine stătător primește o serie și un diapazon pentru toată
+  perioada de activitate. Deci nu e generator de numere, e **registru de alocări din care se consumă.**
+- **Modul separat de `numbering` (ADR-022), deliberat.** Contorul *generează* — corect pentru
+  documentele fără regim special, care se numerotează liber. A-l îndoi să facă și una și alta ar
+  produce numerotare liberă oriunde cineva a uitat ce fel de document are în față.
+- **Numerele nu se materializează.** Un diapazon poate fi mare, iar un rând pe număr ar face tabela
+  proporțională cu ce s-a alocat, nu cu ce s-a întâmplat. Alocarea poartă un cursor; un număr iese o
+  singură dată, și acea ieșire e un rând. „Alocat" se **deduce**; restul stărilor se scriu — fiindcă
+  anularea e stare evidențiată, nu absență.
+- **Consumul se face la postare, sub lock, în tranzacția documentului** — niciodată la crearea
+  ciornei. O ciornă care rezervă un număr și e abandonată arde un număr emis de SFS, iar registrul
+  rămâne cu un gol pe care nu-l explică niciun document. Nu există endpoint care dă un număr: ar fi
+  exact defectul respectiv, expus ca funcționalitate.
+- **Identitatea pe care o reconstituie un control** — emis = consumat + anulat + rămas — e asertată
+  ca aritmetică, nu descrisă. Un formular deteriorat neînregistrat o rupe tăcut.
+- Paisprezece teste de izolare sub rolul aplicației, plus append-only prin trigger pe rândurile de
+  număr, probat pe rânduri semănate.
+
+**ÎNTREBARE CONTABILĂ — nomenclatorul formularelor cu regim special.** Structura e construită; **lista
+nu e seedată și nu o ghicesc.** Briefingul semnalează HG 496/2025 (în vigoare 14.08.2025) ca
+neverificată; căutarea a scos la iveală și **HG 901/2024**, încă o modificare la HG 294/1998 pe care
+briefingul n-o menționează. `legis.md` refuză preluarea (HTTP 403), deci redacția curentă nu se poate
+citi de aici. Lista e parametru fiscal — briefingul o numește explicit așa — deci intră prin seed
+versionat cu temei normativ, nu prin cod. **Blochează:** ce coduri de formular acceptă registrul.
+**Nu blochează:** nimic din structura de mai sus.
+
+Suita: **787 trec, 1 sărit.**
+
+## Sesiuni mai vechi
+
 **2026-08-27, două servicii complete care n-aveau cale de intrare — stornoul și soldurile inițiale:**
 
 - **Stornoul prin motor** (`accounting/posting/services/reversal.py`). `ledger/services/reversal.py`
