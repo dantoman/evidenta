@@ -631,6 +631,7 @@ def reverse(
         accounting_date=date(2026, 1, 20),
         entry_number=number,
         request_id="ledger",
+        rule_ref="fixture.reversal.v1",
         corrects_period_id=corrects_period_id,
     )
 

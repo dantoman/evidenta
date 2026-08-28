@@ -92,3 +92,47 @@ class UnknownDimensionError(ApiError):
 class InvalidValidityWindowError(ApiError):
     code = "coa.invalid_validity_window"
     status = 400
+
+
+class TooManyDimensionSlotsError(ApiError):
+    """More typed slots than an account carries -- ADR-048.
+
+    Four is the limit, and it is a column count on the largest tables in the
+    system, not a preference: a fifth slot is a migration on the register.
+    """
+
+    code = "coa.too_many_dimension_slots"
+    status = 400
+
+
+class DuplicateDimensionSlotError(ApiError):
+    """One dimension named in two positions. A value would have two homes."""
+
+    code = "coa.duplicate_dimension_slot"
+    status = 400
+
+
+class RequiredDimensionNotCarriedError(ApiError):
+    """A required dimension that is not one of the declared slots.
+
+    Refused in the service and again by a CHECK
+    (``*_required_within_slots``): an account that demanded an axis it does not
+    carry would refuse every posting made to it, and the cause would be looked
+    for in the posting.
+    """
+
+    code = "coa.required_dimension_not_carried"
+    status = 400
+
+
+class TemplateDeclarationNarrowedError(ApiError):
+    """A company tried to drop a slot or a requirement the template imposes.
+
+    The template's declaration is the plan's (ADR-048): a company may **extend**
+    a system account with its own analytics -- layer 2 of ADR-036 -- and may not
+    remove what the plan declared, for the same reason it cannot rename the
+    account.
+    """
+
+    code = "coa.template_declaration_narrowed"
+    status = 400

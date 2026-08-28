@@ -49,12 +49,13 @@ from decimal import Decimal
 
 from django.db import transaction
 
-from evidenta.accounting.coa.dimensions import DIMENSION_KEYS
+from evidenta.accounting.coa.dimensions import DIMENSION_KEYS, SLOT_COUNT
 from evidenta.accounting.ledger.models import (
     EntryParameterStamp,
     EntryStatus,
     EntryType,
     JournalEntry,
+    JournalFormula,
     JournalLine,
 )
 from evidenta.platform.api.errors import ApiError
@@ -71,6 +72,17 @@ class NothingToWriteError(ApiError):
 
     code = "ledger.nothing_to_write"
     status = 409
+
+
+class TooManyFormulaSlotsError(ApiError):
+    """A formula carrying more typed slots than the row has -- ADR-048.
+
+    The engine folds the two sides' declarations into at most four before it
+    gets here; this is the shape check for a caller that did not go through it.
+    """
+
+    code = "ledger.too_many_formula_slots"
+    status = 400
 
 
 class UnknownDimensionError(ApiError):
@@ -127,6 +139,36 @@ class LineToWrite:
 
 
 @dataclass(frozen=True, slots=True)
+class FormulaToWrite:
+    """One correspondence, in the shape ``journal_formula`` stores it -- ADR-048.
+
+    The engine has already expanded it into the two ``LineToWrite`` it hands over
+    beside it; this row is the correspondence those two lines are the sides of.
+    ``slots`` is the stored order -- the debit account's declaration first, then
+    what the credit account adds -- and the engine, not this writer, decides it.
+
+    Amounts are the functional-currency ``amount`` and the transaction's own
+    ``amount_currency``; nothing here derives one from the other (`DNB-08`).
+    """
+
+    debit_account_id: uuid.UUID
+    credit_account_id: uuid.UUID
+    amount: Decimal
+    currency: str
+    amount_currency: Decimal
+    exchange_rate: Decimal
+    rate_date: date
+    document_date: date
+    #: ``(dimension, value_id)`` pairs, at most four, ADR-029 names.
+    slots: tuple[tuple[str, uuid.UUID], ...] = ()
+    vat_rate: Decimal | None = None
+    vat_rate_key: str | None = None
+    quantity: Decimal | None = None
+    uom_id: uuid.UUID | None = None
+    description: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
 class ParameterStamp:
     """One fiscal parameter a calculation stood on, as it stood at the time.
 
@@ -160,12 +202,29 @@ def post_entry(
     description: str,
     request_id: str,
     lines: Sequence[LineToWrite],
+    rule_ref: str,
+    fiscal_effective_date: date,
+    chart_template_id: uuid.UUID | None,
     entry_type: str = EntryType.STANDARD,
     posted_by_user_id: uuid.UUID | None = None,
     corrects_period_id: uuid.UUID | None = None,
     parameter_stamps: Sequence[ParameterStamp] = (),
+    formulas: Sequence[FormulaToWrite] = (),
 ) -> uuid.UUID:
     """Write one posted entry with its lines. Returns the entry's id.
+
+    ``rule_ref``, ``fiscal_effective_date`` and ``chart_template_id`` are the
+    three versions the entry stood on (ADR-048), and the first two have no
+    default: an entry that does not say which treatment produced it and for
+    which date the fiscal set was resolved is an entry that cannot be
+    re-derived. The chart may be ``None`` for a company whose accounts were
+    written without a template -- a fixture, a data migration -- and the writer
+    stores that absence rather than inventing a version.
+
+    ``formulas`` are the correspondences the ``lines`` are the sides of, when the
+    posting came through the formula path. A manual note has none, and that is a
+    legitimate shape; an entry with formulas whose sum differs from its lines is
+    refused at COMMIT by ``journal_entry_formulas_at_commit``.
 
     An id rather than the model instance, for the reason
     ``ledger.services.lineage`` gives: a caller handed a ``JournalEntry`` starts
@@ -198,6 +257,9 @@ def post_entry(
         corrects_period_id=corrects_period_id,
         description=description,
         request_id=request_id,
+        rule_ref=rule_ref,
+        chart_template_id=chart_template_id,
+        fiscal_effective_date=fiscal_effective_date,
     )
 
     JournalLine.objects.bulk_create(
@@ -225,6 +287,34 @@ def post_entry(
         ]
     )
 
+    if formulas:
+        JournalFormula.objects.bulk_create(
+            [
+                JournalFormula(
+                    tenant_id=tenant_id,
+                    company_id=company_id,
+                    accounting_date=accounting_date,
+                    journal_entry=entry,
+                    formula_number=number,
+                    debit_account_id=formula.debit_account_id,
+                    credit_account_id=formula.credit_account_id,
+                    amount=formula.amount,
+                    currency=formula.currency,
+                    amount_currency=formula.amount_currency,
+                    exchange_rate=formula.exchange_rate,
+                    rate_date=formula.rate_date,
+                    document_date=formula.document_date,
+                    vat_rate=formula.vat_rate,
+                    vat_rate_key=formula.vat_rate_key,
+                    quantity=formula.quantity,
+                    uom_id=formula.uom_id,
+                    description=formula.description,
+                    **_slot_columns(formula.slots),
+                )
+                for number, formula in enumerate(formulas, start=1)
+            ]
+        )
+
     # Same transaction as the entry, deliberately. What a calculation stood on is
     # part of the posting, not an annotation added to it afterwards.
     if parameter_stamps:
@@ -249,6 +339,25 @@ def post_entry(
     entry.posted_by_user_id = posted_by_user_id
     entry.save(update_fields=["status", "posted_at", "posted_by_user_id"])
     return entry.id
+
+
+def _slot_columns(slots: Sequence[tuple[str, uuid.UUID]]) -> dict[str, str | uuid.UUID]:
+    """``slot_1_dimension``, ``slot_1_value_id``, ... from the ordered pairs."""
+    if len(slots) > SLOT_COUNT:
+        raise TooManyFormulaSlotsError(
+            f"a formula carries {len(slots)} typed slots and the row has {SLOT_COUNT}"
+        )
+    unknown = sorted({dimension for dimension, _ in slots} - set(DIMENSION_KEYS))
+    if unknown:
+        raise UnknownDimensionError(
+            f"{', '.join(unknown)} is not in the closed vocabulary of ADR-029; a "
+            f"slot typed outside it names an axis no line could have received"
+        )
+    columns: dict[str, str | uuid.UUID] = {}
+    for position, (dimension, value_id) in enumerate(slots, start=1):
+        columns[f"slot_{position}_dimension"] = dimension
+        columns[f"slot_{position}_value_id"] = value_id
+    return columns
 
 
 def _dimension_columns(dimensions: Mapping[str, uuid.UUID]) -> dict[str, uuid.UUID]:

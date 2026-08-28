@@ -44,7 +44,7 @@ from evidenta.accounting.ledger.services.lineage import event_id_of_entry
 from evidenta.accounting.ledger.services.reversal import reverse_entry
 from evidenta.accounting.ledger.services.writing import entry_id_of_event
 from evidenta.accounting.periods.services.resolution import assert_postable
-from evidenta.accounting.posting.resolution import treatment_for
+from evidenta.accounting.posting.resolution import selected_treatment
 from evidenta.platform.api.errors import ApiError
 from evidenta.platform.numbering.services.allocation import NumberingError, allocate
 
@@ -178,7 +178,7 @@ def post_reversal(
     # Refuses here if no implementation is valid on this date: the reversal of a
     # type whose pair nobody registered must not reach the ledger under a name
     # the vocabulary does not know (ADR-038).
-    treatment_for(event_type, accounting_date, capability_snapshot)
+    treatment = selected_treatment(event_type, accounting_date, capability_snapshot)
 
     payload = {"reverses_entry_id": str(entry_id), "reason": reason.strip()}
 
@@ -220,6 +220,7 @@ def post_reversal(
                 request_id=request_id,
                 actor_user_id=actor_user_id,
                 corrects_period_id=corrects_period_id,
+                rule_ref=treatment.ref,
             )
     except (ApiError, NumberingError) as refusal:
         mark_failed(event.id, code=refusal.code, detail={"event_type": event_type})
@@ -257,6 +258,7 @@ def _write(
     request_id: str,
     actor_user_id: uuid.UUID,
     corrects_period_id: uuid.UUID | None,
+    rule_ref: str,
 ) -> uuid.UUID:
     """Check the period, take a number, hand it to the ledger.
 
@@ -278,6 +280,7 @@ def _write(
         accounting_date=accounting_date,
         entry_number=number.formatted,
         request_id=request_id,
+        rule_ref=rule_ref,
         posted_by_user_id=actor_user_id,
         corrects_period_id=corrects_period_id,
         description=reason,

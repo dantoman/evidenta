@@ -78,6 +78,10 @@ ALREADY_CORRECT = [
         "0053_item_units_and_barcodes",
         "0054_sales_documents",
         "0055_purchase_documents",
+        # ADR-048: the account's typed slots, and the formula with its own
+        # trigger functions.
+        "0056_dimension_slots",
+        "0057_journal_formula",
     )
 ]
 

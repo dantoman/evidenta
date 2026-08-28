@@ -61,6 +61,13 @@ class AccountSerializer(serializers.ModelSerializer[CompanyAccount]):
 
     parent_id = serializers.UUIDField(read_only=True, allow_null=True)
     template_account_id = serializers.UUIDField(read_only=True, allow_null=True)
+    #: The declared slots in position order, holes excluded -- one list rather
+    #: than four nullable fields, because the client reads a declaration, not a
+    #: row (ADR-048).
+    dimension_slots = serializers.SerializerMethodField()
+
+    def get_dimension_slots(self, account: CompanyAccount) -> list[str]:
+        return list(account.declared_slots())
 
     class Meta:
         model = CompanyAccount
@@ -77,6 +84,7 @@ class AccountSerializer(serializers.ModelSerializer[CompanyAccount]):
             "currency_tracking",
             "quantity_tracking",
             "required_dimensions",
+            "dimension_slots",
             "is_blocked",
             "valid_from",
             "valid_to",
@@ -105,6 +113,9 @@ class CreateSubaccountSerializer(serializers.Serializer[dict[str, object]]):
     required_dimensions = serializers.ListField(
         child=serializers.CharField(max_length=64), default=list
     )
+    dimension_slots = serializers.ListField(
+        child=serializers.CharField(max_length=64), default=list
+    )
     allows_subaccounts = serializers.BooleanField(default=False)
 
 
@@ -121,8 +132,21 @@ class UpdateAccountSerializer(serializers.Serializer[dict[str, object]]):
     name_ro = serializers.CharField(max_length=255, required=False)
     is_blocked = serializers.BooleanField(required=False)
     valid_to = serializers.DateField(required=False)
+    #: The fourth change (ADR-048): what the account carries and demands. The
+    #: whole declaration each time, never a delta -- see the service.
+    dimension_slots = serializers.ListField(
+        child=serializers.CharField(max_length=64), required=False
+    )
+    required_dimensions = serializers.ListField(
+        child=serializers.CharField(max_length=64), required=False
+    )
 
     def validate(self, attrs: dict[str, object]) -> dict[str, object]:
         if not attrs:
             raise serializers.ValidationError("no change requested")
+        if "required_dimensions" in attrs and "dimension_slots" not in attrs:
+            raise serializers.ValidationError(
+                "required_dimensions is declared together with dimension_slots; a "
+                "requirement is a subset of what the account carries"
+            )
         return attrs

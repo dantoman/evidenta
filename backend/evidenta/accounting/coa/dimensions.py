@@ -42,3 +42,20 @@ NAMED_DIMENSIONS = (
 GENERIC_SLOTS = ("dim_1", "dim_2", "dim_3", "dim_4", "dim_5")
 
 DIMENSION_KEYS = NAMED_DIMENSIONS + GENERIC_SLOTS
+
+#: How many **typed slots** an account declares and a posting formula carries --
+#: ADR-048. Not the same thing as the five generic slots above: those are
+#: *columns* of ``journal_line``, one per possible axis; these are *positions*,
+#: and what sits in a position is one of the fifteen names, declared per account.
+#:
+#: Three is the working capacity -- what an account of the plan is expected to
+#: use, the same figure 1C's subconto has settled on for twenty years. The fourth
+#: is headroom: an account that needs a fourth axis does not reopen the largest
+#: tables in the system. Past four, the limit is visible and countable, which is
+#: the property ADR-029 chose over an uncounted one.
+SLOT_COUNT = 4
+
+#: The column each position lives in, on ``coa_template_account`` and
+#: ``company_account`` alike. Generated so the two tables cannot disagree on the
+#: names; written out on the models, where a loop would hide the schema.
+SLOT_FIELDS = tuple(f"slot_{n}_dimension" for n in range(1, SLOT_COUNT + 1))

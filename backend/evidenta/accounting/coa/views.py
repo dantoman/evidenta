@@ -147,7 +147,7 @@ class AccountDetailView(APIView):
         return Response(AccountSerializer(account).data)
 
     def patch(self, request: Request, account_id: uuid.UUID) -> Response:
-        """Rename, block, close -- each through its own service.
+        """Rename, block, close, declare slots -- each through its own service.
 
         Applied in a fixed order so a request carrying more than one is not
         order-dependent, and each leaves its own audit entry. A single "update"
@@ -163,5 +163,9 @@ class AccountDetailView(APIView):
             account = account_services.set_blocked(account.id, payload["is_blocked"])
         if "valid_to" in payload:
             account = account_services.close_account(account.id, payload["valid_to"])
+        if "dimension_slots" in payload:
+            account = account_services.declare_dimension_slots(
+                account.id, payload["dimension_slots"], payload.get("required_dimensions")
+            )
 
         return Response(AccountSerializer(account).data)

@@ -34,6 +34,7 @@ from evidenta.accounting.ledger.models import (
     EntryStatus,
     EntryType,
     JournalEntry,
+    JournalFormula,
     JournalLine,
 )
 
@@ -66,6 +67,11 @@ _CARRIED = (
     "dim_5_id",
 )
 
+#: The formula's four typed slots, carried to the mirror unchanged (ADR-048).
+_CARRIED_SLOTS = tuple(
+    f"slot_{n}_{part}" for n in range(1, 5) for part in ("dimension", "value_id")
+)
+
 
 @transaction.atomic
 def reverse_entry(
@@ -76,11 +82,18 @@ def reverse_entry(
     accounting_date: date,
     entry_number: str,
     request_id: str,
+    rule_ref: str,
     posted_by_user_id: uuid.UUID | None = None,
     corrects_period_id: uuid.UUID | None = None,
     description: str | None = None,
 ) -> JournalEntry:
     """Cancel a posted entry with its mirror image.
+
+    ``rule_ref`` is the reversal's own treatment -- the registration that
+    selected this function -- and is the one stamp the mirror does not copy. The
+    other two it **copies** from the original (ADR-048): a reversal recomputes
+    nothing, so it stands on the chart and the fiscal date the original stood on,
+    not on whatever is in force the day the correction is made (`R18`).
 
     The result carries **two** links (R14): ``accounting_event`` to the event that
     asked for the correction, and ``reverses_entry`` to the entry being cancelled.
@@ -125,6 +138,9 @@ def reverse_entry(
         corrects_period_id=corrects_period_id,
         description=description or f"Storno {original.entry_number}",
         request_id=request_id,
+        rule_ref=rule_ref,
+        chart_template_id=original.chart_template_id,
+        fiscal_effective_date=original.fiscal_effective_date,
     )
 
     source = JournalLine.objects.filter(journal_entry_id=entry_id).order_by("line_number")
@@ -143,6 +159,39 @@ def reverse_entry(
                 **{name: getattr(line, name) for name in _CARRIED},
             )
             for line in source
+        ]
+    )
+
+    # The correspondences, mirrored the same way: accounts swapped, everything
+    # else -- amount, rate, slots, VAT rate -- carried. A storno read by
+    # correspondence in the account ledger has to show the same pairs the
+    # original did, reversed, or the ledger of one account shows a cancellation
+    # the ledger of its counterpart cannot find.
+    formulas = JournalFormula.objects.filter(journal_entry_id=entry_id).order_by("formula_number")
+    JournalFormula.objects.bulk_create(
+        [
+            JournalFormula(
+                tenant_id=original.tenant_id,
+                company_id=original.company_id,
+                accounting_date=accounting_date,
+                journal_entry=reversal,
+                formula_number=formula.formula_number,
+                debit_account_id=formula.credit_account_id,
+                credit_account_id=formula.debit_account_id,
+                amount=formula.amount,
+                currency=formula.currency,
+                amount_currency=formula.amount_currency,
+                exchange_rate=formula.exchange_rate,
+                rate_date=formula.rate_date,
+                document_date=formula.document_date,
+                vat_rate=formula.vat_rate,
+                vat_rate_key=formula.vat_rate_key,
+                quantity=formula.quantity,
+                uom_id=formula.uom_id,
+                description=formula.description,
+                **{name: getattr(formula, name) for name in _CARRIED_SLOTS},
+            )
+            for formula in formulas
         ]
     )
 

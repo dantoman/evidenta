@@ -15,10 +15,15 @@ signature is the boundary.
 from __future__ import annotations
 
 from collections.abc import Callable
+from dataclasses import dataclass
 from datetime import date
 from typing import Any
 
-from evidenta.accounting.events.registry import resolve_handler
+from evidenta.accounting.events.registry import (
+    implementation_of,
+    resolve_handler,
+    resolve_version,
+)
 from evidenta.platform.api.errors import ApiError
 from evidenta.platform.capabilities.services.profile import SNAPSHOT_VERSION
 
@@ -66,6 +71,27 @@ def capabilities_from(snapshot: Any) -> frozenset[str]:
         raise UnreadableCapabilitySnapshotError("capability snapshot has no readable `usable` list")
 
     return frozenset(usable)
+
+
+@dataclass(frozen=True, slots=True)
+class Treatment:
+    """A selected treatment: the callable, and the reference that names it.
+
+    The reference is what the entry header stamps as `rule_ref` (ADR-048). A
+    callable alone cannot be written down, and a stamp that had to be looked up
+    again from the registry would say what the registry says *now*.
+    """
+
+    ref: str
+    handler: Callable[..., Any]
+
+
+def selected_treatment(
+    event_type: str, accounting_date: date, capability_snapshot: Any
+) -> Treatment:
+    """`treatment_for`, keeping the reference beside the callable."""
+    version = resolve_version(event_type, accounting_date, capabilities_from(capability_snapshot))
+    return Treatment(ref=version.implementation_ref, handler=implementation_of(event_type, version))
 
 
 def treatment_for(

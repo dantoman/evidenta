@@ -34,9 +34,17 @@ from typing import Any
 from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 
+from evidenta.accounting.coa.dimensions import DIMENSION_KEYS, SLOT_COUNT, SLOT_FIELDS
 from evidenta.accounting.coa.models import CoaTemplate, CoaTemplateAccount, TemplateStatus
 
 DATA = Path(__file__).resolve().parents[2] / "data" / "snc_2020.csv"
+
+#: Two optional columns, pipe-separated -- `partner|contract` -- ADR-048. Absent
+#: from the file today, on purpose: which accounts carry which dimensions is the
+#: owner's accounting decision, and the loader is the way it arrives as **data**,
+#: in the same file as the accounts, rather than as an edit to a service.
+SLOTS_COLUMN = "dimension_slots"
+REQUIRED_COLUMN = "required_dimensions"
 
 #: Provenance, from the act itself. `R15` wants the Monitorul Oficial number as
 #: part of it, and this act has two.
@@ -72,7 +80,42 @@ COPIED = (
     "allows_subaccounts",
     "parent_code",
     "valid_from",
+    "required_dimensions",
+    *SLOT_FIELDS,
 )
+
+
+def _names(value: str | None, column: str, code: str) -> list[str]:
+    """A pipe-separated list of dimension names, checked against the vocabulary."""
+    names = [item.strip() for item in (value or "").split("|") if item.strip()]
+    unknown = sorted(set(names) - set(DIMENSION_KEYS))
+    if unknown:
+        raise CommandError(
+            f"account {code}: {column} names {', '.join(unknown)}, which is not in "
+            f"the closed vocabulary of ADR-029"
+        )
+    if len(names) != len(set(names)):
+        raise CommandError(f"account {code}: {column} repeats a dimension")
+    return names
+
+
+def _declaration(row: dict[str, Any]) -> dict[str, Any]:
+    """The slot columns and the requirement of one account, from the file."""
+    code = row["account_code"]
+    slots = _names(row.get(SLOTS_COLUMN), SLOTS_COLUMN, code)
+    required = _names(row.get(REQUIRED_COLUMN), REQUIRED_COLUMN, code)
+    if len(slots) > SLOT_COUNT:
+        raise CommandError(f"account {code}: {len(slots)} slots, at most {SLOT_COUNT} carried")
+    if not set(required) <= set(slots):
+        raise CommandError(
+            f"account {code}: requires {required} but carries only {slots}; the "
+            f"database refuses the same thing, this says it with the account code"
+        )
+    padded: list[str | None] = [*slots, *([None] * SLOT_COUNT)]
+    return {
+        "required_dimensions": required,
+        **dict(zip(SLOT_FIELDS, padded[:SLOT_COUNT], strict=True)),
+    }
 
 
 class Command(BaseCommand):
@@ -118,6 +161,7 @@ class Command(BaseCommand):
                     "allows_subaccounts": row["allows_subaccounts"] == "true",
                     "parent_code": row["parent_code"] or None,
                     "valid_from": row["valid_from"],
+                    **_declaration(row),
                 }
                 account = existing.get(row["account_code"])
                 if account is None:

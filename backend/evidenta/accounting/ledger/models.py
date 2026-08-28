@@ -25,7 +25,8 @@ import uuid
 
 from django.db import models
 
-from evidenta.accounting.coa.dimensions import GENERIC_SLOTS
+from evidenta.accounting.coa.dimensions import DIMENSION_KEYS, GENERIC_SLOTS, SLOT_COUNT
+from evidenta.platform.amounts import PERCENT_DIGITS, PERCENT_SCALE
 from evidenta.platform.tenancy.models import Company, Tenant
 
 
@@ -140,6 +141,39 @@ class JournalEntry(models.Model):
     total_credit = models.DecimalField(max_digits=20, decimal_places=4, default=0)
 
     request_id = models.TextField()
+
+    # --- what the posting stood on (ADR-048) ---------------------------------
+    #
+    # Three versions, valid at the accounting date, stamped by the engine in the
+    # same transaction as the lines. Nullable in the schema because the column
+    # arrived after the first entries (C5: additive), and because a reversal
+    # copies the original's rather than resolving anew; the writer requires them.
+
+    #: The treatment that produced the entry -- `HandlerVersion.implementation_ref`,
+    #: which carries its version (`sales.delivery.v1`). Re-derivable from the
+    #: registry by date only as long as the registry is never edited, which is
+    #: exactly the assumption a stamp exists not to make.
+    rule_ref = models.TextField(null=True, blank=True)
+
+    #: The chart version the accounts were read against. **Not re-derivable**:
+    #: `company_chart.template` is the company's current version, and the day
+    #: propagation moves it (`OD-03`), every earlier entry would be read against a
+    #: chart it never used. Lazy reference, the way `period` is named (`D6`).
+    chart_template = models.ForeignKey(
+        "coa.CoaTemplate",
+        on_delete=models.PROTECT,
+        db_column="chart_template_id",
+        null=True,
+        blank=True,
+        related_name="+",
+    )
+
+    #: The date the fiscal set was resolved for. In this system a fiscal set has
+    #: no identity of its own -- parameters and logic are versioned row by row on
+    #: `valid_from`/`valid_to`, and the rows a posting used are its
+    #: `entry_parameter_stamp`s (ADR-047). The date is the key every one of those
+    #: resolutions selected by, so it is the one value that names the set.
+    fiscal_effective_date = models.DateField(null=True, blank=True)
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -355,6 +389,246 @@ class JournalLine(models.Model):
 
     def __str__(self) -> str:
         return f"{self.journal_entry_id}/{self.line_number}"
+
+
+def formula_slot_constraints() -> list[models.CheckConstraint]:
+    """The four typed slots of a formula, as the database enforces them -- ADR-048.
+
+    The same three rules as the account's declaration (`coa.models.
+    dimension_slot_constraints`) plus one the account has no need of: a slot is a
+    **pair**, and the dimension and the value are both present or both absent. A
+    value without its type is a uuid nobody can place; a type without a value is
+    a claim of analysis with nothing behind it.
+    """
+    checks: list[models.CheckConstraint] = []
+    for n in range(1, SLOT_COUNT + 1):
+        dimension = f"slot_{n}_dimension"
+        value = f"slot_{n}_value_id"
+        checks.append(
+            models.CheckConstraint(
+                condition=models.Q(**{f"{dimension}__isnull": True, f"{value}__isnull": True})
+                | models.Q(**{f"{dimension}__isnull": False, f"{value}__isnull": False}),
+                name=f"journal_formula_slot_{n}_paired",
+            )
+        )
+        checks.append(
+            models.CheckConstraint(
+                condition=models.Q(**{f"{dimension}__isnull": True})
+                | models.Q(**{f"{dimension}__in": list(DIMENSION_KEYS)}),
+                name=f"journal_formula_slot_{n}_known",
+            )
+        )
+        if n > 1:
+            checks.append(
+                models.CheckConstraint(
+                    condition=models.Q(**{f"{dimension}__isnull": True})
+                    | models.Q(**{f"slot_{n - 1}_dimension__isnull": False}),
+                    name=f"journal_formula_slot_{n}_contiguous",
+                )
+            )
+    for i in range(1, SLOT_COUNT + 1):
+        for j in range(i + 1, SLOT_COUNT + 1):
+            checks.append(
+                models.CheckConstraint(
+                    condition=~models.Q(**{f"slot_{i}_dimension": models.F(f"slot_{j}_dimension")}),
+                    name=f"journal_formula_slot_{i}_{j}_distinct",
+                )
+            )
+    return checks
+
+
+class JournalFormula(models.Model):
+    """One correspondence -- debit account, credit account, one amount -- ADR-048.
+
+    **The unit the engine emits and the unit an accountant reads.** A handler
+    produces *n* formulas per document line, never a fixed number: reverse-charge
+    VAT needs two with opposite signs on one line, standard cost needs a
+    deviation, a plain delivery needs one. Each formula expands into exactly two
+    ``journal_line`` rows, one per side, so every formula balances by
+    construction and `R11` holds per formula before it holds per entry.
+
+    **Why it is stored, and not only expanded.** ``journal_line`` is one-sided,
+    and a three-line entry cannot say which credit a given debit corresponds to.
+    The account ledger (*fișa contului*) is read by correspondence -- "în
+    corespondență cu contul" -- and the merge key below is where identical
+    correspondences of one entry fold into one row. Neither exists on the line.
+
+    **Typed slots, by position.** ``slot_n_dimension`` names the axis and
+    ``slot_n_value_id`` the value, four times. Typed on the row rather than
+    positional against the account's declaration, so a formula stays readable
+    after the declaration changes: the row says *what* sits in slot 2, not only
+    that something does. The slots hold the union of what the two accounts
+    declared and the line of each side receives its own share -- so what the
+    formula stores is exactly what the ledger kept, and the merge key is exact.
+
+    **No JSONB, no attribute-value table.** The merge key and the aggregate key
+    both contain the dimension tuple, and both need a composite index and a real
+    unique constraint -- not a hash computed in the application, which is unique
+    only until the second writer computes it differently.
+
+    Append-only and partition-ready like ``journal_line`` (`R21`, `R22`,
+    ``infra/schema/append_only.toml``): no key points at it, ``accounting_date``
+    is ``NOT NULL`` from the first row, ``bigint`` key (C6). The one outgoing key
+    is to the entry, for the reason ``journal_line`` has one: an orphan in an
+    append-only table cannot be repaired.
+    """
+
+    id = models.BigAutoField(primary_key=True)
+
+    tenant_id = models.UUIDField()
+    company_id = models.UUIDField()
+
+    #: The partition column (ADR-032, R22), the entry's date.
+    accounting_date = models.DateField()
+
+    journal_entry = models.ForeignKey(
+        JournalEntry,
+        on_delete=models.PROTECT,
+        db_column="journal_entry_id",
+        related_name="formulas",
+    )
+    formula_number = models.SmallIntegerField()
+
+    #: Two accounts, both of the company's chart, no keys (see `JournalLine`).
+    debit_account_id = models.UUIDField()
+    credit_account_id = models.UUIDField()
+
+    #: In the functional currency -- what lands as `debit` on one line and
+    #: `credit` on the other. Strictly positive: the direction is the pair of
+    #: accounts, never a sign.
+    amount = models.DecimalField(max_digits=20, decimal_places=4)
+
+    #: The transaction's own currency, amount, rate and rate date, carried to
+    #: both lines (ADR-039 section 3). For a domestic formula: the functional
+    #: currency, the same number, 1, and the entry's date.
+    currency = models.CharField(max_length=3)
+    amount_currency = models.DecimalField(max_digits=20, decimal_places=4)
+    exchange_rate = models.DecimalField(max_digits=18, decimal_places=8, default=1)
+    rate_date = models.DateField()
+
+    #: The source document's date, carried to both lines (ADR-039 section 9).
+    document_date = models.DateField()
+
+    #: The VAT rate as an **attribute**, not a dimension (ADR-048): a rate is a
+    #: parameter of the calculation the formula records, not an axis of analysis
+    #: -- it has no ledger of its own to be indexed for. The key it was resolved
+    #: under is kept beside it (`R18`); a rate may arrive without one (an import),
+    #: a key never without its rate.
+    vat_rate = models.DecimalField(
+        max_digits=PERCENT_DIGITS, decimal_places=PERCENT_SCALE, null=True, blank=True
+    )
+    vat_rate_key = models.TextField(null=True, blank=True)
+
+    quantity = models.DecimalField(max_digits=20, decimal_places=6, null=True, blank=True)
+    uom_id = models.UUIDField(null=True, blank=True)
+
+    description = models.TextField(null=True, blank=True)
+
+    # --- the four typed slots (ADR-048) --------------------------------------
+    #
+    # Named `slot_n_*`, never `dim_n_*`: `dim_1` .. `dim_5` are the five
+    # *generic* dimensions of ADR-029, and a formula slot may hold any of the
+    # fifteen, generic ones included. One name for two things is how a value
+    # ends up in the wrong column.
+    slot_1_dimension = models.TextField(null=True, blank=True)
+    slot_1_value_id = models.UUIDField(null=True, blank=True)
+    slot_2_dimension = models.TextField(null=True, blank=True)
+    slot_2_value_id = models.UUIDField(null=True, blank=True)
+    slot_3_dimension = models.TextField(null=True, blank=True)
+    slot_3_value_id = models.UUIDField(null=True, blank=True)
+    slot_4_dimension = models.TextField(null=True, blank=True)
+    slot_4_value_id = models.UUIDField(null=True, blank=True)
+
+    class Meta:
+        db_table = "journal_formula"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["journal_entry", "formula_number"], name="journal_formula_number_unique"
+            ),
+            # The merge key. Two formulas of one entry that agree on everything
+            # below are one formula with a larger amount, and the engine folds
+            # them before writing. The constraint is what makes that a property
+            # of the register rather than a habit of one writer -- and
+            # `nulls_distinct=False` is what makes it a constraint at all, since
+            # most of these columns are NULL on most rows.
+            models.UniqueConstraint(
+                fields=[
+                    "journal_entry",
+                    "debit_account_id",
+                    "credit_account_id",
+                    "currency",
+                    "exchange_rate",
+                    "rate_date",
+                    "document_date",
+                    "vat_rate",
+                    "vat_rate_key",
+                    "uom_id",
+                    "slot_1_dimension",
+                    "slot_1_value_id",
+                    "slot_2_dimension",
+                    "slot_2_value_id",
+                    "slot_3_dimension",
+                    "slot_3_value_id",
+                    "slot_4_dimension",
+                    "slot_4_value_id",
+                ],
+                nulls_distinct=False,
+                name="journal_formula_merge_key",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(formula_number__gt=0), name="journal_formula_number_positive"
+            ),
+            models.CheckConstraint(
+                condition=models.Q(amount__gt=0), name="journal_formula_amount_positive"
+            ),
+            models.CheckConstraint(
+                condition=models.Q(amount_currency__gt=0),
+                name="journal_formula_amount_currency_positive",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(exchange_rate__gt=0), name="journal_formula_rate_positive"
+            ),
+            # Debit and credit on one account, with one set of slots, is a
+            # movement of nothing. Expressing a transfer between two values of
+            # the same account needs two formulas through a transit account, or
+            # per-side slots, which this row does not have -- see ADR-048.
+            models.CheckConstraint(
+                condition=~models.Q(debit_account_id=models.F("credit_account_id")),
+                name="journal_formula_two_accounts",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(vat_rate__isnull=True) | models.Q(vat_rate__gte=0),
+                name="journal_formula_vat_rate_valid",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(vat_rate_key__isnull=True) | models.Q(vat_rate__isnull=False),
+                name="journal_formula_vat_key_has_rate",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(quantity__isnull=True) | models.Q(uom_id__isnull=False),
+                name="journal_formula_quantity_has_unit",
+            ),
+            *formula_slot_constraints(),
+        ]
+        indexes = [
+            models.Index(
+                fields=["tenant_id", "company_id", "accounting_date"],
+                name="journal_formula_scope_idx",
+            ),
+            # The account ledger, read by correspondence: every formula that
+            # touches an account on either side, in date order.
+            models.Index(
+                fields=["company_id", "debit_account_id", "accounting_date"],
+                name="journal_formula_debit_idx",
+            ),
+            models.Index(
+                fields=["company_id", "credit_account_id", "accounting_date"],
+                name="journal_formula_credit_idx",
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.journal_entry_id}/{self.formula_number}"
 
 
 class EntryParameterStamp(models.Model):

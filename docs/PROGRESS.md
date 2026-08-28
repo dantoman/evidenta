@@ -9,7 +9,7 @@
 
 **Felia verticală merge cap-coadă: companie → plan de conturi → notă manuală → balanță echilibrată.**
 Un test de integrare o parcurge prin HTTP, sub rolul aplicației
-(`backend/tests/integration/test_vertical_slice.py`). Suita: **745 trec, 1 sărit.**
+(`backend/tests/integration/test_vertical_slice.py`). Suita: **927 trec, 1 sărit** (2026-08-29).
 
 - **A1** — planul SNC ca date: `accounting/coa/data/snc_2020.csv`, 476 de conturi (156 gradul I,
   320 gradul II), transcrise din extragerea proprie a actului; încărcător idempotent
@@ -141,6 +141,57 @@ Descompunerea completă: `_bootstrap/08-f1-backlog.md` — patru fire care pot m
 `F1.2.1` ca singur punct de sincronizare timpuriu, și tabelul de blocaje la final.
 
 ## Ultima sesiune
+
+**2026-08-29, baza motorului — etapa 1+2, formula ca unitate de postare și sloturile tipizate
+(instrucțiune scrisă; [ADR-048](decisions/048-formula-si-sloturile-tipizate.md)):**
+
+- **Ce s-a construit, gol, fiindcă cerea altă structură:** `journal_formula` — corespondența
+  debit/credit din care se derivă exact două linii, cu sumă în lei și în valută, curs, cotă TVA ca
+  **atribut**, patru sloturi tipizate (`slot_n_dimension` + `slot_n_value_id`), append-only în
+  `append_only.toml`; trei versiuni pe `journal_entry` — `rule_ref`, `chart_template_id`,
+  `fiscal_effective_date` — imutabile după postare prin trigger propriu, fiindcă lista din `0036` e
+  append-only (`C31`); patru sloturi de declarație pe `coa_template_account` și `company_account`,
+  cu `required ⊆ declarat` ca CHECK în bază. **Nicio declarație în CSV-ul planului** — un test o
+  asertează; care conturi poartă ce e decizia proprietarului.
+- **Ce s-a exprimat peste structura existentă, deci nu s-a construit:** tabela de agregate (sold per
+  cont × tuplu × perioadă) — derivabilă din `journal_formula` fără migrare pe registru; cele 15
+  coloane ale liniei rămân neatinse, slotul spune doar în care aterizează o valoare pentru contul
+  acela.
+- **Motorul, în ordine:** `bind_roles` (rol → cont la data postării, refuz pe rol nelegat) →
+  `place` (fiecare parte primește ce declară contul ei, formula stochează reuniunea; o dimensiune pe
+  care n-o declară nimeni **nu e purtată** — stratul 2 din ADR-036 făcându-și treaba, nu o pierdere)
+  → `merge` (cheia de contopire, aceeași pe care baza o impune ca `UNIQUE … NULLS NOT DISTINCT`) →
+  `verify` (cei șase invarianți, **o singură implementare**, peste expansiunea în linii) →
+  obligativitatea per parte → `post_entry` cu linii **și** formule. Un constraint trigger amânat
+  refuză la COMMIT o înregistrare ale cărei formule nu însumează liniile; una **fără** formule trece
+  — nota manuală și soldurile rămân forme legitime.
+- **Stornoul oglindește formulele** (conturi schimbate, restul purtat) și **copiază** planul și data
+  fiscală ale originalului, cu propria `rule_ref` — nu recalculează (R18). Registrul primește
+  `resolve_version` ca antetul să știe *care* tratament l-a produs; un callable nu se scrie pe rând.
+- **Măsurat înainte de CHECK, ca superuser, nu ca owner** (regula din 28.08: sub `FORCE RLS` un
+  `count(*)` ca owner e o politică): 0 din 1428 `company_account` și 0 din 476 `coa_template_account`
+  cu `required_dimensions` nevid, deci `*_required_within_slots` nu cade pe baza de dezvoltare.
+- **Ce se raportează, nu se decide** (ADR-048 §7): **`OD-69`** — „versiunea setului fiscal" n-are
+  identitate aici (parametrii și logica sunt versionate rând cu rând; data pentru care s-au rezolvat
+  e singura identitate, deci antetul poartă o dată, nu un id); **referința „ADR-018 §3 / §7" din
+  instrucțiune nu se rezolvă** — ADR-018 de aici e despre engagementuri, iar `docs/` nu conține
+  „contopire" nicăieri; s-a construit după intenția enunțată; **sloturile sunt comune celor două
+  părți**, nu per parte ca în 1C — litera instrucțiunii, cu limita scrisă: Dt 221/A — Ct 221/B nu
+  încape într-o formulă, iar peste patru axe distincte între cele două conturi se refuză.
+- **Etapa 4 era deja livrată** de sesiunea din 28.08 (`d9a116f`): linia autoritativă, precizia ca
+  parametru, direcția ca rând, backlogul corectat (nicio mențiune a „ghidului SFS" nu mai leagă
+  `DNB-08`). **`V1` — Ordinul MF nr. 118/2017, anexele 1 și 1a — s-a reîncercat și de aici, cu
+  același rezultat:** `sfs.md/ro/document/ordin-mf-nr118-din-28082017` și
+  `legis.md/cautare/downloadpdf/153885` răspund **403**; `mf.gov.md` găzduiește doar proiectul unui
+  ordin de **modificare** din 2019 (`.docx`, citit integral: 52 de paragrafe, niciunul despre
+  zecimale sau rotunjire), nu textul anexelor. Precizia rămâne ipoteză de lucru — patru la preț,
+  două la sume — și intră ca parametru cu `provisional` când `OD-67` deschide calea de scriere.
+- **Etapele 3, 5, 6, 7 nu s-au atins**, deliberat: `CLAUDE.md` §5, o sesiune = o capabilitate, iar
+  instrucțiunea le declară independente și de dat pe sesiuni separate. Etapa 8 nu începe înaintea lor.
+- Suita: **927 trec, 1 sărit** (de la 863 — 64 de teste noi, plus 4 seedere care cereau o dimensiune fără s-o declare, prinse de CHECK-ul nou în 190 de erori de setup pe două rulări). `mypy` curat. `makemigrations --check`: fără derivă. Migrațiile
+  `0056`/`0057` rotite în `test_reverse_sql`; `journal_formula` sub gardianul de model ca append-only.
+
+## Sesiuni mai vechi
 
 **2026-08-28, `DNB-08` deblocată pe structură, plus atribuirea între sesiuni (instrucțiune scrisă):**
 
@@ -1778,17 +1829,22 @@ F1.2 nu poate fi prima. Ordinea reală se notează aici, pe măsură ce se stabi
 - [x] F1.1 — Plan de conturi SNC: **structura**, patru tabele, politici, granturi fără `DELETE`,
       instanțiere în două treceri, subconturi, blocare, închidere; 26 de teste.
       **Fără conținut** (`OD-23`) și **fără propagare** (`OD-03`)
-- [ ] F1.5 — Perioade și exercițiu fiscal *(înainte de F1.2 — `journal_entry.period_id` e
-      `NOT NULL`; forma e fixată de [ADR-039](decisions/039-valuta-si-perioade.md) partea II)*
-- [ ] F1.3 — Accounting Events *(înainte de F1.2, din același motiv; vocabularul e închis prin
-      [ADR-038](decisions/038-vocabularul-de-evenimente.md))*
-- [ ] F1.2 — Ledger: `journal_entry`, `journal_line`, `company_dimension`, echilibrul verificat în
-      bază *(structura stornoului: [ADR-006](decisions/006-reversal-two-dates.md); cele trei date ale
-      liniei și câmpurile de valută: [ADR-039](decisions/039-valuta-si-perioade.md))*
-- [ ] F1.4 — Posting Engine *(blocat pe `OD-55`, deschisă de [ADR-036](decisions/036-forma-postarii.md),
-      care e `Propus`)*
-- [ ] F1.6 — Logică fiscală, primul strat
-- [ ] F1.7 — Note contabile manuale și solduri inițiale
+- [x] F1.5 — Perioade și exercițiu fiscal: stări, tranziții, exercițiu cu date explicite, perioada
+      TVA distinctă *(forma: [ADR-039](decisions/039-valuta-si-perioade.md) partea II; `OD-58`,
+      `OD-62` deschise pe drum)*
+- [x] F1.3 — Accounting Events: eveniment idempotent, registru de tipuri, ciclu de viață și coadă
+      *(vocabularul: [ADR-038](decisions/038-vocabularul-de-evenimente.md))*
+- [x] F1.2 — Ledger: `journal_entry`, `journal_line`, `company_dimension`, echilibrul verificat în
+      bază, storno *(structura stornoului: [ADR-006](decisions/006-reversal-two-dates.md); cele trei
+      date ale liniei și câmpurile de valută: [ADR-039](decisions/039-valuta-si-perioade.md))*
+- [ ] F1.4 — Posting Engine: **rezoluția, cei șase invarianți, rolurile cu legarea necondiționată și
+      formula ca unitate** ([ADR-048](decisions/048-formula-si-sloturile-tipizate.md)) livrate;
+      **niciun handler concret** *(F1.4.4 blocat pe `C1`–`C5` din [ADR-036](decisions/036-forma-postarii.md);
+      legarea condiționată pe `OD-55`)*
+- [ ] F1.6 — Logică fiscală, primul strat *(structura rotunjirii livrată 28.08; valorile pe `V1` și
+      `OD-67`)*
+- [x] F1.7 — Note contabile manuale, solduri inițiale, șabloane de operațiuni — toate prin motor,
+      cu API și ecran
 - [ ] F1.8 — Rapoarte contabile
 - [ ] F1.9 — Importator 1C, fundament *(`OD-28`)*
 - [ ] F1.10 — Corpus de regresie fiscală
@@ -1881,6 +1937,23 @@ fiecare are un refuz sau o absență explicită în locul ei.
 14. **Conversia e totală și unică:** o proformă sau o comandă produce **un** document, cu toate
     liniile. Facturarea parțială a unei comenzi nu e modelată. La fel stornoul: unul per document.
 15. **Anularea documentului produs eliberează sursa** pentru o nouă conversie. Ales; de confirmat.
+
+**Din baza motorului, etapa 1+2 (2026-08-29; [ADR-048](decisions/048-formula-si-sloturile-tipizate.md) §7).**
+
+16. **`OD-69` — ce e „setul fiscal" al cărui număr de versiune ar sta pe antet.** Azi antetul poartă
+    data pentru care s-a rezolvat (`fiscal_effective_date`), fiindcă aceea e singura identitate pe
+    care o are un set de parametri și logică versionate rând cu rând. Dacă vrei un pachet numit, e
+    structură în `fiscal`, cu calea `P-4` (`OD-67`).
+17. **Sloturi comune sau per parte.** Instrucțiunea spune „trei sloturi tipizate pe formulă, al
+    patrulea opțional" și s-a urmat literal: formula poartă reuniunea a ce declară cele două conturi.
+    Un transfer între două valori ale aceluiași cont nu încape într-o formulă, iar peste patru axe
+    distincte între cele două conturi se refuză. Dacă la Etapa 8 nu ajunge, e ADR care înlocuiește
+    §2.3, nu opt coloane.
+18. **„ADR-018 §3 cheia de contopire / §7 cheia agregatelor"** — referința nu se rezolvă în acest
+    repository. Dacă e alt document, spune care; s-a construit după intenția enunțată.
+19. **Care conturi poartă ce dimensiuni** — declarațiile sunt goale, în CSV-ul planului
+    (`dimension_slots`, `required_dimensions`, cu `|` între nume) și per companie prin
+    `PATCH /accounts/<id>` cu `dimension_slots`. Decizia e a ta; structura o așteaptă.
 
 Peste acestea, punctele „DECIZIE NECESARĂ" rămase din Spec A §11 și Spec B §11. Dintre cele care
 cereau contabilul practicant, `DNB-05`, `DNB-07` și `DNB-09` sunt deblocate de `ADR-010`. `DNB-08`

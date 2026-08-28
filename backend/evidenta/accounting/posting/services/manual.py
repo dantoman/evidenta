@@ -65,6 +65,7 @@ from typing import Any
 from django.db import transaction
 
 from evidenta.accounting.coa.dimensions import DIMENSION_KEYS
+from evidenta.accounting.coa.services.chart import chart_version_of
 from evidenta.accounting.events.registry import (
     HANDLERS,
     EventType,
@@ -89,7 +90,7 @@ from evidenta.accounting.posting.invariants import (
     ProposedPosting,
     verify,
 )
-from evidenta.accounting.posting.resolution import treatment_for
+from evidenta.accounting.posting.resolution import selected_treatment
 from evidenta.platform.api.errors import ApiError
 from evidenta.platform.numbering.services.allocation import NumberingError, allocate
 
@@ -429,8 +430,8 @@ def post_manual_entry(
     selects the treatment (R26) and is stored on the event, so that recalculating
     this period years later selects what today selected (R18).
     """
-    handler = treatment_for(EVENT_TYPE, accounting_date, capability_snapshot)
-    lines: tuple[ManualLine, ...] = handler(
+    treatment = selected_treatment(EVENT_TYPE, accounting_date, capability_snapshot)
+    lines: tuple[ManualLine, ...] = treatment.handler(
         tenant_id=tenant_id,
         company_id=company_id,
         accounting_date=accounting_date,
@@ -491,6 +492,7 @@ def post_manual_entry(
                 request_id=request_id,
                 actor_user_id=actor_user_id,
                 lines=lines,
+                rule_ref=treatment.ref,
             )
     except (ApiError, NumberingError) as refusal:
         # The reason is written onto the event rather than only raised: an event
@@ -515,6 +517,7 @@ def _write(
     request_id: str,
     actor_user_id: uuid.UUID,
     lines: Sequence[ManualLine],
+    rule_ref: str,
 ) -> uuid.UUID:
     """Judge the proposal and hand it to the ledger. Returns the entry's id.
 
@@ -556,6 +559,10 @@ def _write(
         [LineDimensions(line.account_id, dict(line.dimensions)) for line in lines],
     )
 
+    # The three versions the note stood on (ADR-048). A manual note computes
+    # nothing, so the fiscal date it names is its own; the chart is the one its
+    # accounts were read from, when the company has one.
+    chart = chart_version_of(company_id)
     number = allocate(tenant_id, company_id, NUMBERING_DOCUMENT_TYPE, accounting_date)
 
     return post_entry(
@@ -568,6 +575,9 @@ def _write(
         description=description,
         request_id=request_id,
         posted_by_user_id=actor_user_id,
+        rule_ref=rule_ref,
+        fiscal_effective_date=accounting_date,
+        chart_template_id=chart.template_id if chart is not None else None,
         lines=[
             LineToWrite(
                 account_id=line.account_id,

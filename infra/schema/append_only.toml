@@ -19,12 +19,18 @@
 # Disciplina de mai jos o face posibilă; absența ei ar face-o un proiect de rescriere.
 
 schema_version = 1
-updated = "2026-08-24"
+updated = "2026-08-29"
 
 [[table]]
 name = "journal_line"
 partition_column = "accounting_date"
 phase = "F1.2"
+
+[[table]]
+name = "journal_formula"
+partition_column = "accounting_date"
+phase = "F1.4"
+note = "Formula — corespondența debit/credit din care se derivă două linii (ADR-048). Aceeași natură ca journal_line: un rând pe formulă, aproximativ jumătate din volumul liniilor, scris o dată, niciodată rescris. Cheia spre journal_entry e ieșitoare; nimic nu arată spre ea."
 
 [[table]]
 name = "inventory_movement"

@@ -118,6 +118,7 @@ Acte normative, secțiuni din documentele de intrare, benchmark-uri, discuții.
 | [045](045-sursa-de-adevar-pentru-parametri.md) | Actul de rang legal dă parametrii; regulamentul dă procedura | Acceptat | 2026-08-26 | — (impune `C14`) |
 | [046](046-istoricul-increderii-in-sursa.md) | Încrederea în sursă are istoric: o confirmare nu schimbă valoarea, deci nu e o versiune nouă | Acceptat | 2026-08-26 | — (`R1`: declară o excepție) |
 | [047](047-stampila-parametrului-la-postare.md) | Calculul își ștampilează baza la postare: parametrul nu-și amintește pe ce s-a calculat | Acceptat | 2026-08-26 | — (închide `OD-68`) |
+| [048](048-formula-si-sloturile-tipizate.md) | Formula este unitatea de postare; dimensiunile sunt sloturi tipizate, declarate per cont; antetul poartă trei versiuni | Acceptat — decizie tehnică, nimic contabil | 2026-08-29 | — (deschide `OD-69`) |
 
 *Indexul se actualizează la fiecare ADR nou. Un ADR care nu apare aici este invizibil.*
 

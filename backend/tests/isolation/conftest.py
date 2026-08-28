@@ -43,6 +43,7 @@ SEEDED_TABLES = (
     "strict_form_number",
     "strict_form_allocation",
     "entry_parameter_stamp",
+    "journal_formula",
     "journal_line",
     "journal_entry",
     "company_dimension",
@@ -176,6 +177,10 @@ _TRIGGER_STATE = (
     # ledger -- the asymmetry described above, a second time.
     "ALTER TABLE journal_entry {action} TRIGGER journal_entry_stays_immutable",
     "ALTER TABLE journal_line {action} TRIGGER journal_line_stays_immutable",
+    # The formulas of a posted entry refuse deletion too (ADR-048), and the
+    # formula tests seed one through `seed()` to prove the trigger -- both
+    # halves of the rule above.
+    "ALTER TABLE journal_formula {action} TRIGGER journal_formula_stays_immutable",
     # A number leaves its range once (art. 118²), and the register test seeds
     # one through `seed()` -- both halves of the rule above.
     "ALTER TABLE strict_form_number {action} TRIGGER strict_form_number_append_only",

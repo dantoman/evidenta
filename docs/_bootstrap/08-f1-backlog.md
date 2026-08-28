@@ -116,6 +116,13 @@ redeschide. Unde o sarcină pare să ceară altceva, ADR-ul câștigă și sarci
   [ADR-029](../decisions/029-dimensiuni-analitice.md).
 - **Blocat de:** —
 
+> **Al doilea strat, 2026-08-29** ([ADR-048](../decisions/048-formula-si-sloturile-tipizate.md)):
+> contul declară **ce poartă**, în patru sloturi tipizate (`company_account.slot_n_dimension`, copiate
+> din `coa_template_account`), iar `required_dimensions` rămâne ce e **obligatoriu**, ținut în
+> interiorul declarației de o constrângere. Cele 15 coloane ale liniei nu se schimbă: slotul spune
+> în care dintre ele aterizează o valoare pentru contul acela. **Nicio declarație în CSV-ul planului** —
+> care conturi poartă ce e decizia contabilă a proprietarului, și un test asertează că fișierul e gol.
+
 ### F1.2.4 — Storno
 
 - **Obiectiv:** corecția se face prin storno și reînregistrare, niciodată prin `UPDATE`.
@@ -225,6 +232,13 @@ redeschide. Unde o sarcină pare să ceară altceva, ADR-ul câștigă și sarci
 > fi construit tabela de legare înainte să se știe ce formă are. Găsit de sesiunea care a livrat
 > F1.4.1, când s-a oprit înainte s-o continue.
 
+> **Livrat la 2026-08-29, sub sarcina aceasta, fără să o închidă: rolurile și legarea există**
+> (`accounting/slots`, `AccountRoleBinding`, `resolve_role`, 37 de roluri cu subcontul din plan ca
+> date), iar **motorul le consumă prin formule** — [ADR-048](../decisions/048-formula-si-sloturile-tipizate.md):
+> `posting.formula.bind_roles` transformă o `RoleFormula` în conturi la data postării și refuză un rol
+> nelegat cu `slots.role_not_bound`. Ce rămâne deschis din sarcină e exact ce o bloca: legarea
+> **condiționată** după cheie de context (`OD-55`) — tabela de legare de azi e necondiționată.
+
 ### F1.4.3 — Cei șase invarianți
 
 - **Obiectiv:** motorul refuză, nu handlerul.
@@ -232,6 +246,14 @@ redeschide. Unde o sarcină pare să ceară altceva, ADR-ul câștigă și sarci
 - **Terminat:** toți șase din [ADR-036](../decisions/036-forma-postarii.md) §5 sunt verificați de
   motor, fiecare cu un test care îl încalcă deliberat și vede refuzul.
 - **Blocat de:** —
+
+> **Contractul handlerului are formă de la 2026-08-29** ([ADR-048](../decisions/048-formula-si-sloturile-tipizate.md)):
+> un handler produce **formule** — *n* per linie de document, nu un număr fixat — fiecare o
+> corespondență debit/credit cu sumă în lei și în valută, curs, cotă TVA ca atribut și dimensiuni
+> tipizate; motorul plasează dimensiunile după declarația contului, contopește, verifică cei șase
+> invarianți peste expansiunea în linii și scrie `journal_formula` lângă `journal_line`, cu cele trei
+> versiuni pe antet. **Niciun handler concret nu există** — blocajul de mai jos rămâne intact; ce s-a
+> livrat e capacitatea, cu `tests/isolation/test_formulas.py` ca singurul ei consumator.
 
 ### F1.4.4 — Primele handlere
 

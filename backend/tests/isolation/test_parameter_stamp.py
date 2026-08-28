@@ -194,6 +194,9 @@ def post(
         accounting_event_id=event.id,
         description="Nota cu parametru fiscal",
         request_id="stamp-test",
+        rule_ref="fixture.stamp.v1",
+        fiscal_effective_date=POSTING,
+        chart_template_id=None,
         lines=[
             LineToWrite(
                 account_id=scene["debit"],

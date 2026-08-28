@@ -130,16 +130,33 @@ def seed_account(
     blocked: bool = False,
     requires: str = "{}",
 ) -> uuid.UUID:
-    """One account of the company's own. `requires` is a Postgres array literal."""
+    """One account of the company's own. `requires` is a Postgres array literal.
+
+    What it requires it also declares as carried, in the same order (ADR-048):
+    `company_account_required_within_slots` refuses an account that demands an
+    axis it does not carry, and a fixture is not exempt from the plan's rule.
+    """
     account_id = uuid.uuid4()
+    slots = [name for name in requires.strip("{}").split(",") if name]
+    padded: list[str | None] = [*slots, None, None, None, None][:4]
     seed(
         "INSERT INTO company_account (id, tenant_id, company_id, account_code,"
         " parent_id, origin, template_account_id, name_ro, account_class,"
         " normal_balance, allows_subaccounts, currency_tracking, quantity_tracking,"
-        " required_dimensions, is_blocked, valid_from, valid_to, created_at, updated_at)"
+        " required_dimensions, slot_1_dimension, slot_2_dimension, slot_3_dimension,"
+        " slot_4_dimension, is_blocked, valid_from, valid_to, created_at, updated_at)"
         " VALUES (%s, %s, %s, %s, NULL, 'company', NULL, %s, 'asset', 'debit',"
-        " false, false, false, %s::text[], %s, '2020-01-01', NULL, now(), now())",
-        [account_id, tenant_id, company_id, code, f"Cont de fixture {code}", requires, blocked],
+        " false, false, false, %s::text[], %s, %s, %s, %s, %s, '2020-01-01', NULL, now(), now())",
+        [
+            account_id,
+            tenant_id,
+            company_id,
+            code,
+            f"Cont de fixture {code}",
+            requires,
+            *padded,
+            blocked,
+        ],
     )
     return account_id
 

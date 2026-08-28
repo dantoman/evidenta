@@ -92,14 +92,18 @@ def seed_account(seed: Callable[..., None], template_id: uuid.UUID, **kwargs: An
         "valid_to": None,
     }
     row.update(kwargs)
+    # What the account requires it also carries (ADR-048): the plan may not demand
+    # an axis it does not declare, and the CHECK says so for a fixture too.
+    slots = [*row["required_dimensions"], None, None, None, None][:4]
     account_id = uuid.uuid4()
     seed(
         "INSERT INTO coa_template_account (id, template_id, account_code, parent_code,"
         " name_ro, account_class, normal_balance, is_system, allows_subaccounts,"
         " currency_tracking, quantity_tracking, required_dimensions, valid_from,"
-        " valid_to, created_at)"
-        " VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, now())",
-        [account_id, template_id, *row.values()],
+        " valid_to, slot_1_dimension, slot_2_dimension, slot_3_dimension,"
+        " slot_4_dimension, created_at)"
+        " VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, now())",
+        [account_id, template_id, *row.values(), *slots],
     )
     return account_id
 
@@ -413,8 +417,12 @@ def test_the_five_generic_slots_are_accepted(context: TenantContext, chart: uuid
             "Slot generic",
             date(2026, 1, 1),
             required_dimensions=["dim_1", "partner"],
+            # Required is a subset of carried (ADR-048), so the declaration
+            # comes with it.
+            dimension_slots=["dim_1", "partner"],
         )
         assert child.required_dimensions == ["dim_1", "partner"]
+        assert child.declared_slots() == ("dim_1", "partner")
 
 
 def test_a_system_account_is_not_renamed_locally(context: TenantContext, chart: uuid.UUID) -> None:

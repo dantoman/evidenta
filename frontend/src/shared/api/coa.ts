@@ -26,6 +26,8 @@ export interface Account {
   currency_tracking: boolean
   quantity_tracking: boolean
   required_dimensions: string[]
+  /** What the account carries, in slot order (ADR-048). Read-only here; declared through PATCH. */
+  dimension_slots: string[]
   is_blocked: boolean
   valid_from: string
   valid_to: string | null

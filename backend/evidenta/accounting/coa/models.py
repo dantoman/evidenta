@@ -31,7 +31,7 @@ import uuid
 from django.contrib.postgres.fields import ArrayField
 from django.db import models
 
-from evidenta.accounting.coa.dimensions import DIMENSION_KEYS
+from evidenta.accounting.coa.dimensions import DIMENSION_KEYS, SLOT_COUNT
 from evidenta.platform.tenancy.models import Company, Tenant
 
 
@@ -72,6 +72,84 @@ class AccountOrigin(models.TextChoices):
 
     SYSTEM = "system"
     COMPANY = "company"
+
+
+def dimension_slot_constraints(table: str) -> list[models.CheckConstraint]:
+    """The shape of the four typed slots, as the database enforces it -- ADR-048.
+
+    One function for the two account tables, so the template and the company row
+    cannot drift into two definitions of "a declared slot". Three rules:
+
+    * **known** -- a slot names one of the fifteen dimensions of ADR-029, or
+      nothing. A name outside the vocabulary would be a slot no column of
+      ``journal_line`` can receive
+    * **contiguous** -- slot *n* is filled before slot *n+1*. Positions mean
+      something (the formula stores its values by position), and a hole would
+      make "the second slot" ambiguous between two accounts
+    * **distinct** -- one dimension, one position. Two slots of ``partner``
+      would give one value two homes and a report two columns for one axis
+
+    With NULL on either side ``slot_i = slot_j`` is NULL, and a CHECK that
+    evaluates to NULL passes -- so the distinctness rule bites only when both
+    positions are filled, which is the only case it is about.
+
+    The fourth rule -- a required dimension is a carried one -- is
+    ``<@`` over an array built from these columns, which ``Q`` cannot write. It
+    lives in ``infra/migrations/0056_dimension_slots.up.sql``.
+    """
+    checks: list[models.CheckConstraint] = []
+    for n in range(1, SLOT_COUNT + 1):
+        column = f"slot_{n}_dimension"
+        checks.append(
+            models.CheckConstraint(
+                condition=models.Q(**{f"{column}__isnull": True})
+                | models.Q(**{f"{column}__in": list(DIMENSION_KEYS)}),
+                name=f"{table}_slot_{n}_known",
+            )
+        )
+        if n > 1:
+            checks.append(
+                models.CheckConstraint(
+                    condition=models.Q(**{f"{column}__isnull": True})
+                    | models.Q(**{f"slot_{n - 1}_dimension__isnull": False}),
+                    name=f"{table}_slot_{n}_contiguous",
+                )
+            )
+    for i in range(1, SLOT_COUNT + 1):
+        for j in range(i + 1, SLOT_COUNT + 1):
+            checks.append(
+                models.CheckConstraint(
+                    condition=~models.Q(**{f"slot_{i}_dimension": models.F(f"slot_{j}_dimension")}),
+                    name=f"{table}_slot_{i}_{j}_distinct",
+                )
+            )
+    return checks
+
+
+class DeclaresDimensionSlots:
+    """The accessor both account rows share. Structure, not business logic (C2)."""
+
+    slot_1_dimension: str | None
+    slot_2_dimension: str | None
+    slot_3_dimension: str | None
+    slot_4_dimension: str | None
+
+    def declared_slots(self) -> tuple[str, ...]:
+        """The dimensions this account carries, in slot order, holes excluded.
+
+        Contiguity is a CHECK, so "holes excluded" changes nothing on a row the
+        database accepted -- it is here so an unsaved instance reads the same way.
+        """
+        return tuple(
+            slot
+            for slot in (
+                self.slot_1_dimension,
+                self.slot_2_dimension,
+                self.slot_3_dimension,
+                self.slot_4_dimension,
+            )
+            if slot is not None
+        )
 
 
 class CoaTemplate(models.Model):
@@ -132,7 +210,7 @@ class CoaTemplate(models.Model):
         return f"{self.code}/{self.version}"
 
 
-class CoaTemplateAccount(models.Model):
+class CoaTemplateAccount(DeclaresDimensionSlots, models.Model):
     """One account of one template version.
 
     ``parent_code`` is a code, not a key. Inside a template the hierarchy is
@@ -166,6 +244,17 @@ class CoaTemplateAccount(models.Model):
 
     required_dimensions = ArrayField(models.TextField(), default=list)
 
+    #: The typed dimension slots the account carries, by position -- ADR-048.
+    #: Written out rather than generated, for the reason `journal_line` gives for
+    #: its fifteen: the schema of an account must not depend on a tuple being
+    #: imported in the right order. `dimensions.SLOT_FIELDS` names them and a
+    #: test ties the two together. What `required_dimensions` makes mandatory
+    #: must be one of these -- `coa_template_account_required_within_slots`.
+    slot_1_dimension = models.TextField(null=True, blank=True)
+    slot_2_dimension = models.TextField(null=True, blank=True)
+    slot_3_dimension = models.TextField(null=True, blank=True)
+    slot_4_dimension = models.TextField(null=True, blank=True)
+
     valid_from = models.DateField()
     valid_to = models.DateField(null=True, blank=True)
 
@@ -197,6 +286,7 @@ class CoaTemplateAccount(models.Model):
                 condition=models.Q(required_dimensions__contained_by=list(DIMENSION_KEYS)),
                 name="coa_template_account_dimensions_known",
             ),
+            *dimension_slot_constraints("coa_template_account"),
         ]
         indexes = [
             models.Index(fields=["template", "parent_code"], name="coa_template_parent_idx"),
@@ -240,7 +330,7 @@ class CompanyChart(models.Model):
         return f"{self.company_id}:{self.template_id}"
 
 
-class CompanyAccount(models.Model):
+class CompanyAccount(DeclaresDimensionSlots, models.Model):
     """An account in one company's chart -- from the template, or its own.
 
     The class, the normal balance and the tracking flags are **copied** from the
@@ -300,6 +390,17 @@ class CompanyAccount(models.Model):
 
     required_dimensions = ArrayField(models.TextField(), default=list)
 
+    #: The typed dimension slots, copied from the template at instantiation and
+    #: extendable by the company (ADR-036 section 6.3, layer 2) -- ADR-048. The
+    #: engine places a formula's dimension values on the line of whichever side
+    #: declares them here, so an undeclared axis is simply not carried by this
+    #: account. `company_account_required_within_slots` keeps
+    #: `required_dimensions` inside this set.
+    slot_1_dimension = models.TextField(null=True, blank=True)
+    slot_2_dimension = models.TextField(null=True, blank=True)
+    slot_3_dimension = models.TextField(null=True, blank=True)
+    slot_4_dimension = models.TextField(null=True, blank=True)
+
     #: Blocked for posting, still visible in reports. Distinct from ``valid_to``:
     #: an account closed on a date was never usable after it, while a blocked one
     #: is a decision that can be taken back.
@@ -345,6 +446,7 @@ class CompanyAccount(models.Model):
                 condition=models.Q(required_dimensions__contained_by=list(DIMENSION_KEYS)),
                 name="company_account_dimensions_known",
             ),
+            *dimension_slot_constraints("company_account"),
         ]
         indexes = [
             models.Index(fields=["company", "valid_from", "valid_to"], name="company_account_idx"),

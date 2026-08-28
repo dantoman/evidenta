@@ -56,6 +56,7 @@ from typing import Any
 from django.db import transaction
 
 from evidenta.accounting.coa.services.accounts import postable_accounts
+from evidenta.accounting.coa.services.chart import chart_version_of
 from evidenta.accounting.events.registry import (
     HANDLERS,
     EventType,
@@ -94,7 +95,7 @@ from evidenta.accounting.posting.invariants import (
     ProposedPosting,
     verify,
 )
-from evidenta.accounting.posting.resolution import treatment_for
+from evidenta.accounting.posting.resolution import selected_treatment
 from evidenta.platform.api.errors import ApiError
 from evidenta.platform.numbering.services.allocation import NumberingError, allocate
 
@@ -404,7 +405,7 @@ def post_batch(
     assert_transition(batch, BatchStatus.POSTED)
     _assert_start_period_free(batch)
 
-    handler = treatment_for(EVENT_TYPE, batch.as_of_date, capability_snapshot)
+    treatment = selected_treatment(EVENT_TYPE, batch.as_of_date, capability_snapshot)
     contents = load_contents(batch)
     payload: dict[str, Any] = {
         "batch_id": str(batch.id),
@@ -414,7 +415,7 @@ def post_batch(
         "sets": summary(contents),
     }
 
-    lines: tuple[OpeningLine, ...] = handler(
+    lines: tuple[OpeningLine, ...] = treatment.handler(
         tenant_id=batch.tenant_id,
         company_id=batch.company_id,
         accounting_date=batch.as_of_date,
@@ -466,6 +467,7 @@ def post_batch(
                 event_id=event.id,
                 actor_user_id=actor_user_id,
                 request_id=request_id,
+                rule_ref=treatment.ref,
             )
     except (ApiError, NumberingError) as refusal:
         # Written onto the event rather than only raised: an event that failed to
@@ -528,6 +530,7 @@ def _write(
     event_id: uuid.UUID,
     actor_user_id: uuid.UUID,
     request_id: str,
+    rule_ref: str,
 ) -> uuid.UUID:
     """Judge the proposal, hand it to the ledger, and close the batch.
 
@@ -574,6 +577,9 @@ def _write(
 
     assert_dimensions_present(batch.company_id, batch.as_of_date, posting_dimensions(contents))
 
+    # ADR-048: an opening balance computes nothing, so the fiscal date it names
+    # is its own, and the chart is the one its accounts came from.
+    chart = chart_version_of(batch.company_id)
     number = allocate(batch.tenant_id, batch.company_id, NUMBERING_DOCUMENT_TYPE, batch.as_of_date)
 
     entry_id = post_entry(
@@ -587,6 +593,9 @@ def _write(
         description=f"{DESCRIPTION} {batch.as_of_date.isoformat()}",
         request_id=request_id,
         posted_by_user_id=actor_user_id,
+        rule_ref=rule_ref,
+        fiscal_effective_date=batch.as_of_date,
+        chart_template_id=chart.template_id if chart is not None else None,
         lines=[
             LineToWrite(
                 account_id=line.account_id,

@@ -22,14 +22,18 @@ from datetime import date
 
 from django.db import transaction
 
-from evidenta.accounting.coa.dimensions import DIMENSION_KEYS
+from evidenta.accounting.coa.dimensions import DIMENSION_KEYS, SLOT_COUNT, SLOT_FIELDS
 from evidenta.accounting.coa.errors import (
     AccountCodeTakenError,
     AccountNotFoundError,
+    DuplicateDimensionSlotError,
     InvalidValidityWindowError,
     ParentAccountClosedError,
+    RequiredDimensionNotCarriedError,
     SubaccountsNotAllowedError,
     SystemAccountImmutableError,
+    TemplateDeclarationNarrowedError,
+    TooManyDimensionSlotsError,
     UnknownDimensionError,
 )
 from evidenta.accounting.coa.models import AccountOrigin, CompanyAccount
@@ -85,6 +89,46 @@ def _check_dimensions(required: Sequence[str]) -> list[str]:
     return list(required)
 
 
+def _check_slots(slots: Sequence[str]) -> tuple[str, ...]:
+    """The declared slots, or a refusal -- ADR-048.
+
+    Order is kept: a slot is a *position*, and the formula stores its values by
+    it. Only the three rules the database also enforces are checked here; the
+    point of checking them twice is the code (C10), not the refusal.
+    """
+    unknown = sorted(set(slots) - set(DIMENSION_KEYS))
+    if unknown:
+        raise UnknownDimensionError(
+            f"{', '.join(unknown)} is not in the closed vocabulary of ADR-029; a "
+            f"slot no column of journal_line matches is a slot nothing can fill"
+        )
+    if len(slots) > SLOT_COUNT:
+        raise TooManyDimensionSlotsError(
+            f"{len(slots)} slots declared; an account carries at most {SLOT_COUNT}. "
+            f"The cap is a column count on the register, not a preference"
+        )
+    if len(set(slots)) != len(slots):
+        raise DuplicateDimensionSlotError(
+            f"a dimension appears twice in {list(slots)}; one value cannot have two positions"
+        )
+    return tuple(slots)
+
+
+def _check_required_within(required: Sequence[str], slots: Sequence[str]) -> None:
+    missing = sorted(set(required) - set(slots))
+    if missing:
+        raise RequiredDimensionNotCarriedError(
+            f"{', '.join(missing)} is required but not one of the declared slots "
+            f"{list(slots)}; an account cannot demand an axis it does not carry"
+        )
+
+
+def _slot_fields(slots: Sequence[str]) -> dict[str, str | None]:
+    """The four columns, filled from the front, NULL after the last one."""
+    padded: list[str | None] = [*slots, *([None] * SLOT_COUNT)]
+    return dict(zip(SLOT_FIELDS, padded[:SLOT_COUNT], strict=True))
+
+
 @transaction.atomic
 def create_subaccount(
     parent_id: uuid.UUID,
@@ -95,6 +139,7 @@ def create_subaccount(
     currency_tracking: bool = False,
     quantity_tracking: bool = False,
     required_dimensions: Sequence[str] = (),
+    dimension_slots: Sequence[str] = (),
     allows_subaccounts: bool = False,
 ) -> CompanyAccount:
     """A subaccount of the company's own, under an account that permits them.
@@ -129,6 +174,10 @@ def create_subaccount(
     ).exists():
         raise AccountCodeTakenError(f"{account_code} already exists in this company's chart")
 
+    slots = _check_slots(dimension_slots)
+    required = _check_dimensions(required_dimensions)
+    _check_required_within(required, slots)
+
     account = CompanyAccount.objects.create(
         tenant_id=parent.tenant_id,
         company_id=parent.company_id,
@@ -142,10 +191,72 @@ def create_subaccount(
         allows_subaccounts=allows_subaccounts,
         currency_tracking=currency_tracking,
         quantity_tracking=quantity_tracking,
-        required_dimensions=_check_dimensions(required_dimensions),
+        required_dimensions=required,
         valid_from=valid_from,
+        **_slot_fields(slots),
     )
     _audit("coa.subaccount_created", account, new={"account_code": account_code, "name": name_ro})
+    return account
+
+
+@transaction.atomic
+def declare_dimension_slots(
+    account_id: uuid.UUID,
+    dimension_slots: Sequence[str],
+    required_dimensions: Sequence[str] | None = None,
+) -> CompanyAccount:
+    """Declare which dimensions an account carries, and which it demands -- ADR-048.
+
+    ``dimension_slots`` is the whole declaration, in position order, not a
+    delta: the caller says what the account carries from now on. A None for
+    ``required_dimensions`` keeps the current requirement, which then still has
+    to fit inside the new slots.
+
+    **A system account may be extended, never narrowed.** The template's
+    declaration is the plan's; the company adds its own analytics on top (ADR-036
+    section 6.3) and cannot remove an axis or a requirement the plan imposed --
+    the same border that makes renaming a system account a refusal.
+
+    Nothing already posted moves. A formula stores its slot *types* alongside
+    the values and a journal line stores each value in its own column, so a
+    declaration changed today leaves last year's entries exactly as readable as
+    they were.
+    """
+    account = _account(account_id)
+    slots = _check_slots(dimension_slots)
+    required = (
+        list(account.required_dimensions)
+        if required_dimensions is None
+        else _check_dimensions(required_dimensions)
+    )
+    _check_required_within(required, slots)
+
+    template = account.template_account
+    if account.origin == AccountOrigin.SYSTEM and template is not None:
+        dropped_slots = sorted(set(template.declared_slots()) - set(slots))
+        dropped_required = sorted(set(template.required_dimensions) - set(required))
+        if dropped_slots or dropped_required:
+            raise TemplateDeclarationNarrowedError(
+                f"{account.account_code} is a system account; the plan declares "
+                f"slots {list(template.declared_slots())} and requires "
+                f"{list(template.required_dimensions)}, and a company may add to "
+                f"that, not take from it (dropped: {dropped_slots + dropped_required})"
+            )
+
+    old: dict[str, object] = {
+        "slots": list(account.declared_slots()),
+        "required": list(account.required_dimensions),
+    }
+    for column, value in _slot_fields(slots).items():
+        setattr(account, column, value)
+    account.required_dimensions = required
+    account.save(update_fields=[*SLOT_FIELDS, "required_dimensions", "updated_at"])
+    _audit(
+        "coa.dimension_slots_declared",
+        account,
+        old=old,
+        new={"slots": list(slots), "required": list(required)},
+    )
     return account
 
 

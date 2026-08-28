@@ -96,6 +96,13 @@ def instantiate_chart(company_id: uuid.UUID, template_id: uuid.UUID) -> CompanyC
                 currency_tracking=account.currency_tracking,
                 quantity_tracking=account.quantity_tracking,
                 required_dimensions=list(account.required_dimensions),
+                # The plan's declaration of what the account carries, copied
+                # like the rest (ADR-048). The company may extend it later;
+                # what it starts with is what the act's transcription said.
+                slot_1_dimension=account.slot_1_dimension,
+                slot_2_dimension=account.slot_2_dimension,
+                slot_3_dimension=account.slot_3_dimension,
+                slot_4_dimension=account.slot_4_dimension,
                 valid_from=account.valid_from,
                 valid_to=account.valid_to,
             )

@@ -167,10 +167,14 @@ def deprecate(name: str) -> None:
     DEPRECATED.add(name)
 
 
-def resolve_handler(
+def resolve_version(
     name: str, accounting_date: date, capabilities: frozenset[str]
-) -> Callable[..., Any]:
-    """The handler in force for that period and that company -- R17, R18, R26.
+) -> HandlerVersion:
+    """The registration in force for that period and that company -- R17, R18, R26.
+
+    The selection, with the implementation left as a reference. `resolve_handler`
+    is this plus the lookup; the split exists because the entry header stamps
+    **which** treatment produced it (ADR-048), and a callable does not say.
 
     `capabilities` has no default, deliberately. R26 requires the profile to be
     an **explicit input** to the Posting Engine, and a default of "none" would
@@ -232,7 +236,30 @@ def resolve_handler(
             f"is wrong"
         )
 
-    ref = matches[0].implementation_ref
+    return matches[0]
+
+
+def resolve_handler(
+    name: str, accounting_date: date, capabilities: frozenset[str]
+) -> Callable[..., Any]:
+    """The handler in force for that period and that company -- R17, R18, R26.
+
+    `capabilities` has no default, deliberately. R26 requires the profile to be
+    an **explicit input** to the Posting Engine, and a default of "none" would
+    silently pick the treatment for a company without VAT, while a default of
+    "all" would pick the one for a company that has it. Both are plausible wrong
+    answers, which is the worst kind in a ledger.
+
+    Zero matches or two are errors, never a choice. Taking the newest would
+    answer a question the registration cannot actually answer, and a plausible
+    wrong treatment is worse than a refusal, because it posts.
+    """
+    return implementation_of(name, resolve_version(name, accounting_date, capabilities))
+
+
+def implementation_of(name: str, version: HandlerVersion) -> Callable[..., Any]:
+    """The callable a registration selects -- from `HANDLERS`, never an import."""
+    ref = version.implementation_ref
     try:
         return HANDLERS[ref]
     except KeyError:
