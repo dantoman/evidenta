@@ -264,3 +264,56 @@ def pytest_runtest_setup(item: pytest.Item) -> Iterator[None]:
 def pytest_runtest_teardown(item: pytest.Item) -> Iterator[None]:
     with unguarded("pytest: framework teardown"):
         return (yield)
+
+
+#: The registries a test can empty and no assertion would notice.
+#:
+#: `ACCOUNT_ROLES` is the one that was actually emptied -- three tests cleared it
+#: in a `finally`, harmlessly while the catalogue was empty by default, and then
+#: `accounting.slots` started filling it at startup and the same line began
+#: wiping the real one for every test that ran afterwards. Those pass: an empty
+#: catalogue checks nothing, which is the documented semantics.
+#:
+#: The three lines were fixed. This exists because the *lever* was not: the
+#: fixture that restores these dicts lives inside one test file, so any test
+#: anywhere else can still empty them, and the next catalogue to be filled brings
+#: the defect back in a new place.
+_SHARED_REGISTRIES = ("REGISTRY", "HANDLERS", "DEPRECATED", "ACCOUNT_ROLES")
+
+
+@pytest.fixture(autouse=True)
+def _registries_survive_the_test() -> Iterator[None]:
+    """Fail the test that leaves a global registry different from how it found it.
+
+    **Asserts, then restores.** Restoring without asserting would hide the leak,
+    which is what the module-level fixture already does inside one file.
+    Asserting without restoring would fail every test after the culprit too, and
+    a cascade names the wrong file -- the whole point is that the failure lands
+    on the test that pulled the lever.
+
+    Defined in the root conftest so it covers every suite, including the ones
+    that mutate `HANDLERS` from `tests/isolation/`.
+    """
+    from evidenta.accounting.events import registry
+
+    before = {name: _snapshot(registry, name) for name in _SHARED_REGISTRIES}
+    try:
+        yield
+    finally:
+        after = {name: _snapshot(registry, name) for name in _SHARED_REGISTRIES}
+        changed = [name for name in _SHARED_REGISTRIES if before[name] != after[name]]
+        for name in changed:
+            live = getattr(registry, name)
+            live.clear()
+            live.update(before[name])
+        assert not changed, (
+            f"testul a lăsat {', '.join(changed)} modificat(e) în registrul global. "
+            f"Un catalog golit nu verifică nimic, iar testele următoare trec fără să "
+            f"verifice — de aceea eșecul cade aici, la cel care l-a schimbat. "
+            f"Curățați doar ce ați adăugat (`difference_update`), nu tot (`clear`)."
+        )
+
+
+def _snapshot(registry: Any, name: str) -> Any:
+    value = getattr(registry, name)
+    return dict(value) if isinstance(value, dict) else set(value)
