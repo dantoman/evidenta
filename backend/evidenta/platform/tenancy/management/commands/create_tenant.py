@@ -166,8 +166,16 @@ class Command(BaseCommand):
                 )
                 with tenant_context(context):
                     enrolment = enrol_totp(user.id, label="bootstrap")
+                    # `parse_uri` is typed as returning the base class, whose
+                    # `secret` mypy cannot see -- but the narrow `type: ignore`
+                    # that used to sit here was itself reported as unused under
+                    # `mypy .`, which is what CI runs. `getattr` says the same
+                    # thing without claiming to suppress an error that the
+                    # checker does not raise.
                     parsed = pyotp.parse_uri(enrolment.provisioning_uri)
-                    secret = str(parsed.secret)  # type: ignore[union-attr]
+                    secret = str(getattr(parsed, "secret", ""))
+                    if not secret:  # pragma: no cover -- pyotp always sets it
+                        raise CommandError("pyotp nu a întors un secret de înrolare")
                     confirm_totp(enrolment.method_id, pyotp.TOTP(secret).now())
 
         self.stdout.write(f"tenant {subdomain}: {tenant_id}")

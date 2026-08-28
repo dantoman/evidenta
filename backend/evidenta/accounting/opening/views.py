@@ -28,6 +28,7 @@ rejectable, which is the difference.
 from __future__ import annotations
 
 import uuid
+from decimal import Decimal
 from typing import Any
 
 from rest_framework import serializers
@@ -71,7 +72,14 @@ class CreateBatchSerializer(serializers.Serializer[dict[str, Any]]):
     """
 
     as_of_date = serializers.DateField()
-    source = serializers.ChoiceField(choices=BatchSource.values)
+    # Numele campului se ciocneste cu `Field.source` din DRF, care e declarat
+    # `str | None` pe clasa de baza — de aceea o adnotare nu ajuta: nu e o
+    # deducere gresita, e o redefinire reala de tip. La rulare nu se ciocneste
+    # nimic (metaclasa muta campurile declarate in `_declared_fields`), iar
+    # numele ramane `source` fiindca asta e forma de pe sarma si asta citeste
+    # clientul. Ignorarea e tintita si **verificata ca folosita**: `mypy .`
+    # raporteaza exact aceasta linie, deci nu putrezeste tacut ca una nefolosita.
+    source = serializers.ChoiceField(choices=BatchSource.values)  # type: ignore[assignment]
     counterpart_account_id = serializers.UUIDField()
 
 
@@ -83,8 +91,12 @@ class GlRowSerializer(serializers.Serializer[dict[str, Any]]):
     """
 
     account_id = serializers.UUIDField()
-    debit = serializers.DecimalField(max_digits=20, decimal_places=4, default=0)
-    credit = serializers.DecimalField(max_digits=20, decimal_places=4, default=0)
+    # `Decimal("0")`, nu `0`: campul e zecimal, iar implicitul lui trebuie sa fie
+    # de acelasi fel. DRF ar fi convertit oricum, deci nu se schimba nimic la
+    # rulare — se schimba doar ce poate afirma verificatorul de tipuri, si
+    # `mypy .` din CI chiar il refuza pe `int`.
+    debit = serializers.DecimalField(max_digits=20, decimal_places=4, default=Decimal(0))
+    credit = serializers.DecimalField(max_digits=20, decimal_places=4, default=Decimal(0))
     currency = serializers.CharField(max_length=3, required=False, allow_null=True)
     amount_currency = serializers.DecimalField(
         max_digits=20, decimal_places=4, required=False, allow_null=True

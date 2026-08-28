@@ -28,6 +28,7 @@ import uuid
 from collections.abc import Callable
 from datetime import UTC, datetime
 from decimal import Decimal
+from typing import Any
 
 import pytest
 from django.db import transaction
@@ -174,7 +175,10 @@ def post(
         actor_user_id=scene["user"],
         request_id="stamp-test",
     )
-    common = {
+    # Adnotat, altfel dict-ul se deduce ca `dict[str, object]` si fiecare
+    # `**common` raporteaza cate sapte nepotriviri — paisprezece erori dintr-un
+    # singur tip lipsa, si niciuna despre codul testat.
+    common: dict[str, Any] = {
         "currency": "MDL",
         "exchange_rate": Decimal(1),
         "accounting_date": POSTING,
