@@ -39,9 +39,17 @@ from evidenta.accounting.coa.models import CoaTemplate, CoaTemplateAccount, Temp
 DATA = Path(__file__).resolve().parents[2] / "data" / "snc_2020.csv"
 
 #: Provenance, from the act itself. `R15` wants the Monitorul Oficial number as
-#: part of it; the act and the annex it approves were published in two different
-#: issues, months apart, and both are named here because one column holds one
-#: string and dropping either would make the citation wrong.
+#: part of it, and this act has two.
+#:
+#: **The second one is not this act's annex, and the first version of this line
+#: said it was.** The consolidated texts the Ministry publishes each print two
+#: citations, and the second is *the same on both orders*: OMF 118/2013 (the
+#: standards) carries `177-181 art.1224` and `233-237 art.1534`; OMF 119/2013
+#: (this one, the chart of accounts) carries `177-181 art.1225` and the same
+#: `233-237 art.1534`. One position in Monitorul Oficial covering two acts is a
+#: different fact from one act having two publications, and it is the fact that
+#: kills the obvious fix: a second pair of columns cannot be shared between two
+#: rows. `OD-65` is recorded with the evidence.
 DEFAULTS: dict[str, Any] = {
     "valid_from": "2020-01-01",
     "source_act": (
@@ -50,7 +58,8 @@ DEFAULTS: dict[str, Any] = {
     ),
     "source_reference": (
         "Monitorul Oficial nr. 177-181 art. 1225 din 16.08.2013; "
-        "anexa în Monitorul Oficial nr. 233-237 art. 1534 din 22.10.2013"
+        "a doua publicare, comună cu Ordinul nr. 118/2013: "
+        "Monitorul Oficial nr. 233-237 art. 1534 din 22.10.2013"
     ),
     "published_at": "2013-08-16",
     "status": TemplateStatus.PUBLISHED,
