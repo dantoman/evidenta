@@ -106,7 +106,9 @@ def provision_company(
     # company. Choosing one at creation is the other half of that -- without it a
     # brand-new company cannot post its first journal entry, which is where this
     # was found. The company can change it; what it cannot do is have none.
-    create_general_template(context.tenant_id, company_id)
+    # Valid from the day the books start, not from today: a document dated
+    # before the series existed could otherwise not be numbered at all.
+    create_general_template(context.tenant_id, company_id, valid_from=start)
 
     # Explicit, from the service (C4). Who created which company, and when, is
     # not something to reconstruct from row timestamps.

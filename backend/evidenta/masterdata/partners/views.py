@@ -43,7 +43,17 @@ class PartnerSerializer(serializers.Serializer[dict[str, Any]]):
     idno = serializers.CharField(required=False, allow_null=True)
     idnp = serializers.CharField(required=False, allow_null=True)
     vat_code = serializers.CharField(required=False, allow_null=True)
+    #: Required whenever a VAT code is sent. The service refuses the pair
+    #: otherwise, and the refusal is the point: a start date invented at
+    #: data-entry time answers "was this counterparty registered on the day of
+    #: the document" with the day somebody typed the card.
+    vat_valid_from = serializers.DateField(required=False, allow_null=True)
     short_name = serializers.CharField(required=False, allow_null=True)
+    internal_name = serializers.CharField(required=False, allow_null=True)
+    default_currency = serializers.CharField(required=False, allow_null=True, max_length=3)
+    default_payment_terms_days = serializers.IntegerField(
+        required=False, allow_null=True, min_value=0
+    )
     is_customer = serializers.BooleanField(default=False)
     is_supplier = serializers.BooleanField(default=False)
 
@@ -77,7 +87,11 @@ class PartnerListView(APIView):
             idno=data.get("idno"),
             idnp=data.get("idnp"),
             vat_code=data.get("vat_code"),
+            vat_valid_from=data.get("vat_valid_from"),
             short_name=data.get("short_name"),
+            internal_name=data.get("internal_name"),
+            default_currency=data.get("default_currency"),
+            default_payment_terms_days=data.get("default_payment_terms_days"),
             is_customer=data["is_customer"],
             is_supplier=data["is_supplier"],
         )

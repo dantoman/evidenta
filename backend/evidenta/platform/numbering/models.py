@@ -18,8 +18,12 @@ from __future__ import annotations
 
 import uuid
 
+from django.contrib.postgres.constraints import ExclusionConstraint
+from django.contrib.postgres.fields import DateRangeField, RangeBoundary, RangeOperators
 from django.db import models
+from django.db.models import F, Func, Q
 
+from evidenta.platform.numbering.regimes import NumberingRegime
 from evidenta.platform.tenancy.models import Company, Tenant
 
 
@@ -32,6 +36,42 @@ class ResetPolicy(models.TextChoices):
 class YearFormat(models.TextChoices):
     FOUR_DIGIT = "yyyy"
     TWO_DIGIT = "yy"
+
+
+class TypeKey(Func):
+    """``COALESCE(document_type, '')`` -- NULL is the general template.
+
+    Written as a template rather than as `Coalesce(F(...), Value(''))` so the
+    expression carries no bound parameter: an index or constraint expression that
+    does is refused at migrate time.
+
+    It exists because the exclusion constraint below has to treat two general
+    templates as the same key. Postgres compares NULLs as *unknown*, so without
+    the coalesce a company could hold any number of overlapping general
+    templates and resolution would pick one arbitrarily -- the exact failure the
+    partial unique constraint used to prevent, back when validity did not exist.
+    """
+
+    template = "COALESCE(%(expressions)s, '')"
+    output_field = models.TextField()
+
+    def __init__(self) -> None:
+        super().__init__(F("document_type"))
+
+
+class ValidityRange(Func):
+    """``daterange(valid_from, valid_to, '[)')`` as an expression.
+
+    Half-open, like every other validity window in the system (`fiscal.in_force`,
+    `account_role_binding`): a series that ends on the day its successor starts
+    is a clean succession, not a conflict.
+    """
+
+    function = "daterange"
+    output_field = DateRangeField()
+
+    def __init__(self) -> None:
+        super().__init__(F("valid_from"), F("valid_to"), RangeBoundary())
 
 
 class NumberingTemplate(models.Model):
@@ -54,6 +94,19 @@ class NumberingTemplate(models.Model):
 
     reset_policy = models.TextField(choices=ResetPolicy.choices, default=ResetPolicy.YEARLY)
 
+    #: Which of the two regimes this series belongs to. Default ``own``, because
+    #: that is what a company has until somebody tells it otherwise -- an
+    #: external regime is always the consequence of an act (an SFS range, an
+    #: e-Factura enrolment), never of a blank field.
+    regime = models.TextField(choices=NumberingRegime.choices, default=NumberingRegime.OWN)
+
+    #: The window this series applies in, half-open ``[valid_from, valid_to)``.
+    #: A series is not forever: an SFS range runs out, a company changes prefix
+    #: at the start of an exercise, and a document dated inside the old window
+    #: has to keep resolving to the old series (`R18`, in its documentary form).
+    valid_from = models.DateField()
+    valid_to = models.DateField(null=True, blank=True)
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -72,19 +125,26 @@ class NumberingTemplate(models.Model):
                 condition=models.Q(year_format__in=YearFormat.values),
                 name="numbering_template_year_format_valid",
             ),
-            # One general template per company, and one per document type.
-            # Postgres treats NULLs as distinct in a unique index, so the general
-            # template needs its own partial constraint or a company could hold
-            # several of them and resolution would pick arbitrarily.
-            models.UniqueConstraint(
-                fields=["company", "document_type"],
-                condition=models.Q(document_type__isnull=False),
-                name="numbering_template_per_type_unique",
+            models.CheckConstraint(
+                condition=models.Q(regime__in=NumberingRegime.values),
+                name="numbering_template_regime_valid",
             ),
-            models.UniqueConstraint(
-                fields=["company"],
-                condition=models.Q(document_type__isnull=True),
-                name="numbering_template_general_unique",
+            models.CheckConstraint(
+                condition=Q(valid_to__isnull=True) | Q(valid_to__gt=F("valid_from")),
+                name="numbering_template_dates_ordered",
+            ),
+            # One series per document type **at one instant**, and one general
+            # series at one instant. This replaced two partial unique constraints
+            # when validity arrived: uniqueness over all time would have made a
+            # company unable to ever change its series, and dropping the
+            # constraint would have let two series answer for the same day.
+            ExclusionConstraint(
+                name="numbering_template_no_overlap",
+                expressions=[
+                    ("company", RangeOperators.EQUAL),
+                    (TypeKey(), RangeOperators.EQUAL),
+                    (ValidityRange(), RangeOperators.OVERLAPS),
+                ],
             ),
         ]
 

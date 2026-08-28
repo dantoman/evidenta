@@ -75,6 +75,11 @@ INSTALLED_APPS: list[str] = [
     "evidenta.accounting.ledger.apps.LedgerConfig",
     "evidenta.accounting.posting.apps.PostingConfig",
     "evidenta.accounting.opening.apps.OpeningConfig",
+    # The operational layer: concrete document types over the document core.
+    # They register their types with `platform.documents` from `ready()`, so the
+    # core never imports them and the graph stays acyclic (D2, D3).
+    "evidenta.operations.sales.apps.SalesConfig",
+    "evidenta.operations.purchases.apps.PurchasesConfig",
 ]
 
 MIDDLEWARE: list[str] = [

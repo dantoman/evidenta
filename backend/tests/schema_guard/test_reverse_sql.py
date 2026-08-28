@@ -68,6 +68,16 @@ ALREADY_CORRECT = [
         "0043_entry_parameter_stamp",
         "0048_strict_forms",
         "0049_account_role_binding",
+        # The document layer. Each file drops only functions it created itself,
+        # which is what makes a single-file round trip meaningful: a trigger
+        # function shared between two migrations would make the reverse of the
+        # first depend on the second having been reversed already.
+        "0050_numbering_series",
+        "0051_document_layer",
+        "0052_partner_vat_registration",
+        "0053_item_units_and_barcodes",
+        "0054_sales_documents",
+        "0055_purchase_documents",
     )
 ]
 

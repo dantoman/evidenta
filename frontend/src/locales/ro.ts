@@ -75,6 +75,15 @@ export const ro = {
     idno: 'IDNO',
     idnp: 'IDNP',
     vatCode: 'Cod TVA',
+    // Inregistrarea in scopuri de TVA e stare cu data efectiva, nu bifa: o
+    // contraparte se inregistreaza si poate fi radiata in cursul anului, iar un
+    // document emis inainte de radiere era corect atunci. De aceea data e ceruta
+    // impreuna cu codul, nu dedusa din ziua in care se completeaza fisa.
+    vatValidFrom: 'TVA din data',
+    vatValidFromHint: 'Data de la care partenerul este înregistrat ca plătitor de TVA.',
+    vatValidFromRequired: 'Introduceți data de la care se aplică codul TVA.',
+    internalName: 'Denumire internă',
+    internalNameHint: 'Alfabet liber. Apare în liste și în căutare, niciodată pe un document.',
     roles: 'Roluri',
     customer: 'Client',
     supplier: 'Furnizor',

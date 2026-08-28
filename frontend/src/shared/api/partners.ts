@@ -19,14 +19,21 @@ export interface Partner {
   kind: string
   idno: string | null
   idnp: string | null
+  internal_name: string | null
+  /** Prefers the internal name, falls back to the legal one (ADR-034). */
+  display_name: string
+  /** The code of the still-open VAT registration, or null when there is none. */
   vat_code: string | null
+  vat_registered: boolean
+  default_currency: string | null
+  default_payment_terms_days: number | null
   is_customer: boolean
   is_supplier: boolean
   is_active: boolean
 }
 
 export interface PartnerQuery {
-  /** Matches legal name, short name or IDNO. */
+  /** Matches legal name, short name, internal name or IDNO. */
   q?: string
   role?: 'customer' | 'supplier'
   includeInactive?: boolean
@@ -52,7 +59,17 @@ export interface NewPartner {
   short_name?: string | null
   idno?: string | null
   idnp?: string | null
+  internal_name?: string | null
   vat_code?: string | null
+  /**
+   * Required whenever a VAT code is sent. The server refuses the pair otherwise,
+   * and the refusal is the point: whether a counterparty was registered on the
+   * day of a document decides how that document is treated, and a start date
+   * taken from the day the card was typed answers a different question.
+   */
+  vat_valid_from?: string | null
+  default_currency?: string | null
+  default_payment_terms_days?: number | null
   is_customer?: boolean
   is_supplier?: boolean
 }

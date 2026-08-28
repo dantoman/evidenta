@@ -29,14 +29,28 @@ from decimal import Decimal
 from typing import Protocol
 
 from evidenta.fiscal.registry.services.resolution import resolve_logic
+from evidenta.platform.amounts import CURRENCY_SCALE, RATE_SCALE
 
-#: The scale amounts are stored at in the transaction currency (Spec B section
-#: 1.3). A storage decision, already made; it is not the rounding precision of
-#: the functional amount, which is DNB-08 point (a) and open.
-CURRENCY_SCALE = 4
-
-#: The scale exchange rates are stored at (Spec B section 7.2).
-RATE_SCALE = 8
+#: Re-exported, not defined here. The scales moved to `platform.amounts` when the
+#: document layer arrived: a document line and a journal line have to be stored
+#: at the same scale, and `platform` cannot import `accounting`. Keeping the
+#: names here means nothing that already imports them from this module changes,
+#: and there is still exactly one place the numbers live.
+#:
+#: `CURRENCY_SCALE` is a storage decision, already made (Spec B section 1.3). It
+#: is not the rounding precision of the functional amount, which is DNB-08 point
+#: (a) and open.
+__all__ = [
+    "CURRENCY_SCALE",
+    "RATE_SCALE",
+    "ConvertedAmount",
+    "CurrencyMismatchError",
+    "Money",
+    "Rounding",
+    "UnknownImplementationError",
+    "convert",
+    "rounding_for",
+]
 
 #: The `logic_key` under which the money rounding rule is registered. No version
 #: is registered yet, deliberately -- see `Rounding` below.

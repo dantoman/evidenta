@@ -188,7 +188,12 @@ function NewPartnerForm({ onCreated }: { onCreated: () => Promise<void> | void }
   const [shortName, setShortName] = useState('')
   const [kind, setKind] = useState('legal_entity')
   const [idno, setIdno] = useState('')
+  const [internalName, setInternalName] = useState('')
   const [vatCode, setVatCode] = useState('')
+  // Asked for together with the code, never derived. Whether the counterparty
+  // was registered on the day of a document decides how that document is
+  // treated; the day the card was typed answers a different question.
+  const [vatValidFrom, setVatValidFrom] = useState('')
   const [isCustomer, setIsCustomer] = useState(true)
   const [isSupplier, setIsSupplier] = useState(false)
 
@@ -203,7 +208,9 @@ function NewPartnerForm({ onCreated }: { onCreated: () => Promise<void> | void }
         // ask a person which column they are filling.
         idno: kind === 'legal_entity' ? idno.trim() || null : null,
         idnp: kind === 'natural_person' ? idno.trim() || null : null,
+        internal_name: internalName.trim() || null,
         vat_code: vatCode.trim() || null,
+        vat_valid_from: vatValidFrom || null,
         is_customer: isCustomer,
         is_supplier: isSupplier,
       }),
@@ -211,7 +218,8 @@ function NewPartnerForm({ onCreated }: { onCreated: () => Promise<void> | void }
   })
 
   const roles = isCustomer || isSupplier
-  const complete = legalName.trim() !== '' && roles
+  const vatComplete = vatCode.trim() === '' || vatValidFrom !== ''
+  const complete = legalName.trim() !== '' && roles && vatComplete
 
   return (
     <form
@@ -239,6 +247,17 @@ function NewPartnerForm({ onCreated }: { onCreated: () => Promise<void> | void }
           maxLength={255}
           className={`${FIELD} w-48`}
           title={t.partners.shortNameHint}
+        />
+      </label>
+
+      <label className="flex flex-col gap-1 text-sm">
+        <span className="text-ink-muted">{t.partners.internalName}</span>
+        <input
+          value={internalName}
+          onChange={(event) => setInternalName(event.target.value)}
+          maxLength={255}
+          className={`${FIELD} w-48`}
+          title={t.partners.internalNameHint}
         />
       </label>
 
@@ -274,6 +293,17 @@ function NewPartnerForm({ onCreated }: { onCreated: () => Promise<void> | void }
           onChange={(event) => setVatCode(event.target.value)}
           maxLength={32}
           className={`${FIELD} w-40 font-mono`}
+        />
+      </label>
+
+      <label className="flex flex-col gap-1 text-sm">
+        <span className="text-ink-muted">{t.partners.vatValidFrom}</span>
+        <input
+          type="date"
+          value={vatValidFrom}
+          onChange={(event) => setVatValidFrom(event.target.value)}
+          className={`${FIELD} w-40`}
+          title={t.partners.vatValidFromHint}
         />
       </label>
 

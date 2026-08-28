@@ -148,11 +148,13 @@ def seed_template(
     """
     template_id = uuid.uuid4()
     seed(
+        # See the note in `test_operation_templates`: the regime and the validity
+        # window are stated, never defaulted.
         "INSERT INTO numbering_template (id, tenant_id, company_id, document_type,"
         " series, prefix, suffix, separator, digits, include_year, year_format,"
-        " reset_policy, created_at, updated_at)"
+        " reset_policy, regime, valid_from, created_at, updated_at)"
         " VALUES (%s, %s, %s, %s, '', 'NC', '', '-', 4, true, 'yyyy', 'yearly',"
-        " now(), now())",
+        " 'own', DATE '2000-01-01', now(), now())",
         [template_id, tenant_id, company_id, document_type],
     )
     return template_id

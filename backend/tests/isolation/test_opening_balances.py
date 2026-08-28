@@ -188,11 +188,13 @@ def seed_company_world(
         [year_id, tenant, company],
     )
     seed(
+        # See the note in `test_operation_templates`: the regime and the validity
+        # window are stated, never defaulted.
         "INSERT INTO numbering_template (id, tenant_id, company_id, document_type,"
         " series, prefix, suffix, separator, digits, include_year, year_format,"
-        " reset_policy, created_at, updated_at)"
+        " reset_policy, regime, valid_from, created_at, updated_at)"
         " VALUES (%s, %s, %s, 'journal_entry', '', 'SI', '', '-', 4, true, 'yyyy',"
-        " 'yearly', now(), now())",
+        " 'yearly', 'own', DATE '2000-01-01', now(), now())",
         [uuid.uuid4(), tenant, company],
     )
 

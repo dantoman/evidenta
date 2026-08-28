@@ -142,6 +142,67 @@ Descompunerea completă: `_bootstrap/08-f1-backlog.md` — patru fire care pot m
 
 ## Ultima sesiune
 
+**2026-08-28, stratul documentar — structura documentelor și ciclul lor de viață, până la validat:**
+
+- **Nucleul exista pe jumătate și a fost completat, nu dublat.** `platform/documents` avea antetul și
+  istoricul de stări din F0.6; îi lipseau **liniile**, a doua dată (contabilă), cursul, referința la
+  documentul sursă și regimul de numerotare. Un al doilea nucleu ar fi fost a doua grilă de date.
+- **Documentul validat e imutabil în bază, nu în servicii.** Cerința spune „la nivel de model, nu
+  prin convenție în views" — iar un serviciu nu e nivelul de model: importul în masă, migrările de
+  date și orice `UPDATE` din psql îl ocolesc, și exact acolo se editează tăcut un document deja emis.
+  Triggerul compară **rândul întreg minus coloanele ciclului de viață**: listă de permise, nu de
+  interzise, ca o coloană adăugată peste doi ani să fie înghețată din oficiu.
+- **`confirmed → draft` a fost scoasă din mașina de stări.** Era acolo din F0.6. Dezvalidarea ori
+  eliberează un număr — ceea ce un registru n-are voie — ori arde unul tăcut. Refuzată și de trigger.
+- **Două regimuri de numerotare, paralele.** Seria capătă `regime` (`own` / `external`) și
+  **valabilitate**; cele două unicități parțiale au devenit o constrângere de neîntrepătrundere,
+  fiindcă unicitatea peste tot timpul ar fi făcut imposibilă schimbarea seriei. Sub regim extern
+  `allocate` **refuză**, iar documentul se validează fără număr — identificatorul e al schimbului
+  e-Factura sau al unui diapazon `art. 118²`, nu al nostru.
+- **Nicio sumă nu se calculează aici, și motivul e scris în cod.** Linia primește `net`, `TVA` și
+  `total` gata calculate; baza verifică doar identitatea care nu cere rotunjire — `total = net + TVA`.
+  Reducerea lui `cantitate × preț` sau a lui `net × cotă` la scara stocată **este** pasul de
+  rotunjire, iar regula lui e logică fiscală versionată, deschisă pe trei axe deodată (ADR-037 §3.1–3.3,
+  `DNB-08`). Un `CHECK` scris înainte ar fi codificat unul dintre răspunsuri ca lege.
+- **Cota vine din nomenclator, la dată; regimul TVA e cod stocat, nu enumerare.** `fiscal.parameters`
+  primește `vat_rate(key, on)` și `vat_regimes(on)`. Vocabularul de regimuri **nu e în cod** — vine
+  din Codul fiscal și se schimbă prin act, deci e parametru; modulul stochează codul primit, ca
+  `strictforms.form_type_code`.
+- **Contrapartea: `partner.vat_code` a devenit `partner_vat_registration`**, cu perioadă de
+  valabilitate, aceeași formă pe care `company_vat_registration` o are deja. Nu duplicat: codul
+  aparține înregistrării, iar un partener radiat și reînregistrat primește altul — o singură coloană
+  l-ar fi suprascris tăcut pe cel pe care facturile deja emise îl poartă. `internal_name` (ADR-034)
+  aterizează pe `partner` și pe `item`, cu căutarea extinsă peste el.
+- **Articolul:** `item_unit` (unități alternative cu coeficient **per articol**, distinct de
+  `unit_conversion`, care e general), `item_barcode` (tabelă, nu coloană — un articol are mai multe
+  coduri), `tariff_code`, plus felurile `material` și `low_value_short_lived` (OMVSD).
+- **Tipurile concrete stau în `operations/{sales,purchases}`**, tabele una-la-unu cu antetul: document
+  de vânzare cu natură (livrare/avans, **un** tip), document de cumpărare cu numărul și data
+  furnizorului (ale lui, deduplicate pe cheie naturală — `R20`), proformă, comandă client, comandă
+  furnizor cu conversie declarată în registru. Stornoul e al nucleului: e același document pentru
+  vânzare și pentru cumpărare, iar `reversal_document` există ca legătura să fie `NOT NULL`.
+- **Peste cusătura dintre module trec identificatori, nu rânduri.** Serviciile publice ale nucleului
+  iau `uuid`; `operations` întoarce `uuid`; `items.services.catalogue` întoarce un dataclass înghețat,
+  nu instanța `Item`. Prins de gardianul de dependențe (`D6`) în lucru, nu la citire — patru violări,
+  reparate prin structură: vocabularul regimurilor a ieșit din stratul de model în
+  `platform/numbering/regimes.py`.
+- **Scara sumelor are un singur loc: `platform/amounts.py`.** `accounting.currency.money` o
+  reexportă, ca nimic care o importa deja să nu se schimbe. `platform` nu poate importa `accounting`,
+  iar o constantă pe care tabela de linii n-o poate citi nu e un singur loc, e un comentariu.
+- **Măsurat, nu presupus:** triggerul `SECURITY DEFINER` a murit cu „permission denied for table
+  document" la prima linie inserată — `evidenta_rls` are `BYPASSRLS` dar **niciun** privilegiu de
+  tabelă implicit. Grant punctual, ca la `journal_entry` în `0036`.
+- **Un defect prins scriind raportul, nu rulând suita:** cheia de deduplicare a documentului de
+  cumpărare era `(companie, număr, dată)` — fără furnizor. Doi furnizori care emit „001" în aceeași
+  zi e ordinar, iar constrângerea l-ar fi refuzat pe al doilea *arătând ca deduplicarea care
+  funcționează*. `partner_id` e denormalizat pe `purchase_document` tocmai fiindcă o cheie pe două
+  tabele nu poate fi constrângere. Testul care o apără verifică acceptarea, nu refuzul.
+
+Suita: **863 trec, 1 sărit.** `mypy` nu adaugă nicio eroare peste linia de bază de la `HEAD`
+(18, în trei fișiere neatinse de sesiunea asta — măsurat într-un worktree curat, nu presupus).
+
+## Sesiuni mai vechi
+
 **2026-08-28, modulul 2 din briefing — registrul formularelor cu regim special (`art. 118²`):**
 
 - **Entitatea nu își alege seria.** Asta e faptul pe care stă tot modulul, și e **opusul** regimului
@@ -1741,6 +1802,31 @@ Ordonate după cât de devreme blochează. Lista de mai jos e reconciliată cu A
    planul de conturi SNC cer în continuare actul normativ citat, nu memoria.
 7. **Accesul la e-Factura** — semnătură electronică, entitate de test, ghid de integrare.
    Singurul element extern pe drumul critic; de el depinde `DNB-08`.
+
+**Din stratul documentar (2026-08-28), în ordinea în care blochează.** Niciuna nu e aleasă în cod;
+fiecare are un refuz sau o absență explicită în locul ei.
+
+8. **Rotunjirea, încă o dată, dar acum cu un consumator.** `DNB-08` / ADR-037 §3.1–3.3 nu mai
+   blochează doar postarea: **nimic nu poate calcula o linie de document.** `document_line` primește
+   `net`, `TVA` și `total` gata calculate, iar baza verifică doar `total = net + TVA`. Până la
+   deblocare, orice ecran sau import trebuie să aducă sumele de altundeva.
+9. **Data cursului valutar** (`ADR-039`, `DN-04`, art. 97 alin. (6)). `document.exchange_rate` este
+   **input explicit**, niciodată căutat: `currency.rate_on()` cere ziua exactă și refuză altfel, iar
+   `latest_before()` există și nu e chemat de nimeni. Cine decide ziua decide și ce funcție se cheamă.
+10. **Vocabularul regimurilor de TVA** — ce tratamente există și cum se numesc. E dată, nu cod:
+    `fiscal.vat_regimes()` și `assert_regime()` sunt scrise și **nu sunt chemate de stratul
+    documentar**, fiindcă nomenclatorul nu e încărcat (`OD-22`) și un gardian care refuză totul se
+    ocolește. Se leagă în ziua în care lista aterizează.
+11. **Data contabilă implicită = data documentului.** Ales ca implicit, nu ca identitate — coloana
+    există tocmai ca ele să difere. Dacă implicitul e greșit pentru vreun tip, e decizie contabilă.
+12. **Anul fiscal al numărului vine din `document_date`**, nu din `accounting_date` (comportamentul
+    ADR-022, nemodificat). Dacă înserierea trebuie să urmeze data contabilă, se schimbă.
+13. **Validarea nu verifică perioada.** Un document se validează cu dată contabilă într-o perioadă
+    închisă; refuzul e al postării (`R12`). Probabil corect — validarea nu e postare — dar e o
+    alegere, nu o omisiune.
+14. **Conversia e totală și unică:** o proformă sau o comandă produce **un** document, cu toate
+    liniile. Facturarea parțială a unei comenzi nu e modelată. La fel stornoul: unul per document.
+15. **Anularea documentului produs eliberează sursa** pentru o nouă conversie. Ales; de confirmat.
 
 Peste acestea, punctele „DECIZIE NECESARĂ" rămase din Spec A §11 și Spec B §11. Dintre cele care
 cereau contabilul practicant, `DNB-05`, `DNB-07` și `DNB-09` sunt deblocate de `ADR-010`. `DNB-08`

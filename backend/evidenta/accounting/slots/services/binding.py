@@ -88,9 +88,7 @@ def install_default_bindings(
     # answers the right question: a role has to bind to an account a posting may
     # actually use, so blocked and out-of-force accounts are excluded here rather
     # than discovered at the first posting that needs them.
-    accounts = {
-        account.account_code: account for account in postable_accounts(company_id, on_date)
-    }
+    accounts = {account.account_code: account for account in postable_accounts(company_id, on_date)}
 
     missing = sorted({default.account_code for default in DEFAULTS} - set(accounts))
     if missing:

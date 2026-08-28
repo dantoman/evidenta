@@ -170,11 +170,16 @@ def scene(
     )
     template_id = uuid.uuid4()
     seed(
+        # `regime` and `valid_from` are not optional: a series belongs to one of
+        # the two numbering regimes and applies over a window. Spelled out here
+        # rather than left to a database default, because a row that arrived
+        # without anybody choosing a regime would number documents freely under a
+        # series that may not be ours to number.
         "INSERT INTO numbering_template (id, tenant_id, company_id, document_type,"
         " series, prefix, suffix, separator, digits, include_year, year_format,"
-        " reset_policy, created_at, updated_at)"
+        " reset_policy, regime, valid_from, created_at, updated_at)"
         " VALUES (%s, %s, %s, 'journal_entry', '', 'NC', '', '-', 4, true, 'yyyy',"
-        " 'yearly', now(), now())",
+        " 'yearly', 'own', DATE '2000-01-01', now(), now())",
         [template_id, tenant, company],
     )
 

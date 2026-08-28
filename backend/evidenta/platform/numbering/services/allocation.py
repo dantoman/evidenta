@@ -23,6 +23,7 @@ from dataclasses import dataclass
 from datetime import date
 
 from django.db import transaction
+from django.db.models import Q, QuerySet
 
 from evidenta.platform.numbering.models import (
     NumberingCounter,
@@ -30,6 +31,7 @@ from evidenta.platform.numbering.models import (
     ResetPolicy,
     YearFormat,
 )
+from evidenta.platform.numbering.regimes import NumberingRegime
 
 
 class NumberingError(RuntimeError):
@@ -48,27 +50,44 @@ class AllocatedNumber:
     fiscal_year: int
 
 
-def resolve_template(company_id: uuid.UUID, document_type: str) -> NumberingTemplate:
-    """The template for this type, else the company's general one.
+def in_force(rows: QuerySet[NumberingTemplate], on: date) -> QuerySet[NumberingTemplate]:
+    """Templates whose validity window contains the date. Half-open ``[from, to)``.
+
+    The same window `fiscal.parameters.services.resolution.in_force` applies, and
+    written the same way on purpose: an inclusive `valid_to` in one place and an
+    exclusive one in another differ on exactly one day a year, which is a defect
+    found by a client rather than by a test.
+    """
+    return rows.filter(valid_from__lte=on).filter(Q(valid_to__isnull=True) | Q(valid_to__gt=on))
+
+
+def resolve_template(company_id: uuid.UUID, document_type: str, on: date) -> NumberingTemplate:
+    """The template for this type on this date, else the company's general one.
+
+    ``on`` is required and has no default. A resolver that could fall back to
+    today would renumber a document entered late under this year's series --
+    ADR-044 settles that for fiscal rules and the argument is identical here: the
+    date of the document decides, never the date of the entry.
 
     A type with neither is a configuration error and says so. Inventing a default
     here would produce numbers nobody chose, on documents that leave the company.
     """
-    specific = NumberingTemplate.objects.filter(
-        company_id=company_id, document_type=document_type
+    specific = in_force(
+        NumberingTemplate.objects.filter(company_id=company_id, document_type=document_type), on
     ).first()
     if specific is not None:
         return specific
 
-    general = NumberingTemplate.objects.filter(
-        company_id=company_id, document_type__isnull=True
+    general = in_force(
+        NumberingTemplate.objects.filter(company_id=company_id, document_type__isnull=True), on
     ).first()
     if general is not None:
         return general
 
     raise NumberingError(
         "numbering.no_template",
-        f"company {company_id} has no template for {document_type!r} and no general one",
+        f"company {company_id} has no template for {document_type!r} in force on "
+        f"{on} and no general one",
     )
 
 
@@ -111,7 +130,15 @@ def allocate(
     locked for the rest of it, so two documents cannot take the same number, and
     the lock is held only for the allocation rather than for the whole document.
     """
-    template = resolve_template(company_id, document_type)
+    template = resolve_template(company_id, document_type, document_date)
+    if template.regime == NumberingRegime.EXTERNAL:
+        raise NumberingError(
+            "numbering.external_regime",
+            f"the series in force for {document_type!r} on {document_date} is external: "
+            f"its identifiers are issued elsewhere -- by the SFS exchange, or from a "
+            f"range under art. 118 squared -- and generating one here would collide "
+            f"with the one that arrives",
+        )
     key = period_key(template, document_date)
 
     with transaction.atomic():

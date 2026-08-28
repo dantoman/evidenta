@@ -20,12 +20,14 @@ from __future__ import annotations
 
 import re
 import uuid
+from collections.abc import Iterable
+from datetime import date
 from typing import Any
 
-from django.db import IntegrityError
+from django.db import IntegrityError, transaction
 from django.db.models import Q
 
-from evidenta.masterdata.partners.models import Partner, PartnerKind
+from evidenta.masterdata.partners.models import Partner, PartnerKind, PartnerVatRegistration
 from evidenta.platform.api.errors import ApiError
 
 #: Moldovan IDNO: thirteen digits. The same shape the company endpoint enforces;
@@ -61,6 +63,25 @@ class PartnerNotFoundError(ApiError):
     status = 404
 
 
+class VatValidFromRequiredError(ApiError):
+    """A VAT code with no date it started applying on.
+
+    Refused rather than dated to today. Whether a counterparty was registered on
+    the day of a document decides how that document is treated, and a start date
+    invented at data-entry time would answer that question with the date somebody
+    happened to type the card -- silently, and wrongly for every document before
+    it.
+    """
+
+    code = "partners.vat_valid_from_required"
+    status = 422
+
+
+class VatRegistrationOverlapError(ApiError):
+    code = "partners.vat_registration_overlap"
+    status = 409
+
+
 def create_partner(
     *,
     tenant_id: uuid.UUID,
@@ -69,7 +90,11 @@ def create_partner(
     idno: str | None = None,
     idnp: str | None = None,
     vat_code: str | None = None,
+    vat_valid_from: date | None = None,
     short_name: str | None = None,
+    internal_name: str | None = None,
+    default_currency: str | None = None,
+    default_payment_terms_days: int | None = None,
     is_customer: bool = False,
     is_supplier: bool = False,
 ) -> Partner:
@@ -98,18 +123,37 @@ def create_partner(
     if idnp is not None and not IDNP.match(idnp):
         raise PartnerMalformedError(f"{idnp!r} is not an IDNP: thirteen digits, no spaces")
 
-    try:
-        return Partner.objects.create(
-            tenant_id=tenant_id,
-            legal_name=name,
-            short_name=(short_name or "").strip() or None,
-            kind=kind,
-            idno=idno,
-            idnp=idnp,
-            vat_code=(vat_code or "").strip() or None,
-            is_customer=is_customer,
-            is_supplier=is_supplier,
+    code = (vat_code or "").strip()
+    if code and vat_valid_from is None:
+        raise VatValidFromRequiredError(
+            "a VAT code needs the date the registration started. Whether the "
+            "counterparty was registered on the day of a document decides how that "
+            "document is treated, and there is no safe date to assume."
         )
+
+    try:
+        with transaction.atomic():
+            partner = Partner.objects.create(
+                tenant_id=tenant_id,
+                legal_name=name,
+                short_name=(short_name or "").strip() or None,
+                internal_name=(internal_name or "").strip() or None,
+                kind=kind,
+                idno=idno,
+                idnp=idnp,
+                default_currency=(default_currency or "").strip().upper() or None,
+                default_payment_terms_days=default_payment_terms_days,
+                is_customer=is_customer,
+                is_supplier=is_supplier,
+            )
+            if code and vat_valid_from is not None:
+                PartnerVatRegistration.objects.create(
+                    tenant_id=tenant_id,
+                    partner=partner,
+                    vat_code=code,
+                    valid_from=vat_valid_from,
+                )
+            return partner
     except IntegrityError as clash:
         # The unique constraint is the authority, not a prior SELECT: two
         # requests arriving together would both find nothing and both insert.
@@ -119,7 +163,90 @@ def create_partner(
                 f"record splits the balances between them, and the split surfaces "
                 f"as a reconciliation that will not close"
             ) from clash
+        if "partner_vat_registration_no_overlap" in str(clash):
+            raise VatRegistrationOverlapError(
+                "the partner already has a VAT registration covering that period"
+            ) from clash
         raise
+
+
+@transaction.atomic
+def register_vat(
+    partner_id: uuid.UUID,
+    *,
+    vat_code: str,
+    valid_from: date,
+    source: str | None = None,
+) -> PartnerVatRegistration:
+    """Record that a counterparty is a VAT payer, from a date.
+
+    A new row rather than an edit of the last one. A partner struck off and
+    registered again receives a different code, and overwriting would erase the
+    code the invoices already issued still carry.
+    """
+    partner = Partner.objects.filter(id=partner_id).first()
+    if partner is None:
+        raise PartnerNotFoundError(f"partner {partner_id} is not visible in this context")
+    code = (vat_code or "").strip()
+    if not code:
+        raise PartnerMalformedError("a VAT registration needs the code it was issued under")
+    try:
+        return PartnerVatRegistration.objects.create(
+            tenant_id=partner.tenant_id,
+            partner=partner,
+            vat_code=code,
+            valid_from=valid_from,
+            source=source,
+        )
+    except IntegrityError as clash:
+        if "partner_vat_registration_no_overlap" in str(clash):
+            raise VatRegistrationOverlapError(
+                f"partner {partner_id} already has a VAT registration covering "
+                f"{valid_from}; two answers to 'was this a VAT payer then' is no answer"
+            ) from clash
+        raise
+
+
+@transaction.atomic
+def deregister_vat(partner_id: uuid.UUID, *, last_day: date) -> PartnerVatRegistration:
+    """Close the open registration on a day -- struck off, not deleted."""
+    registration = (
+        PartnerVatRegistration.objects.select_for_update()
+        .filter(partner_id=partner_id, valid_to__isnull=True)
+        .order_by("-valid_from")
+        .first()
+    )
+    if registration is None:
+        raise PartnerNotFoundError(f"partner {partner_id} has no open VAT registration to close")
+    if last_day < registration.valid_from:
+        raise VatRegistrationOverlapError(
+            f"a registration cannot end on {last_day}, before it starts on "
+            f"{registration.valid_from}"
+        )
+    # The column is the half-open upper bound: the first day the registration no
+    # longer applies. `last_day` is what a human says.
+    registration.valid_to = date.fromordinal(last_day.toordinal() + 1)
+    registration.save(update_fields=["valid_to"])
+    return registration
+
+
+def vat_registration_on(partner_id: uuid.UUID, on: date) -> PartnerVatRegistration | None:
+    """The registration in force on a date, or None. Half-open ``[from, to)``.
+
+    ``on`` is required and has no default. The question a document asks is "was
+    this counterparty a VAT payer on the day of the document", and a resolver
+    that could fall back to today would answer a different question -- correctly,
+    and about the wrong day (ADR-044).
+    """
+    return (
+        PartnerVatRegistration.objects.filter(partner_id=partner_id, valid_from__lte=on)
+        .filter(Q(valid_to__isnull=True) | Q(valid_to__gt=on))
+        .first()
+    )
+
+
+def is_vat_registered(partner_id: uuid.UUID, on: date) -> bool:
+    return vat_registration_on(partner_id, on) is not None
 
 
 def partners_of(
@@ -131,7 +258,10 @@ def partners_of(
 ) -> list[dict[str, Any]]:
     """The directory, searchable by the two things a person has in front of them.
 
-    ``query`` matches the legal name, the short name or the IDNO. Case-insensitive
+    ``query`` matches the legal name, the short name, the internal name or the
+    IDNO -- the internal one included because that is what a Russian-speaking
+    accountant typed and therefore what they will search for (ADR-034).
+    Case-insensitive
     on the names and exact-prefix on the number, because a person copying an IDNO
     off an invoice copies it from the start.
 
@@ -153,17 +283,19 @@ def partners_of(
         rows = rows.filter(
             Q(legal_name__icontains=needle)
             | Q(short_name__icontains=needle)
+            | Q(internal_name__icontains=needle)
             | Q(idno__startswith=needle)
         )
 
-    return [_row(partner) for partner in rows.order_by("legal_name")[:200]]
+    page = list(rows.order_by("legal_name")[:200])
+    return [_row(partner, _open_codes(page)) for partner in page]
 
 
 def partner_in_context(partner_id: uuid.UUID) -> dict[str, Any]:
     partner = Partner.objects.filter(id=partner_id).first()
     if partner is None:
         raise PartnerNotFoundError(f"partner {partner_id} is not visible in this context")
-    return _row(partner)
+    return _row(partner, _open_codes([partner]))
 
 
 def set_partner_active(partner_id: uuid.UUID, *, active: bool) -> dict[str, Any]:
@@ -178,18 +310,37 @@ def set_partner_active(partner_id: uuid.UUID, *, active: bool) -> dict[str, Any]
         raise PartnerNotFoundError(f"partner {partner_id} is not visible in this context")
     partner.is_active = active
     partner.save(update_fields=["is_active", "updated_at"])
-    return _row(partner)
+    return _row(partner, _open_codes([partner]))
 
 
-def _row(partner: Partner) -> dict[str, Any]:
+def _open_codes(partners: Iterable[Partner]) -> dict[uuid.UUID, str]:
+    """The still-open VAT registration of each partner, in one query.
+
+    "Open" is a fact about the row -- `valid_to IS NULL` -- not a resolution
+    against a date, so the directory can show it without answering a question
+    nobody asked. A document that needs the status *on a day* calls
+    `vat_registration_on`, which takes the day.
+    """
+    ids = [partner.id for partner in partners]
+    rows = PartnerVatRegistration.objects.filter(partner_id__in=ids, valid_to__isnull=True)
+    return {row.partner_id: row.vat_code for row in rows.order_by("valid_from")}
+
+
+def _row(partner: Partner, open_codes: dict[uuid.UUID, str]) -> dict[str, Any]:
+    code = open_codes.get(partner.id)
     return {
         "id": str(partner.id),
         "legal_name": partner.legal_name,
         "short_name": partner.short_name,
+        "internal_name": partner.internal_name,
+        "display_name": partner.internal_name or partner.legal_name,
         "kind": partner.kind,
         "idno": partner.idno,
         "idnp": partner.idnp,
-        "vat_code": partner.vat_code,
+        "vat_code": code,
+        "vat_registered": code is not None,
+        "default_currency": partner.default_currency,
+        "default_payment_terms_days": partner.default_payment_terms_days,
         "is_customer": partner.is_customer,
         "is_supplier": partner.is_supplier,
         "is_active": partner.is_active,
