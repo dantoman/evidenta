@@ -278,7 +278,19 @@ def pytest_runtest_teardown(item: pytest.Item) -> Iterator[None]:
 #: fixture that restores these dicts lives inside one test file, so any test
 #: anywhere else can still empty them, and the next catalogue to be filled brings
 #: the defect back in a new place.
-_SHARED_REGISTRIES = ("REGISTRY", "HANDLERS", "DEPRECATED", "ACCOUNT_ROLES")
+#: Fiecare intrare e o pereche (modul, nume), fiindcă al cincilea catalog trăiește
+#: în alt modul și se umple la fel — `platform.documents.registry.REGISTRY`,
+#: completat din `ready()` de `operations.sales`, `operations.purchases` și de
+#: nucleu. Semnalat de sesiunea care l-a construit, nu descoperit aici: un
+#: catalog care se umple la pornire e exact profilul care transformă un `clear()`
+#: nevinovat într-un gardian stins.
+_SHARED_REGISTRIES = (
+    ("evidenta.accounting.events.registry", "REGISTRY"),
+    ("evidenta.accounting.events.registry", "HANDLERS"),
+    ("evidenta.accounting.events.registry", "DEPRECATED"),
+    ("evidenta.accounting.events.registry", "ACCOUNT_ROLES"),
+    ("evidenta.platform.documents.registry", "REGISTRY"),
+)
 
 
 @pytest.fixture(autouse=True)
@@ -294,20 +306,22 @@ def _registries_survive_the_test() -> Iterator[None]:
     Defined in the root conftest so it covers every suite, including the ones
     that mutate `HANDLERS` from `tests/isolation/`.
     """
-    from evidenta.accounting.events import registry
+    from importlib import import_module
 
-    before = {name: _snapshot(registry, name) for name in _SHARED_REGISTRIES}
+    modules = {path: import_module(path) for path, _ in _SHARED_REGISTRIES}
+    before = {key: _snapshot(modules[key[0]], key[1]) for key in _SHARED_REGISTRIES}
     try:
         yield
     finally:
-        after = {name: _snapshot(registry, name) for name in _SHARED_REGISTRIES}
-        changed = [name for name in _SHARED_REGISTRIES if before[name] != after[name]]
-        for name in changed:
-            live = getattr(registry, name)
+        after = {key: _snapshot(modules[key[0]], key[1]) for key in _SHARED_REGISTRIES}
+        changed = [key for key in _SHARED_REGISTRIES if before[key] != after[key]]
+        for path, name in changed:
+            live = getattr(modules[path], name)
             live.clear()
-            live.update(before[name])
+            live.update(before[(path, name)])
         assert not changed, (
-            f"testul a lăsat {', '.join(changed)} modificat(e) în registrul global. "
+            f"testul a lăsat {', '.join(f'{path}.{name}' for path, name in changed)} "
+            f"modificat(e) în registrul global. "
             f"Un catalog golit nu verifică nimic, iar testele următoare trec fără să "
             f"verifice — de aceea eșecul cade aici, la cel care l-a schimbat. "
             f"Curățați doar ce ați adăugat (`difference_update`), nu tot (`clear`)."
