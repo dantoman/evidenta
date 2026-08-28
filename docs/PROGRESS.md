@@ -198,8 +198,26 @@ Descompunerea completă: `_bootstrap/08-f1-backlog.md` — patru fire care pot m
   funcționează*. `partner_id` e denormalizat pe `purchase_document` tocmai fiindcă o cheie pe două
   tabele nu poate fi constrângere. Testul care o apără verifică acceptarea, nu refuzul.
 
-Suita: **863 trec, 1 sărit.** `mypy` nu adaugă nicio eroare peste linia de bază de la `HEAD`
-(18, în trei fișiere neatinse de sesiunea asta — măsurat într-un worktree curat, nu presupus).
+- **Capcana pe care o descrie chiar fișierul care a căzut în ea.** `make migrate` a murit la
+  proprietar: `column "valid_from" contains null values`. Politica lui `numbering_template` e scrisă
+  `TO evidenta_app`, iar `FORCE RLS` se aplică **și** proprietarului — deci `UPDATE ... WHERE
+  valid_from IS NULL` rulat ca owner atinge zero rânduri **și reușește**, iar `SET NOT NULL` de după
+  scanează tabela *fizic* și găsește cele trei rânduri pe care UPDATE-ul nu le-a văzut. Verificasem
+  înainte cu `select count(*)` — **rulat tot ca owner**, care a răspuns `0` din exact același motiv.
+  Măsurătoarea menită să prevină greșeala a confirmat-o. **Regula de aici: pe o tabelă cu `FORCE RLS`,
+  un `count(*)` rulat ca owner nu e o măsurătoare, e o politică.** Confirmată independent de sesiunea
+  paralelă pe `company` — `3` ca superuser, `0` ca owner, în aceeași bază, în aceeași clipă — și
+  ascuțită de ea: citirea oarbă produce **două zgomote diferite**. Un `INSERT` care se sprijină pe ea
+  cade pe loc, la constrângerea de unicitate; un `UPDATE` care se sprijină pe ea **reușește**, iar
+  eșecul apare mai târziu și vorbește despre o coloană, nu despre un rol. Disciplina e cerută de al
+  doilea caz. Reparat cu `NO FORCE` → `UPDATE` →
+  `FORCE` în tranzacția migrării, nu cu o politică de scriere ca în `0044`: aceea rămâne în bază după
+  ce nevoia a trecut, iar aici nevoia e o singură instrucțiune.
+
+Suita: **863 trec, 1 sărit.** `mypy .` **curat, 314 fișiere** — ultima eroare rămasă era a mea și e
+reparată printr-un refuz explicit, nu printr-un `cast`: `document.partner_id` e nullable fiindcă o
+ciornă are voie să fie incompletă, iar `purchase_document.partner_id` nu e, fiindcă e jumătate din
+cheia pe care `R20` deduplica. `make drift-check`: fără derivă față de contracte.
 
 ## Sesiuni mai vechi
 
