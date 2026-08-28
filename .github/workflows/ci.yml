@@ -22,7 +22,15 @@ jobs:
       # v7, not v4: v4 is still released against, but it targets Node.js 20,
       # which GitHub has deprecated and now forces onto Node 24. "Actively
       # maintained" and "not deprecated" turned out to be different things.
+      #
+      # `fetch-depth: 0` because the commit-attribution guard reads history. The
+      # default is a shallow clone, and a check that runs over a truncated
+      # history would report attribution nobody verified -- the same shape as a
+      # guard wired and never started. The guard refuses a shallow checkout out
+      # loud rather than passing over it, so this is not optional.
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
 
       # Pinned to an immutable tag, not a major one: astral-sh/setup-uv stopped
       # publishing major and minor tags at v8, so `@v5` was both five majors

@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+# Fiecare commit spune care sesiune l-a facut.
+#
+# De ce, si motivul NU e evidenta: `ADR-002` si `ADR-010` impart deciziile in doua
+# — cele contabile cer co-semnatura proprietarului, cele inginerest apartin
+# implementarii. Trei sesiuni comit sub aceeasi identitate (`dantoman`, autor si
+# committer), deci granita devine NEVERIFICABILA retroactiv: un commit care
+# inchide o decizie contabila arata identic cu unul care repara un test.
+#
+# Ce impune si ce NU impune. Impune PREZENTA trailerului, adica repara uitarea —
+# care e chiar ce s-a intamplat pe `ee1b599`, un commit pe care nicio sesiune
+# pornita nu si-l putea revendica. NU impune adevarul lui: o sesiune care scrie
+# alt nume trece. Un mecanism care ar impune adevarul ar cere identitati de
+# committer distincte, iar acelea nu exista intr-un arbore partajat de trei
+# procese sub acelasi utilizator.
+set -euo pipefail
+
+message_file="$1"
+
+# Merge-urile si commiturile de fixup nu trec prin autor uman.
+if grep -qE '^(Merge|fixup!|squash!)' "$message_file"; then
+    exit 0
+fi
+
+if grep -qE '^Session: [A-Za-z0-9][A-Za-z0-9._-]{1,63}$' "$message_file"; then
+    exit 0
+fi
+
+cat >&2 <<'MSG'
+commit refuzat: lipseste trailerul `Session:`.
+
+Adauga-l pe ultima linie a mesajului, cu numele sesiunii care comite:
+
+    Session: evidenta-2a
+
+De ce: trei sesiuni comit sub aceeasi identitate git, deci fara trailer nu se
+poate spune retroactiv care commit a inchis o decizie contabila si care a reparat
+un test — iar `ADR-002` face din distinctia asta o regula de guvernanta, nu o
+preferinta.
+
+Instalarea carligului: `make hooks`.
+MSG
+exit 1

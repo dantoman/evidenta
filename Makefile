@@ -240,6 +240,12 @@ seed-coa: ## Încarcă planul general de conturi (SNC 2020) — idempotent, rule
 check-committed: ## Se compilează ce e COMIS? (verificările obișnuite citesc discul, unde fișierul uitat există)
 	./scripts/check-committed.sh
 
+.PHONY: hooks
+hooks: ## Instalează cârligele git (cere trailerul `Session:` pe fiecare commit)
+	git config core.hooksPath .githooks
+	@echo "core.hooksPath = .githooks — commiturile cer acum trailerul \`Session:\`."
+	@echo "Cârligul repară UITAREA, nu minciuna: prezența trailerului e impusă, adevărul lui nu."
+
 .PHONY: drift-check
 drift-check: ## Compară baza VIE cu contractele RLS (suita rulează pe baza de test, care nu poate vedea deriva)
 	cd backend && uv run python manage.py check_schema_drift

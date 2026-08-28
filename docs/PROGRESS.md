@@ -142,6 +142,42 @@ Descompunerea completă: `_bootstrap/08-f1-backlog.md` — patru fire care pot m
 
 ## Ultima sesiune
 
+**2026-08-28, `DNB-08` deblocată pe structură, plus atribuirea între sesiuni (instrucțiune scrisă):**
+
+- **Regula, decisă de proprietar și scrisă în cod:** *TVA se calculează și se rotunjește pe fiecare
+  linie; totalul documentului e suma liniilor, niciodată o recalculare pe bază de total.* Cu asta,
+  divergența din ADR-037 §3.1 **nu mai poate exista** — nu există două calcule concurente. Testul care
+  o apără construiește chiar cazul care doare: trei linii de `0,33 × 20%` dau `0,21` prin sumare și
+  `0,20` prin recalculare pe bază; sistemul răspunde `0,21` fiindcă nu execută al doilea calcul.
+- **Ce a rămas date și ce a rămas cod, ținute separat deliberat.** Numărul de zecimale e **parametru
+  fiscal** (`accounting.amount_scale`, `accounting.unit_price_scale`), rezolvat după dată — o
+  instrucțiune care prescrie altceva e un INSERT, nu un deployment. Direcția la echidistanță e **rând
+  în `fiscal_logic_version`**: `IMPLEMENTATIONS` conține acum **ambele** direcții, iar prezența
+  amândurora nu e o alegere între ele. Probat: același input, două rânduri, două răspunsuri.
+- **`DNB-08` nu era blocată pe ghidul SFS, iar backlogul spunea că da.** ADR-037 §5 constata deja
+  contrariul — doar `V2` depinde de `OD-24`. Corectat în backlog, în două locuri.
+- **Al doilea blocaj, găsit la implementare: `OD-67`.** `fiscal_parameter` are politică doar de
+  **citire**, deci precizia nu se poate încărca pe nicio cale în afară de superuser. Mecanismul e
+  complet și **inert** — a șasea apariție a familiei „legat și nepornit" în aceeași zi.
+- **`OD-65` era greșită ca premisă, și corectarea schimbă răspunsul.** Din PDF-urile MF ale textelor
+  consolidate: OMF **118**/2013 poartă `MO 177-181 art.1224` **și** `MO 233-237 art.1534`; OMF
+  **119**/2013 poartă `MO 177-181 art.1225` **și același** `art.1534`. Deci art. 1534 **nu e anexa
+  planului de conturi** — e o publicare care acoperă **ambele acte**. Sunt două fapte, nu unul, iar al
+  doilea face varianta „încă un set de coloane" imposibilă: o coloană nu se împarte între două rânduri
+  de act. Citarea din `load_coa_template` e greșită azi.
+- **LIFO confirmat din act, nu din sursă secundară:** SNC „Stocuri" pct. 33 subpct. 4), *[Pct.33
+  modificat prin Ordinul Min.Fin. nr.48 din 12.03.2019, în vigoare 01.01.2020]*.
+- **Atribuirea între sesiuni**, cerută prin instrucțiune: cârlig `commit-msg` care cere trailerul
+  `Session:`, `make hooks`, și un gardian în `tests/architecture` care verifică **commiturile de după
+  cârlig**, nu instalarea lui — fiindcă un cârlig neinstalat nu refuză nimic și nu spune nimic despre
+  asta. `fetch-depth: 0` în CI, iar gardianul **cade** pe un checkout superficial în loc să treacă
+  peste un istoric trunchiat. Ce impune: **prezența** trailerului, adică uitarea. Nu adevărul lui.
+- **Cine a comis `ee1b599` a rămas nestabilit** — nu `evidenta-34` (are reflog și cronologie), nu
+  `evidenta-2a`. `ListAgents` arată `evidenta-18`, pornită la ora potrivită. Ipoteză, nu fapt; exact
+  golul pe care trailerul îl închide de acum înainte.
+
+## Sesiuni mai vechi
+
 **2026-08-28, stratul documentar — structura documentelor și ciclul lor de viață, până la validat:**
 
 - **Nucleul exista pe jumătate și a fost completat, nu dublat.** `platform/documents` avea antetul și
