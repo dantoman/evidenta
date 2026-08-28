@@ -13,6 +13,8 @@ watched refuse is a guard whose shape nobody knows.
 
 from __future__ import annotations
 
+from collections.abc import Iterator
+from contextlib import contextmanager
 from datetime import date
 
 import pytest
@@ -499,7 +501,12 @@ def test_an_unknown_account_role_is_reported() -> None:
         problems = audit(probe)
         assert any("TVA_DEDUCTABIL" in p for p in problems), problems
     finally:
-        reg.ACCOUNT_ROLES.clear()
+        # Discard only the probe roles. `clear()` used to be harmless because the
+        # catalogue was empty; now it would wipe the real one for every test that
+        # runs afterwards -- and those would pass, because an empty catalogue
+        # checks nothing. A test that leaves a guard disabled behind it is worse
+        # than the defect it was written for.
+        reg.ACCOUNT_ROLES.difference_update({"TVA_DEDUCTIBIL", "DATORII_FURNIZORI"})
 
 
 def test_a_known_role_passes() -> None:
@@ -516,17 +523,46 @@ def test_a_known_role_passes() -> None:
         }
         assert audit(probe) == []
     finally:
-        reg.ACCOUNT_ROLES.clear()
+        # Discard only the probe roles. `clear()` used to be harmless because the
+        # catalogue was empty; now it would wipe the real one for every test that
+        # runs afterwards -- and those would pass, because an empty catalogue
+        # checks nothing. A test that leaves a guard disabled behind it is worse
+        # than the defect it was written for.
+        reg.ACCOUNT_ROLES.difference_update({"TVA_DEDUCTIBIL", "DATORII_FURNIZORI"})
+
+
+@contextmanager
+def empty_catalogue() -> Iterator[None]:
+    """The catalogue as it was before `slots` existed, constructed on purpose.
+
+    These two tests assert what the boot check does **while nothing has filled
+    `ACCOUNT_ROLES`** -- that it says which roles it could not verify instead of
+    passing quietly. That state used to be the default and is now a state the
+    application leaves behind at startup, so the tests build it rather than
+    happening to find it. A test that silently changed meaning when the catalogue
+    arrived would be worse than one that failed.
+    """
+    saved = set(reg.ACCOUNT_ROLES)
+    reg.ACCOUNT_ROLES.clear()
+    try:
+        yield
+    finally:
+        reg.ACCOUNT_ROLES.update(saved)
 
 
 def test_an_empty_catalogue_checks_nothing() -> None:
     """Deliberate, and the same choice the type registry makes.
 
     The catalogue is populated by the module that binds roles to accounts, which
-    does not exist yet. A guard that refused every registration until then would
-    be switched off before it ever caught anything.
+    A guard that refused every registration while the catalogue was empty would
+    have been switched off before it ever caught anything.
+
+    **The module that fills it now exists** -- `accounting.slots` registers its
+    vocabulary at startup. So the empty state is built here rather than asserted
+    globally: the old line said "nothing has filled this yet", which was a fact
+    about the codebase and has stopped being true. What has to keep holding is the
+    behaviour, not the emptiness.
     """
-    assert set() == reg.ACCOUNT_ROLES
     HANDLERS["probe.v1"] = probe_handler
     probe = {
         "purchases.invoice_received": EventType(
@@ -536,7 +572,12 @@ def test_an_empty_catalogue_checks_nothing() -> None:
             handlers=(HandlerVersion("probe.v1", date(2020, 1, 1)),),
         )
     }
-    assert audit(probe) == []
+    with empty_catalogue():
+        assert audit(probe) == []
+
+    # And with the real catalogue in place it is caught, which is the half that
+    # only became testable when the catalogue arrived.
+    assert any("ANYTHING_AT_ALL" in problem for problem in audit(probe))
 
 
 def test_an_empty_catalogue_says_which_roles_it_could_not_check() -> None:
@@ -556,8 +597,9 @@ def test_an_empty_catalogue_says_which_roles_it_could_not_check() -> None:
             handlers=(HandlerVersion("probe.v1", date(2020, 1, 1)),),
         )
     }
-    assert audit(probe) == []
-    assert reg.unverified_roles(probe) == {"TVA_DEDUCTIBIL", "DATORII_FURNIZORI"}
+    with empty_catalogue():
+        assert audit(probe) == []
+        assert reg.unverified_roles(probe) == {"TVA_DEDUCTIBIL", "DATORII_FURNIZORI"}
 
 
 def test_a_filled_catalogue_leaves_nothing_unverified() -> None:
@@ -573,7 +615,12 @@ def test_a_filled_catalogue_leaves_nothing_unverified() -> None:
         }
         assert reg.unverified_roles(probe) == set()
     finally:
-        reg.ACCOUNT_ROLES.clear()
+        # Discard only the probe roles. `clear()` used to be harmless because the
+        # catalogue was empty; now it would wipe the real one for every test that
+        # runs afterwards -- and those would pass, because an empty catalogue
+        # checks nothing. A test that leaves a guard disabled behind it is worse
+        # than the defect it was written for.
+        reg.ACCOUNT_ROLES.difference_update({"TVA_DEDUCTIBIL", "DATORII_FURNIZORI"})
 
 
 def test_the_boot_check_warns_rather_than_passing_quietly(
@@ -592,7 +639,10 @@ def test_the_boot_check_warns_rather_than_passing_quietly(
     # Named explicitly: Django's logging configuration can leave the root logger
     # without a handler, and `at_level` alone then captures nothing -- a test
     # that would pass on a warning nobody emits.
-    with caplog.at_level("WARNING", logger="evidenta.accounting.events.registry"):
+    with (
+        empty_catalogue(),
+        caplog.at_level("WARNING", logger="evidenta.accounting.events.registry"),
+    ):
         check_registry()
     assert "TVA_DEDUCTIBIL" in caplog.text
     assert "unverified" in caplog.text

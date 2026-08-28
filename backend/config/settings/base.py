@@ -69,6 +69,8 @@ INSTALLED_APPS: list[str] = [
     "evidenta.accounting.currency.apps.CurrencyConfig",
     "evidenta.accounting.events.apps.AccountingEventsConfig",
     "evidenta.accounting.coa.apps.CoaConfig",
+    # The module the event registry waited for: it fills ACCOUNT_ROLES.
+    "evidenta.accounting.slots.apps.SlotsConfig",
     "evidenta.accounting.periods.apps.PeriodsConfig",
     "evidenta.accounting.ledger.apps.LedgerConfig",
     "evidenta.accounting.posting.apps.PostingConfig",

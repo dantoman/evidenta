@@ -67,6 +67,7 @@ ALREADY_CORRECT = [
         "0041_rls_function_privileges",
         "0043_entry_parameter_stamp",
         "0048_strict_forms",
+        "0049_account_role_binding",
     )
 ]
 
