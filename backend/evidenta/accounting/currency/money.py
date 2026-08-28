@@ -25,9 +25,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import date
-from decimal import Decimal
+from decimal import ROUND_HALF_EVEN, ROUND_HALF_UP, Decimal
 from typing import Protocol
 
+from evidenta.fiscal.parameters.services.scales import amount_scale
 from evidenta.fiscal.registry.services.resolution import resolve_logic
 from evidenta.platform.amounts import CURRENCY_SCALE, RATE_SCALE
 
@@ -45,6 +46,7 @@ __all__ = [
     "RATE_SCALE",
     "ConvertedAmount",
     "CurrencyMismatchError",
+    "DecimalRounding",
     "Money",
     "Rounding",
     "UnknownImplementationError",
@@ -119,17 +121,39 @@ class Rounding(Protocol):
     """What a registered rounding rule has to provide.
 
     A protocol rather than a function, because the rule is **versioned fiscal
-    logic** (R16): it is selected from `fiscal_logic_version` by the effective
-    date of the period being posted, so recalculating a 2026 period in 2030 uses
-    the 2026 rule. `ROUNDING_LOGIC_KEY` has no active version registered and will
-    not get one here -- DNB-08 is blocked on the SFS integration guide (OD-24),
-    and inventing a rule to make the module usable is precisely the thing that
-    would make it wrong.
+    logic** (`R16`): it is selected from `fiscal_logic_version` by the effective
+    date of the period being calculated, so recalculating a 2026 period in 2030
+    uses the 2026 rule.
+
+    ``scale`` is an argument rather than a property of the implementation, and
+    that split is the point: **the direction at a tie is versioned code, the
+    number of decimals is versioned data.** They move independently -- an
+    instruction can change the precision on a form without touching how a tie
+    resolves -- and folding them together would make a change to either one a
+    deployment.
     """
 
-    def quantize(self, value: Decimal) -> Decimal:
+    def quantize(self, value: Decimal, scale: int) -> Decimal:
         """Reduce an exact intermediate result to postable precision."""
         ...
+
+
+@dataclass(frozen=True, slots=True)
+class DecimalRounding:
+    """One tie-breaking direction, applied at whatever scale it is handed.
+
+    Both directions exist in the repository; **neither is chosen here.** Which
+    one runs is a row in `fiscal_logic_version`, selected by the effective date --
+    so the answer lives in data, and a period recalculated years later reaches
+    the direction that was in force then.
+    """
+
+    mode: str
+
+    def quantize(self, value: Decimal, scale: int) -> Decimal:
+        if scale < 0:
+            raise ValueError(f"a scale is a count of decimals, not {scale}")
+        return value.quantize(Decimal(1).scaleb(-scale), rounding=self.mode)
 
 
 #: Registered rounding implementations, by `implementation_ref`.
@@ -144,8 +168,20 @@ class Rounding(Protocol):
 #: So the registry **selects** among implementations that exist in this
 #: repository. It does not load them from anywhere.
 #:
-#: Empty on purpose. Adding an entry is choosing an answer to DNB-08.
-IMPLEMENTATIONS: dict[str, Rounding] = {}
+#: The two directions a tie can resolve in. **Having both here is not choosing
+#: between them** -- the registry row does that, by effective date. What was
+#: refused before, and is still refused, is a single hard-coded rule with no way
+#: to say which period it applies to.
+#:
+#: ADR-037 section 3.3 called the tie direction a plaster for a symptom: the
+#: divergence between the sum of the lines and a total recomputed on the total
+#: base. That symptom is gone by construction -- the line is authoritative and the
+#: document total is the sum of the lines, so there are never two competing
+#: calculations. What remains is a convention, and a convention belongs in data.
+IMPLEMENTATIONS: dict[str, Rounding] = {
+    "half_up": DecimalRounding(ROUND_HALF_UP),
+    "half_even": DecimalRounding(ROUND_HALF_EVEN),
+}
 
 
 class UnknownImplementationError(LookupError):
@@ -155,10 +191,10 @@ class UnknownImplementationError(LookupError):
 def rounding_for(effective_date: date) -> Rounding:
     """The rounding rule in force for the period being posted -- R17, R18.
 
-    Raises through `resolve_logic` when nothing is registered, which is the
-    current and correct state: until the SFS guide settles DNB-08, there is no
-    rule, and a system that rounded anyway would be producing numbers it cannot
-    defend.
+    Raises through `resolve_logic` when nothing is registered. That is a refusal,
+    not a gap: a build with no registered direction has no rule for the period
+    being calculated, and rounding anyway would produce a number nobody can
+    defend three years later.
     """
     version = resolve_logic(ROUNDING_LOGIC_KEY, effective_date)
     try:
@@ -226,10 +262,11 @@ def convert(
         )
 
     rule = rounding_for(effective_date)
+    scale = amount_scale(effective_date)
     return ConvertedAmount(
         amount_currency=original.amount,
         currency=original.currency,
         exchange_rate=exchange_rate,
-        functional_amount=rule.quantize(original.amount * exchange_rate),
+        functional_amount=rule.quantize(original.amount * exchange_rate, scale),
         functional_currency=functional_currency,
     )

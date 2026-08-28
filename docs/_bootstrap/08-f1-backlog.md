@@ -317,9 +317,35 @@ redeschide. Unde o sarcină pare să ceară altceva, ADR-ul câștigă și sarci
 - **Review:** `fiscal-reviewer`
 - **Terminat:** cel puțin un algoritm real e selectat după data efectivă a perioadei și trece
   corpusul de regresie. Registrul însuși **există din F0.8**; ce lipsește sunt implementările.
-- **Blocat de:** **`OD-22`** *(valorile)* și **`DNB-08`** *(rotunjirea — [ADR-037](../decisions/037-conventii-de-platforma.md),
-  blocat pe ghidul de integrare SFS, `OD-24`)*. `accounting.money_rounding` nu are nicio versiune
-  înregistrată, deci `convert()` refuză — starea corectă, afirmată printr-un test din F0.9.
+- **Blocat de:** **`OD-22`** *(valorile)* și **`DNB-08`** *(rotunjirea —
+  [ADR-037](../decisions/037-conventii-de-platforma.md))*.
+
+  **`DNB-08` NU e blocată pe ghidul de integrare SFS.** Rândul de mai sus spunea asta și contrazicea
+  ADR-ul propriu: [ADR-037](../decisions/037-conventii-de-platforma.md) §5 constată explicit că
+  `DNB-08` *fusese înregistrată* pe `OD-24` și că doar `V2` — schema XML e-Factura — depinde de acel
+  acces; `V1` (Ordinul MF nr. 118 din 28.08.2017, Anexele 1 și 1a) și `V3` (Codul fiscal) sunt
+  documente publice. Corectat 2026-08-28.
+
+  **Structura e decisă și implementată** (2026-08-28, decizia proprietarului): *linia este
+  autoritativă — TVA se calculează și se rotunjește pe fiecare linie, iar totalul documentului e suma
+  liniilor, niciodată o recalculare pe bază de total.* În acest model diferența de rotunjire din
+  ADR-037 §3.1 nu poate exista: nu există două calcule concurente. Cod:
+  `accounting.currency.services.amounts.line_amounts`.
+
+  **Ce mai blochează, măsurat:**
+  1. **`V1`** — precizia prescrisă pe formular. Ipoteza de lucru: patru zecimale la prețul unitar,
+     două la sume. Textul consolidat al Instrucțiunii nu s-a putut citi de aici (`legis.md` 403,
+     `sfs.md` 403, `contabilsef.md` cu abonament); din surse primare s-a obținut doar identitatea
+     actului — **MO 2017, nr. 340-351, art. 1750**, citat verbatim într-un document al MF.
+  2. **`OD-67`** — *nou pe acest drum*: `fiscal_parameter` are politică doar de **citire**
+     (`0027_fiscal.up.sql`), deci precizia nu se poate încărca pe nicio cale în afară de superuser.
+     Mecanismul e complet și inert până când `P-4` există. Aceeași familie ca `0044`, care a trebuit
+     să adauge o politică de scriere pentru planul de conturi.
+
+  `accounting.money_rounding` are acum **două implementări** în cod — `half_up` și `half_even` — și
+  **niciun rând** în `fiscal_logic_version`. Prezența amândurora nu e o alegere între ele: alegerea e
+  rândul din registru, după dată. `convert()` refuză în continuare — starea corectă, afirmată printr-un
+  test din F0.9.
 
 ---
 
@@ -458,7 +484,7 @@ deschisă toată F0, acum pe drumul critic al criteriului de ieșire.
 | F1.4.2 | `OD-55`; ADR-036 `Propus` | Arhitectură + domeniu contabil — forma tabelei de legare depinde de amândouă |
 | F1.4.4 | `C1`–`C5` din ADR-036 §11 | Domeniu contabil — SNC citat |
 | F1.5.4, F1.6 | `OD-22` | Domeniu contabil — Planul general de conturi, ordinul care îl aprobă |
-| F1.6 | `DNB-08` → ADR-037 | Extern — ghidul de integrare SFS (`OD-24`) |
+| F1.6 | `DNB-08` → ADR-037 | **Structura: decisă și implementată** (linia e autoritativă). Rămâne `V1` — document **public**, nu ghidul SFS — plus `OD-67`, calea de scriere a parametrilor fiscali |
 | F1.8 | `OD-29` | Produs — ~~`OD-35`~~ închisă prin [ADR-042](../decisions/042-scara-de-densitate.md); rămâne ținta numerică de performanță |
 | F1.9, F1.G0 | `OD-28` | Extern — acces la o bază 1C reală |
 | F1.G2 | `OD-36` | Produs — contractul de tastatură |

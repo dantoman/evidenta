@@ -1,12 +1,56 @@
 # ADR-037 — Convenții de platformă: rotunjire, zecimale, granularitatea postării
 
-- **Status:** Propus — **blocat** pe `V1`–`V4` din §5 (Ordinul MF nr. 118 din 28.08.2017, schema XML
-  e-Factura, practica SFS, exporturi 1C reale). Excepția: §4 nu depinde de verificare
-- **Data:** 2026-08-25
+- **Status:** **Parțial decis** (2026-08-28) — §3.1 și forma rotunjirii sunt fixate de proprietar și
+  implementate; rămâne blocat pe `V1` *(precizia prescrisă pe formular)* și pe `V2`–`V4`. Excepția:
+  §4 nu depinde de verificare
+- **Data:** 2026-08-25; §3.1 decisă 2026-08-28
 - **Decide:** proprietarul proiectului
 - **Închide:** `DNB-08` (Spec B §7.2, §11) — partea de precizie și rotunjire, la deblocare
 - **Afectează:** Posting Engine (F1.4), milestone-ul F1 (balanță verificabilă la leu contra 1C),
   importatorul 1C (F1.9), `OD-24` (accesul SFS)
+
+---
+
+## 0. Decizia din 2026-08-28 — linia este autoritativă
+
+**Consemnare, nu decizie nouă.** Proprietarul a fixat regula prin instrucțiune scrisă; sesiunea de
+implementare a scris-o în cod și o consemnează aici, ca `ADR-002` să nu rămână cu o decizie luată și
+neconsemnată.
+
+> TVA se calculează și se rotunjește **pe fiecare linie**. Totalul documentului se obține prin
+> **sumarea liniilor**, niciodată prin recalculare pe bază de total.
+
+**Ce închide.** §3.1 — baza de calcul a TVA — și, prin consecință, cea mai mare parte din §3.3.
+Divergența pe care §3.3 o descria (diferența dintre suma liniilor și totalul recalculat) **nu mai
+poate exista**: nu există două calcule concurente. Ce rămâne din §3.3 e o convenție pură — direcția
+la echidistanță — și ea nu se alege în cod: `accounting.currency.money.IMPLEMENTATIONS` conține
+**ambele** direcții (`half_up`, `half_even`), iar care rulează e un rând în `fiscal_logic_version`,
+selectat după data efectivă. Prezența amândurora nu e o alegere între ele.
+
+**Ce rămâne deschis, și e singurul lucru care mai blochează calculul unei linii.** §3.2 — numărul de
+zecimale. Ipoteza de lucru a proprietarului: **patru la prețul unitar, două la sume**. Este
+**parametru fiscal** (`R15`), nu constantă: `accounting.amount_scale` și
+`accounting.unit_price_scale`, rezolvate după dată. Dacă Instrucțiunea prescrie altceva, se ajustează
+parametrul, nu structura.
+
+**Ce s-a putut și ce nu s-a putut citi din sursă primară, 2026-08-28.** Identitatea actului, citată
+verbatim într-un document al Ministerului Finanțelor: *Ordinul ministrului finanțelor nr. 118 din 28
+august 2017 (Monitorul Oficial al Republicii Moldova, 2017, nr. 340-351, art. 1750)*. Textul
+consolidat al Instrucțiunii **nu** s-a putut citi: `legis.md` întoarce 403 pe PDF și pe pagina de
+rezultate, `sfs.md` întoarce 403, `contabilsef.md` cere abonament. Deci **niciun punct al
+Instrucțiunii nu a fost citit prescriind zecimale** — `V1` rămâne de făcut, iar precizia intră cu
+`source_confidence = provisional` când va exista o cale de scriere.
+
+**Al doilea blocaj, găsit la implementare și nou pe acest drum: `OD-67`.** `fiscal_parameter` are
+politică doar de **citire** (`0027_fiscal.up.sql`); nu există cale prin care precizia să fie
+încărcată, în afară de superuser. Mecanismul e complet și **inert**. Aceeași familie ca `0044`, care
+a trebuit să adauge o politică de scriere pentru planul de conturi — și aceeași familie ca CI-ul
+legat și nepornit.
+
+**Atenție la o coliziune de numere care poate produce o citare greșită:** *OMF 118 din 28.08.2017*
+(factura fiscală, MO 2017 nr. 340-351 art. 1750) și *OMF 118 din 06.08.2013* (SNC) sunt acte
+diferite cu același număr. Exact motivul pentru care `FiscalParameterSource.act_date` face parte din
+identitate.
 
 ---
 

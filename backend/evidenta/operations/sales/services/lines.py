@@ -1,15 +1,17 @@
 """Building a document position from the catalogue.
 
 The catalogue supplies the **identity** of a position: what it is called on a
-document, in which unit, under which VAT rate key, and what that key resolves to
-on the document's date. The caller supplies the **amounts**.
+document, in which unit, and under which VAT rate key. The amounts are produced
+by `accounting.currency.services.amounts.line_amounts`, which applies the rule
+the owner decided: **VAT is calculated and rounded on each line, and the document
+total is the sum of the lines.** Where the rounding happens is therefore settled;
+what remains data is how many decimals (a fiscal parameter) and which direction a
+tie resolves in (a row in the logic registry).
 
-That split is not a convenience. Reducing `quantity x price` or `net x rate` to a
-stored scale is a rounding step; the rule for it is versioned fiscal logic
-selected by the effective date (`R16`, `R17`), and which rule applies is open on
-three axes at once -- where VAT is rounded, in which direction at a tie, and to
-how many decimals (ADR-037 sections 3.1-3.3, `DNB-08`). A helper here that
-rounded would answer all three silently, on a document that leaves the company.
+`line_from_amounts` stays for the callers that already hold the three figures --
+an import, a conversion, a storno -- and it is the reason the document core
+stores amounts rather than deriving them: a document that arrived from elsewhere
+carries the amounts its issuer calculated, not the ones we would have.
 
 **The name that goes on the line is the legal one.** `item.name`, never
 `item.internal_name` -- `C39` and ADR-034. The internal name exists for lists,

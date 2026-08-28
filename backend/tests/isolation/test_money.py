@@ -53,14 +53,16 @@ PROBE_REF = "tests.probe.not_a_real_rounding_rule"
 
 
 class _ProbeRounding:
-    """Two decimals, half up. A stand-in, and named so it cannot be mistaken.
+    """A stand-in, named so it cannot be mistaken for the shipped rule.
 
-    Whether this is the right rule is exactly what DNB-08 asks. It lives in the
-    test file so that the answer cannot arrive in production by being imported.
+    It lives in the test file so the answer cannot arrive in production by being
+    imported. The scale is an argument now, not a property: the direction at a tie
+    is versioned code, the number of decimals is versioned data, and they move
+    independently.
     """
 
-    def quantize(self, value: Decimal) -> Decimal:
-        return value.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+    def quantize(self, value: Decimal, scale: int) -> Decimal:
+        return value.quantize(Decimal(1).scaleb(-scale), rounding=ROUND_HALF_UP)
 
 
 @pytest.fixture
@@ -70,11 +72,32 @@ def context(world: dict[str, uuid.UUID]) -> TenantContext:
 
 @pytest.fixture
 def probe_rule(seed: Callable[..., None]) -> Iterator[None]:
-    """Register the probe both in the registry table and in the code table.
+    """Register the probe in the registry table, in the code table, **and** the
+    precision it rounds to.
 
-    Both are needed, which is the point of the design: the row selects, the code
-    provides. Neither alone can round anything.
+    Three things, and the split is the design: the registry row selects the
+    direction, the code table provides it, and a fiscal parameter says how many
+    decimals. None of the three alone can round anything -- which is what stops a
+    rule from arriving by being imported, and what lets an instruction change the
+    precision without a deployment.
     """
+    source_id = uuid.uuid4()
+    seed(
+        "INSERT INTO fiscal_parameter_source (id, act_type, act_number, act_date,"
+        " official_gazette_number, official_gazette_article, published_at,"
+        " effective_from, created_at)"
+        " VALUES (%s, 'test', 'TEST-0/0000', DATE '2000-01-01', 'TEST 0', 'art. 0',"
+        " DATE '2000-01-01', DATE '2000-01-01', now())",
+        [source_id],
+    )
+    seed(
+        "INSERT INTO fiscal_parameter (id, parameter_key, scope, value_type, value,"
+        " valid_from, source_id, status, approved_by_user_id, approved_at,"
+        " source_confidence, created_at, updated_at)"
+        " VALUES (%s, 'accounting.amount_scale', 'global', 'integer', '2'::jsonb,"
+        " DATE '2000-01-01', %s, 'active', %s, now(), 'confirmed', now(), now())",
+        [uuid.uuid4(), source_id, APPROVER],
+    )
     seed(
         """
         INSERT INTO fiscal_logic_version
