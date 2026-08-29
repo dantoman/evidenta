@@ -39,6 +39,10 @@ class SourceModule(models.TextChoices):
     ASSETS = "assets"
     MIGRATION = "migration"
     MANUAL = "manual"
+    #: The period module acting on its own: a month or an exercise being closed
+    #: (F1.5.4). Not `manual` -- nobody typed the closing chain -- and not an
+    #: operational module: the source document is the period itself.
+    PERIODS = "periods"
 
 
 class AccountingEvent(models.Model):

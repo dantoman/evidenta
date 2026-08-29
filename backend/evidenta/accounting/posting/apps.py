@@ -29,6 +29,7 @@ class PostingConfig(AppConfig):
         # also fail `migrate`, and a deploy could not run the migration that
         # fixes it.
         from evidenta.accounting.posting.services import (
+            closing,  # noqa: F401
             manual,  # noqa: F401
             reversal,  # noqa: F401
         )

@@ -238,6 +238,12 @@ de angajament ulterior.
 
 Închiderea produce postări normale, prin motor, nu scriere directă în registru (`R9`).
 
+> **Reconciliere, 2026-08-29 (F1.5.4).** Numele de mai sus au trei segmente; registrul de evenimente
+> impune forma din Spec B §1.4 — `<domeniu>.<acțiune>`, două segmente — și a refuzat al treilea la
+> prima înregistrare. Ce e înregistrat: `period.month_closed` și `period.year_closed` — aceleași două
+> evenimente ([ADR-056](056-inchiderea-lunii-si-a-exercitiului.md) §3.3). Tabelul nu se rescrie;
+> nota spune ce s-a schimbat.
+
 ### 10.1 Conturile de gestiune sunt un invariant, nu o închidere
 
 Norma prevede că la data raportării conturile de gestiune se închid cu conturile de bilanț și/sau de
@@ -250,6 +256,12 @@ Repartizarea se face pe parcurs, prin postările normale ale documentelor. Verif
 este o **validare**, nu o postare — deci nu are nevoie de `event_type` propriu.
 
 ### 10.2 Conturile concrete sunt parametri fiscali, nu constante
+
+> **Reconciliere, 2026-08-29.** Premisa acestei secțiuni a fost dizolvată de
+> [ADR-050](050-lantul-de-inchidere-ca-roluri.md): conturile lanțului (351, 731, 333, 334, 332) vin din
+> Planul general de conturi — act propriu, cu cadență proprie — deci sunt **roluri de cont** din
+> catalogul ADR-048, nu parametri fiscali; ce rămâne parametru e cota impozitului (`OD-22`). Ce
+> secțiunea apăra rămâne adevărat: niciun număr de cont nu stă în handler.
 
 Lanțul de închidere a conturilor de rezultate (clasele de venituri și cheltuieli → contul de
 rezultat financiar total → contul de profit net) are o formă fixă, dar **numerele de cont nu se

@@ -155,3 +155,44 @@ class VatRegistrationAlreadyClosedError(ApiError):
 
     code = "periods.vat_registration_already_closed"
     status = 409
+
+
+class ManagementAccountsNotSettledError(ApiError):
+    """A class-8 account still carries a balance at the end of the period.
+
+    ADR-039 section 10.1: the management accounts (clasa 8) have a zero balance
+    at the reporting date. Settling them is part of the continuous flow of cost,
+    through the ordinary postings of the documents, so at closing this is a
+    **validation, not a posting** -- the month does not close until somebody
+    has settled what the chart says must already be settled.
+    """
+
+    code = "periods.class8_not_settled"
+    status = 409
+
+
+class ResultAccountsCarryOpeningBalanceError(ApiError):
+    """A class-6 or class-7 account enters the exercise with a balance.
+
+    Result accounts start every exercise at zero: the previous year's closing
+    swept them into 351. A balance carried in from before the exercise means
+    the previous year was never closed in this system (or something was written
+    past the engine), and closing this year would sweep last year's result into
+    this year's -- silently. Refused, so the gap is fixed where it is.
+    """
+
+    code = "periods.result_accounts_not_at_zero"
+    status = 409
+
+
+class LastPeriodNotOpenError(ApiError):
+    """The closing chain is dated the last day of the exercise, in its last period.
+
+    Every other period must already be closed; the last one must still be open,
+    because the chain is a posting and R12 admits no posting into a closed
+    period. A last period closed for monthly reporting is reopened, with its
+    reason, before the year is closed -- the audit shows that it happened.
+    """
+
+    code = "periods.last_period_not_open"
+    status = 409

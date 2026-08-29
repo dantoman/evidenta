@@ -137,8 +137,9 @@ importatorul 1C a plecat la F3 cu `OD-28`/`OD-30`, criteriul de ieșire se valid
 intern, două puncte ale lui sunt deja bifate din teste, iar F1.10 e sarcină, nu blocaj. **`V1` e
 citită** (formularul tace asupra zecimalelor), cele două convenții sunt **aprobate și active**, `OD-70`
 e închisă ([ADR-055](decisions/055-precizia-cantitatii-e-a-unitatii.md)), direcția e `half_up`,
-activă. **F1.6 e livrată. F1 nu mai așteaptă pe nimeni — nici din afară, nici pe proprietar.** Rămân
-F1.5.4, F1.4.4, F1.10, în ordinea fixată.
+activă. **F1.6 e livrată; F1.5.4 e livrată** ([ADR-056](decisions/056-inchiderea-lunii-si-a-exercitiului.md)).
+**F1 nu mai așteaptă pe nimeni — nici din afară, nici pe proprietar.** Rămân F1.4.4 și F1.10, în
+ordinea fixată; `OD-73` (reformarea bilanțului) e deschisă pentru prima închidere reală de exercițiu.
 
 **F1 — Accounting Core.** F0 este închisă (criteriul de ieșire îndeplinit, mai jos). Livrate:
 **F1.1** (planul de conturi, structura fără conținut) cu API-ul lui, **F1.3** (evenimentele),
@@ -278,6 +279,25 @@ nouă puncte (sesiunea `evidenta-77`):**
   ca valoarea să nu se miște sub liniile care o poartă — un trigger, nu un `valid_from`.
 - **`OD-71`, nouă, înainte de F2:** aprobatorul din producție trebuie să fie o identitate reală —
   legat de utilizatorii de sistem din Spec A §3.4, care nu există. Nu blochează nimic acum.
+- **F1.5.4 — închiderea, livrată** ([ADR-056](decisions/056-inchiderea-lunii-si-a-exercitiului.md)),
+  prima din cele trei sarcini rămase, în ordinea fixată. Luna: `close_period` validează invariantul
+  clasei 8 pe primitivă (sold zero la data raportării, prin `trial_balance` — aceeași agregare ca
+  raportul), refuză cu `periods.class8_not_settled`; ușa motorului `close_month` înregistrează
+  `period.month_closed`, `posted` fără înregistrare. Exercițiul: `close_year` cere toate lunile
+  închise și **ultima deschisă** (lanțul e o postare, `R12` nu admite excepție), refuză conturile de
+  rezultat cu sold la intrare, rezolvă cele trei roluri, scrie soldurile și conturile în payload
+  (handler pur, R18), postează pașii 1, 3, 4 într-o înregistrare `closing` — 731 corespondență
+  proprie, 351 la zero — apoi închide ultima lună și blochează exercițiul, într-o tranzacție. **Numele
+  evenimentelor:** registrul a refuzat `period.month.closed` (trei segmente; Spec B §1.4 cere două) —
+  înregistrate `period.month_closed`, `period.year_closed`; `source_module = "periods"` nou (migrarea
+  `accounting_events/0002`). Zece teste, ordinea corespondențelor verificată cu sume (1000 / 600 / 80
+  / 320). **Nu s-a decis în cod:** pasul 5, reformarea bilanțului — `OD-73`; impozitul (pasul 2) e
+  precondiție, postarea contabilului. Fără rută HTTP încă: ecranul vine cu F1.8/F2. Pe drum, ADR-039
+  §10.2 („conturile concrete sunt parametri fiscali") a primit nota de reconciliere pe care ADR-050 o
+  cerea și nimeni n-o scrisese.
+- **Două nume pentru aceeași sesiune:** `ListAgents` a numit conversația aceasta `evidenta-77` dimineața
+  și `evidenta-49` după o repornire de socket la prânz. Toate commiturile zilei poartă
+  `Session: evidenta-77` — o conversație, un trailer (ADR-002).
 - **`OD-72`, amânată cu declanșator:** încrederea în sursă e pe rând la parametri (ADR-046) și nu e
   nicăieri pe rând la versiunile de logică — asimetrie raportată, nu reparată nechemat. Decizia
   proprietarului: se face la **a doua** intrare în `fiscal_logic_version`; cu una, migrarea nu
@@ -1987,6 +2007,9 @@ F1.2 nu poate fi prima. Ordinea reală se notează aici, pe măsură ce se stabi
 - [x] F1.5 — Perioade și exercițiu fiscal: stări, tranziții, exercițiu cu date explicite, perioada
       TVA distinctă *(forma: [ADR-039](decisions/039-valuta-si-perioade.md) partea II; `OD-58`,
       `OD-62` deschise pe drum)*
+      — **F1.5.4 închiderea, 29.08** ([ADR-056](decisions/056-inchiderea-lunii-si-a-exercitiului.md)):
+      `period.month_closed` validează clasa 8 și nu postează; `period.year_closed` postează lanțul
+      ADR-050 (pașii 1, 3, 4) într-o înregistrare `closing`; pasul 5 e `OD-73`
 - [x] F1.3 — Accounting Events: eveniment idempotent, registru de tipuri, ciclu de viață și coadă
       *(vocabularul: [ADR-038](decisions/038-vocabularul-de-evenimente.md))*
 - [x] F1.2 — Ledger: `journal_entry`, `journal_line`, `company_dimension`, echilibrul verificat în

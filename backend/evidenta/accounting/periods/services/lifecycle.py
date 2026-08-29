@@ -24,9 +24,11 @@ from datetime import UTC, datetime
 from django.db import transaction
 from django.db.models import QuerySet
 
+from evidenta.accounting.ledger.services.trial_balance import trial_balance
 from evidenta.accounting.periods.errors import (
     FiscalYearClosedError,
     FiscalYearNotFoundError,
+    ManagementAccountsNotSettledError,
     PeriodLockedError,
     PeriodNotFoundError,
     PeriodNotOpenError,
@@ -35,6 +37,12 @@ from evidenta.accounting.periods.errors import (
 from evidenta.accounting.periods.models import FiscalYear, FiscalYearStatus, Period, PeriodStatus
 from evidenta.platform.audit.services.recording import record
 from evidenta.platform.rls.context import MissingTenantContextError, current_context
+
+#: The class of the management accounts, by the chart's own structure: the first
+#: character of the code. `account_class` (asset/expense/...) says which
+#: statement a balance lands in; the SNC class is what the norm speaks of, and
+#: what "clasa 8" means.
+MANAGEMENT_CLASS = "8"
 
 
 def _period(period_id: uuid.UUID) -> Period:
@@ -57,9 +65,37 @@ def _actor() -> uuid.UUID:
     return context.user_id
 
 
+def assert_management_accounts_settled(period: Period) -> None:
+    """The class-8 invariant of ADR-039 section 10.1, at the end of the period.
+
+    Checked **here**, on the primitive, so that no path closes a month around it:
+    the engine's `posting.services.closing.close_month` is the door that also
+    records the event, but a caller reaching this service directly is refused
+    just the same. Read through the ledger's public service (D6): the balance is
+    a sum over the lines up to the period's last day, never a stored figure.
+    """
+    balance = trial_balance(period.company_id, period.start_date, period.end_date)
+    unsettled = [
+        (row.account_code, row.closing)
+        for row in balance.rows
+        if row.account_code.startswith(MANAGEMENT_CLASS) and row.closing != 0
+    ]
+    if unsettled:
+        listed = ", ".join(f"{code} ({closing})" for code, closing in unsettled)
+        raise ManagementAccountsNotSettledError(
+            f"period {period.start_date:%Y-%m} cannot close: management accounts still "
+            f"carry a balance at {period.end_date:%d.%m.%Y} -- {listed}. Clasa 8 is settled "
+            f"through the ordinary postings, not by the closing (ADR-039 section 10.1)"
+        )
+
+
 @transaction.atomic
 def close_period(period_id: uuid.UUID) -> Period:
-    """``open -> closed``. Refuses anything else, including a second closing."""
+    """``open -> closed``. Refuses anything else, including a second closing.
+
+    Refuses, too, a month whose management accounts are not settled -- the
+    class-8 invariant is validated at closing, not posted (ADR-039 section 10).
+    """
     period = _period(period_id)
     if period.status == PeriodStatus.LOCKED:
         raise PeriodLockedError(f"period {period.start_date:%Y-%m} is locked; it does not reopen")
@@ -68,6 +104,7 @@ def close_period(period_id: uuid.UUID) -> Period:
             f"period {period.start_date:%Y-%m} is {period.status}, not open; "
             f"closing it again would move its closing date to today"
         )
+    assert_management_accounts_settled(period)
 
     actor = _actor()
     period.status = PeriodStatus.CLOSED
@@ -145,6 +182,20 @@ def reopen_period(period_id: uuid.UUID, reason: str) -> Period:
 
 def _periods_of(year: FiscalYear) -> QuerySet[Period]:
     return Period.objects.filter(fiscal_year=year)
+
+
+def exercise_with_periods(fiscal_year_id: uuid.UUID) -> tuple[FiscalYear, list[Period]]:
+    """The exercise and its periods in order -- for the engine's year closing.
+
+    A public reader (D6): the closing service in `posting` needs the exercise's
+    dates and the state of every period, and asks here rather than reaching for
+    the models. Refuses with the not-found code when the exercise is not visible
+    in this context (IZ-04).
+    """
+    year = FiscalYear.objects.filter(id=fiscal_year_id).first()
+    if year is None:
+        raise FiscalYearNotFoundError(f"exercise {fiscal_year_id} is not visible in this context")
+    return year, list(_periods_of(year).order_by("period_no"))
 
 
 @transaction.atomic

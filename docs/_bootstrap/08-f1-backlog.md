@@ -321,7 +321,7 @@ redeschide. Unde o sarcină pare să ceară altceva, ADR-ul câștigă și sarci
   o lună calendaristică** (art. 114 alin. (2)). În 99% din cazuri coincid — testul e pentru restul.
 - **Blocat de:** —
 
-### F1.5.4 — Închiderea
+### F1.5.4 — Închiderea — **LIVRATĂ** (2026-08-29, [ADR-056](../decisions/056-inchiderea-lunii-si-a-exercitiului.md))
 
 - **Obiectiv:** două `event_type`, cu clasa 8 ca invariant.
 - **Depinde de:** F1.5.2, F1.4.1
@@ -329,6 +329,11 @@ redeschide. Unde o sarcină pare să ceară altceva, ADR-ul câștigă și sarci
 - **Terminat:** `period.month.closed` blochează și **validează invariantul clasei 8** (sold zero la
   data raportării); `period.year.closed` postează lanțul de închidere a conturilor de rezultate.
   Închiderea produce **postări normale, prin motor** (`R9`).
+  *Îndeplinit: `period.month_closed` și `period.year_closed` sunt în registru (numele cu două
+  segmente, forma impusă de Spec B §1.4 — ADR-056 §3.3); luna validează clasa 8 pe primitivă și
+  înregistrează evenimentul fără postare; exercițiul postează pașii 1, 3, 4 ai lanțului într-o
+  înregistrare `closing`, prin `post_formulas`, cu 731 corespondență proprie, 351 la zero; pasul 5 e
+  `OD-73`. Zece teste în `test_closing.py`.*
 - **Blocat de:** — *(deblocată 2026-08-29 prin
   [ADR-050](../decisions/050-lantul-de-inchidere-ca-roluri.md): conturile lanțului — 351, 731, 333,
   334, 332 — vin din Planul general de conturi, act propriu, deci sunt **roluri de cont** din
@@ -516,7 +521,7 @@ Firul D   F1.2.1 → F1.2.2 → F1.2.3 → F1.2.4    ledgerul
 convenții sunt aprobate și active, `OD-70` e închisă; F1.6 e livrată. F1.9 a plecat la F3; F1.G0 se
 construiește sintetic; F1.10 e sarcină, nu blocaj. Tot restul poate începe.
 
-**Ordinea, decisă de proprietar (2026-08-29): F1.5.4 întâi, apoi F1.4.4, apoi F1.10.** Trei motive: rolurile și
+**Ordinea, decisă de proprietar (2026-08-29): ~~F1.5.4~~ livrată, apoi F1.4.4, apoi F1.10.** Trei motive: rolurile și
 ordinea lanțului sunt în ADR-050, deci nu mai e nicio decizie în față, pe când handlerele concrete
 vor ridica întrebări de mapare pe drum; închiderea produce `period.month.closed`, care lipsește din
 registrul de evenimente — singura verificare mecanică că F1.5.4 e neterminată, și merită să devină
