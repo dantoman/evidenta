@@ -276,6 +276,18 @@ redeschide. Unde o sarcină pare să ceară altceva, ADR-ul câștigă și sarci
      (6226/7224 curs, 6227/7225 sumă, 6127/7147 ecartul BNM–bancă, în rezultatul operațional), iar
      cursul contractual de pe antet poate face ca diferența să **nu apară deloc** (pct. 21) — ramura
      „zero postări" e un caz de test. Handlerul de **reevaluare** nu intră: Anexa 1 neextrasă.
+     **Precondiție, măsurată 2026-08-29 la cererea proprietarului:** antetul documentului
+     (`platform/documents/models.py`, `Document`) are `currency` și `exchange_rate` — MDL per unitate,
+     input explicit — dar **nu are termenul contractual privind cursul** (pct. 19: la data achitării,
+     la data livrării, sau fix, stabilit de părți). Fără el, handlerul nu poate ști dacă la decontare
+     apare o diferență sau niciuna (pct. 21). **Se adaugă întâi**, ca migrare aditivă pe antet:
+     `rate_term` din vocabularul închis al pct. 19; pentru `fixed` și `delivery_date`, cursul de pe
+     antet e cel care rămâne; pentru `payment_date`, diferența se calculează la decontare.
+     **Implicitul, decis de proprietar (2026-08-30): „la data achitării"** — nu un implicit tăcut, ci
+     regula normei când contractul tace (recalcularea la cursul din ziua achitării, pct. 6 și 8);
+     celelalte două sunt stipulații contractuale care se **înscriu** pe antet. Ce mai lipsește pe
+     drum: discriminatorul dintre *diferență de curs* și *diferență de sumă* e contrapartea
+     (rezident, contract în valută sau unități convenționale — pct. 4, 17), nu formula.
   2. **C5, indirectele** — formula de subabsorbție e scrisă în standard (pct. 30), fără ambiguitate;
      baza de repartizare vine din nomenclator, listă deschisă (pct. 31). Validează că o regulă cu
      calcul propriu funcționează cu date deschise.

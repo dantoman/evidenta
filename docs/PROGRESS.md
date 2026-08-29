@@ -142,6 +142,11 @@ activă. **F1.6 e livrată; F1.5.4 e livrată** ([ADR-056](decisions/056-inchide
 ordinea fixată. **F1.4.4 e mai multe sesiuni, în ordinea decisă de proprietar: C4 la decontare, C5,
 C2, C1** — motivele în `08-f1-backlog.md`. `OD-73` (reformarea bilanțului) rămâne deschisă până când
 blochează ceva: tăcerea actului nu se rezolvă aici prin structură, e alegere de proces.
+**Precondiția lui C4, verificată la cererea proprietarului, înainte de pornire:** antetul
+documentului are `currency` și `exchange_rate`, **nu are termenul contractual privind cursul** (pct.
+19). Sesiunea C4 începe cu adăugarea lui — migrare aditivă — apoi handlerul; detaliile în backlog,
+F1.4.4 punctul 1. **Implicitul termenului, decis de proprietar: la data achitării** — regula normei
+când contractul tace; livrarea și cursul fix se înscriu pe antet.
 
 **F1 — Accounting Core.** F0 este închisă (criteriul de ieșire îndeplinit, mai jos). Livrate:
 **F1.1** (planul de conturi, structura fără conținut) cu API-ul lui, **F1.3** (evenimentele),
@@ -301,6 +306,12 @@ nouă puncte (sesiunea `evidenta-77`):**
   închiderea exercițiului — *impune structural* ce altfel s-ar verifica; handlerul pur cu soldurile
   în payload e ce face din `R18` o proprietate, nu o promisiune; iar numele `period.month.closed`,
   dat greșit de el în trei instrucțiuni consecutive, l-a prins **mecanismul**, nu un cititor.
+- **Verificat la cererea proprietarului, pentru sesiunea C4:** `Document` are `currency` și
+  `exchange_rate` (ADR-039, `DN-04`; input explicit, „care zi" încă deschis — întrebarea 9 de mai jos),
+  dar **nu are termenul contractual** privind cursul (pct. 19). Precondiția lui C4 **n-a intrat**;
+  se adaugă întâi, în sesiunea C4, ca migrare aditivă pe antet. Proprietarul a răspuns pe loc care e
+  implicitul: **la data achitării** — regula normei, nu o alegere a platformei; celelalte două
+  variante sunt stipulații care se înscriu.
 - **Două nume pentru aceeași sesiune:** `ListAgents` a numit conversația aceasta `evidenta-77` dimineața
   și `evidenta-49` după o repornire de socket la prânz. Toate commiturile zilei poartă
   `Session: evidenta-77` — o conversație, un trailer (ADR-002).
