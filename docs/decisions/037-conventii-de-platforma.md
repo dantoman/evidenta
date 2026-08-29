@@ -1,12 +1,14 @@
 # ADR-037 — Convenții de platformă: rotunjire, zecimale, granularitatea postării
 
 - **Status:** **Parțial decis** (2026-08-28) — §3.1 și forma rotunjirii sunt fixate de proprietar și
-  implementate. **Ce rămâne e `V1`** — Ordinul MF nr. 118 din 28.08.2017, Anexele 1 și 1a, document
-  **public**, o oră de citit — care dă precizia (§3.2). `V2` (schema XML e-Factura) e singura
-  sarcină care depinde de accesul SFS (`OD-24`) și condiționează **testul de acceptanță**, nu codul;
-  `V3` e Codul fiscal, public; `V4` vine în pachetul 1C din §7. **Nimic din `DNB-08` nu e blocat
-  extern.** Calea de scriere a preciziei există de la [ADR-049](049-rolul-de-date-de-referinta.md)
-  (`OD-67` închisă). Excepția: §4 nu depinde de verificare
+  implementate. **`V1` citită** (2026-08-29, [cercetare](../_input/cercetare/v1-factura-fiscala-omf-118-2017.md)):
+  formularul și Instrucțiunea **tac** asupra zecimalelor, pentru preț, sume și cantitate — deci
+  precizia e convenție de platformă (§6.2, B), cu valorile proprietarului încărcate ca `draft`
+  provizoriu prin [ADR-049](049-rolul-de-date-de-referinta.md). **Ce rămâne:** activarea celor două
+  valori (actul proprietarului, `activate_fiscal_parameters`) și `OD-70` pentru cantitate. `V2` (schema
+  XML e-Factura) e singura sarcină care depinde de accesul SFS (`OD-24`) și condiționează **testul de
+  acceptanță**, nu codul; `V3` e Codul fiscal, public; `V4` vine în pachetul 1C din §7. Excepția: §4
+  nu depinde de verificare
 - **Data:** 2026-08-25; §3.1 decisă 2026-08-28
 - **Decide:** proprietarul proiectului
 - **Închide:** `DNB-08` (Spec B §7.2, §11) — partea de precizie și rotunjire, la deblocare
@@ -44,6 +46,17 @@ consolidat al Instrucțiunii **nu** s-a putut citi: `legis.md` întoarce 403 pe 
 rezultate, `sfs.md` întoarce 403, `contabilsef.md` cere abonament. Deci **niciun punct al
 Instrucțiunii nu a fost citit prescriind zecimale** — `V1` rămâne de făcut, iar precizia intră cu
 `source_confidence = provisional` când va exista o cale de scriere.
+
+**Citit a doua zi, 2026-08-29, prin arhiva Wayback a PDF-ului SFS** (`sfs.md` și `legis.md` rămân
+403): **niciun punct al Instrucțiunii nu prescrie zecimale.** `zecimal`, `rotunj`, `bani` — zero
+apariții; „lei" din antetele coloanelor 10.4/10.5/10.7/10.8 numește moneda, nu precizia. Tăcerea e
+consemnată ca tăcere. Ce prescrie, în schimb, e **structura**: valoarea liniei = produsul 10.3 × 10.4
+(pct. 15), TVA-ul liniei = produsul 10.5 × 10.6 (pct. 17), valoarea cu TVA = suma 10.5 + 10.7 (pct.
+18), totalul pe pagină = totalul coloanelor (pct. 23), totalul facturii = suma paginilor (pct. 24) —
+adică **linia e autoritativă prin construcția formularului**, exact regula de mai sus. Data intrării
+în vigoare: 28.10.2017 (pct. 7); publicarea: MO nr. 340-351 art. 1750 din 22.09.2017. Cele două
+valori ale ipotezei de lucru sunt încărcate ca `draft`, `provisional`, cu motivul; activarea e a
+proprietarului. Cantitatea rămâne `OD-70`.
 
 **Al doilea blocaj, găsit la implementare și nou pe acest drum: `OD-67`.** `fiscal_parameter` are
 politică doar de **citire** (`0027_fiscal.up.sql`); nu există cale prin care precizia să fie
@@ -233,7 +246,7 @@ rescrie tăcut istoricul.
 
 | # | Sarcină | Sursă | Răspunde la |
 |---|---|---|---|
-| `V1` | Citește formularul tipizat al facturii fiscale și anexele. **Verifică și dacă formularul prescrie zecimale pentru cantitate**, nu doar pentru preț și sume; dacă tace, consemnează că tace — și atunci cine alege e `OD-70`, nu o consecință | Ordinul Ministerului Finanțelor nr. 118 din 28.08.2017, Anexele 1 și 1a | §3.1, §3.2 — coloane și precizie, inclusiv cantitatea |
+| ~~`V1`~~ | **Făcută 2026-08-29** ([cercetare](../_input/cercetare/v1-factura-fiscala-omf-118-2017.md)). Formularul (anexa nr. 1) și Instrucțiunea (anexa nr. 2 — nu există „1a") **tac** asupra zecimalelor pentru preț, sume **și cantitate**; tăcerea e consemnată. Structura liniei și a totalurilor confirmă §0. Cine alege precizia cantității e `OD-70` | Ordinul Ministerului Finanțelor nr. 118 din 28.08.2017, anexele nr. 1 și 2 | §3.1 confirmat; §3.2 — tace, convenție de platformă |
 | `V2` | Obține și citește schema XML e-Factura | Specificația SFS / Regulamentul aprobat prin Ordinul SFS nr. 317/2020 și modificările ulterioare | §3.1, §3.2 — dacă validatorul impune coerență linie↔total |
 | `V3` | Verifică regimul de rotunjire în Codul fiscal și practica generalizată SFS | sfs.md — baza generalizată a practicii fiscale | §3.1 — temei legal moldovenesc |
 | `V4` | Obține 3–5 facturi reale cu multe linii și TVA, ca **export, nu PDF** | Contabilul care furnizează balanța 1C | §3.1–3.3 — deducerea convențiilor efective 1C Moldova |
@@ -348,7 +361,7 @@ din 2026 repostat în 2028 → aceleași linii — o acoperă implicit.
 - [ADR-006](006-reversal-two-dates.md), [ADR-007](007-reversal-period.md) — forma stornoului (§3.6).
 - [ADR-002](002-guvernanta-deciziilor.md) — de ce §4 se poate accepta separat de restul.
 - `CLAUDE.md` — `R10`, `R17`, `R18`, `C14`, §4.
-- Ordinul Ministerului Finanțelor nr. 118 din 28.08.2017 — **de citit** (`V1`). Nu a fost consultat.
+- Ordinul Ministerului Finanțelor nr. 118 din 28.08.2017 — **citit** (`V1`, 2026-08-29), din PDF-ul SFS prin arhiva Wayback; transcris în [`v1-factura-fiscala-omf-118-2017.md`](../_input/cercetare/v1-factura-fiscala-omf-118-2017.md).
 - Specificația XML e-Factura / Ordinul SFS nr. 317/2020 — **de obținut** (`V2`).
 - Observații de produs: comportamentul 1C:UT la totalurile de document; setarea de rotunjire la
   echidistanță a unui furnizor românesc de facturare. Ambele sunt indicii de practică, nu temei

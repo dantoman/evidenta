@@ -351,13 +351,14 @@ redeschide. Unde o sarcină pare să ceară altceva, ADR-ul câștigă și sarci
 - **Review:** `fiscal-reviewer`
 - **Terminat:** cel puțin un algoritm real e selectat după data efectivă a perioadei și trece
   corpusul de regresie. Registrul însuși **există din F0.8**; ce lipsește sunt implementările.
-- **Blocat de:** **`V1`** din [ADR-037](../decisions/037-conventii-de-platforma.md) §5 *(precizia —
-  Ordinul MF 118/2017, Anexele 1 și 1a, document public, o oră)*. Primul algoritm real e rotunjirea,
-  deja în registru (`half_up`/`half_even`, selectat după dată); ce lipsește sunt cele două valori și
-  data lor. **Nu mai e blocată pe calea de scriere** (`OD-67` închisă prin
-  [ADR-049](../decisions/049-rolul-de-date-de-referinta.md) — `manage.py load_fiscal_parameters`;
-  `platform_conventions.toml` așteaptă doar valorile) **și nu pe `OD-22`**: cotele și pragurile sunt
-  ale declarațiilor, adică F2 ([ADR-054](../decisions/054-importul-e-distributie-corpusul-e-intern.md)).
+- **Blocat de:** două lucruri ale proprietarului, niciunul extern. *(`V1` **citită** 2026-08-29:
+  formularul tace asupra zecimalelor — [cercetare](../_input/cercetare/v1-factura-fiscala-omf-118-2017.md).)*
+  **(a)** activarea celor două convenții încărcate ca `draft` — `accounting.amount_scale = 2`,
+  `accounting.unit_price_scale = 4`, ipoteza lui din ADR-037 §0 — prin
+  `manage.py activate_fiscal_parameters platform_conventions.toml --approver <id>`; **(b)** `OD-70`,
+  cine alege precizia cantității — până atunci `line_amounts` refuză orice linie, deliberat. Primul
+  algoritm real e rotunjirea, deja în registru; calea de scriere există (`OD-67`); `OD-22` e a
+  declarațiilor, F2 ([ADR-054](../decisions/054-importul-e-distributie-corpusul-e-intern.md)).
 
   **`DNB-08` NU e blocată pe ghidul de integrare SFS.** Rândul de mai sus spunea asta și contrazicea
   ADR-ul propriu: [ADR-037](../decisions/037-conventii-de-platforma.md) §5 constată explicit că
@@ -512,9 +513,10 @@ Firul D   F1.2.1 → F1.2.2 → F1.2.3 → F1.2.4    ledgerul
 > Greșeala a durat un commit. Merită păstrată aici fiindcă e chiar clasa de eroare pe care
 > descompunerea trebuie s-o prindă: o ordine plauzibilă, dedusă din nume în loc de din coloane.
 
-**Ce nu poate începe, și de ce e util să fie vizibil** *(recalculat 2026-08-29, după ADR-049–054)*:
-**nimic din F1 nu așteaptă ceva din afară.** F1.6 așteaptă `V1` — un document public, o oră. F1.9 a
-plecat la F3; F1.G0 se construiește sintetic; F1.10 e sarcină, nu blocaj. Tot restul poate începe.
+**Ce nu poate începe, și de ce e util să fie vizibil** *(recalculat 2026-08-29, după ADR-049–054 și
+`V1`)*: **nimic din F1 nu așteaptă ceva din afară.** `V1` e citită — formularul tace; F1.6 așteaptă
+două acte ale proprietarului: activarea celor două valori și `OD-70`. F1.9 a plecat la F3; F1.G0 se
+construiește sintetic; F1.10 e sarcină, nu blocaj. Tot restul poate începe.
 
 **Ordinea, decisă de proprietar (2026-08-29): F1.5.4 întâi, apoi F1.4.4.** Trei motive: rolurile și
 ordinea lanțului sunt în ADR-050, deci nu mai e nicio decizie în față, pe când handlerele concrete
@@ -559,7 +561,7 @@ zero la reconciliere; […] **Trei dintre cele cinci depind de un extras 1C real
 | ~~F1.4.2~~ | ~~`OD-55`; ADR-036 `Propus`~~ | Închise 2026-08-29: [ADR-051](../decisions/051-chei-de-context-enumerate.md); ADR-036 `Acceptat` |
 | ~~F1.4.4~~ | ~~`C1`–`C5` din ADR-036 §11~~ | Închis 2026-08-29: clasificarea aprobată, ADR-036 §11. Rămân în afara sarcinii: HG 704/2019, Anexa 1 SNC „Diferențe de curs" |
 | ~~F1.5.4~~ | ~~`OD-22`~~ | Dizolvat 2026-08-29: [ADR-050](../decisions/050-lantul-de-inchidere-ca-roluri.md) — conturile lanțului sunt roluri din Planul general de conturi, nu parametri fiscali |
-| F1.6 | `V1` din ADR-037 | **Lectura unui document public** (Ordinul MF 118/2017, Anexele 1 și 1a). ~~`OD-67`~~ închisă prin [ADR-049](../decisions/049-rolul-de-date-de-referinta.md); ~~`OD-22`~~ e a declarațiilor, F2 ([ADR-054](../decisions/054-importul-e-distributie-corpusul-e-intern.md)) |
+| F1.6 | ~~`V1`~~ citită; activarea valorilor; `OD-70` | Proprietar — aprobarea celor două convenții (formularul tace) și decizia despre cantitate. ~~`OD-67`~~ ADR-049; ~~`OD-22`~~ F2 (ADR-054) |
 | ~~F1.8~~ | ~~`OD-29`~~ | Închisă 2026-08-29: [ADR-053](../decisions/053-tinta-de-performanta.md) |
 | ~~F1.9~~ | ~~`OD-28`~~ | **Mutat la F3** ([ADR-054](../decisions/054-importul-e-distributie-corpusul-e-intern.md)): instrument de distribuție, nu fundație. `OD-28` blochează cititorul și reconcilierea la F3, nimic în F1 |
 | ~~F1.G0~~ | ~~`OD-28`, `OD-30`~~ | **Sintetic**, ales explicit (ADR-054 §3.4): volum din modelul F0.11, structură din corpus. Ce se sacrifică e scris în `07-f1-grile.md` și se recuperează la primul extras real |

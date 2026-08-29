@@ -191,15 +191,60 @@ def test_an_act_without_its_effective_date_cannot_carry_a_parameter(tmp_path: Pa
     )
 
 
-def test_the_shipped_conventions_file_loads_its_act_and_no_value(tmp_path: Path) -> None:
-    """What the repository ships today: the act, cited; the values, awaiting V1."""
+def test_the_shipped_conventions_file_loads_the_act_and_two_drafts(tmp_path: Path) -> None:
+    """What the repository ships after V1 (2026-08-29): the act with its dates, and
+    the two platform conventions as provisional drafts -- the form is silent on
+    decimals, so the values are the owner's, not the act's. No quantity scale:
+    that is OD-70, and a row here would close it tacitly."""
     output = load_parameters(Path("platform_conventions.toml"))
-    assert "1 acte, 0 parametri noi" in output
+    assert "1 acte, 2 parametri noi" in output
     act = NormativeAct.objects.using(REFDATA_ALIAS).get(
         act_number="118", act_date=date(2017, 8, 28)
     )
-    assert act.effective_from is None
-    assert {
-        (p.publication.gazette_year, p.publication.gazette_number, p.publication.article)
+    assert act.effective_from == date(2017, 10, 28)
+    positions = {
+        (
+            p.publication.gazette_year,
+            p.publication.gazette_number,
+            p.publication.article,
+            p.publication.published_at,
+        )
         for p in act.publications.select_related("publication")
-    } == {(2017, "340-351", "1750")}
+    }
+    assert positions == {(2017, "340-351", "1750", date(2017, 9, 22))}
+    rows = {
+        r.parameter_key: r
+        for r in FiscalParameter.objects.using(REFDATA_ALIAS).filter(source__act=act)
+    }
+    assert set(rows) == {"accounting.amount_scale", "accounting.unit_price_scale"}
+    assert all(r.status == ParameterStatus.DRAFT for r in rows.values())
+    assert all(r.source_confidence == SourceConfidence.PROVISIONAL for r in rows.values())
+    assert "tac" in (rows["accounting.amount_scale"].provisional_reason or "")
+
+
+def test_activation_is_the_approvers_act_and_is_logged_with_their_identity(
+    tmp_path: Path,
+) -> None:
+    approver = uuid.uuid4()
+    load_parameters(write_file(tmp_path))
+
+    def activate(path: Path) -> str:
+        out = io.StringIO()
+        call_command(
+            "activate_fiscal_parameters",
+            str(path),
+            approver=str(approver),
+            actor="test:loader",
+            stdout=out,
+        )
+        return out.getvalue()
+
+    assert "1 activați, 0 erau deja activi" in activate(write_file(tmp_path))
+    row = FiscalParameter.objects.using(REFDATA_ALIAS).get(parameter_key="test.loader.alpha")
+    assert row.status == ParameterStatus.ACTIVE and row.approved_by_user_id == approver
+    assert log_rows("P-4")[-1].actor_user_id == approver
+
+    assert "0 activați, 1 erau deja activi" in activate(write_file(tmp_path))
+
+    with pytest.raises(CommandError, match="something else"):
+        activate(write_file(tmp_path, value=9))

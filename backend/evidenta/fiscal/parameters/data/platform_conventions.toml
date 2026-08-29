@@ -5,21 +5,19 @@
 # sub rolul de date de referință (ADR-049, calea P-4). Fiecare rulare lasă un rând în
 # `privileged_access_log`; a doua rulare a aceluiași fișier nu scrie nimic.
 #
-# CE LIPSEȘTE, ȘI DE CE NU E COMPLETAT AICI. Precizia de rotunjire — `accounting.amount_scale`,
-# `accounting.unit_price_scale`, `accounting.quantity_scale` — e parametru fiscal (R15), rezolvat
-# după dată, cu sursă. Cantitatea e a treia axă, adăugată de proprietar la `V1`: intră în calculul
-# liniei și precizia ei nu se poate schimba după ce există documente postate. Ipoteza
-# de lucru a proprietarului e „patru la prețul unitar, două la sume" (ADR-037 §0), dar nici
-# valorile, nici data intrării în vigoare nu au fost citite din act: sarcina `V1` din ADR-037 §5 —
-# Anexele 1 și 1a ale Ordinului MF nr. 118 din 28.08.2017 — e document public și nu a fost
-# deschisă. Un parametru scris din memorie e defect critic (R15), iar o dată de intrare în
-# vigoare inventată e același defect cu altă coloană.
+# `V1` A FOST CITITĂ (2026-08-29, `_input/cercetare/v1-factura-fiscala-omf-118-2017.md`):
+# Ordinul MF nr. 118/2017, anexa nr. 1 (formularul) și anexa nr. 2 (Instrucțiunea) **tac** asupra
+# numărului de zecimale — pentru preț, pentru sume și pentru cantitate. „Lei" din antetele
+# coloanelor numește moneda, nu precizia. Tăcerea se consemnează, nu se interpretează.
 #
-# Ce se încarcă de aici azi: actul, cu identitatea și publicarea citate verbatim în ADR-037 §0
-# dintr-un document al Ministerului Finanțelor. Când `V1` e citită, se completează
-# `effective_from` pe act și se adaugă cele două intrări `[[parameter]]` de mai jos (șablonul e
-# în comentariu), cu `confidence = "confirmed"` dacă instrucțiunea prescrie precizia, sau
-# `"provisional"` cu motivul, dacă doar o implică.
+# Deci valorile de mai jos NU sunt citite din act: sunt convenție de platformă (ADR-037 §6.2,
+# opțiunea B — o singură convenție în motor), cu valoarea aleasă de proprietar — ipoteza lui de lucru
+# din ADR-037 §0: patru zecimale la prețul unitar, două la sume. De aceea `confidence = "provisional"`
+# cu motivul scris, și de aceea intră ca `draft`: activarea e actul proprietarului
+# (`manage.py activate_fiscal_parameters platform_conventions.toml --approver <id>`).
+#
+# Cantitatea NU primește valoare aici: formularul tace, iar cine alege atunci — platformă, tenant
+# sau unitate de măsură — e `OD-70`, deschisă. Un rând scris acum ar închide-o tacit.
 
 schema_version = 1
 
@@ -28,40 +26,32 @@ ref = "omf-118-2017"
 act_type = "ordin_mf"
 act_number = "118"
 act_date = 2017-08-28
-title = "Ordinul ministrului finanțelor nr. 118 din 28 august 2017 privind aprobarea formularului tipizat de document primar cu regim special „Factura fiscală” și a Instrucțiunii privind completarea acestuia"
-# effective_from = ...   # de citit din act (V1). Fără el, niciun parametru nu se poate lega de act.
-notes = "Identitatea și publicarea: citate în ADR-037 §0 dintr-un document al Ministerului Finanțelor. Textul Instrucțiunii nu a fost citit (legis.md 403, sfs.md 403, contabilsef.md cu abonament — 2026-08-28)."
+title = "Ordinul Ministerului Finanțelor nr. 118 din 28 august 2017 cu privire la aprobarea formularului tipizat de document primar cu regim special „Factura fiscală” și a Instrucțiunii privind completarea acestuia"
+effective_from = 2017-10-28
+notes = "Pct. 7: „Prezentul ordin intră în vigoare la data de 28 octombrie 2017”. Text citit din PDF-ul SFS (19.02.2021) prin arhiva Wayback — sfs.md și legis.md întorc 403 la preluare automată; v1-factura-fiscala-omf-118-2017.md."
 
 [[act.publications]]
 gazette_year = 2017
 gazette_number = "340-351"
 article = "1750"
-# published_at = ...     # ziua nu apare în citare; se completează când e citită
+published_at = 2017-09-22
 
-# [[parameter]]
-# key = "accounting.amount_scale"
-# act = "omf-118-2017"
-# value_type = "integer"
-# value = 2
-# valid_from = 2017-..-..            # data intrării în vigoare, din act
-# confidence = "provisional"
-# provisional_reason = "ADR-037 §0: ipoteza de lucru a proprietarului; instrucțiunea (V1) necitită"
-#
-# [[parameter]]
-# key = "accounting.unit_price_scale"
-# act = "omf-118-2017"
-# value_type = "integer"
-# value = 4
-# valid_from = 2017-..-..
-# confidence = "provisional"
-# provisional_reason = "ADR-037 §0: ipoteza de lucru a proprietarului; instrucțiunea (V1) necitită"
-#
-# [[parameter]]
-# key = "accounting.quantity_scale"
-# act = "omf-118-2017"
-# value_type = "integer"
-# value = ...                       # de citit din formular (V1): dacă Anexa 1/1a prescrie zecimale
-#                                   # pentru cantitate; dacă tace, se consemnează că tace, nu se alege —
-#                                   # iar cine alege atunci (platformă, tenant, unitate de măsură) e OD-70
-# valid_from = 2017-..-..
-# confidence = ...
+[[parameter]]
+key = "accounting.amount_scale"
+act = "omf-118-2017"
+value_type = "integer"
+value = 2
+valid_from = 2017-10-28
+confidence = "provisional"
+provisional_reason = "Formularul (OMF 118/2017, anexa nr. 1) și Instrucțiunea (anexa nr. 2) tac asupra zecimalelor — V1 citită 2026-08-29. Convenție de platformă (ADR-037 §6.2 B); valoarea e ipoteza de lucru a proprietarului din ADR-037 §0."
+
+[[parameter]]
+key = "accounting.unit_price_scale"
+act = "omf-118-2017"
+value_type = "integer"
+value = 4
+valid_from = 2017-10-28
+confidence = "provisional"
+provisional_reason = "Formularul (OMF 118/2017, anexa nr. 1) și Instrucțiunea (anexa nr. 2) tac asupra zecimalelor — V1 citită 2026-08-29. Convenție de platformă (ADR-037 §6.2 B); valoarea e ipoteza de lucru a proprietarului din ADR-037 §0."
+
+# accounting.quantity_scale — fără rând, deliberat: OD-70.

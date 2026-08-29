@@ -134,8 +134,9 @@ e `Acceptat` cu `C1`–`C5` clasificate, `OD-55` închisă prin [ADR-051](decisi
 Calea de scriere a datelor de referință există ([ADR-049](decisions/049-rolul-de-date-de-referinta.md)).
 **Blocaje externe: niciunul** ([ADR-054](decisions/054-importul-e-distributie-corpusul-e-intern.md)):
 importatorul 1C a plecat la F3 cu `OD-28`/`OD-30`, criteriul de ieșire se validează pe un corpus
-intern, două puncte ale lui sunt deja bifate din teste, iar F1.10 e sarcină, nu blocaj. **F1 are un
-singur lucru deschis: `V1`** — Ordinul MF 118/2017, Anexele 1 și 1a, document public, o oră.
+intern, două puncte ale lui sunt deja bifate din teste, iar F1.10 e sarcină, nu blocaj. **`V1` e
+citită** (formularul tace asupra zecimalelor); F1.6 mai așteaptă două acte ale proprietarului —
+activarea celor două convenții încărcate ca `draft` și `OD-70` (cine alege precizia cantității).
 
 **F1 — Accounting Core.** F0 este închisă (criteriul de ieșire îndeplinit, mai jos). Livrate:
 **F1.1** (planul de conturi, structura fără conținut) cu API-ul lui, **F1.3** (evenimentele),
@@ -231,6 +232,21 @@ nouă puncte (sesiunea `evidenta-77`):**
   înclinație. Implicația structurală — `fiscal_parameter` n-are `scope` per unitate — e scrisă în
   rând, ca să nu fie descoperită la implementare. *Tăcerea înregistrată e un fapt; tăcerea
   neînregistrată devine, peste șase luni, o presupunere pe care nimeni nu o mai poate data.*
+- **`V1`, făcută în aceeași zi** ([cercetare](_input/cercetare/v1-factura-fiscala-omf-118-2017.md)):
+  `sfs.md` și `legis.md` întorc 403 (Cloudflare) la orice preluare automată, `monitorul.fisc.md` e cu
+  plată — PDF-ul SFS al ordinului a venit **prin arhiva Wayback** (captura din 17.05.2024; text din
+  19.02.2021), cu pagina SFS arhivată ca a doua copie. **Rezultat: formularul și Instrucțiunea tac
+  asupra zecimalelor** — preț, sume, cantitate; `zecimal`/`rotunj`/`bani`: zero apariții; „lei" e
+  moneda, nu precizia. Anexele sunt **nr. 1 și nr. 2**, nu „1 și 1a". Ce prescrie e structura: produs
+  pe linie, sumă pe linie, totalul = totalul coloanelor — **linia e autoritativă prin construcția
+  formularului**, ceea ce confirmă regula din 28.08. Data intrării în vigoare (28.10.2017) și a
+  publicării (22.09.2017) intră în registrul de acte.
+- **Consecințe, făcute:** cele două convenții ale proprietarului (2 la sume, 4 la preț) sunt
+  încărcate în baza de dezvoltare ca `draft`, `provisional`, cu motivul „formularul tace"; activarea e
+  actul lui — `manage.py activate_fiscal_parameters platform_conventions.toml --approver <id>`,
+  comandă nouă, care pune identitatea aprobatorului pe rând și în jurnalul `P-4`. **Cantitatea nu
+  primește valoare**: `OD-70` e acum necondiționată, iar `line_amounts` refuză orice linie până se
+  decide — mecanismul e complet și așteaptă o decizie, nu o valoare strecurată.
 
 ## Sesiuni mai vechi
 
