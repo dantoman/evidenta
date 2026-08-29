@@ -39,12 +39,13 @@ nu poate aștepta modulul.
 unic dintr-o bază 1C reală — plan de conturi, parteneri, un an de rulaje — anonimizat, versionat ca
 fixture de dezvoltare. F1.9 rămâne la locul lui și construiește conectorul propriu-zis.
 
-**Blocat de:** `OD-28` (ce versiuni 1C, prin ce metodă de extragere) și `OD-30` (firma de
-contabilitate colaboratoare nu este identificată). *`OD-32` — contabilul practicant — s-a închis
-prin `ADR-010`.*
+**Blocat de:** — *(2026-08-29, [ADR-054](../decisions/054-importul-e-distributie-corpusul-e-intern.md)
+§3.4: **alternativa de mai jos e aleasă explicit**. `OD-28` și `OD-30` au plecat la F3, cu
+importatorul; extrasul real, când vine, se folosește pentru a doua jumătate. `OD-32` — contabilul
+practicant — s-a închis prin `ADR-010`.)*
 
-**Aceasta este o precondiție, nu un detaliu de implementare.** Dacă nu se rezolvă, alternativa se
-alege explicit, nu prin omisiune — și alternativa **nu** este „date inventate" pur și simplu:
+**Aceasta este o precondiție, nu un detaliu de implementare.** Alternativa se alege explicit, nu
+prin omisiune — și alternativa **nu** este „date inventate" pur și simplu:
 
 > **Date inventate cu volum realist:** zeci de mii de linii, distribuție plauzibilă a conturilor,
 > denumiri de lungime realistă.
@@ -57,6 +58,11 @@ câmpurile pe care nimeni nu le completează. Un generator scris de aceeași per
 grila reproduce exact așteptările pe care grila ar trebui să le înfrunte.
 
 Diferența este numită aici ca decizia să fie luată știind ce se sacrifică.
+
+**F1.G0, cum se construiește (ADR-054):** volumul din modelul F0.11 — scenariul „Mare", 18.000 de
+documente pe an, cu distribuția lui pe conturi; structura din corpusul F1.10 și din planul real de
+476 de conturi — parteneri cu IDNO-uri fictive, un an de rulaje generat din cazurile corpusului,
+denumiri de lungime realistă. Versionat ca fixture de dezvoltare, ca și cum ar fi venit din 1C.
 
 ---
 
@@ -78,9 +84,9 @@ Diferența este numită aici ca decizia să fie luată știind ce se sacrifică.
 - **Depinde de:** F1.2 (date reale în ledger), F1.G0 *(setul de date 1C — vezi mai sus)*
 - **Review:** `tenancy-guard` (preferințele de coloane sunt date per tenant),
   `schema-reviewer` (modelul de preferințe)
-- **Terminat:** un raport real din F1.8 randează peste extrasul 1C la volum, cu subtotaluri primite
-  de la server, drill-down funcțional, și zero import direct de `@tanstack/react-table` în ecrane —
-  verificat de ESLint, nu de citire.
+- **Terminat:** un raport real din F1.8 randează peste fixture-ul F1.G0 la volum, cu subtotaluri
+  primite de la server, drill-down funcțional, și zero import direct de `@tanstack/react-table` în
+  ecrane — verificat de ESLint, nu de citire.
 - **Blocat de:** `OD-19` (management de stare, client HTTP). *`OD-34` închisă prin `ADR-009`;
   `OD-35` prin `ADR-042`; ținta de performanță (`OD-29`) prin [ADR-053](../decisions/053-tinta-de-performanta.md).*
 
@@ -125,7 +131,7 @@ Diferența este numită aici ca decizia să fie luată știind ce se sacrifică.
   echilibrul se verifică în bază de date, nu în grilă)
 - **Terminat:** trei criterii, al treilea fiind cel care verifică efectiv generalitatea:
   1. o notă contabilă completă, cu minim cinci linii, se introduce de la tastatură fără mouse, pe
-     extrasul 1C real;
+     fixture-ul F1.G0;
   2. valorile cu punct și cu virgulă produc același rezultat, iar ecranul nu adaugă niciun handler
      propriu de taste;
   3. **aceeași componentă, fără fork și fără ramuri specifice ecranului, servește o suprafață care

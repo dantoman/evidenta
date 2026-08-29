@@ -132,9 +132,10 @@ e `Acceptat` cu `C1`–`C5` clasificate, `OD-55` închisă prin [ADR-051](decisi
 (chei enumerate în cod). La fel `F1.4.4`, `F1.5.4` ([ADR-050](decisions/050-lantul-de-inchidere-ca-roluri.md)),
 `F1.8` ([ADR-053](decisions/053-tinta-de-performanta.md)) și `F1.G2` ([ADR-052](decisions/052-contractul-de-tastatura.md)).
 Calea de scriere a datelor de referință există ([ADR-049](decisions/049-rolul-de-date-de-referinta.md)).
-**Blocaje externe reale rămase: două** — extrasul 1C (`OD-28`, pentru cititor și validare) și
-contabilul practicant (F1.10). F1.6 mai așteaptă numerele de MO (`OD-22`) și lectura unui document
-public (`V1`).
+**Blocaje externe: niciunul** ([ADR-054](decisions/054-importul-e-distributie-corpusul-e-intern.md)):
+importatorul 1C a plecat la F3 cu `OD-28`/`OD-30`, criteriul de ieșire se validează pe un corpus
+intern, două puncte ale lui sunt deja bifate din teste, iar F1.10 e sarcină, nu blocaj. **F1 are un
+singur lucru deschis: `V1`** — Ordinul MF 118/2017, Anexele 1 și 1a, document public, o oră.
 
 **F1 — Accounting Core.** F0 este închisă (criteriul de ieșire îndeplinit, mai jos). Livrate:
 **F1.1** (planul de conturi, structura fără conținut) cu API-ul lui, **F1.3** (evenimentele),
@@ -200,6 +201,26 @@ nouă puncte (sesiunea `evidenta-77`):**
   funcția); utilizatorii de sistem din Spec A §3.4 nu există; `Tab`, tasta `F` și ștergerea rândului
   din contractul de tastatură sunt implicite propuse; pragurile din ADR-053 la fel.
 - Suita: **969 trec, 1 sărit** (de la 745 la începutul zilei; 46 noi aici — rol, încărcătoare, gardian). `make lint`, `make typecheck`, `make drift-check` pe baza vie: curate.
+
+**A doua instrucțiune a zilei, după raport** ([ADR-054](decisions/054-importul-e-distributie-corpusul-e-intern.md)):
+
+- **Importatorul 1C e instrument de distribuție, nu fundație** — mutat la F3, lângă Migration
+  Center, unde spec-ul pusese de la început maparea (F2) și reconcilierea (F3). `OD-28` și `OD-30`
+  au plecat cu el; cererea de extras rămâne trimisă, dar nu mai condiționează F1.
+- **Criteriul de ieșire, rescris:** cele trei puncte care numeau 1C validau registrul, nu
+  cititorul. Balanța și reconcilierea se validează pe corpusul intern; **două puncte bifate din
+  teste existente** — storno cu lineage (`test_vertical_slice`), refuzul în perioadă închisă
+  (`test_posting_invariants`, `test_periods`) — citite, nu presupuse.
+- **F1.10 reclasificată:** „cazurile cu rezultat verificat nu se pot fabrica" era o definiție —
+  *verificat* însemna *de altcineva*, iar ADR-010 spusese deja că a doua semnătură nu e verificare
+  independentă. E sarcină: ~20 de cazuri, fiecare cu citarea lui; unul care nu poate cita nu intră.
+- **Întrebarea de treizeci de secunde, răspunsă cu actul din repo:** închiderea lunii **nu**
+  postează lanțul 351, și e corect — Planul general de conturi decontează clasele 6 și 7 la 351
+  „la finele perioadei de gestiune", iar Legea 287/2017 art. 24 alin. (1) face perioada de gestiune
+  anul. Lunar, 6 și 7 acumulează; rezultatul intermediar se citește din rulaje. Ce e inferență e
+  marcat ca atare în ADR-054 §4.
+- **F1.G0 sintetic, ales explicit** — nu prin omisiune, cum cerea `07-f1-grile.md`.
+- **Harta, a doua recalculare:** F1 nu mai are **niciun** blocaj extern. Rămâne `V1`. Atât.
 
 ## Sesiuni mai vechi
 
@@ -1910,8 +1931,8 @@ F1.2 nu poate fi prima. Ordinea reală se notează aici, pe măsură ce se stabi
       cu API și ecran
 - [ ] F1.8 — Rapoarte contabile *(deblocată 29.08: [ADR-053](decisions/053-tinta-de-performanta.md);
       balanța și registrul există din felia verticală)*
-- [ ] F1.9 — Importator 1C, fundament *(`OD-28`)*
-- [ ] F1.10 — Corpus de regresie fiscală
+- ~~F1.9 — Importator 1C~~ → **F3, Migration Center** ([ADR-054](decisions/054-importul-e-distributie-corpusul-e-intern.md))
+- [ ] F1.10 — Corpus de regresie, **intern**: ~20 de cazuri cu citare, construite de sesiune (ADR-054)
 - [ ] F1.G0, F1.G1 (`DataGrid`), F1.G2 (`EntryGrid`) — `_bootstrap/07-f1-grile.md`;
       contractul de tastatură scris ([ADR-052](decisions/052-contractul-de-tastatura.md)); F1.G0 pe `OD-28`
 
@@ -1919,8 +1940,8 @@ F1.2 nu poate fi prima. Ordinea reală se notează aici, pe măsură ce se stabi
 
 | Ce blochează | Ce nu se poate face | Referință |
 |---|---|---|
-| Corpusul de regresie fiscală nu are cazuri reale cu rezultat verificat | Nimic nu verifică mecanic conținutul contabil; este singura măsură de risc rămasă după ADR-010 | ADR-010, C14, F1.10 |
-| Nu există extras real dintr-o bază 1C | `DataGrid` și `EntryGrid` nu pot fi validate pe structuri neanticipate; volumul se poate simula, structura nu | OD-28, OD-30, `_bootstrap/07-f1-grile.md` |
+| ~~Corpusul de regresie fiscală nu are cazuri reale cu rezultat verificat~~ | **Reclasificat 2026-08-29** ([ADR-054](decisions/054-importul-e-distributie-corpusul-e-intern.md)): corpusul e intern, construit de sesiunea de implementare cu citare — sarcină (F1.10), nu blocaj. Ce nu prinde — divergența față de practică — se prinde la primul client, F3 | ADR-010, ADR-054, C14, F1.10 |
+| ~~Nu există extras real dintr-o bază 1C~~ | **Mutat la F3** cu importatorul (ADR-054). Grilele se validează pe fixture-ul sintetic F1.G0, cu ce se sacrifică scris în `07-f1-grile.md` | OD-28, OD-30 — F3 |
 | Nu există semnătură electronică, entitate de test și acces în e-Factura | Formatele declarațiilor și `V2` din ADR-037 (schema XML — condiționează **testul de acceptanță** al rotunjirii, nu codul). **`DNB-08` nu e aici**: ce-i rămâne e `V1`, un document public. *Corectat 2026-08-29, a treia oară* | ADR-010, ADR-037 §5, OD-24, OD-25 |
 
 Primele trei rânduri se rezolvă în câteva ore: o instalare și două decizii. Ultimele trei nu se

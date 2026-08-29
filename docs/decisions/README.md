@@ -124,6 +124,7 @@ Acte normative, secțiuni din documentele de intrare, benchmark-uri, discuții.
 | [051](051-chei-de-context-enumerate.md) | Cheile de context ale legării condiționate sunt enumerate în cod; valorile sunt date | Acceptat — proprietar | 2026-08-29 | `OD-55` |
 | [052](052-contractul-de-tastatura.md) | Contractul de introducere cu tastatura: nicio operațiune frecventă nu cere mouse-ul | Acceptat — produs, proprietar | 2026-08-29 | `OD-36` |
 | [053](053-tinta-de-performanta.md) | Ținta de performanță: modelul de volum dă datele, fișa contului agregă pe document | Acceptat — produs, proprietar; pragurile propuse | 2026-08-29 | `OD-29` |
+| [054](054-importul-e-distributie-corpusul-e-intern.md) | Importatorul 1C e instrument de distribuție (F3), nu fundație; F1 se validează pe un corpus intern; lanțul 351 e anual | Acceptat — scop, proprietar; §4 domeniu | 2026-08-29 | — |
 
 *Indexul se actualizează la fiecare ADR nou. Un ADR care nu apare aici este invizibil.*
 

@@ -351,11 +351,13 @@ redeschide. Unde o sarcină pare să ceară altceva, ADR-ul câștigă și sarci
 - **Review:** `fiscal-reviewer`
 - **Terminat:** cel puțin un algoritm real e selectat după data efectivă a perioadei și trece
   corpusul de regresie. Registrul însuși **există din F0.8**; ce lipsește sunt implementările.
-- **Blocat de:** **`OD-22`** *(valorile — cote, praguri; numerele de Monitorul Oficial lipsesc)* și
-  **`V1`** din [ADR-037](../decisions/037-conventii-de-platforma.md) §5 *(precizia — Ordinul MF
-  118/2017, Anexele 1 și 1a, document public, o oră)*. **Nu mai e blocată pe calea de scriere:**
-  `OD-67` închisă prin [ADR-049](../decisions/049-rolul-de-date-de-referinta.md) —
-  `manage.py load_fiscal_parameters`, iar `platform_conventions.toml` așteaptă doar valorile.
+- **Blocat de:** **`V1`** din [ADR-037](../decisions/037-conventii-de-platforma.md) §5 *(precizia —
+  Ordinul MF 118/2017, Anexele 1 și 1a, document public, o oră)*. Primul algoritm real e rotunjirea,
+  deja în registru (`half_up`/`half_even`, selectat după dată); ce lipsește sunt cele două valori și
+  data lor. **Nu mai e blocată pe calea de scriere** (`OD-67` închisă prin
+  [ADR-049](../decisions/049-rolul-de-date-de-referinta.md) — `manage.py load_fiscal_parameters`;
+  `platform_conventions.toml` așteaptă doar valorile) **și nu pe `OD-22`**: cotele și pragurile sunt
+  ale declarațiilor, adică F2 ([ADR-054](../decisions/054-importul-e-distributie-corpusul-e-intern.md)).
 
   **`DNB-08` NU e blocată pe ghidul de integrare SFS.** Rândul de mai sus spunea asta și contrazicea
   ADR-ul propriu: [ADR-037](../decisions/037-conventii-de-platforma.md) §5 constată explicit că
@@ -432,7 +434,12 @@ redeschide. Unde o sarcină pare să ceară altceva, ADR-ul câștigă și sarci
 
 ---
 
-## F1.9 — Importatorul 1C, fundament
+## ~~F1.9 — Importatorul 1C, fundament~~ → **F3, Migration Center**
+
+*Mutat 2026-08-29 prin [ADR-054](../decisions/054-importul-e-distributie-corpusul-e-intern.md):
+instrument de distribuție, nu fundație — nimic din F1 nu-l consumă. Sarcina rămâne scrisă aici ca
+istoric; se reia în backlogul F3, lângă `migration/mapping` (F2) și `migration/reconciliation` (F3),
+unde spec-ul le pusese de la început.*
 
 - **Obiectiv:** conector, extragere plan de conturi, parteneri, solduri.
 - **Depinde de:** F1.1.2, F1.7.2
@@ -441,19 +448,29 @@ redeschide. Unde o sarcină pare să ceară altceva, ADR-ul câștigă și sarci
   autoritativă și nu se recalculează, dar cei șase invarianți se verifică la fel — un import care nu
   echilibrează e refuzat, ceea ce e chiar verificarea utilă la migrare
   ([ADR-038](../decisions/038-vocabularul-de-evenimente.md) §7.3).
-- **Blocat de:** **`OD-28`** *(ce versiuni 1C, prin ce metodă de extragere)*
+- **Blocat de:** **`OD-28`** *(ce versiuni 1C, prin ce metodă de extragere)* — **blochează F3, nu F1.**
 
 ---
 
-## F1.10 — Corpusul de regresie fiscală
+## F1.10 — Corpusul de regresie
 
-- **Obiectiv:** cazuri reale, anonimizate, cu rezultat cunoscut.
-- **Depinde de:** F1.6
-- **Review:** `fiscal-reviewer`
-- **Terminat:** rulează în CI la fiecare modificare de parametru sau algoritm (`C14`).
-- **Blocat de:** **contabilul practicant** — cazurile cu rezultat verificat nu se pot fabrica. Este
-  singura măsură de risc contabil rămasă după [ADR-010](../decisions/010-fara-a-doua-semnatura.md),
-  iar F0 s-a încheiat cu ea încă goală.
+- **Obiectiv:** *circa douăzeci de cazuri construite intern*, fiecare cu documentul, postarea
+  așteptată — conturi și sume —, și **citarea** care o susține (SNC, Planul general de conturi,
+  ADR-036 §11). Un caz care nu poate cita nu intră.
+- **Depinde de:** F1.4.4 (primele handlere), F1.5.4 (lanțul de închidere — cel puțin un caz de
+  închidere de lună fără nicio linie pe 351 și unul de închidere de an cu lanțul din ADR-050 §3.2)
+- **Review:** `fiscal-reviewer`, `accounting-reviewer`
+- **Terminat:** rulează în CI la fiecare modificare de parametru sau algoritm (`C14`); balanța,
+  Cartea Mare și fișa contului dau același răspuns pe fiecare caz (criteriul de ieșire, punctele 1–2).
+- **Blocat de:** — *(reclasificată 2026-08-29 prin
+  [ADR-054](../decisions/054-importul-e-distributie-corpusul-e-intern.md): nu mai e blocată pe un
+  contabil extern; e o sarcină de construit cazuri, a sesiunii de implementare. Ce nu prinde corpusul
+  intern — divergența dintre înțelegerea noastră și practică — se prinde la primul client real, F3.)*
+
+  *Textul blocajului, păstrat:* „contabilul practicant — cazurile cu rezultat verificat nu se pot
+  fabrica. Este singura măsură de risc contabil rămasă după ADR-010, iar F0 s-a încheiat cu ea încă
+  goală." Prima jumătate era o definiție: *verificat* însemna *de altcineva*; ADR-010 spusese deja că
+  a doua semnătură nu mai e verificare independentă.
 
 ---
 
@@ -464,8 +481,8 @@ o a doua copie a aceleiași sarcini diverge de prima, iar F0 a produs destule ex
 
 | Sarcină | Poziție în secvență | Blocat de |
 |---|---|---|
-| **F1.G1** `DataGrid` | după F1.2, înainte de F1.8 | `OD-35`; *`OD-19` închisă prin [ADR-031](../decisions/031-stack-frontend.md)* |
-| **F1.G2** `EntryGrid` | după F1.2, înainte de F1.7 | **`OD-36`** — contractul de tastatură se scrie și se aprobă înainte de cod |
+| **F1.G1** `DataGrid` | după F1.2, înainte de F1.8 | — *(`OD-19` prin [ADR-031](../decisions/031-stack-frontend.md); `OD-35` prin ADR-042; ținta prin ADR-053; fixture-ul F1.G0 sintetic, ADR-054)* |
+| **F1.G2** `EntryGrid` | după F1.2, înainte de F1.7 | — *(contractul: [ADR-052](../decisions/052-contractul-de-tastatura.md))* |
 
 `F1.G0` — setul de date 1C — este aceeași precondiție ca `OD-28`.
 
@@ -493,11 +510,9 @@ Firul D   F1.2.1 → F1.2.2 → F1.2.3 → F1.2.4    ledgerul
 > Greșeala a durat un commit. Merită păstrată aici fiindcă e chiar clasa de eroare pe care
 > descompunerea trebuie s-o prindă: o ordine plauzibilă, dedusă din nume în loc de din coloane.
 
-**Ce nu poate începe, și de ce e util să fie vizibil** *(recalculat 2026-08-29, după ADR-049–053)*:
-F1.6 așteaptă `OD-22` (valorile, cu numere de MO) și `V1` (un document public); F1.9 și F1.G0
-așteaptă `OD-28` — dar `OD-28` blochează **cititorul** extrasului și **validarea**, nu construcția
-(vezi rândul din tabel); F1.10 așteaptă cazuri reale. **Două blocaje externe reale au rămas: extrasul
-1C și contabilul practicant.** F1.4.2, F1.4.4, F1.5.4, F1.8 și F1.G2 pot începe.
+**Ce nu poate începe, și de ce e util să fie vizibil** *(recalculat 2026-08-29, după ADR-049–054)*:
+**nimic din F1 nu așteaptă ceva din afară.** F1.6 așteaptă `V1` — un document public, o oră. F1.9 a
+plecat la F3; F1.G0 se construiește sintetic; F1.10 e sarcină, nu blocaj. Tot restul poate începe.
 
 *Versiunea anterioară a paragrafului:* F1.4.4 aștepta `C1`–`C5`; F1.5.4 și F1.6 așteptau `OD-22`;
 F1.8 aștepta `OD-35`; F1.G2 aștepta `OD-36` — cinci din zece sarcini blocate pe lucruri care nu se
@@ -508,14 +523,22 @@ rezolvă scriind cod. Patru dintre ele s-au închis într-o zi, prin instrucțiu
 
 ## Criteriul de ieșire din F1
 
-- [ ] Balanță de verificare corectă pe date reale importate din 1C
-- [ ] Diferență zero la reconciliere
-- [ ] Storno și reînregistrare funcționează, cu lineage coerent
-- [ ] Postarea într-o perioadă închisă este refuzată
-- [ ] Corpusul de regresie rulează în CI
+*Rescris 2026-08-29 prin [ADR-054](../decisions/054-importul-e-distributie-corpusul-e-intern.md):
+extrasul 1C a ieșit din criteriu — cele trei puncte care îl numeau validau de fapt registrul, iar
+„balanță pe date importate" testa motorul și cititorul de format deodată.*
 
-**Trei dintre cele cinci depind de un extras 1C real.** Aceeași dependență externă care a rămas
-deschisă toată F0, acum pe drumul critic al criteriului de ieșire.
+- [ ] Balanță de verificare corectă **pe corpusul intern** (F1.10)
+- [ ] Diferență zero la reconciliere **între balanță, Cartea Mare și fișa contului**, pe același corpus
+- [x] Storno și reînregistrare funcționează, cu lineage coerent — `tests/integration/test_vertical_slice.py`:
+      ambele legături `R14`, al doilea storno refuzat, balanța la zero
+- [x] Postarea într-o perioadă închisă este refuzată — `test_posting_invariants.py`
+      (`closed`, `locked` cu cod propriu), `test_periods.py::test_posting_into_a_closed_period_is_refused`
+- [ ] Corpusul de regresie rulează în CI (`C14`)
+
+**Niciun punct nu mai depinde de ceva din afară.** Rămâne `V1` — un document public, o oră — pe F1.6.
+
+*Versiunea anterioară:* „Balanță de verificare corectă pe date reale importate din 1C; diferență
+zero la reconciliere; […] **Trei dintre cele cinci depind de un extras 1C real.**"
 
 ---
 
@@ -526,11 +549,12 @@ deschisă toată F0, acum pe drumul critic al criteriului de ieșire.
 | ~~F1.4.2~~ | ~~`OD-55`; ADR-036 `Propus`~~ | Închise 2026-08-29: [ADR-051](../decisions/051-chei-de-context-enumerate.md); ADR-036 `Acceptat` |
 | ~~F1.4.4~~ | ~~`C1`–`C5` din ADR-036 §11~~ | Închis 2026-08-29: clasificarea aprobată, ADR-036 §11. Rămân în afara sarcinii: HG 704/2019, Anexa 1 SNC „Diferențe de curs" |
 | ~~F1.5.4~~ | ~~`OD-22`~~ | Dizolvat 2026-08-29: [ADR-050](../decisions/050-lantul-de-inchidere-ca-roluri.md) — conturile lanțului sunt roluri din Planul general de conturi, nu parametri fiscali |
-| F1.6 | `OD-22` *(strict cote, praguri)*; `V1` din ADR-037 | Domeniu contabil — numerele de MO ale actelor modificatoare; **lectura unui document public** (Ordinul MF 118/2017). ~~`OD-67`~~ închisă prin [ADR-049](../decisions/049-rolul-de-date-de-referinta.md) |
+| F1.6 | `V1` din ADR-037 | **Lectura unui document public** (Ordinul MF 118/2017, Anexele 1 și 1a). ~~`OD-67`~~ închisă prin [ADR-049](../decisions/049-rolul-de-date-de-referinta.md); ~~`OD-22`~~ e a declarațiilor, F2 ([ADR-054](../decisions/054-importul-e-distributie-corpusul-e-intern.md)) |
 | ~~F1.8~~ | ~~`OD-29`~~ | Închisă 2026-08-29: [ADR-053](../decisions/053-tinta-de-performanta.md) |
-| F1.9, F1.G0 | `OD-28` | Extern — acces la o bază 1C reală. **Reformulată** (instrucțiune, punctul 8): blochează **cititorul** formatului real și **validarea la leu**, nu construcția — zona de aterizare (`opening`, `source = onec_import`), maparea, punctarea și raportul de diferențe se construiesc pe un extras sintetic în formatul intern; rămâne bifa finală |
+| ~~F1.9~~ | ~~`OD-28`~~ | **Mutat la F3** ([ADR-054](../decisions/054-importul-e-distributie-corpusul-e-intern.md)): instrument de distribuție, nu fundație. `OD-28` blochează cititorul și reconcilierea la F3, nimic în F1 |
+| ~~F1.G0~~ | ~~`OD-28`, `OD-30`~~ | **Sintetic**, ales explicit (ADR-054 §3.4): volum din modelul F0.11, structură din corpus. Ce se sacrifică e scris în `07-f1-grile.md` și se recuperează la primul extras real |
 | ~~F1.G2~~ | ~~`OD-36`~~ | Închisă 2026-08-29: [ADR-052](../decisions/052-contractul-de-tastatura.md) |
-| F1.10 | — | Domeniu contabil — cazuri cu rezultat verificat. **Extern real**, alături de `OD-28` |
+| ~~F1.10~~ | ~~contabilul practicant~~ | **Reclasificată** (ADR-054 §3.3): sarcină de construit cazuri, cu citare; nu blocaj |
 
 Când o decizie se închide, **rândul de aici se taie în același commit**. Regula există fiindcă la
 F0 nu a existat.
