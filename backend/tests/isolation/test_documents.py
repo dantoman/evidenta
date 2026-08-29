@@ -878,3 +878,39 @@ def test_a_units_precision_freezes_at_the_first_quantity_it_carries(
         assert spare.decimal_places == 2
         # And a change that changes nothing is not a change.
         UnitOfMeasure.objects.filter(pk=kg.pk).update(decimal_places=3)
+
+
+# --- the rate term on the header (ADR-057, C4's precondition) ------------------------
+
+
+def test_the_rate_term_defaults_to_the_acts_suppletive_rule_and_takes_a_stipulation(
+    context: TenantContext, company: uuid.UUID, partner: uuid.UUID, series: None
+) -> None:
+    """`payment_date` when nothing is stipulated -- pct. 6 and 8 -- and the two
+    contractual terms written explicitly. A fourth term does not exist."""
+    from evidenta.platform.documents.errors import RateTermUnknownError
+    from evidenta.platform.documents.models import RateTerm
+
+    with tenant_context(context):
+        plain = get_document(open_sale(company_id=company, partner_id=partner, document_date=ON))
+        assert plain.rate_term == RateTerm.PAYMENT_DATE
+        fixed = get_document(
+            open_sale(company_id=company, partner_id=partner, document_date=ON, rate_term="fixed")
+        )
+        assert fixed.rate_term == RateTerm.FIXED
+        with pytest.raises(RateTermUnknownError):
+            open_sale(company_id=company, partner_id=partner, document_date=ON, rate_term="spot")
+
+
+def test_the_rate_term_freezes_with_the_header(
+    context: TenantContext, company: uuid.UUID, partner: uuid.UUID, series: None
+) -> None:
+    from django.db import DatabaseError, transaction
+
+    from evidenta.platform.documents.models import Document
+
+    with tenant_context(context):
+        document = a_sale(company, partner)
+        validate(document.id)
+        with pytest.raises(DatabaseError), transaction.atomic():
+            Document.objects.filter(pk=document.pk).update(rate_term="fixed")

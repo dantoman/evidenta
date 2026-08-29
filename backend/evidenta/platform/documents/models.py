@@ -47,6 +47,26 @@ from evidenta.platform.numbering.regimes import NumberingRegime
 from evidenta.platform.tenancy.models import Company, Tenant
 
 
+class RateTerm(models.TextChoices):
+    """Which day's rate settles a document in foreign currency -- SNC "Diferenţe
+    de curs valutar şi de sumă", pct. 19: the rate at the payment date, the rate
+    at the delivery date, or a rate the parties fixed. At the last two no
+    difference ever arises (pct. 21): both sides recognise at the same rate.
+
+    **The default is the act's own suppletive rule, not a platform choice.**
+    Points 6 and 8 recalculate at the rate of the settlement day when the
+    contract says nothing, so a document without a stipulation really does fall
+    under `payment_date`. This is the difference from `decimal_places = 0` on the
+    unit of measure (ADR-055): that default stood in for a choice nobody had
+    made; this one states what the norm applies. Delivery-date and fixed rates
+    are contractual stipulations and are written here explicitly (ADR-057).
+    """
+
+    PAYMENT_DATE = "payment_date"
+    DELIVERY_DATE = "delivery_date"
+    FIXED = "fixed"
+
+
 class DocumentState(models.TextChoices):
     """The generic lifecycle. Domain variants extend it, never replace it.
 
@@ -158,6 +178,12 @@ class Document(models.Model):
         max_digits=RATE_DIGITS, decimal_places=RATE_SCALE, default=1
     )
 
+    #: The contractual term on the rate (pct. 19), the precondition of the
+    #: realised-difference handler (C4, ADR-057). See `RateTerm` for why the
+    #: default is safe. Frozen with the rest of the header once the document is
+    #: confirmed: the trigger compares the whole row.
+    rate_term = models.TextField(choices=RateTerm.choices, default=RateTerm.PAYMENT_DATE)
+
     # The counterparty, without a foreign key: partners live in masterdata, and a
     # key from every document to them is a cost paid on every write for an
     # integrity the service already asserts.
@@ -264,6 +290,10 @@ class Document(models.Model):
             models.CheckConstraint(
                 condition=models.Q(exchange_rate__gt=0),
                 name="document_exchange_rate_positive",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(rate_term__in=RateTerm.values),
+                name="document_rate_term_valid",
             ),
             # ADR-022: uniqueness in the database. A service that checks and then
             # inserts produces duplicates on the first concurrent write.

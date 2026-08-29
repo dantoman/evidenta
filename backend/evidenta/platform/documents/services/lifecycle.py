@@ -41,12 +41,14 @@ from evidenta.platform.documents.errors import (
     InvalidTransitionError,
     NoLinesError,
     PartnerRequiredError,
+    RateTermUnknownError,
 )
 from evidenta.platform.documents.models import (
     DOCUMENT_TRANSITIONS,
     EDITABLE_STATES,
     Document,
     DocumentState,
+    RateTerm,
 )
 from evidenta.platform.documents.registry import DocumentTypeSpec, spec_for
 from evidenta.platform.documents.services.history import record_event, require_context
@@ -94,6 +96,7 @@ def open_draft(
     external_number: str | None = None,
     source_document_id: uuid.UUID | None = None,
     notes: str | None = None,
+    rate_term: str = RateTerm.PAYMENT_DATE,
 ) -> Document:
     """Start a document. Nothing is committed to by opening one.
 
@@ -116,6 +119,11 @@ def open_draft(
     own_currency = functional_currency(company_id)
     currency = currency or own_currency
     rate = _resolve_rate(currency, own_currency, exchange_rate)
+    if rate_term not in RateTerm.values:
+        raise RateTermUnknownError(
+            f"rate_term {rate_term!r} is not one of {list(RateTerm.values)}: pct. 19 names "
+            f"three terms and no fourth"
+        )
 
     # The regime is a property of the series in force on the document's date, and
     # it is copied rather than looked up later: a series can be superseded, and
@@ -143,6 +151,7 @@ def open_draft(
         state=DocumentState.DRAFT,
         created_by_id=context.user_id,
         notes=notes,
+        rate_term=rate_term,
     )
 
     record_event(

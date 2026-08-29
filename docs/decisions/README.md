@@ -127,6 +127,7 @@ Acte normative, secțiuni din documentele de intrare, benchmark-uri, discuții.
 | [054](054-importul-e-distributie-corpusul-e-intern.md) | Importatorul 1C e instrument de distribuție (F3), nu fundație; F1 se validează pe un corpus intern; lanțul 351 e anual | Acceptat — scop, proprietar; §4 domeniu | 2026-08-29 | — |
 | [055](055-precizia-cantitatii-e-a-unitatii.md) | Precizia cantității este a unității de măsură: obligatorie, fără implicit, înghețată la prima cantitate; nu e parametru fiscal | Acceptat — domeniu, proprietar | 2026-08-29 | `OD-70` |
 | [056](056-inchiderea-lunii-si-a-exercitiului.md) | Închiderea: luna nu postează nimic, exercițiul postează lanțul într-o înregistrare, în perioada lui deschisă | Acceptat — decizie tehnică | 2026-08-29 | — (deschide `OD-73`) |
+| [057](057-diferentele-realizate-la-decontare.md) | Diferențele realizate la decontare: termenul pe antet cu implicitul actului, discriminatorul fără implicit, trei perechi de conturi | Acceptat — decizie tehnică (C4) | 2026-08-30 | — |
 
 *Indexul se actualizează la fiecare ADR nou. Un ADR care nu apare aici este invizibil.*
 

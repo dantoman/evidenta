@@ -142,11 +142,9 @@ activă. **F1.6 e livrată; F1.5.4 e livrată** ([ADR-056](decisions/056-inchide
 ordinea fixată. **F1.4.4 e mai multe sesiuni, în ordinea decisă de proprietar: C4 la decontare, C5,
 C2, C1** — motivele în `08-f1-backlog.md`. `OD-73` (reformarea bilanțului) rămâne deschisă până când
 blochează ceva: tăcerea actului nu se rezolvă aici prin structură, e alegere de proces.
-**Precondiția lui C4, verificată la cererea proprietarului, înainte de pornire:** antetul
-documentului are `currency` și `exchange_rate`, **nu are termenul contractual privind cursul** (pct.
-19). Sesiunea C4 începe cu adăugarea lui — migrare aditivă — apoi handlerul; detaliile în backlog,
-F1.4.4 punctul 1. **Implicitul termenului, decis de proprietar: la data achitării** — regula normei
-când contractul tace; livrarea și cursul fix se înscriu pe antet.
+**C4 la decontare e livrat** (2026-08-30, [ADR-057](decisions/057-diferentele-realizate-la-decontare.md)):
+termenul pe antet cu implicitul actului, handlerul diferențelor realizate cu discriminatorul refuzat,
+trei perechi ca roluri, prima ștampilă de parametru. Urmează **C5**, apoi C2, C1, apoi F1.10.
 
 **F1 — Accounting Core.** F0 este închisă (criteriul de ieșire îndeplinit, mai jos). Livrate:
 **F1.1** (planul de conturi, structura fără conținut) cu API-ul lui, **F1.3** (evenimentele),
@@ -333,6 +331,31 @@ nouă puncte (sesiunea `evidenta-77`):**
   note de reconciliere care spun ce era greșit.
 
 ## Sesiuni mai vechi
+
+**2026-08-30, F1.4.4 / C4 — diferențele de curs și de sumă realizate la decontare (instrucțiune
+scrisă; [ADR-057](decisions/057-diferentele-realizate-la-decontare.md)):**
+
+- **Precondiția, măsurată apoi construită:** `Document.rate_term` — vocabular închis din pct. 19
+  (`payment_date`, `delivery_date`, `fixed`), `CHECK` în bază, trecut prin `open_draft` și prin cele
+  cinci deschideri din vânzări și achiziții, înghețat la validare odată cu antetul (triggerul compară
+  rândul întreg). **Implicitul `payment_date` e sigur și ADR-ul spune de ce**, ca peste un an să nu
+  fie citit ca `default=0`: acolo implicitul acoperea o alegere nefăcută; aici e **regula supletivă a
+  actului** (pct. 6, 8) — un document fără stipulație chiar cade sub normă.
+- **Handlerul `settlement.differences.v1`**, pe `receivables.settlement_created` și
+  `payables.settlement_created`, pur de registru, citind registrul fiscal (scara și direcția în
+  vigoare la data decontării) fiindcă diferența e prima sumă **derivată** a motorului — și **prima
+  ștampilă de parametru** scrisă de un handler (ADR-047, în sfârșit nevidă). Discriminatorul
+  (rezident + denominarea contractului, pct. 4 și 17) e **refuzat, nu presupus**, înainte să existe
+  eveniment. Trei perechi ca roluri: 6226/7224 curs, 6227/7225 sumă, **6127/7147 ecartul BNM–bancă
+  contra contului în lei, rezultat operațional** — patru roluri noi, catalogul la 45.
+- **Ramurile fără postare sunt cazuri, nu omisiuni:** `delivery_date` și `fixed` (pct. 21), avansul
+  (pct. 23), diferența care se rotunjește la zero — toate `posted` fără înregistrare.
+- **Verificat cu sume:** 1000 × (19,6234 − 19,5000) = 123,40 o singură dată; ambele sensuri pe
+  creanță și datorie; ecartul −23,40 / +76,60; aceeași decontare de două ori → o înregistrare.
+  Douăsprezece teste C4, două pe antet.
+- **Nu intră:** reevaluarea la raportare (Anexa 1 neextrasă); `DN-04` rămâne deschisă și nu
+  blochează. **Sesiunea paralelă `evidenta-04`/`2d` a pornit F1.8 + F1.G2**; zonele sunt separate,
+  numerele împărțite (ADR-058+ ale lor).
 
 **2026-08-29, baza motorului — etapa 1+2, formula ca unitate de postare și sloturile tipizate
 (instrucțiune scrisă; [ADR-048](decisions/048-formula-si-sloturile-tipizate.md)):**

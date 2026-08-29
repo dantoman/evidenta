@@ -269,7 +269,14 @@ redeschide. Unde o sarcină pare să ceară altceva, ADR-ul câștigă și sarci
 
   **Ordinea handlerelor, decisă de proprietar (2026-08-29, după F1.5.4) — mai multe sesiuni, nu una:**
 
-  1. **C4 la decontare** — diferențele de curs realizate. Primul fiindcă e singurul dintre cele cinci
+  1. **C4 la decontare — LIVRAT 2026-08-30** ([ADR-057](../decisions/057-diferentele-realizate-la-decontare.md)):
+     `Document.rate_term` cu implicitul actului (`payment_date`, pct. 6 și 8), handlerul
+     `settlement.differences.v1` pe `receivables.settlement_created` / `payables.settlement_created`,
+     discriminatorul refuzat nu presupus, trei perechi ca roluri (patru roluri noi în catalog, 45),
+     ramura „zero postări" și avansul ca teste, prima ștampilă de parametru scrisă de un handler.
+     Reevaluarea la raportare — nu (Anexa 1). Textul sarcinii, păstrat mai jos.
+
+     Diferențele de curs realizate. Primul fiindcă e singurul dintre cele cinci
      care produce formule pe care **nu le cere nicio linie de document**: diferența apare din
      compararea a două momente, nu dintr-o linie de intrare; dacă motorul poate emite asta, restul
      sunt cazuri mai simple. Ce e fixat deja și se testează, nu se omite: **trei perechi de conturi**

@@ -32,4 +32,5 @@ class PostingConfig(AppConfig):
             closing,  # noqa: F401
             manual,  # noqa: F401
             reversal,  # noqa: F401
+            settlement,  # noqa: F401
         )

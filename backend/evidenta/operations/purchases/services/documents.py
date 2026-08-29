@@ -60,6 +60,7 @@ def open_purchase(
     currency: str | None = None,
     exchange_rate: Decimal | None = None,
     notes: str | None = None,
+    rate_term: str = "payment_date",
 ) -> uuid.UUID:
     reference = (supplier_document_number or "").strip()
     if not reference:
@@ -77,6 +78,7 @@ def open_purchase(
         currency=currency,
         exchange_rate=exchange_rate,
         notes=notes,
+        rate_term=rate_term,
     )
     try:
         PurchaseDocument.objects.create(
@@ -110,6 +112,7 @@ def open_supplier_order(
     currency: str | None = None,
     exchange_rate: Decimal | None = None,
     notes: str | None = None,
+    rate_term: str = "payment_date",
 ) -> uuid.UUID:
     document = open_draft(
         company_id=company_id,
@@ -119,6 +122,7 @@ def open_supplier_order(
         currency=currency,
         exchange_rate=exchange_rate,
         notes=notes,
+        rate_term=rate_term,
     )
     SupplierOrder.objects.create(
         document=document,

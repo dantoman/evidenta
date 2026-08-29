@@ -47,6 +47,7 @@ def open_sale(
     exchange_rate: Decimal | None = None,
     external_number: str | None = None,
     notes: str | None = None,
+    rate_term: str = "payment_date",
 ) -> uuid.UUID:
     """Start a sale as a draft. Delivery or advance, one type either way."""
     document = open_draft(
@@ -59,6 +60,7 @@ def open_sale(
         exchange_rate=exchange_rate,
         external_number=external_number,
         notes=notes,
+        rate_term=rate_term,
     )
     SalesDocument.objects.create(
         document=document,
@@ -79,6 +81,7 @@ def open_proforma(
     currency: str | None = None,
     exchange_rate: Decimal | None = None,
     notes: str | None = None,
+    rate_term: str = "payment_date",
 ) -> uuid.UUID:
     document = open_draft(
         company_id=company_id,
@@ -88,6 +91,7 @@ def open_proforma(
         currency=currency,
         exchange_rate=exchange_rate,
         notes=notes,
+        rate_term=rate_term,
     )
     ProformaDocument.objects.create(
         document=document,
@@ -108,6 +112,7 @@ def open_customer_order(
     currency: str | None = None,
     exchange_rate: Decimal | None = None,
     notes: str | None = None,
+    rate_term: str = "payment_date",
 ) -> uuid.UUID:
     document = open_draft(
         company_id=company_id,
@@ -117,6 +122,7 @@ def open_customer_order(
         currency=currency,
         exchange_rate=exchange_rate,
         notes=notes,
+        rate_term=rate_term,
     )
     CustomerOrder.objects.create(
         document=document,

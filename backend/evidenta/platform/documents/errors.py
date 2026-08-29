@@ -143,3 +143,16 @@ class ExternalNumberNotAllowedError(ApiError):
 
     code = "documents.external_number_not_allowed"
     status = 400
+
+
+class RateTermUnknownError(ApiError):
+    """The contractual term on the rate is not one of the three pct. 19 names.
+
+    At the payment date, at the delivery date, or fixed by the parties -- and no
+    fourth. A term outside the vocabulary is refused rather than stored: the
+    handler that reads it at settlement (ADR-057) decides on it whether any
+    difference exists at all.
+    """
+
+    code = "documents.rate_term_unknown"
+    status = 400
