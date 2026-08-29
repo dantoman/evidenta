@@ -278,6 +278,22 @@ nouă puncte (sesiunea `evidenta-77`):**
   ca valoarea să nu se miște sub liniile care o poartă — un trigger, nu un `valid_from`.
 - **`OD-71`, nouă, înainte de F2:** aprobatorul din producție trebuie să fie o identitate reală —
   legat de utilizatorii de sistem din Spec A §3.4, care nu există. Nu blochează nimic acum.
+- **`OD-72`, amânată cu declanșator:** încrederea în sursă e pe rând la parametri (ADR-046) și nu e
+  nicăieri pe rând la versiunile de logică — asimetrie raportată, nu reparată nechemat. Decizia
+  proprietarului: se face la **a doua** intrare în `fiscal_logic_version`; cu una, migrarea nu
+  câștigă nimic.
+- **Închiderea zilei, spusă de proprietar:** F1 fără niciun blocaj — nici extern, nici la el — prima
+  dată în toată sesiunea. Corecția din Spec B §7.4 a fost numită cea mai importantă din raport: regula
+  de rotunjire „se citea din schema XML a e-Facturii" — o proprietate a domeniului atribuită
+  **canalului de transmitere**, aceeași eroare ca e-Factura declarată blocantă cu luni în urmă. Ea a
+  supraviețuit într-un spec deși principiul fusese tras: *un principiu învățat nu curăță retroactiv
+  locurile unde fusese aplicat greșit — le curăță doar cine le caută.* Căutat, în aceeași zi, în
+  specificații și backloguri: vezi rândul următor.
+- **Căutarea, făcută:** `grep` peste specificații, backloguri și ADR-uri după „schema XML",
+  „validatorul SFS", „ghidul SFS", „se citește din". Un loc viu mai purta eroarea — Spec B §7.4,
+  tabelul „Ce rămâne deschis până la ghidul SFS", cu trei întrebări toate decise azi de formular și
+  de proprietar, nu de SFS; rescris cu răspunsurile. Restul aparițiilor sunt fie corectate deja, fie
+  note de reconciliere care spun ce era greșit.
 
 ## Sesiuni mai vechi
 

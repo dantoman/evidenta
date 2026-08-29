@@ -911,15 +911,18 @@ corectate 2026-08-29, cu actul citit.*
    folosească regula de atunci. O funcție `round_money()` într-un modul de utilitare este exact
    forma în care o regulă fiscală ajunge nemarcată în cod.
 
-**Ce rămâne deschis** până la ghidul SFS:
+**Cele trei întrebări de aici sunt decise** (2026-08-29). Tabelul spunea „deschis până la ghidul
+SFS" — ghidul SFS nu a fost și nu e sursa lor; formularul și proprietarul au fost:
 
-| # | Întrebare | Efect dacă se greșește |
+| # | Întrebare | Răspuns |
 |---|---|---|
-| a | Precizia de stocare a sumelor în moneda funcțională: 2 sau 4 zecimale | cu 2, suma liniilor diferă de totalul calculat; cu 4, balanța arată bani care nu există |
-| b | Regula de rotunjire: la jumătate în sus, la par, sau alta impusă | abateri de bani față de calculul SFS |
-| c | Locul rotunjirii TVA: pe linie sau pe document | abateri pe facturi cu multe linii; declarația nu se potrivește cu factura |
+| a | Precizia sumelor în moneda funcțională | Două lucruri, nu unul: **lățimea de stocare** e `numeric(20,4)` (§1.3, decizie de schemă, aceeași pentru orice perioadă); **precizia de rotunjire** e parametru fiscal, `accounting.amount_scale = 2`, rezolvat după dată — convenție de platformă aprobată, `provisional` fiindcă formularul tace. Cu 4 la stocare și 2 la rotunjire, balanța nu arată bani care nu există |
+| b | Regula de rotunjire la echidistanță | `half_up` — `fiscal_logic_version`, `accounting.money_rounding` v1; decizia proprietarului, [ADR-037](../decisions/037-conventii-de-platforma.md) §3.3 |
+| c | Locul rotunjirii TVA | **Pe linie**, prin structura formularului (OMF 118/2017, pct. 15–24): valoarea și TVA-ul se calculează pe linie, totalurile sunt sume — nu o alegere, un act citat |
 
-Punctul (c) generează cele mai multe reclamații într-un sistem contabil real.
+Punctul (c) generează cele mai multe reclamații într-un sistem contabil real — și e cel pe care
+formularul îl decide singur. Ghidul SFS (`V2`) rămâne ce a fost mereu: testul de acceptanță al
+adaptorului.
 
 ## 8. Solduri inițiale
 
