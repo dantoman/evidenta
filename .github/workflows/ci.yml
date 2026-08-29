@@ -102,6 +102,7 @@ jobs:
       TEST_DB_ADMIN_PASSWORD: postgres
       APP_DB_PASSWORD: ci-app
       OWNER_DB_PASSWORD: ci-owner
+      REFDATA_DB_PASSWORD: ci-refdata
 
     steps:
       # `fetch-depth: 0` here too, and the omission is why this line exists:
@@ -153,13 +154,14 @@ jobs:
           set -euo pipefail
           for file in infra/bootstrap/0*.sql; do
             case "$file" in
-              *0000_*|*0001_*) role=postgres; export PGPASSWORD=postgres ;;
-              *)               role=evidenta_owner; export PGPASSWORD="$OWNER_DB_PASSWORD" ;;
+              *0000_*|*0001_*|*0004_*) role=postgres; export PGPASSWORD=postgres ;;
+              *)                       role=evidenta_owner; export PGPASSWORD="$OWNER_DB_PASSWORD" ;;
             esac
             echo "--> $file (as $role)"
             psql -h localhost -U "$role" -d evidenta -v ON_ERROR_STOP=1 \
               -v owner_password="$OWNER_DB_PASSWORD" \
               -v app_password="$APP_DB_PASSWORD" \
+              -v refdata_password="$REFDATA_DB_PASSWORD" \
               -f "$file"
           done
 

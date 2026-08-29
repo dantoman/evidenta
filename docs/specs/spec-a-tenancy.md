@@ -360,7 +360,11 @@ Niciuna nu o înlocuiește pe cealaltă. Suita 1 testează bariera 2 prin ocolir
 
 ### 2.2 Roluri de bază de date
 
-**Trei roluri, nu două** — [ADR-003](../decisions/003-rls-tenancy-tables.md).
+**Trei roluri, nu două** — [ADR-003](../decisions/003-rls-tenancy-tables.md). *Plus un al patrulea,
+în afara runtime-ului, de la [ADR-049](../decisions/049-rolul-de-date-de-referinta.md):
+`evidenta_refdata` — `LOGIN`, `NOINHERIT`, fără `BYPASSRLS`, nu deține nimic, fără privilegii
+implicite; primește `SELECT, INSERT, UPDATE` și o politică `FOR ALL` doar pe tabelele globale de
+referință declarate cu `writer_role` în `infra/rls/exceptions.toml`. `infra/bootstrap/0004_refdata_role.sql`.*
 
 ```sql
 -- rol de migrare: deține obiectele. Nu se folosește la runtime.
@@ -954,6 +958,13 @@ iar o greșeală de configurare dă acces la tot.
 | **P-7** | Suportul platformei | Acces temporar la datele unui tenant pentru diagnostic | Necesar operațional | vezi `DN-18` |
 | **P-8** | Offboarding și export | Produce exportul complet al unui tenant, inclusiv date pe care niciun rol de utilizator nu le citește într-o singură interogare | Operațiune de platformă | rând per export, cu cine l-a cerut |
 | **P-9** | Provizionarea unui tenant sau a unei companii | Creează rândul rădăcină și acordă accesul creatorului, în aceeași tranzacție | Crearea precede contextul: `tenant` e rădăcina contextului, iar politica pe `company` cere `has_company_access(id)` și în `WITH CHECK` — o companie nu poate avea acces la ea însăși înainte să existe | rând per creare, cu creatorul și subdomeniul sau IDNO-ul |
+| **P-10** | Încărcarea planului de conturi | Scrie o versiune publicată a planului general de conturi (`coa_template`, `coa_template_account`) și actul ei | Scriere globală; act **contabil**, nu parametru fiscal, deci nu e `P-4` (`OD-56`) | rând per rulare, cu versiunea și numărul de conturi scrise |
+
+*`P-3`, `P-4`, `P-5` și `P-10` rulează sub rolul `evidenta_refdata` (§2.2), prin
+`platform.audit.services.privileged.privileged_run`, care scrie rândul din §6.3 în aceeași
+tranzacție — [ADR-049](../decisions/049-rolul-de-date-de-referinta.md). `P-9` rămâne funcție
+`SECURITY DEFINER`, fiindcă e apelată dintr-o cerere de utilizator; `DN-17` se închide astfel
+parțial, pe criteriul „cine apelează".*
 
 **`DECIZIE NECESARĂ (DN-18)` — accesul de suport (P-7).** Este singura cale prin care un angajat
 al platformei vede datele unui client. Opțiuni: (A) nu există — diagnosticul se face exclusiv din
@@ -970,9 +981,9 @@ nelimitat).
 |---|---|---|
 | `id` | bigint | PK |
 | `occurred_at` | timestamptz | NOT NULL — coloană naturală de partiționare |
-| `path_code` | text | NOT NULL, `P-1` … `P-8` |
-| `actor_user_id` | uuid | NOT NULL — utilizator uman sau de sistem (3.4) |
-| `tenant_id` | uuid | NULL — tenantul atins, dacă e unul singur |
+| `path_code` | text | NOT NULL, `P-1` … `P-10` |
+| `actor_user_id` | uuid | NULL — utilizator uman sau de sistem (3.4); nul cât utilizatorii de sistem nu există, lângă `actor` text NOT NULL (cine sau ce a rulat calea) — ADR-049 |
+| `subject_tenant_id` | uuid | NULL — tenantul atins, dacă e unul singur. Nu `tenant_id`: pe o tabelă fără context de tenant, numele acela e citit de gardian ca derivă (`IZ-76`) — ADR-049 |
 | `tenant_count` | integer | NULL — pentru rulările globale |
 | `request_id` | text | NOT NULL — corelator (9.3) |
 | `justification` | text | NULL — obligatoriu pentru P-7 |

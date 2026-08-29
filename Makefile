@@ -25,6 +25,10 @@ OWNER_DB_USER     ?= evidenta_owner
 OWNER_DB_PASSWORD ?= evidenta_owner
 APP_DB_USER       ?= evidenta_app
 APP_DB_PASSWORD   ?= evidenta_app
+# Rolul de încărcare a datelor de referință (ADR-049, `0004_refdata_role.sql`): scrie tabelele
+# globale de referință și nimic altceva. Ca și celelalte, numele nu e configurabil — doar parola.
+REFDATA_DB_USER     ?= evidenta_refdata
+REFDATA_DB_PASSWORD ?= evidenta_refdata
 
 # Superuserul creează baza și aplică `0000`/`0001` (ADR-012). Este credențial de infrastructură
 # locală, niciodată unul de aplicație — de aceea are propriile variabile.
@@ -99,13 +103,14 @@ create-db: ## Creează baza cu colația din ADR-015 (o singură dată, pe cluste
 
 .PHONY: check-roles
 check-roles: ## Verifică că numele rolurilor din .env sunt cele pe care le creează bootstrap-ul
-	@for pair in "OWNER_DB_USER $(OWNER_DB_USER)" "APP_DB_USER $(APP_DB_USER)"; do \
+	@for pair in "OWNER_DB_USER $(OWNER_DB_USER)" "APP_DB_USER $(APP_DB_USER)" \
+	            "REFDATA_DB_USER $(REFDATA_DB_USER)"; do \
 		set -- $$pair; \
-		grep -qE "CREATE ROLE $$2([[:space:]]|;)" infra/bootstrap/0001_roles.sql || { \
-			echo "$$1=$$2 nu este un rol pe care îl creează infra/bootstrap/0001_roles.sql."; \
+		grep -qE "CREATE ROLE $$2([[:space:]]|;)" infra/bootstrap/0*.sql || { \
+			echo "$$1=$$2 nu este un rol pe care îl creează infra/bootstrap/."; \
 			echo "Numele rolurilor NU sunt configurabile: apar literal în fiecare politică RLS și"; \
 			echo "în fiecare GRANT din infra/migrations/. Configurabile sunt doar parolele."; \
-			echo "Rolurile așteptate: $$(grep -oE 'CREATE ROLE [a-z_]+' infra/bootstrap/0001_roles.sql \
+			echo "Rolurile așteptate: $$(grep -ohE 'CREATE ROLE [a-z_]+' infra/bootstrap/0*.sql \
 				| cut -d' ' -f3 | tr '\n' ' ')"; \
 			exit 1; \
 		}; \
@@ -115,11 +120,12 @@ check-roles: ## Verifică că numele rolurilor din .env sunt cele pe care le cre
 bootstrap: check-roles ## Aplică infra/bootstrap/ — fiecare fișier cu rolul care îi trebuie (ADR-012)
 	@for f in infra/bootstrap/0*.sql; do \
 		case "$$f" in \
-			*0000_*|*0001_*) \
+			*0000_*|*0001_*|*0004_*) \
 				echo "--> $$f (ca $(DB_ADMIN_USER))"; \
 				$(ADMIN_PSQL) -d $(POSTGRES_DB) \
 					-v owner_password="$(OWNER_DB_PASSWORD)" \
-					-v app_password="$(APP_DB_PASSWORD)" -f "$$f" ;; \
+					-v app_password="$(APP_DB_PASSWORD)" \
+					-v refdata_password="$(REFDATA_DB_PASSWORD)" -f "$$f" ;; \
 			*) \
 				echo "--> $$f (ca $(OWNER_DB_USER))"; \
 				$(OWNER_PSQL) -d $(POSTGRES_DB) -f "$$f" ;; \
@@ -233,7 +239,7 @@ create-tenant: ## Creează un tenant și utilizatorul lui (SUBDOMAIN=..., NAME=.
 	  --subdomain "$(SUBDOMAIN)" --legal-name "$(NAME)" --email "$(EMAIL)"
 
 .PHONY: seed-coa
-seed-coa: ## Încarcă planul general de conturi (SNC 2020) — idempotent, rulează ca owner
+seed-coa: ## Încarcă planul general de conturi (SNC 2020) — idempotent, sub rolul de date de referință (ADR-049)
 	cd backend && uv run python manage.py load_coa_template
 
 .PHONY: check-committed

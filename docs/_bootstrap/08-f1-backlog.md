@@ -220,12 +220,13 @@ redeschide. Unde o sarcină pare să ceară altceva, ADR-ul câștigă și sarci
   legarea are `valid_from`/`valid_to` și nu afectează postările existente. Granița din
   [ADR-036](../decisions/036-forma-postarii.md) §5.1 e respectată: maparea **impusă de lege** stă în
   `fiscal_parameter`, global; subcontul propriu al tenantului e configurare.
-- **Blocat de:** **`OD-55`** — mulțimea cheilor de context la legarea condiționată rol → cont.
-  Registrul o dă cu termen „înainte de F1.4", iar diferența nu e cosmetică: chei definibile de
-  client înseamnă un evaluator de expresii peste `payload`, adică chiar DSL-ul respins ca opțiunea 1
-  în ADR-036 §2. **Forma tabelei de legare depinde de răspuns.** Și, peste asta,
-  [ADR-036](../decisions/036-forma-postarii.md) este `Propus`: §6.1 — rolurile de cont — *este*
-  conținutul acestei sarcini, iar cazurile `C1`–`C5` din §11 cer confirmare contabilă.
+- **Blocat de:** — *(deblocată 2026-08-29: `OD-55` închisă prin
+  [ADR-051](../decisions/051-chei-de-context-enumerate.md) — cheile enumerate în cod, valorile date;
+  forma tabelei e în ADR-051 §3. ADR-036 e `Acceptat`.)*
+
+  *Textul blocajului, păstrat:* `OD-55` — mulțimea cheilor de context la legarea condiționată rol
+  → cont; chei definibile de client ar fi însemnat un evaluator de expresii peste `payload`, adică
+  chiar DSL-ul respins ca opțiunea 1 în ADR-036 §2. **Forma tabelei de legare depindea de răspuns.**
 
 > **`Blocat de: —` era greșit, și e clasa inversă celei curățate în §12.** Nu un blocaj expirat, ci
 > unul **nescris**: registrul îl avea, backlogul nu. Cine ar fi luat sarcina citind doar backlogul ar
@@ -261,14 +262,17 @@ redeschide. Unde o sarcină pare să ceară altceva, ADR-ul câștigă și sarci
 - **Depinde de:** F1.4.3
 - **Review:** `accounting-reviewer`, `fiscal-reviewer`
 - **Terminat:** fiecare handler are teste proprii și interval de valabilitate.
-- **Blocat de:** **cazurile `C1`–`C5` din [ADR-036](../decisions/036-forma-postarii.md) §11** —
-  metoda de cost la ieșire, amortizarea, cheltuielile de transport-aprovizionare, diferențele de
-  curs, repartizarea indirectelor. Cer lista permisă de SNC, **citată**, nu dedusă.
-  **Citarea există de la `3c3fccc` (2026-08-26)** —
-  [`_input/cercetare/c1-c3-c5-stocuri.md`](../_input/cercetare/c1-c3-c5-stocuri.md),
+- **Blocat de:** — *(deblocată 2026-08-29: clasificarea `C1`–`C5` aprobată de proprietar,
+  [ADR-036](../decisions/036-forma-postarii.md) §11, `Acceptat`. Ce rămâne în afara acestei sarcini,
+  explicit: amortizarea fiscală — HG 704/2019 neobținută; handlerul de reevaluare — Anexa 1 din SNC
+  „Diferențe de curs" neextrasă; cotele reale — `OD-22`.)*
+
+  *Textul blocajului, păstrat:* cazurile `C1`–`C5` cereau lista permisă de SNC, **citată**, nu
+  dedusă — citarea există de la `3c3fccc` (2026-08-26) în
+  [`c1-c3-c5-stocuri.md`](../_input/cercetare/c1-c3-c5-stocuri.md),
   [`c2-amortizarea.md`](../_input/cercetare/c2-amortizarea.md),
-  [`c4-diferente-de-curs.md`](../_input/cercetare/c4-diferente-de-curs.md). Ce lipsește nu mai e
-  lectura standardului, ci **clasificarea** din §11, care e a proprietarului.
+  [`c4-diferente-de-curs.md`](../_input/cercetare/c4-diferente-de-curs.md) — și **clasificarea**,
+  care era a proprietarului.
 
 ---
 
@@ -325,10 +329,18 @@ redeschide. Unde o sarcină pare să ceară altceva, ADR-ul câștigă și sarci
 - **Terminat:** `period.month.closed` blochează și **validează invariantul clasei 8** (sold zero la
   data raportării); `period.year.closed` postează lanțul de închidere a conturilor de rezultate.
   Închiderea produce **postări normale, prin motor** (`R9`).
-- **Blocat de:** **`OD-22`** — conturile concrete din lanț sunt **mapări de conturi**, deci parametri
-  fiscali (`R15`): se încarcă din `fiscal_parameter` cu act normativ, nu se scriu în handler. Un
-  număr de cont scris din memorie în codul care produce rezultatul anului este un rezultat pe care
-  nimeni nu-l poate apăra la un control.
+- **Blocat de:** — *(deblocată 2026-08-29 prin
+  [ADR-050](../decisions/050-lantul-de-inchidere-ca-roluri.md): conturile lanțului — 351, 731, 333,
+  334, 332 — vin din Planul general de conturi, act propriu, deci sunt **roluri de cont** din
+  catalogul ADR-048, nu parametri fiscali; sunt în `roles_snc_2020.csv`. Ordinea lanțului e aprobată
+  și obligatorie, în ADR-050 §3.2 — 731 **nu** se închide odată cu restul clasei 7. Cota impozitului
+  pe venit din pasul 2 rămâne parametru fiscal, `OD-22`.)*
+
+  *Textul blocajului, păstrat, fiindcă era o definiție greșită și merită văzut ca atare:* „conturile
+  concrete din lanț sunt mapări de conturi, deci parametri fiscali (`R15`): se încarcă din
+  `fiscal_parameter` cu act normativ". Nu: un cont din Planul general de conturi nu se schimbă
+  printr-o modificare de Cod fiscal. Ce rămâne adevărat: un număr de cont scris din memorie în
+  handler e un rezultat pe care nimeni nu-l poate apăra la un control — de aceea sunt roluri.
 
 ---
 
@@ -339,8 +351,11 @@ redeschide. Unde o sarcină pare să ceară altceva, ADR-ul câștigă și sarci
 - **Review:** `fiscal-reviewer`
 - **Terminat:** cel puțin un algoritm real e selectat după data efectivă a perioadei și trece
   corpusul de regresie. Registrul însuși **există din F0.8**; ce lipsește sunt implementările.
-- **Blocat de:** **`OD-22`** *(valorile)* și **`DNB-08`** *(rotunjirea —
-  [ADR-037](../decisions/037-conventii-de-platforma.md))*.
+- **Blocat de:** **`OD-22`** *(valorile — cote, praguri; numerele de Monitorul Oficial lipsesc)* și
+  **`V1`** din [ADR-037](../decisions/037-conventii-de-platforma.md) §5 *(precizia — Ordinul MF
+  118/2017, Anexele 1 și 1a, document public, o oră)*. **Nu mai e blocată pe calea de scriere:**
+  `OD-67` închisă prin [ADR-049](../decisions/049-rolul-de-date-de-referinta.md) —
+  `manage.py load_fiscal_parameters`, iar `platform_conventions.toml` așteaptă doar valorile.
 
   **`DNB-08` NU e blocată pe ghidul de integrare SFS.** Rândul de mai sus spunea asta și contrazicea
   ADR-ul propriu: [ADR-037](../decisions/037-conventii-de-platforma.md) §5 constată explicit că
@@ -411,9 +426,9 @@ redeschide. Unde o sarcină pare să ceară altceva, ADR-ul câștigă și sarci
 - **Terminat:** balanța se reconciliază **la leu** contra extrasului 1C; **totalurile vin de la
   server** (`C19`) — niciun total calculat în client peste un set virtualizat; exporturile se
   generează server-side, din aceeași sursă ca afișarea (`C20`); drill-down până la documentul sursă.
-- **Blocat de:** `OD-29` *(țintele de performanță — modelul de volum există din F0.11, deci decizia
-  e deblocată, nu luată)*, `OD-35` *(scara de densitate; `C21` e activă, iar acesta e primul ecran cu
-  grilă)*
+- **Blocat de:** — *(`OD-29` închisă prin [ADR-053](../decisions/053-tinta-de-performanta.md):
+  fișa contului agregă implicit pe document, cu drill-down la formule; datele din modelul de volum;
+  pragurile propuse, de confirmat. `OD-35` închisă prin ADR-042.)* Rămâne dependența de **F1.G1**.
 
 ---
 
@@ -478,11 +493,16 @@ Firul D   F1.2.1 → F1.2.2 → F1.2.3 → F1.2.4    ledgerul
 > Greșeala a durat un commit. Merită păstrată aici fiindcă e chiar clasa de eroare pe care
 > descompunerea trebuie s-o prindă: o ordine plauzibilă, dedusă din nume în loc de din coloane.
 
-**Ce nu poate începe, și de ce e util să fie vizibil:** F1.4.4 (handlerele concrete) așteaptă
-`C1`–`C5` cu SNC citat; F1.5.4 și F1.6 așteaptă `OD-22`; F1.8 așteaptă `OD-35`; F1.9 și grilele
-așteaptă `OD-28`; F1.10 așteaptă cazuri reale. **Cinci din zece sarcini de nivel superior sunt
-blocate pe lucruri care nu se rezolvă scriind cod** — patru pe domeniu contabil sau acces extern,
-una pe o decizie de produs.
+**Ce nu poate începe, și de ce e util să fie vizibil** *(recalculat 2026-08-29, după ADR-049–053)*:
+F1.6 așteaptă `OD-22` (valorile, cu numere de MO) și `V1` (un document public); F1.9 și F1.G0
+așteaptă `OD-28` — dar `OD-28` blochează **cititorul** extrasului și **validarea**, nu construcția
+(vezi rândul din tabel); F1.10 așteaptă cazuri reale. **Două blocaje externe reale au rămas: extrasul
+1C și contabilul practicant.** F1.4.2, F1.4.4, F1.5.4, F1.8 și F1.G2 pot începe.
+
+*Versiunea anterioară a paragrafului:* F1.4.4 aștepta `C1`–`C5`; F1.5.4 și F1.6 așteptau `OD-22`;
+F1.8 aștepta `OD-35`; F1.G2 aștepta `OD-36` — cinci din zece sarcini blocate pe lucruri care nu se
+rezolvă scriind cod. Patru dintre ele s-au închis într-o zi, prin instrucțiune scrisă, iar una
+(F1.5.4) era blocată pe o definiție greșită.
 
 ---
 
@@ -503,14 +523,14 @@ deschisă toată F0, acum pe drumul critic al criteriului de ieșire.
 
 | Sarcină | Decizie | Natura |
 |---|---|---|
-| F1.4.2 | `OD-55`; ADR-036 `Propus` | Arhitectură + domeniu contabil — forma tabelei de legare depinde de amândouă |
-| F1.4.4 | `C1`–`C5` din ADR-036 §11 | Domeniu contabil — SNC citat |
-| F1.5.4, F1.6 | `OD-22` | Domeniu contabil — Planul general de conturi, ordinul care îl aprobă |
-| F1.6 | `DNB-08` → ADR-037 | **Structura: decisă și implementată** (linia e autoritativă). Rămâne `V1` — document **public**, nu ghidul SFS — plus `OD-67`, calea de scriere a parametrilor fiscali |
-| F1.8 | `OD-29` | Produs — ~~`OD-35`~~ închisă prin [ADR-042](../decisions/042-scara-de-densitate.md); rămâne ținta numerică de performanță |
-| F1.9, F1.G0 | `OD-28` | Extern — acces la o bază 1C reală |
-| F1.G2 | `OD-36` | Produs — contractul de tastatură |
-| F1.10 | — | Domeniu contabil — cazuri cu rezultat verificat |
+| ~~F1.4.2~~ | ~~`OD-55`; ADR-036 `Propus`~~ | Închise 2026-08-29: [ADR-051](../decisions/051-chei-de-context-enumerate.md); ADR-036 `Acceptat` |
+| ~~F1.4.4~~ | ~~`C1`–`C5` din ADR-036 §11~~ | Închis 2026-08-29: clasificarea aprobată, ADR-036 §11. Rămân în afara sarcinii: HG 704/2019, Anexa 1 SNC „Diferențe de curs" |
+| ~~F1.5.4~~ | ~~`OD-22`~~ | Dizolvat 2026-08-29: [ADR-050](../decisions/050-lantul-de-inchidere-ca-roluri.md) — conturile lanțului sunt roluri din Planul general de conturi, nu parametri fiscali |
+| F1.6 | `OD-22` *(strict cote, praguri)*; `V1` din ADR-037 | Domeniu contabil — numerele de MO ale actelor modificatoare; **lectura unui document public** (Ordinul MF 118/2017). ~~`OD-67`~~ închisă prin [ADR-049](../decisions/049-rolul-de-date-de-referinta.md) |
+| ~~F1.8~~ | ~~`OD-29`~~ | Închisă 2026-08-29: [ADR-053](../decisions/053-tinta-de-performanta.md) |
+| F1.9, F1.G0 | `OD-28` | Extern — acces la o bază 1C reală. **Reformulată** (instrucțiune, punctul 8): blochează **cititorul** formatului real și **validarea la leu**, nu construcția — zona de aterizare (`opening`, `source = onec_import`), maparea, punctarea și raportul de diferențe se construiesc pe un extras sintetic în formatul intern; rămâne bifa finală |
+| ~~F1.G2~~ | ~~`OD-36`~~ | Închisă 2026-08-29: [ADR-052](../decisions/052-contractul-de-tastatura.md) |
+| F1.10 | — | Domeniu contabil — cazuri cu rezultat verificat. **Extern real**, alături de `OD-28` |
 
 Când o decizie se închide, **rândul de aici se taie în același commit**. Regula există fiindcă la
 F0 nu a existat.

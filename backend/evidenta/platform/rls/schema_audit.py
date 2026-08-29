@@ -151,6 +151,25 @@ class Contract:
         declaration = self.declaration_for(table)
         return bool(declaration and declaration.get("policy_shape") == "system")
 
+    def shape_of(self, table: str) -> str | None:
+        declaration = self.declaration_for(table)
+        return None if declaration is None else str(declaration.get("policy_shape") or "")
+
+    def writer_role_for(self, table: str) -> str | None:
+        """The one role allowed to write a global table, or None (ADR-049)."""
+        declaration = self.declaration_for(table)
+        if declaration is None:
+            return None
+        role = declaration.get("writer_role")
+        return None if role is None else str(role)
+
+    def writer_roles(self) -> set[str]:
+        return {
+            str(d["writer_role"])
+            for d in [*self.tables.values(), *self.patterns]
+            if d.get("writer_role")
+        }
+
 
 def audit(cursor: Any, contract: Contract | None = None) -> list[Finding]:
     """Return every way the live schema departs from the contracts."""
@@ -228,9 +247,11 @@ def audit(cursor: Any, contract: Contract | None = None) -> list[Finding]:
                 )
 
         findings.extend(_audit_collation(cursor, name))
+        findings.extend(_audit_writer(cursor, contract, name, policies))
 
     findings.extend(_audit_exception_list(cursor, contract, {t[0] for t in tables}))
     findings.extend(_audit_append_only(cursor, contract))
+    findings.extend(_audit_writer_sweep(cursor, contract))
     return findings
 
 
@@ -343,4 +364,213 @@ def _audit_append_only(cursor: Any, contract: Contract) -> list[Finding]:
             findings.append(Finding("IZ-77", name, f"partition column {column!r} is missing"))
         elif row[0] == "YES":
             findings.append(Finding("IZ-77", name, f"partition column {column!r} is nullable"))
+    return findings
+
+
+# Shapes whose writes belong to exactly one declared role (ADR-049). The first
+# admits the application role to read; the second admits it to nothing.
+_WRITER_SHAPES = ("global_read_only", "platform_log")
+_WRITE_COMMANDS = ("*", "a", "w", "d")
+_WRITE_PRIVILEGES = ("INSERT", "UPDATE", "DELETE")
+
+
+def _role_privileges(cursor: Any, table: str, role: str) -> set[str]:
+    """What `role` may do to `table`, asked of the catalogue.
+
+    `has_table_privilege` answers for the role itself and for what it inherits;
+    both matter, and both are what a row actually gets checked against.
+    """
+    cursor.execute("SELECT 1 FROM pg_roles WHERE rolname = %s", [role])
+    if cursor.fetchone() is None:
+        return set()
+    cursor.execute(
+        """
+        SELECT p.privilege
+          FROM unnest(ARRAY['SELECT', 'INSERT', 'UPDATE', 'DELETE']) AS p(privilege)
+         WHERE has_table_privilege(%s, quote_ident(%s), p.privilege)
+        """,
+        [role, table],
+    )
+    return {row[0] for row in cursor.fetchall()}
+
+
+def _policy_roles(cursor: Any, table: str) -> list[tuple[str, str, list[str]]]:
+    cursor.execute(
+        """
+        SELECT p.polname, p.polcmd,
+               COALESCE(array_agg(r.rolname) FILTER (WHERE r.rolname IS NOT NULL), '{}')
+          FROM pg_policy p
+          JOIN pg_class c ON c.oid = p.polrelid
+          LEFT JOIN pg_roles r ON r.oid = ANY(p.polroles)
+         WHERE c.relname = %s
+         GROUP BY p.polname, p.polcmd
+        """,
+        [table],
+    )
+    return [(name, command, list(roles)) for name, command, roles in cursor.fetchall()]
+
+
+def _audit_writer(
+    cursor: Any, contract: Contract, table: str, policies: list[tuple[str, str, bool]]
+) -> list[Finding]:
+    """IZ-78 -- a global table is written by its declared role and by nobody else.
+
+    Two things are checked, and the first is the one that was found by hand
+    twice before this rule existed: the *privilege*. `0001_roles.sql` grants the
+    application role INSERT/UPDATE/DELETE on every table the owner creates, so a
+    global table is read-only for the application only if somebody remembered
+    the REVOKE (`0047` is the migration that remembered late). The second is the
+    *policy*: a write policy for any role other than the declared writer is a
+    second door, which is what `OD-67` refused ("două mecanisme ușor diferite").
+    """
+    shape = contract.shape_of(table)
+    if shape not in _WRITER_SHAPES:
+        return []
+    findings: list[Finding] = []
+    writer = contract.writer_role_for(table)
+
+    app = _role_privileges(cursor, table, "evidenta_app")
+    forbidden = app & set(_WRITE_PRIVILEGES) if shape == "global_read_only" else app
+    if forbidden:
+        findings.append(
+            Finding(
+                "IZ-78",
+                table,
+                f"evidenta_app holds {sorted(forbidden)} on a {shape} table. The default "
+                f"privileges from 0001_roles.sql grant writes on every owner-created "
+                f"table; a global table needs the explicit REVOKE (OD-47, ADR-049)",
+            )
+        )
+
+    for policy_name, command, roles in _policy_roles(cursor, table):
+        if command not in _WRITE_COMMANDS:
+            continue
+        # `polroles = {0}` is PUBLIC, which comes back as no role name at all.
+        strangers = [r for r in roles if r != writer] if roles else ["PUBLIC"]
+        if strangers:
+            findings.append(
+                Finding(
+                    "IZ-78",
+                    table,
+                    f"write policy {policy_name!r} admits {strangers}, and the contract "
+                    f"names {writer or 'no role'} as the writer. A second door to a "
+                    f"reference table is a second mechanism (OD-67); declare it as "
+                    f"writer_role or drop it",
+                )
+            )
+
+    if writer is not None:
+        privileges = _role_privileges(cursor, table, writer)
+        owns_it = _owns(cursor, table, writer)
+        if "INSERT" not in privileges:
+            findings.append(
+                Finding(
+                    "IZ-78",
+                    table,
+                    f"{writer} is declared as the writer but holds no INSERT privilege: "
+                    f"the declaration promises a write path that does not exist",
+                )
+            )
+        # The owner holds every privilege by owning the table; the check is about
+        # a *granted* DELETE, which is what a loading role would have to be given.
+        if "DELETE" in privileges and not owns_it:
+            findings.append(
+                Finding(
+                    "IZ-78",
+                    table,
+                    f"{writer} may DELETE from a reference table. Reference data is "
+                    f"versioned, never deleted: a parameter a stamp points at (ADR-047) "
+                    f"or a template account a company copied cannot disappear",
+                )
+            )
+    return findings
+
+
+def _owns(cursor: Any, table: str, role: str) -> bool:
+    cursor.execute(
+        """
+        SELECT 1 FROM pg_class c JOIN pg_roles o ON o.oid = c.relowner
+         WHERE c.relname = %s AND o.rolname = %s
+        """,
+        [table, role],
+    )
+    return cursor.fetchone() is not None
+
+
+def _audit_writer_sweep(cursor: Any, contract: Contract) -> list[Finding]:
+    """IZ-78, the other direction -- the writer role touches nothing undeclared.
+
+    The per-table check proves each reference table has exactly its writer. This
+    proves the writer has exactly its reference tables: a privilege on `company`
+    or a policy on `journal_entry` for `evidenta_refdata` would turn a narrow
+    loading role into a second application role, and nothing on the table side
+    would notice, because those tables are not global.
+
+    Only roles that own nothing are swept. `evidenta_owner` may be declared as
+    the writer of a catalogue a migration seeds (`permission`), and it holds
+    every privilege on every table by owning them -- that is what it is for, and
+    the isolation suite (T1) is what keeps it from being used at runtime.
+    """
+    findings: list[Finding] = []
+    for role in sorted(contract.writer_roles()):
+        cursor.execute(
+            """
+            SELECT count(*) FROM pg_class c JOIN pg_roles o ON o.oid = c.relowner
+             WHERE o.rolname = %s AND c.relkind IN ('r', 'p')
+            """,
+            [role],
+        )
+        row = cursor.fetchone()
+        if row is None or row[0] > 0:
+            continue
+        cursor.execute("SELECT 1 FROM pg_roles WHERE rolname = %s", [role])
+        if cursor.fetchone() is None:
+            continue
+        cursor.execute(
+            """
+            SELECT c.relname
+              FROM pg_class c
+              JOIN pg_namespace n ON n.oid = c.relnamespace
+             WHERE n.nspname = 'public' AND c.relkind IN ('r', 'p')
+               AND (has_table_privilege(%s, c.oid, 'SELECT')
+                    OR has_table_privilege(%s, c.oid, 'INSERT')
+                    OR has_table_privilege(%s, c.oid, 'UPDATE')
+                    OR has_table_privilege(%s, c.oid, 'DELETE'))
+            """,
+            [role, role, role, role],
+        )
+        for (table,) in cursor.fetchall():
+            if contract.is_system(table) or contract.writer_role_for(table) == role:
+                continue
+            findings.append(
+                Finding(
+                    "IZ-78",
+                    table,
+                    f"{role} holds a privilege here and is not its declared writer. "
+                    f"The loading role reaches reference tables and nothing else "
+                    f"(ADR-049); a privilege on a tenant table makes it a second "
+                    f"application role",
+                )
+            )
+        cursor.execute(
+            """
+            SELECT c.relname, p.polname
+              FROM pg_policy p
+              JOIN pg_class c ON c.oid = p.polrelid
+              JOIN pg_roles r ON r.oid = ANY(p.polroles)
+             WHERE r.rolname = %s
+            """,
+            [role],
+        )
+        for table, policy_name in cursor.fetchall():
+            if contract.writer_role_for(table) == role:
+                continue
+            findings.append(
+                Finding(
+                    "IZ-78",
+                    table,
+                    f"policy {policy_name!r} names {role}, which is not this table's "
+                    f"declared writer (ADR-049)",
+                )
+            )
     return findings

@@ -922,7 +922,7 @@ agenții invocați, ambele suite de izolare verzi, nicio decizie deschisă înch
 - **Review:** `accounting-reviewer`
 - **Terminat:** cele patru elemente (sumă în valută, valută, curs, sumă în moneda funcțională) sunt
   reprezentate împreună; conversia și rotunjirea sunt testate pe cazurile din DNB-08.
-- **Blocat de:** — *(parțial deblocată: `numeric` cu scală explicită, niciodată `float`; rotunjirea ca logică fiscală versionată, nu utilitar. Valorile așteaptă ghidul SFS — `OD-24`)*
+- **Blocat de:** — *(parțial deblocată: `numeric` cu scală explicită, niciodată `float`; rotunjirea ca logică fiscală versionată, nu utilitar. Valorile așteaptă `V1` din [ADR-037](../decisions/037-conventii-de-platforma.md) §5 — Ordinul MF 118/2017, document public; **nu** ghidul SFS: doar `V2` depinde de `OD-24`. Corectat 2026-08-29)*
 - **Livrat:** modelul există și **refuză să rotunjească** până când `DNB-08` primește răspuns —
   `convert()` rezolvă regula din `fiscal_logic_version` după data perioadei și ridică
   `fiscal.no_logic` cât timp niciuna nu e înregistrată. Nu există `round_money()`. Rândul din

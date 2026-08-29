@@ -1,9 +1,11 @@
 # ADR-036 — Forma postării stă în cod; restul configurării stă în date
 
-- **Status:** Propus — cazurile `C1`–`C5` din §11 cer confirmare contabilă
-- **Data:** 2026-08-25
+- **Status:** **Acceptat** — 2026-08-29, de proprietar, contabil practicant (ADR-010): clasificarea
+  `C1`–`C5` din §11 aprobată prin instrucțiune scrisă; `C3` ștearsă cu motiv. Versiunea `Propus` din
+  2026-08-25 rămâne vizibilă în istoric; §11 e singura secțiune rescrisă
+- **Data:** 2026-08-25; `Acceptat` 2026-08-29
 - **Decide:** proprietarul proiectului
-- **Închide:** `DNB-04` (Spec B §3.2, §11) — la trecerea în `Acceptat`
+- **Închide:** `DNB-04` (Spec B §3.2, §11)
 - **Afectează:** Posting Engine (F1.4), `posting_rule` / `posting_rule_line` din Spec B §3.2,
   `journal_line`, importatorul 1C (F1.9), [ADR-029](029-dimensiuni-analitice.md)
 
@@ -209,11 +211,10 @@ conturi diferite pe același handler.
 Un rol poate avea legări diferite după o cheie de context — grupă de nomenclator, depozit, tip de
 contraparte, cotă TVA. Echivalentul „conturilor de evidență" din 1C.
 
-**Rămâne deschis** (`OD-55`) dacă mulțimea cheilor de context e închisă și definită în cod sau
-extensibilă de client. Versiunea 1 a documentului o declara închisă; versiunea 2 nu o mai afirmă,
-iar ADR-ul de convenții de platformă ([ADR-037](037-conventii-de-platforma.md) §3.5) citează încă
-afirmația veche. Diferența nu e cosmetică: o cheie de context extensibilă înseamnă un evaluator de
-condiții peste `payload`, adică exact DSL-ul respins în §2, opțiunea 1.
+**Decisă prin [ADR-051](051-chei-de-context-enumerate.md)** (închide `OD-55`): cheile de context
+sunt **enumerate în cod**, valorile și legările sunt date, per companie. O cheie de context
+extensibilă de client ar însemna un evaluator de condiții peste `payload`, adică exact DSL-ul
+respins în §2, opțiunea 1; o cheie nouă e o versiune de platformă, nu o setare de tenant.
 
 ### 6.3 Subconturi — definibile de client, în limita din ADR-029
 
@@ -393,27 +394,30 @@ Pentru claritate, următoarele sunt permise și încurajate:
 
 ---
 
-## 11. Clasificarea cazurilor — NECESITĂ VALIDARE
+## 11. Clasificarea cazurilor — APROBATĂ
 
-> ⚠️ **Presupuneri nevalidate.** Fiecare rând marcat ⚠️ trebuie confirmat sau corectat înainte ca
-> ADR-ul să treacă în `Acceptat`. `CLAUDE.md` §4: nu se deduc tratamente contabile din memorie —
-> fiecare rând are nevoie de SNC-ul citat, nu de o presupunere plauzibilă.
->
-> Întrebarea per caz: **se rezolvă prin alegerea unui cont diferit (strat 2), prin alegerea între
-> variante permise de lege (strat 3), sau cere o formă diferită de postare (handler în strat 1)?**
+> Clasificarea de mai jos e a proprietarului (instrucțiune scrisă, 2026-08-29, punctul 5), peste
+> standardele citate în `_input/cercetare/` de la `3c3fccc`. Întrebarea per caz a rămas aceeași:
+> **se rezolvă prin alegerea unui cont diferit (strat 2), prin alegerea între variante permise de
+> lege (strat 3), sau cere o formă diferită de postare (handler în strat 1)?** Patru din cele cinci
+> presupuneri inițiale au căzut la lectură; ce urmează e ce a rămas după ea.
 
-| # | Caz | Clasificare | Motivare | Stare |
+| # | Caz | Clasificare | Ce spune actul, și ce decurge | Sursă |
 |---|---|---|---|---|
-| C1 | Metoda de cost la ieșire (FIFO / cost mediu / identificare specifică) | **Strat 3** | Presupun că SNC „Stocuri" permite alternativele. Fiecare = handler propriu: schimbă suma, nu contul. LIFO presupun interzis | ⚠️ Confirmă lista |
-| C2 | Metoda de amortizare (liniară / degresivă / unități de producție) | **Strat 3** | Presupun că SNC „Imobilizări" permite alternativele | ⚠️ Confirmă lista |
-| C3 | Cheltuieli de transport-aprovizionare (CTA) | **Strat 3 + handlere** | Presupun două tratamente: includere în cost vs. recunoaștere separată cu repartizare. Forme de postare diferite, nu conturi diferite. UNA le tratează în registru special | ⚠️ Confirmă tratamentele și baza |
-| C4 | Diferențe de curs valutar | **Handler propriu** | Presupun tratament determinat de lege, fără alternativă. Declanșat de reevaluare. [ADR-039](039-valuta-si-perioade.md) închide `DN-04`: linia poartă valuta din ziua 1, dar F1 nu implementează reevaluarea — deci handler-ul se scrie mai târziu, peste câmpuri care există deja | ⚠️ Confirmă absența alternativei |
-| C5 | Repartizarea cheltuielilor indirecte de producție | **Strat 3** | Presupun că baza de repartizare e alegere de politică. Forma postării identică; baza diferă | ⚠️ Confirmă dacă baza e liberă |
-| C6 | Subconturi analitice proprii | **Strat 2**, în limita din §6.3 | Referință tipizată pe linie, prin sloturile din ADR-029. Fără impact pe formă | Fără dubii |
-| C7 | Conturi diferite per grupă / depozit | **Strat 2**, legare condiționată | Echivalent „conturi de evidență" 1C. Mulțimea cheilor de context: `OD-55` | Fără dubii pe clasificare |
-| C8 | Schimbare legislativă de numerotare | **Strat 2** | Insert cu `valid_from`. Vezi `DNB-03` = `OD-03` | Fără dubii |
-| C9 | Formulare de listă / detaliu, tipar, rapoarte | **Strat 0** | Integral configurabil. Nu a fost niciodată restricționat | Fără dubii |
-| C10 | Rotunjire TVA, granularitate postare | **Convenție de platformă** | Nu se consemnează în politica contabilă | [ADR-037](037-conventii-de-platforma.md), blocat pe Ordinul MF 118/2017 |
+| C1 | Metoda de evaluare a stocurilor la ieșire | **Strat 3** pentru metodă; **strat 1** pentru momentul calculului și pentru costul standard / prețul cu amănuntul | Patru metode, listă **închisă**: identificare specifică, FIFO, cost mediu ponderat, **LIFO** (reintrodusă prin OMF 48/2019). Aceeași formulă, altă sumă — deci politică. **Momentul calculului cere două handlere**: *permanent*, unde ieșirea poartă costul, și *periodic*, unde costul apare la închiderea perioadei. Descrierea politicii e listă **deschisă** (pct. 37, „sau în alt mod"), forma postării e închisă. **Granularitatea** (pct. 34): politica se alege per clasă de stocuri similare — ecranul de politici nu e un selector unic. **Costul standard** și **prețul cu amănuntul** (pct. 39) sunt două handlere proprii — devieri, respectiv adaos comercial — aplicabile **concomitent** pe categorii diferite („una din" șters în 2019). Costul efectiv de intrare **nu** e opțiune la pct. 39: e regula de recunoaștere de la pct. 13 | SNC „Stocuri" pct. 13, 33, 34, 36, 37, 37¹, 39 — [`c1-c3-c5-stocuri.md`](../_input/cercetare/c1-c3-c5-stocuri.md) |
+| C2 | Metoda de amortizare | **Strat 3** | Trei metode (pct. 22): liniară, unități de producție, diminuarea soldului. Metoda se stochează **per obiect**, cu implicit de la categorie — *inferență și alegere de produs, nu citat*: standardul nu fixează nivelul într-o propoziție (pct. 19, 20, 26, 27 îl sugerează). **Schimbarea metodei** (pct. 27) e **obligație**, nu opțiune, și e **modificare de estimare**: fără retratare retrospectivă, rata nouă din durata **rămasă**, baza e valoarea contabilă **fără** scăderea valorii reziduale (Exemplul 6). **Amortizarea fiscală nu e handler**: registru paralel, în afara partidei duble (art. 26¹ CF, anexa prescrisă); calculul ei rămâne blocat pe HG 704/2019, neobținută | SNC „Imobilizări necorporale şi corporale" pct. 19–27 — [`c2-amortizarea.md`](../_input/cercetare/c2-amortizarea.md) |
+| ~~C3~~ | ~~Cheltuieli de transport-aprovizionare~~ | **Ștearsă din registru** | Nu e politică și nu e caz: pct. 15 spune că costul de intrare **„cuprinde"** costurile de transportare-aprovizionare — declarativ, fără alternativă; termenul apare o singură dată în 263 de pagini, iar Planul general de conturi n-are cont separat pentru ele. Ipoteza „două tratamente" era greșită; ce se confundase e mecanica costului standard (pct. 40), absorbită în C1 | SNC „Stocuri" pct. 14, 15, 40 — același fișier |
+| C4 | Diferențe de curs valutar și de sumă | **Handler propriu** pentru recunoaștere | Recunoașterea e determinată: favorabile la venituri, nefavorabile la cheltuieli. **Periodicitatea** reevaluării (pct. 13) e **parametru** al handlerului — valoare aleasă în politica contabilă, nu handler separat. **Cursul contractual** (pct. 19) e câmp pe antet și decide dacă apare vreo postare: la curs de livrare sau curs fix (pct. 21) diferența **nu apare deloc**. **Trei perechi de conturi, nu două**: 6226/7224 curs valutar, 6227/7225 sumă, **6127/7147** ecartul dintre cursul BNM și cursul băncii — care aterizează în rezultatul **operațional**. **Avansul** are curs fixat la plată și e **exclus permanent** din reevaluare (pct. 11–12 în redacția 2020, pct. 23). **Handlerul de reevaluare nu se specifică** până nu se extrage Anexa 1 | SNC „Diferenţe de curs valutar şi de sumă" pct. 4, 6, 8, 11–15, 17, 19, 21–23 — [`c4-diferente-de-curs.md`](../_input/cercetare/c4-diferente-de-curs.md) |
+| C5 | Repartizarea costurilor indirecte de producție | **Handler** cu formula de subabsorbție ca **regulă versionată** | Două etape obligatorii (pct. 29); variabilele integral (pct. 30(1)); constantele pe capacitatea normală, cu formula scrisă în standard și restul la cheltuieli curente (pct. 30(2)) — regulă în `fiscal_logic_version`, nu opțiune. **Baza de repartizare** (pct. 31, „de exemplu") e **nomenclator, listă deschisă**: tenantul o definește, fiindcă e o cantitate care intră în calcul, nu o structură de postare — prima confirmare a testului de falsificare din §11.1 | SNC „Stocuri" pct. 29–31 — [`c1-c3-c5-stocuri.md`](../_input/cercetare/c1-c3-c5-stocuri.md) |
+| C6 | Subconturi analitice proprii | **Strat 2**, în limita din §6.3 | Referință tipizată pe linie, prin sloturile din ADR-029 și ADR-048. Fără impact pe formă | — |
+| C7 | Conturi diferite per grupă / depozit | **Strat 2**, legare condiționată | Echivalent „conturi de evidență" 1C. Cheile: **enumerate în cod** ([ADR-051](051-chei-de-context-enumerate.md)) | — |
+| C8 | Schimbare legislativă de numerotare | **Strat 2** | Insert cu `valid_from`. Vezi `DNB-03` = `OD-03` | — |
+| C9 | Formulare de listă / detaliu, tipar, rapoarte | **Strat 0** | Integral configurabil. Nu a fost niciodată restricționat | — |
+| C10 | Rotunjire TVA, granularitate postare | **Convenție de platformă** | Nu se consemnează în politica contabilă. Linia e autoritativă (ADR-037 §0); rămâne `V1` | [ADR-037](037-conventii-de-platforma.md) |
+
+**Ce nu se atinge, spus explicit:** `OD-22` pentru parametrii fiscali reali; HG 704/2019 (amortizarea
+fiscală); Anexa 1 din SNC „Diferențe de curs" (reevaluarea). Refuzurile existente rămân, cu
+registrul lor.
 
 ### 11.1 Test de falsificare
 
@@ -449,7 +453,8 @@ ca listă închisă de politici — granița e greșită și trebuie mutată **a
   date rămâne pentru rezoluția contului și condițiile simple, iar suma și numărul de linii vin din
   handler. Fără rescriere, schema din spec contrazice decizia.
 - `CLAUDE.md` primește regula care decurge — **doar după `Acceptat`** (`decisions/README.md`).
-- `OD-55` intră în registrul deciziilor deschise (§6.2).
+  *Făcut la `Acceptat`, 2026-08-29: `R28`.*
+- `OD-55` intră în registrul deciziilor deschise (§6.2). *Închisă prin ADR-051.*
 
 ### 12.4 Formularea onestă a compromisului
 
@@ -482,13 +487,13 @@ Nimic încă — Posting Engine nu există. Ce va verifica, la implementare:
 
 | Referință | Ce blochează | Stare |
 |---|---|---|
-| `C1`–`C5` din §11 | Trecerea acestui ADR în `Acceptat` | Deschis — **SNC-ul e citat de la `3c3fccc`** ([cercetare](../_input/cercetare/c1-c3-c5-stocuri.md), [C2](../_input/cercetare/c2-amortizarea.md), [C4](../_input/cercetare/c4-diferente-de-curs.md)); rămâne de făcut **clasificarea**, care e a proprietarului |
+| `C1`–`C5` din §11 | Trecerea acestui ADR în `Acceptat` | **Închis** 2026-08-29: clasificarea aprobată de proprietar, peste SNC-ul citat de la `3c3fccc`; F1.4.4 deblocată |
 | `DNB-01` | Vocabularul `event_type` — intrarea handler-elor din §5 | **Închisă** prin [ADR-038](038-vocabularul-de-evenimente.md): nucleul deține vocabularul |
 | `DN-04` | Câmpurile de valută pe linia de jurnal | **Închisă** prin [ADR-039](039-valuta-si-perioade.md): moneda funcțională MDL fixă, linia poartă valuta din ziua 1 |
 | `DN-05` | Modelul de perioade și exercițiu fiscal — invariantul 3 din §5.2 se sprijină pe el | **Închisă** prin [ADR-039](039-valuta-si-perioade.md): perioada operațională e luna, exercițiul are date explicite |
-| `OD-55` | Mulțimea cheilor de context la legarea condiționată (§6.2) | **Nouă, deschisă prin acest ADR** |
-| `OD-36` | Contractul de introducere cu tastatura | Deschis — e strat 0 |
-| [ADR-037](037-conventii-de-platforma.md) | Rotunjire, zecimale, granularitate | Blocat pe Ordinul MF 118/2017 |
+| `OD-55` | Mulțimea cheilor de context la legarea condiționată (§6.2) | **Închisă** prin [ADR-051](051-chei-de-context-enumerate.md): enumerate în cod |
+| `OD-36` | Contractul de introducere cu tastatura | **Închisă** prin [ADR-052](052-contractul-de-tastatura.md) — e strat 0 |
+| [ADR-037](037-conventii-de-platforma.md) | Rotunjire, zecimale, granularitate | Linia e autoritativă (§0); rămâne `V1` — Ordinul MF 118/2017, Anexele 1 și 1a, document public |
 | `DNB-03` = `OD-03` | Propagarea planului de conturi | **Nu blochează F1** — vezi §13.1 |
 
 ### 13.1 De ce `DNB-03` nu blochează F1

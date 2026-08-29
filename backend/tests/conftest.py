@@ -109,6 +109,7 @@ def _run_bootstrap(dbname: str) -> None:
     # the two happened to be equal, which they were in every local run. CI used
     # different values and found it in the first minute.
     owner = settings.DATABASES["migration"]
+    refdata = settings.DATABASES["refdata"]
     env = os.environ.copy()
     password = _admin_password()
     if password is None:
@@ -127,6 +128,8 @@ def _run_bootstrap(dbname: str) -> None:
             f"owner_password={owner['PASSWORD']}",
             "-v",
             f"app_password={default['PASSWORD']}",
+            "-v",
+            f"refdata_password={refdata['PASSWORD']}",
             "-h",
             str(default["HOST"]),
             "-p",
@@ -165,7 +168,7 @@ def django_db_setup(django_db_blocker: pytest.FixtureRequest) -> Iterator[None]:
 
     _run_bootstrap(dbname)
 
-    for alias in ("default", "migration"):
+    for alias in ("default", "migration", "refdata"):
         settings.DATABASES[alias]["NAME"] = dbname
         connections[alias].settings_dict["NAME"] = dbname
 
@@ -177,7 +180,7 @@ def django_db_setup(django_db_blocker: pytest.FixtureRequest) -> Iterator[None]:
 
     yield
 
-    for alias in ("default", "migration"):
+    for alias in ("default", "migration", "refdata"):
         connections[alias].close()
     if os.environ.get("EVIDENTA_KEEP_TEST_DB") != "1":
         with psycopg.connect(admin_dsn("postgres"), autocommit=True) as admin:

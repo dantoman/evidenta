@@ -12,6 +12,8 @@
 #   tenant_column = false   — excepție de la R1 (tabela nu are coloană de context de tenant)
 #   policy_shape  ≠ "tenant_scoped"
 #                           — tabela ARE politică RLS, dar de altă formă decât șablonul
+#   writer_role   = "…"     — singurul rol cu politici și privilegii de scriere pe tabelă
+#                           (ADR-049). Absent = nimeni nu o scrie prin nicio politică.
 #
 # O tabelă poate fi în a doua categorie fără să fie în prima. `membership` are `tenant_id`, deci nu
 # este excepție de la R1 — dar politica ei este `user_id = app.current_user_id()`, nu șablonul.
@@ -21,7 +23,7 @@
 # eșuează la fel.
 
 schema_version = 1
-updated = "2026-08-25"
+updated = "2026-08-29"
 
 # ── Forme de politică recunoscute ────────────────────────────────────────────
 #
@@ -31,7 +33,11 @@ updated = "2026-08-25"
 # tenant_predicate    rls.has_tenant_access(<coloana de identitate a tenantului>)
 # engagement_parties  rls.can_see_engagement(client_tenant_id, firm_id)
 # firm_parties        membru al tenantului firmei, sau tenant cu engagement viu asupra firmei
-# global_read_only    citire liberă rolului de aplicație; scriere doar prin cale privilegiată
+# global_read_only    citire liberă rolului de aplicație; scriere doar prin cale privilegiată —
+#                     rolul care o scrie se declară cu `writer_role`, iar gardianul (IZ-78) refuză
+#                     orice altă politică de scriere și orice privilegiu de scriere al aplicației
+# platform_log        jurnal al platformei: scris de `writer_role`, fără NICIUN privilegiu pentru
+#                     rolul de aplicație — nici citire (conține tenanți străini; spec-a §6.3)
 # readmodel_firm      filtrare pe firm_id (spec-a §7.3); rolul de aplicație are doar SELECT
 # system              tabelă de infrastructură, în afara domeniului RLS
 
@@ -48,13 +54,15 @@ source = "V2 §4.1; ADR-003"
 name = "permission"
 tenant_column = false
 policy_shape = "global_read_only"
-reason = "Catalogul fix de permisiuni, același pentru toți: clientul compune roluri, nu permisiuni. Fără coloană de tenant tocmai pentru că nu aparține nimănui — vezi ADR-020."
+writer_role = "evidenta_owner"
+reason = "Catalogul fix de permisiuni, același pentru toți: clientul compune roluri, nu permisiuni. Fără coloană de tenant tocmai pentru că nu aparține nimănui — vezi ADR-020. Scriitorul e rolul de migrare, nu cel de date de referință: catalogul e cod (ADR-020) și se însămânțează din migrarea care îl definește (`identity/0003`, politica din `0019`), deci ajunge în bază odată cu deploy-ul, nu printr-o încărcare."
 source = "ADR-020; excepția este sancționată chiar de decizia care creează tabela"
 
 [[table]]
 name = "counterparty_registry"
 tenant_column = false
 policy_shape = "global_read_only"
+writer_role = "evidenta_refdata"
 reason = "Registru public după IDNO, alimentat din surse publice. Scriere prin calea privilegiată P-5."
 source = "Amendament §C.1"
 
@@ -62,6 +70,7 @@ source = "Amendament §C.1"
 name = "fiscal_parameter"
 tenant_column = false
 policy_shape = "global_read_only"
+writer_role = "evidenta_refdata"
 reason = "Aceeași lege pentru toți. Scriere prin calea privilegiată P-4."
 source = "Amendament §B.1; R15"
 
@@ -69,6 +78,7 @@ source = "Amendament §B.1; R15"
 name = "fiscal_parameter_source"
 tenant_column = false
 policy_shape = "global_read_only"
+writer_role = "evidenta_refdata"
 reason = "Proveniența parametrilor: act normativ, Monitorul Oficial, dată publicare."
 source = "Amendament §B.1"
 
@@ -76,6 +86,7 @@ source = "Amendament §B.1"
 name = "fiscal_parameter_confidence_event"
 tenant_column = false
 policy_shape = "global_read_only"
+writer_role = "evidenta_refdata"
 reason = "Istoricul încrederii în sursă: când o valoare a trecut de la dedusă la citită în act. Același fapt pentru toți tenanții — un istoric per tenant ar da răspunsuri diferite aceluiași control despre același act."
 source = "ADR-046"
 
@@ -83,6 +94,7 @@ source = "ADR-046"
 name = "fiscal_logic_version"
 tenant_column = false
 policy_shape = "global_read_only"
+writer_role = "evidenta_refdata"
 reason = "Registrul de selecție a implementărilor după dată efectivă."
 source = "Amendament §A.4; R17"
 
@@ -90,6 +102,7 @@ source = "Amendament §A.4; R17"
 name = "exchange_rate"
 tenant_column = false
 policy_shape = "global_read_only"
+writer_role = "evidenta_refdata"
 reason = "Curs BNM. Scriere prin calea privilegiată P-3."
 source = "V2 §4.3"
 
@@ -97,13 +110,15 @@ source = "V2 §4.3"
 name = "coa_template"
 tenant_column = false
 policy_shape = "global_read_only"
-reason = "Template legislativ al planului de conturi SNC, versionat. Instanțiat per companie."
+writer_role = "evidenta_refdata"
+reason = "Template legislativ al planului de conturi SNC, versionat. Instanțiat per companie. Scriere prin calea privilegiată P-10."
 source = "V2 §4.3, §7.1"
 
 [[table]]
 name = "coa_template_account"
 tenant_column = false
 policy_shape = "global_read_only"
+writer_role = "evidenta_refdata"
 reason = "Conturile template-ului. Instanțele companiilor sunt tenant-scoped."
 source = "V2 §7.1"
 
@@ -131,9 +146,36 @@ source = "spec-a §10.5"
 [[table]]
 name = "privileged_access_log"
 tenant_column = false
+policy_shape = "platform_log"
+writer_role = "evidenta_refdata"
+reason = "Jurnalul căilor privilegiate. Acoperă mai mulți tenanți prin construcție; citire rezervată administrării platformei — care nu are încă rol (DN-18), deci azi nimeni prin aplicație."
+source = "spec-a §6.3; ADR-049"
+
+# ── Actele normative și publicările lor (OD-65) ─────────────────────────────
+
+[[table]]
+name = "normative_act"
+tenant_column = false
 policy_shape = "global_read_only"
-reason = "Jurnalul căilor privilegiate. Acoperă mai mulți tenanți prin construcție; citire rezervată administrării platformei."
-source = "spec-a §6.3"
+writer_role = "evidenta_refdata"
+reason = "Registrul actelor citate de parametri și de planul de conturi. Aceeași lege pentru toți."
+source = "ADR-049; R15"
+
+[[table]]
+name = "official_publication"
+tenant_column = false
+policy_shape = "global_read_only"
+writer_role = "evidenta_refdata"
+reason = "O poziție din Monitorul Oficial. Entitate proprie fiindcă o poziție acoperă mai multe acte (MO 233-237 art. 1534 din 22.10.2013 — OMF 118 și OMF 119 din 2013)."
+source = "ADR-049; OD-65"
+
+[[table]]
+name = "normative_act_publication"
+tenant_column = false
+policy_shape = "global_read_only"
+writer_role = "evidenta_refdata"
+reason = "Legătura act ↔ publicare, în ambele sensuri reale."
+source = "ADR-049; OD-65"
 
 # ── Rădăcina de tenancy ──────────────────────────────────────────────────────
 

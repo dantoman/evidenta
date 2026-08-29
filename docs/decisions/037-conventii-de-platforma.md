@@ -1,13 +1,17 @@
 # ADR-037 — Convenții de platformă: rotunjire, zecimale, granularitatea postării
 
 - **Status:** **Parțial decis** (2026-08-28) — §3.1 și forma rotunjirii sunt fixate de proprietar și
-  implementate; rămâne blocat pe `V1` *(precizia prescrisă pe formular)* și pe `V2`–`V4`. Excepția:
-  §4 nu depinde de verificare
+  implementate. **Ce rămâne e `V1`** — Ordinul MF nr. 118 din 28.08.2017, Anexele 1 și 1a, document
+  **public**, o oră de citit — care dă precizia (§3.2). `V2` (schema XML e-Factura) e singura
+  sarcină care depinde de accesul SFS (`OD-24`) și condiționează **testul de acceptanță**, nu codul;
+  `V3` e Codul fiscal, public; `V4` vine în pachetul 1C din §7. **Nimic din `DNB-08` nu e blocat
+  extern.** Calea de scriere a preciziei există de la [ADR-049](049-rolul-de-date-de-referinta.md)
+  (`OD-67` închisă). Excepția: §4 nu depinde de verificare
 - **Data:** 2026-08-25; §3.1 decisă 2026-08-28
 - **Decide:** proprietarul proiectului
 - **Închide:** `DNB-08` (Spec B §7.2, §11) — partea de precizie și rotunjire, la deblocare
 - **Afectează:** Posting Engine (F1.4), milestone-ul F1 (balanță verificabilă la leu contra 1C),
-  importatorul 1C (F1.9), `OD-24` (accesul SFS)
+  importatorul 1C (F1.9); `OD-24` (accesul SFS) doar prin `V2`
 
 ---
 
@@ -45,7 +49,9 @@ Instrucțiunii nu a fost citit prescriind zecimale** — `V1` rămâne de făcut
 politică doar de **citire** (`0027_fiscal.up.sql`); nu există cale prin care precizia să fie
 încărcată, în afară de superuser. Mecanismul e complet și **inert**. Aceeași familie ca `0044`, care
 a trebuit să adauge o politică de scriere pentru planul de conturi — și aceeași familie ca CI-ul
-legat și nepornit.
+legat și nepornit. *Închis a doua zi prin [ADR-049](049-rolul-de-date-de-referinta.md): rolul
+`evidenta_refdata`, `manage.py load_fiscal_parameters`, iar fișierul
+`fiscal/parameters/data/platform_conventions.toml` livrează actul și așteaptă `V1` pentru valori.*
 
 **Atenție la o coliziune de numere care poate produce o citare greșită:** *OMF 118 din 28.08.2017*
 (factura fiscală, MO 2017 nr. 340-351 art. 1750) și *OMF 118 din 06.08.2013* (SNC) sunt acte

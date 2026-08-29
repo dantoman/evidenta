@@ -67,6 +67,13 @@ SEEDED_TABLES = (
     "fiscal_parameter_confidence_event",
     "fiscal_parameter",
     "fiscal_parameter_source",
+    # ADR-049. The act registry is pointed at by `fiscal_parameter_source` and
+    # `coa_template`, so it goes after both; the log points at nothing and
+    # nothing points at it.
+    "normative_act_publication",
+    "official_publication",
+    "normative_act",
+    "privileged_access_log",
     "company_partner",
     "partner_vat_registration",
     "partner",
@@ -168,6 +175,9 @@ _TRIGGER_STATE = (
     # setup -- which is how it was found.
     "ALTER TABLE fiscal_parameter_confidence_event {action} "
     "TRIGGER fiscal_confidence_event_append_only",
+    # The privileged-access log is append-only (ADR-049) and its trigger test
+    # seeds a row through `seed()` -- both halves of the rule above.
+    "ALTER TABLE privileged_access_log {action} TRIGGER privileged_access_log_append_only",
     # What a posting stood on is append-only too (ADR-047), and the trigger
     # test seeds a row through `seed()` -- both halves of the rule above.
     "ALTER TABLE entry_parameter_stamp {action} TRIGGER entry_parameter_stamp_append_only",

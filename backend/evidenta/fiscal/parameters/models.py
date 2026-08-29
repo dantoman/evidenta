@@ -84,13 +84,13 @@ class FiscalParameterSource(models.Model):
     and "the rate was 20%" is not an answer without "under which act, published
     when".
 
-    **One publication per source, which is not always true.** An order and the
-    annex it approves can appear in different issues months apart -- the chart of
-    accounts was published as MO nr. 177-181 art. 1225 of 16.08.2013 while its
-    annex, the nomenclature itself, came in MO nr. 233-237 art. 1534 of
-    22.10.2013. The columns here record one of the two. Whether the second
-    belongs in more columns or in a publications table is OD-65, left open rather
-    than guessed: it decides what a citation looks like everywhere downstream.
+    **One publication per source, which is not always true -- and the first
+    account of why was wrong.** The two gazette columns below hold one
+    publication. OMF 119/2013 has two, and its second one (MO nr. 233-237 art.
+    1534 of 22.10.2013) is *shared* with OMF 118/2013: a position in the Monitor
+    can cover two acts, so it is a row, not a column. That is `OD-65`, closed by
+    ADR-049: the act lives in `legislation.NormativeAct` (``act`` below) with its
+    publications as rows; the two columns stay for the rows that predate it (C5).
     """
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -117,6 +117,19 @@ class FiscalParameterSource(models.Model):
     effective_from = models.DateField()
     url = models.TextField(null=True, blank=True)
     notes = models.TextField(null=True, blank=True)
+
+    #: The act in the shared registry (ADR-049, closes OD-65). Nullable because
+    #: migrations are additive (C5) and rows predate the registry; the loader
+    #: fills it, and the publications hang off the act -- all of them, not the
+    #: one the two columns above can hold. Lazy reference, not an import (D6).
+    act = models.ForeignKey(
+        "legislation.NormativeAct",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="fiscal_sources",
+        db_column="act_id",
+    )
 
     created_at = models.DateTimeField(auto_now_add=True)
 

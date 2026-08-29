@@ -242,3 +242,115 @@ def test_detects_contract_drifting_from_the_schema(owner_cursor: object) -> None
         """
     )
     assert "IZ-76" in rules(audit(owner_cursor, DRIFT_PROBE), "probe_drift")
+
+
+# --- IZ-78: a global table is written by its declared role and nobody else ------
+#
+# Three probes, each a real shape that has occurred: the application role left
+# holding INSERT on a global table (0047 found that one late), a write policy for
+# an undeclared role (0044's owner policy was exactly that, retracted by 0060),
+# and a writer declared with nothing behind it.
+
+WRITER_PROBE = Contract(
+    tables=[
+        {
+            "name": "probe_global",
+            "tenant_column": False,
+            "policy_shape": "global_read_only",
+            "writer_role": "evidenta_refdata",
+            "reason": "Probe for IZ-78.",
+            "source": "tests/schema_guard",
+        },
+        {
+            "name": "probe_nobody_writes",
+            "tenant_column": False,
+            "policy_shape": "global_read_only",
+            "reason": "Probe for IZ-78, no writer declared.",
+            "source": "tests/schema_guard",
+        },
+    ],
+    patterns=[],
+    append_only=[],
+)
+
+
+def global_table(cursor: object, name: str, writer_policy: str = "") -> None:
+    cursor.execute(  # type: ignore[attr-defined]
+        f"""
+        CREATE TABLE {name} (id uuid PRIMARY KEY);
+        ALTER TABLE {name} ENABLE ROW LEVEL SECURITY;
+        ALTER TABLE {name} FORCE  ROW LEVEL SECURITY;
+        CREATE POLICY {name}_read ON {name} FOR SELECT TO evidenta_app USING (true);
+        REVOKE INSERT, UPDATE, DELETE ON {name} FROM evidenta_app;
+        {writer_policy}
+        """
+    )
+
+
+def test_iz78_passes_a_global_table_with_exactly_its_writer(owner_cursor: object) -> None:
+    global_table(
+        owner_cursor,
+        "probe_global",
+        """
+        CREATE POLICY probe_global_w ON probe_global FOR ALL TO evidenta_refdata
+            USING (true) WITH CHECK (true);
+        GRANT SELECT, INSERT, UPDATE ON probe_global TO evidenta_refdata;
+        """,
+    )
+    findings = [f for f in audit(owner_cursor, WRITER_PROBE) if f.table == "probe_global"]
+    assert "IZ-78" not in {f.rule for f in findings}, findings
+
+
+def test_iz78_catches_the_application_role_holding_a_write_privilege(owner_cursor: object) -> None:
+    """The default privileges from 0001 grant it; only an explicit REVOKE removes it."""
+    owner_cursor.execute(  # type: ignore[attr-defined]
+        """
+        CREATE TABLE probe_nobody_writes (id uuid PRIMARY KEY);
+        ALTER TABLE probe_nobody_writes ENABLE ROW LEVEL SECURITY;
+        ALTER TABLE probe_nobody_writes FORCE  ROW LEVEL SECURITY;
+        CREATE POLICY p ON probe_nobody_writes FOR SELECT TO evidenta_app USING (true);
+        """
+    )
+    findings = audit(owner_cursor, WRITER_PROBE)
+    assert "IZ-78" in rules(findings, "probe_nobody_writes")
+    assert any(
+        "evidenta_app holds" in f.detail for f in findings if f.table == "probe_nobody_writes"
+    )
+
+
+def test_iz78_catches_a_write_policy_for_an_undeclared_role(owner_cursor: object) -> None:
+    """0044's owner policy, in miniature."""
+    global_table(
+        owner_cursor,
+        "probe_nobody_writes",
+        "CREATE POLICY p_owner ON probe_nobody_writes FOR ALL TO evidenta_owner "
+        "USING (true) WITH CHECK (true);",
+    )
+    findings = audit(owner_cursor, WRITER_PROBE)
+    assert any(
+        f.rule == "IZ-78" and f.table == "probe_nobody_writes" and "second door" in f.detail
+        for f in findings
+    ), findings
+
+
+def test_iz78_catches_a_declared_writer_that_cannot_write(owner_cursor: object) -> None:
+    global_table(owner_cursor, "probe_global")  # declared writer, no policy, no grant
+    findings = audit(owner_cursor, WRITER_PROBE)
+    assert any(
+        f.rule == "IZ-78" and f.table == "probe_global" and "no INSERT privilege" in f.detail
+        for f in findings
+    ), findings
+
+
+def test_iz78_catches_the_writer_reaching_an_undeclared_table(owner_cursor: object) -> None:
+    """The sweep: a privilege on a tenant table turns the loading role into a
+    second application role, and nothing on the table's own side would say so."""
+    compliant_table(owner_cursor, "probe_tenant_scoped")
+    owner_cursor.execute("GRANT SELECT ON probe_tenant_scoped TO evidenta_refdata")  # type: ignore[attr-defined]
+    findings = audit(owner_cursor, WRITER_PROBE)
+    assert any(
+        f.rule == "IZ-78"
+        and f.table == "probe_tenant_scoped"
+        and "not its declared writer" in f.detail
+        for f in findings
+    ), findings

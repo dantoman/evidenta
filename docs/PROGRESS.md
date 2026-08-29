@@ -126,12 +126,15 @@ Un test de integrare o parcurge prin HTTP, sub rolul aplicației
   împreună
 
 
-**F1 — Accounting Core. Firul de implementare s-a oprit pe decizii, nu pe cod.** `F1.4.2` — rolurile
-de cont și legarea — e blocată de două ori: [ADR-036](decisions/036-forma-postarii.md) e `Propus`
-(cazurile `C1`–`C5` cer SNC citat), iar `OD-55` decide forma tabelei de legare, fiindcă chei de
-context definibile de client înseamnă evaluator de expresii peste `payload` — chiar DSL-ul respins
-în același ADR. *Backlogul spune pentru `F1.4.2` „Blocat de: —"; registrul spune contrariul. Cine
-citește doar backlogul construiește tabela înainte să se știe ce formă are.*
+**F1 — Accounting Core. Firul de implementare s-a oprit pe decizii, iar deciziile au venit
+(2026-08-29, instrucțiune scrisă).** `F1.4.2` e deblocată — [ADR-036](decisions/036-forma-postarii.md)
+e `Acceptat` cu `C1`–`C5` clasificate, `OD-55` închisă prin [ADR-051](decisions/051-chei-de-context-enumerate.md)
+(chei enumerate în cod). La fel `F1.4.4`, `F1.5.4` ([ADR-050](decisions/050-lantul-de-inchidere-ca-roluri.md)),
+`F1.8` ([ADR-053](decisions/053-tinta-de-performanta.md)) și `F1.G2` ([ADR-052](decisions/052-contractul-de-tastatura.md)).
+Calea de scriere a datelor de referință există ([ADR-049](decisions/049-rolul-de-date-de-referinta.md)).
+**Blocaje externe reale rămase: două** — extrasul 1C (`OD-28`, pentru cititor și validare) și
+contabilul practicant (F1.10). F1.6 mai așteaptă numerele de MO (`OD-22`) și lectura unui document
+public (`V1`).
 
 **F1 — Accounting Core.** F0 este închisă (criteriul de ieșire îndeplinit, mai jos). Livrate:
 **F1.1** (planul de conturi, structura fără conținut) cu API-ul lui, **F1.3** (evenimentele),
@@ -141,6 +144,64 @@ Descompunerea completă: `_bootstrap/08-f1-backlog.md` — patru fire care pot m
 `F1.2.1` ca singur punct de sincronizare timpuriu, și tabelul de blocaje la final.
 
 ## Ultima sesiune
+
+**2026-08-29 (a doua), `OD-67`/`OD-65` livrate și șase decizii consemnate — instrucțiune scrisă cu
+nouă puncte (sesiunea `evidenta-77`):**
+
+- **Al patrulea rol de bază de date, `evidenta_refdata`** ([ADR-049](decisions/049-rolul-de-date-de-referinta.md)):
+  `LOGIN`, `NOINHERIT`, fără `BYPASSRLS`, nu deține nimic, fără privilegii implicite. Scrie exclusiv
+  tabelele globale de referință declarate cu `writer_role` în `infra/rls/exceptions.toml` — cele opt
+  existente (`0060`) plus trei noi — fără `DELETE` nicăieri. Politica proprietarului din `0044`
+  retrasă: **o singură ușă**. Bootstrap `0004`, Makefile, CI și harness-ul de test îl cunosc;
+  `.env` are `REFDATA_DB_USER/PASSWORD` (`.env.example` actualizat).
+- **`privileged_access_log` construită** (`0058`), după ce a stat declarată în contract din F0 fără
+  să existe în nicio bază. Singura ușă spre conexiune e `privileged_run`, care scrie rândul **ultimul,
+  în aceeași tranzacție**: o rulare eșuată nu lasă nici scrieri, nici rând. Aplicația nu o citește
+  deloc (forma nouă `platform_log`): conține tenanți străini. `P-10` nouă în Spec A §6.2 pentru
+  planul de conturi. **Măsurat, nu presupus:** sub rol, `SELECT count(*) FROM company` e
+  `InsufficientPrivilege`, nu `0` — nu există politică de trecut, fiindcă nu există privilegiu.
+- **`IZ-78` în gardianul de model**, în ambele sensuri: aplicația fără privilegii de scriere pe
+  tabelele globale (ce a găsit `0047` de mână), nicio politică de scriere pentru alt rol decât cel
+  declarat, scriitorul fără `DELETE`, iar scriitorul fără nimic pe tabele nedeclarate. **Prima rulare
+  a găsit** politica `permission_platform_write` a proprietarului din `0019` — corectă, catalogul e
+  cod (ADR-020) — declarată acum, nu tolerată; și `tenant_id` pe jurnal citit ca derivă (`IZ-76`):
+  redenumit `subject_tenant_id`, cu motivul în model. Cinci autoteste, ca regula să fie văzută căzând.
+- **`OD-65` — registru de acte și publicări în `platform/legislation`**, M:N: identitatea publicării e
+  a citării (an, număr, articol; ziua opțională), fiindcă *o poziție acoperă două acte*. La `make
+  seed-coa` pe baza de dezvoltare, OMF 119/2013 stă cu ambele publicări, iar rândul de jurnal spune
+  `P-10 | os:dts | 476 neschimbate`.
+- **`manage.py load_fiscal_parameters`** — calea `P-4` reală: TOML cu actul lângă valoare; `draft`
+  obligatoriu (o aprobare nu vine dintr-un fișier, D.1); un rând `active` nu se editează; act fără
+  `effective_from` refuzat. **`platform_conventions.toml` livrează actul OMF 118/2017 și zero
+  valori**: precizia e ipoteza de lucru a proprietarului (ADR-037 §0), iar nici valorile, nici data
+  intrării în vigoare n-au fost citite din act — `V1`, o oră. O dată inventată e același defect ca o
+  cotă inventată, în altă coloană.
+- **Șase decizii închise prin instrucțiune, fiecare cu ADR:** `OD-55` — chei de context enumerate
+  în cod ([ADR-051](decisions/051-chei-de-context-enumerate.md)); `C1`–`C5` clasificate, `C3`
+  ștearsă cu motiv, [ADR-036](decisions/036-forma-postarii.md) **`Acceptat`**, `R28` în `CLAUDE.md`;
+  `OD-36` — contractul de tastatură ([ADR-052](decisions/052-contractul-de-tastatura.md), `C40`);
+  `OD-29` — fișa contului agregă pe document ([ADR-053](decisions/053-tinta-de-performanta.md),
+  pragurile propuse, nu decise); `OD-22` **despicată** — lanțul de închidere e roluri din Planul
+  general de conturi, nu parametri fiscali ([ADR-050](decisions/050-lantul-de-inchidere-ca-roluri.md));
+  cele patru roluri sunt în catalog (41), ordinea lanțului e în ADR, **731 nu se închide cu clasa 7**.
+- **`DNB-08`, corectată a treia oară** — nu în trei locuri, în **opt**: `PROGRESS.md` ×3, Spec B ×2,
+  ADR-010, registrul, backlogul F0. Ce rămâne e `V1`, document public; `V2` condiționează testul de
+  acceptanță, nu codul.
+- **`OD-28`, reformulată după măsurare:** blochează **cititorul** formatului real și **validarea la
+  leu**, nu construcția — zona de aterizare (`opening`, `source = onec_import`), maparea și
+  punctarea se construiesc pe un extras sintetic în formatul intern. F1.9 iese de pe drumul critic;
+  rămâne bifa finală.
+- **Harta, recalculată:** din nouă blocaje de sarcini F1, **rămân trei** — F1.6 (`OD-22` strict
+  cote/praguri, plus `V1`), F1.9/F1.G0 (`OD-28`, doar cititorul), F1.10 (cazuri reale). Decizii
+  deschise care blochează F1: `OD-22` restrânsă, `OD-28` restrânsă, `OD-58`, `OD-60`, `OD-61`,
+  `OD-62`, `DNB-08`/`V1`, `DNB-10`. **Externe reale: două** — extrasul 1C și contabilul practicant,
+  exact așteptarea proprietarului.
+- **Ce s-a raportat, nu decis:** `P-9` nu scrie încă în jurnal (tabela nu exista când s-a scris
+  funcția); utilizatorii de sistem din Spec A §3.4 nu există; `Tab`, tasta `F` și ștergerea rândului
+  din contractul de tastatură sunt implicite propuse; pragurile din ADR-053 la fel.
+- Suita: **969 trec, 1 sărit** (de la 745 la începutul zilei; 46 noi aici — rol, încărcătoare, gardian). `make lint`, `make typecheck`, `make drift-check` pe baza vie: curate.
+
+## Sesiuni mai vechi
 
 **2026-08-29, baza motorului — etapa 1+2, formula ca unitate de postare și sloturile tipizate
 (instrucțiune scrisă; [ADR-048](decisions/048-formula-si-sloturile-tipizate.md)):**
@@ -1839,17 +1900,20 @@ F1.2 nu poate fi prima. Ordinea reală se notează aici, pe măsură ce se stabi
       date ale liniei și câmpurile de valută: [ADR-039](decisions/039-valuta-si-perioade.md))*
 - [ ] F1.4 — Posting Engine: **rezoluția, cei șase invarianți, rolurile cu legarea necondiționată și
       formula ca unitate** ([ADR-048](decisions/048-formula-si-sloturile-tipizate.md)) livrate;
-      **niciun handler concret** *(F1.4.4 blocat pe `C1`–`C5` din [ADR-036](decisions/036-forma-postarii.md);
-      legarea condiționată pe `OD-55`)*
-- [ ] F1.6 — Logică fiscală, primul strat *(structura rotunjirii livrată 28.08; valorile pe `V1` și
-      `OD-67`)*
+      **niciun handler concret** — *deblocat 29.08: `C1`–`C5` clasificate (ADR-036 `Acceptat`),
+      legarea condiționată decisă ([ADR-051](decisions/051-chei-de-context-enumerate.md)); rolurile
+      lanțului de închidere în catalog ([ADR-050](decisions/050-lantul-de-inchidere-ca-roluri.md))*
+- [ ] F1.6 — Logică fiscală, primul strat *(structura rotunjirii livrată 28.08; calea de scriere
+      livrată 29.08 — [ADR-049](decisions/049-rolul-de-date-de-referinta.md); valorile pe `V1`,
+      document public, și pe `OD-22`)*
 - [x] F1.7 — Note contabile manuale, solduri inițiale, șabloane de operațiuni — toate prin motor,
       cu API și ecran
-- [ ] F1.8 — Rapoarte contabile
+- [ ] F1.8 — Rapoarte contabile *(deblocată 29.08: [ADR-053](decisions/053-tinta-de-performanta.md);
+      balanța și registrul există din felia verticală)*
 - [ ] F1.9 — Importator 1C, fundament *(`OD-28`)*
 - [ ] F1.10 — Corpus de regresie fiscală
 - [ ] F1.G0, F1.G1 (`DataGrid`), F1.G2 (`EntryGrid`) — `_bootstrap/07-f1-grile.md`;
-      `EntryGrid` cere întâi `OD-36`
+      contractul de tastatură scris ([ADR-052](decisions/052-contractul-de-tastatura.md)); F1.G0 pe `OD-28`
 
 ## Blocaje active
 
@@ -1857,7 +1921,7 @@ F1.2 nu poate fi prima. Ordinea reală se notează aici, pe măsură ce se stabi
 |---|---|---|
 | Corpusul de regresie fiscală nu are cazuri reale cu rezultat verificat | Nimic nu verifică mecanic conținutul contabil; este singura măsură de risc rămasă după ADR-010 | ADR-010, C14, F1.10 |
 | Nu există extras real dintr-o bază 1C | `DataGrid` și `EntryGrid` nu pot fi validate pe structuri neanticipate; volumul se poate simula, structura nu | OD-28, OD-30, `_bootstrap/07-f1-grile.md` |
-| Nu există semnătură electronică, entitate de test și acces în e-Factura | `DNB-08` (rotunjirea TVA) și formatele declarațiilor. **Singurul element extern pe drumul critic** | ADR-010, OD-24, OD-25 |
+| Nu există semnătură electronică, entitate de test și acces în e-Factura | Formatele declarațiilor și `V2` din ADR-037 (schema XML — condiționează **testul de acceptanță** al rotunjirii, nu codul). **`DNB-08` nu e aici**: ce-i rămâne e `V1`, un document public. *Corectat 2026-08-29, a treia oară* | ADR-010, ADR-037 §5, OD-24, OD-25 |
 
 Primele trei rânduri se rezolvă în câteva ore: o instalare și două decizii. Ultimele trei nu se
 rezolvă în cod — cer date reale și acces instituțional, iar de aceea sunt cele care contează.
@@ -1908,10 +1972,12 @@ Ordonate după cât de devreme blochează. Lista de mai jos e reconciliată cu A
 5. **OD-40** — acoperă art. 7 și conținutul documentelor primare emise? Art. 11 nu prescrie limba
    pentru ele; singura prevedere, alin. (11), privește documentele primite din străinătate și
    acceptă și rusa. Până la răspuns, produsul nu restricționează nimic.
-6. **OD-06, OD-22, OD-23** — deblocate de `ADR-010`, dar nerăspunse: valorile fiscale efective și
-   planul de conturi SNC cer în continuare actul normativ citat, nu memoria.
-7. **Accesul la e-Factura** — semnătură electronică, entitate de test, ghid de integrare.
-   Singurul element extern pe drumul critic; de el depinde `DNB-08`.
+6. **OD-06, OD-22, OD-23** — deblocate de `ADR-010`, dar nerăspunse: valorile fiscale efective
+   cer în continuare actul normativ citat, nu memoria. `OD-22` e **restrânsă** din 29.08 la cote și
+   praguri ([ADR-050](decisions/050-lantul-de-inchidere-ca-roluri.md)); calea de scriere există.
+7. **Accesul la e-Factura** — semnătură electronică, entitate de test, ghid de integrare. Blochează
+   formatele declarațiilor și `V2` (testul de acceptanță al rotunjirii). **Nu** blochează `DNB-08`:
+   ce-i rămâne e `V1`, Ordinul MF 118/2017, document public.
 
 **Din stratul documentar (2026-08-28), în ordinea în care blochează.** Niciuna nu e aleasă în cod;
 fiecare are un refuz sau o absență explicită în locul ei.
@@ -1957,4 +2023,5 @@ fiecare are un refuz sau o absență explicită în locul ei.
 
 Peste acestea, punctele „DECIZIE NECESARĂ" rămase din Spec A §11 și Spec B §11. Dintre cele care
 cereau contabilul practicant, `DNB-05`, `DNB-07` și `DNB-09` sunt deblocate de `ADR-010`. `DNB-08`
-(rotunjirea TVA) **nu** este: depinde de validatorul SFS, nu de expertiză contabilă.
+(rotunjirea TVA) **nu** este blocată de contabil — și nici extern: rămâne `V1`, un document public
+(vezi 7).

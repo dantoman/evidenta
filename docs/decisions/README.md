@@ -106,8 +106,8 @@ Acte normative, secțiuni din documentele de intrare, benchmark-uri, discuții.
 | [033](033-limba-la-generare.md) | Limba la generare: contextul românesc se forțează, nu se moștenește | Acceptat | 2026-08-25 | — *(operaționalizează ADR-016)* |
 | [034](034-denumire-legala-si-interna.md) | Nomenclatoarele au denumire legală și denumire internă | Acceptat | 2026-08-25 | — *(`OD-40` rămâne deschisă)* |
 | [035](035-fara-delegare-tranzitiva.md) | Delegarea nu este tranzitivă | Acceptat | 2026-08-25 | — *(deschide `OD-54`)* |
-| [036](036-forma-postarii.md) | Forma postării stă în cod; restul configurării stă în date | **Propus** — `C1`–`C5` cer SNC citat | 2026-08-25 | `DNB-04` *(la `Acceptat`; deschide `OD-55`)* |
-| [037](037-conventii-de-platforma.md) | Convenții de platformă: rotunjire, zecimale, granularitatea postării | **Propus** — blocat pe `V1`–`V4` | 2026-08-25 | `DNB-08` *(parțial, la deblocare)* |
+| [036](036-forma-postarii.md) | Forma postării stă în cod; restul configurării stă în date | **Acceptat — 2026-08-29, `C1`–`C5` clasificate de proprietar** — `C1`–`C5` cer SNC citat | 2026-08-25 | `DNB-04` *(la `Acceptat`; deschide `OD-55`)* |
+| [037](037-conventii-de-platforma.md) | Convenții de platformă: rotunjire, zecimale, granularitatea postării | **Parțial decis** — linia e autoritativă; rămâne `V1`, document public | 2026-08-25 | `DNB-08` *(parțial, la deblocare)* |
 | [038](038-vocabularul-de-evenimente.md) | Nucleul deține vocabularul de `event_type`; handlerul se selectează după dată | Acceptat | 2026-08-25 | `DNB-01` |
 | [039](039-valuta-si-perioade.md) | Moneda funcțională MDL, exercițiu cu date explicite, trei date pe linia de jurnal | Acceptat | 2026-08-25 | `DN-04`, `DN-05` |
 | [040](040-crearea-tenantului-si-a-companiei.md) | Crearea unui tenant și a unei companii este cale privilegiată (`P-9`) | Acceptat | 2026-08-25 | `OD-53` |
@@ -119,6 +119,11 @@ Acte normative, secțiuni din documentele de intrare, benchmark-uri, discuții.
 | [046](046-istoricul-increderii-in-sursa.md) | Încrederea în sursă are istoric: o confirmare nu schimbă valoarea, deci nu e o versiune nouă | Acceptat | 2026-08-26 | — (`R1`: declară o excepție) |
 | [047](047-stampila-parametrului-la-postare.md) | Calculul își ștampilează baza la postare: parametrul nu-și amintește pe ce s-a calculat | Acceptat | 2026-08-26 | — (închide `OD-68`) |
 | [048](048-formula-si-sloturile-tipizate.md) | Formula este unitatea de postare; dimensiunile sunt sloturi tipizate, declarate per cont; antetul poartă trei versiuni | Acceptat — decizie tehnică, nimic contabil | 2026-08-29 | — (deschide `OD-69`) |
+| [049](049-rolul-de-date-de-referinta.md) | Datele de referință au un rol de încărcare, o cale și un jurnal; actele au publicări | Acceptat — decizie tehnică | 2026-08-29 | `OD-67`, `OD-65`, `OD-56` |
+| [050](050-lantul-de-inchidere-ca-roluri.md) | Conturile lanțului de închidere sunt roluri de cont, nu parametri fiscali; ordinea lanțului | Acceptat — domeniu contabil, proprietar | 2026-08-29 | jumătate din `OD-22` |
+| [051](051-chei-de-context-enumerate.md) | Cheile de context ale legării condiționate sunt enumerate în cod; valorile sunt date | Acceptat — proprietar | 2026-08-29 | `OD-55` |
+| [052](052-contractul-de-tastatura.md) | Contractul de introducere cu tastatura: nicio operațiune frecventă nu cere mouse-ul | Acceptat — produs, proprietar | 2026-08-29 | `OD-36` |
+| [053](053-tinta-de-performanta.md) | Ținta de performanță: modelul de volum dă datele, fișa contului agregă pe document | Acceptat — produs, proprietar; pragurile propuse | 2026-08-29 | `OD-29` |
 
 *Indexul se actualizează la fiecare ADR nou. Un ADR care nu apare aici este invizibil.*
 

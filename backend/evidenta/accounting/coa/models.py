@@ -177,10 +177,25 @@ class CoaTemplate(models.Model):
     #: than a foreign key into `fiscal.parameters`: the chart of accounts is an
     #: accounting normative act, not a fiscal parameter, and borrowing that
     #: table's provenance row would put it under a resolver that answers a
-    #: different question.
+    #: different question. The registry that both can share arrived with ADR-049
+    #: (``act`` below).
     source_act = models.TextField()
     source_reference = models.TextField(null=True, blank=True)
     published_at = models.DateField(null=True, blank=True)
+
+    #: The same act, as a row in the shared registry (ADR-049, OD-65) -- where
+    #: its *two* publications live, one of them shared with OMF 118/2013. The
+    #: free-text columns above stay (C5) and keep printing the citation; this is
+    #: what a query joins on. Not a fiscal parameter row: the registry is in
+    #: `platform`, which is the point of putting it there.
+    act = models.ForeignKey(
+        "legislation.NormativeAct",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="chart_templates",
+        db_column="act_id",
+    )
 
     status = models.TextField(choices=TemplateStatus.choices, default=TemplateStatus.DRAFT)
 

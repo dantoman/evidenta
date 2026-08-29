@@ -51,7 +51,7 @@ from evidenta.fiscal.registry.models import FiscalLogicVersion, LogicStatus
 from evidenta.fiscal.registry.services.resolution import resolve_logic
 from evidenta.platform.rls.context import TenantContext, tenant_context
 
-pytestmark = pytest.mark.django_db(databases=["default", "migration"])
+pytestmark = pytest.mark.django_db(databases=["default", "migration", "refdata"])
 
 SOURCE_ID = uuid.UUID("00000000-0000-0000-0000-0000000000a1")
 APPROVER = uuid.UUID("00000000-0000-0000-0000-0000000000b1")
@@ -577,13 +577,12 @@ def test_a_raw_insert_that_omits_the_confidence_fails_loudly(
 
 # --- Confidence has a past, and it survives the present changing ---------------
 #
-# `set_confidence` writes through the privileged path P-4, which has no mechanism
-# yet -- the same gap as `OD-56` for the chart of accounts. The application role
-# has INSERT revoked on these tables and there is no policy admitting a writer, so
-# the dual write itself cannot be exercised end to end today. What is exercised
-# here is everything that does not depend on it: the refusals, which happen before
-# any write, and the guarantees the database makes about rows once they exist,
-# seeded the way every other fiscal row in this file is seeded.
+# `set_confidence` writes through the privileged path P-4 -- since ADR-049 the
+# reference-data role, reached through `privileged_run`, which is why this file
+# declares the `refdata` alias. The refusals below still happen before any write;
+# the rows they are checked against are seeded the way every other fiscal row in
+# this file is seeded, and the dual write itself is exercised end to end in
+# `test_reference_loaders.py` and in the last test of this block.
 
 
 def _confidence_event(

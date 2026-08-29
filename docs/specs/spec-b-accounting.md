@@ -496,11 +496,14 @@ cere deployment, iar regulile specifice unei companii devin cod condiționat.
 Amendamentul §A.4 rezolvă întrebarea pentru *conformitate* (parametri = date, logică = cod). Nu o
 rezolvă pentru regulile de postare, care nu sunt nici una, nici alta.
 
-**Propunerea scrisă:** [ADR-036](../decisions/036-forma-postarii.md) alege (C), cu granița trasată
-explicit — forma postării (câte linii, ce semn, din ce câmp derivă suma) în cod, o singură versiune pentru
-toți tenanții; conturile, dimensiunile, politicile și șabloanele de note manuale în date, per tenant. Cât ADR-ul
-e `Propus`, tabelele de mai sus rămân forma opțiunii (A); la `Acceptat`, `amount_expression` și numărul de linii
-ies din date și trec în handler.
+**Decis:** [ADR-036](../decisions/036-forma-postarii.md), `Acceptat` 2026-08-29, alege (C), cu granița
+trasată explicit — forma postării (câte linii, ce semn, din ce câmp derivă suma) în cod, o singură versiune
+pentru toți tenanții; conturile, dimensiunile, politicile și șabloanele de note manuale în date, per tenant
+(`R28`). **Tabelele de mai sus sunt forma opțiunii (A) și nu se construiesc așa**: `amount_expression`,
+`condition` și numărul de linii sunt ale handlerului ([ADR-048](../decisions/048-formula-si-sloturile-tipizate.md)
+— handlerul emite formule); ce rămâne date e rezoluția (§3.3): rolurile de cont, legarea lor per companie,
+condiționată după chei **enumerate în cod** ([ADR-051](../decisions/051-chei-de-context-enumerate.md)), și
+selecția implementării după dată și capabilități (`R17`, `R26`). Secțiunea rămâne ca istoric al deciziei.
 
 ### 3.3 Rezoluția contului
 
@@ -882,9 +885,11 @@ sau F2 — vezi OD-10 pentru statutul conectorului BNM în F0.
 rotunjirea noastră diferă cu un ban de ce calculează SFS, factura este respinsă — deci regula
 validă este cea pe care o validează sistemul lor, oricare ar fi ea.
 
-`DNB-08` rămâne deschisă și este **blocată pe obținerea ghidului de integrare SFS** (`OD-24`), nu pe
-o dezbatere internă. Ce cere deblocarea: semnătură electronică, entitate de test, descărcarea
-ghidului.
+`DNB-08` rămâne deschisă pe o singură sarcină, **`V1`** din [ADR-037](../decisions/037-conventii-de-platforma.md)
+§5 — Ordinul MF nr. 118 din 28.08.2017, Anexele 1 și 1a, document **public**. Nu e blocată pe
+ghidul de integrare SFS: doar `V2` (schema XML) depinde de `OD-24`, și condiționează testul de
+acceptanță, nu codul. *Formularea anterioară a acestui paragraf spunea contrariul; corectată
+2026-08-29, a treia oară când corecția e făcută în alt loc decât acesta.*
 
 Axele rămase de decis, sarcinile de verificare și motivul pentru care întârzierea lor lovește direct
 în milestone-ul F1 stau în [ADR-037](../decisions/037-conventii-de-platforma.md) (`Propus`). Nuanță găsită
@@ -1111,11 +1116,11 @@ o stare „suspectat duplicat" pe document și un flux de rezolvare.
 | DNB-01 | Cine deține vocabularul de `event_type` | F1.3 | arhitectură |
 | ~~DNB-02~~ | Dimensiuni definite de utilizator — **închisă** prin ADR-029: cinci sloturi generice per companie | — | — |
 | DNB-03 | Politica de propagare a template-ului planului de conturi *(= OD-03)* | F1.1 | contabil + produs |
-| DNB-04 | Reprezentarea regulilor de postare: date, cod, sau hibrid. **Propunere scrisă:** [ADR-036](../decisions/036-forma-postarii.md) — hibrid în straturi, forma postării în cod. `Propus`: cazurile `C1`–`C5` cer SNC citat | F1.4 | arhitectură + contabil, pentru `C1`–`C5` |
+| DNB-04 | Reprezentarea regulilor de postare: date, cod, sau hibrid. **Închisă:** [ADR-036](../decisions/036-forma-postarii.md) `Acceptat` 2026-08-29 — hibrid în straturi, forma postării în cod (`R28`); `C1`–`C5` clasificate de proprietar peste SNC citat | F1.4 | — |
 | DNB-05 | Granularitatea postării de payroll | F2, volumul lui `journal_line` | contabil + arhitectură |
 | DNB-06 | Forma parametrilor fiscali care nu sunt scalari (grile, tranșe) | F0.8 | arhitectură |
 | DNB-07 | Granularitatea perioadei și blocarea per modul | F1.5 | contabil |
-| DNB-08 | Precizia, regula de rotunjire, locul rotunjirii TVA. **Invariantele sunt fixate** (§7.4); valorile așteaptă ghidul de integrare SFS (`OD-24`). Axele și sarcinile de verificare: [ADR-037](../decisions/037-conventii-de-platforma.md), `Propus` — `V1` și `V3` **nu** depind de accesul SFS | F1 calcule; **precondiție a milestone-ului F1** | **SFS**, nu dezbatere internă |
+| DNB-08 | Precizia, regula de rotunjire, locul rotunjirii TVA. **Structura decisă** ([ADR-037](../decisions/037-conventii-de-platforma.md) §0: linia e autoritativă) și calea de scriere există (ADR-049). Rămâne **`V1`** — Ordinul MF 118/2017, Anexele 1 și 1a, document public — pentru numărul de zecimale; `V2` (SFS) condiționează doar testul de acceptanță | F1 calcule; **precondiție a milestone-ului F1** | **lectura unui document public**, nu SFS |
 | ~~DNB-09~~ | Împărțită: structura în [ADR-006](../decisions/006-reversal-two-dates.md) (`Acceptat`), politica în [ADR-007](../decisions/007-reversal-period.md) (`Propus`) | — | **contabil**, pentru ADR-007 |
 | DNB-10 | Fereastra de reținere a cheilor de idempotență în API | F1.3 | arhitectură |
 | DNB-11 | Cheile naturale de deduplicare per tip de document | F2 | contabil + investigație |
@@ -1136,7 +1141,7 @@ Decizii din registrul general care blochează această specificație și **nu** 
 ## 12. Ce urmează după această specificație
 
 1. **Review contabil**, nu doar tehnic. `DNB-05` și `DNB-07` nu pot fi decise de un inginer;
-   `DNB-09` este împărțită, cu partea contabilă în ADR-007, `Propus`; `DNB-08` așteaptă SFS.
+   `DNB-09` este împărțită, cu partea contabilă în ADR-007, `Propus`; `DNB-08` așteaptă `V1`, un document public.
 2. **ADR pentru fiecare decizie luată.**
 3. **Conținutul planului de conturi și parametrii fiscali** (OD-22, OD-23), fără de care structura
    de aici rămâne un schelet gol.

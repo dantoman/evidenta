@@ -51,6 +51,7 @@ INSTALLED_APPS: list[str] = [
     "evidenta.platform.identity.apps.IdentityConfig",
     "evidenta.platform.engagement.apps.EngagementConfig",
     "evidenta.platform.audit.apps.AuditConfig",
+    "evidenta.platform.legislation.apps.LegislationConfig",
     "evidenta.platform.capabilities.apps.CapabilitiesConfig",
     "evidenta.platform.flags.apps.FlagsConfig",
     "evidenta.platform.numbering.apps.NumberingConfig",
@@ -200,6 +201,23 @@ DATABASES = {
         "NAME": env("POSTGRES_DB", "evidenta"),
         "USER": env("OWNER_DB_USER", "evidenta_owner"),
         "PASSWORD": env("OWNER_DB_PASSWORD", "evidenta_owner"),
+        "HOST": env("POSTGRES_HOST", "localhost"),
+        "PORT": env("POSTGRES_PORT", "5432"),
+        "ATOMIC_REQUESTS": False,
+        "TEST": {"NAME": TEST_DATABASE_NAME},
+    },
+    # The reference-data loading role (ADR-049, OD-67). Writes the global
+    # reference tables -- fiscal parameters, logic versions, BNM rates, the chart
+    # of accounts, the counterparty registry -- and nothing else: no policy admits
+    # it to any tenant table, and it holds no privilege on one. It is not a third
+    # runtime connection either: nothing that serves a request may touch it. The
+    # loaders reach it through `platform.audit.services.privileged`, which also
+    # writes the `privileged_access_log` row the path owes (Spec A section 6.1).
+    "refdata": {
+        "ENGINE": "django.db.backends.postgresql",
+        "NAME": env("POSTGRES_DB", "evidenta"),
+        "USER": env("REFDATA_DB_USER", "evidenta_refdata"),
+        "PASSWORD": env("REFDATA_DB_PASSWORD", "evidenta_refdata"),
         "HOST": env("POSTGRES_HOST", "localhost"),
         "PORT": env("POSTGRES_PORT", "5432"),
         "ATOMIC_REQUESTS": False,

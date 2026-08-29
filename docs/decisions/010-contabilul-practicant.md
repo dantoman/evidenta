@@ -64,6 +64,12 @@ proprietate: reproduc exact înțelegerea care ar trebui verificată.
   instituțiile:
   - **`DNB-08`** — rotunjirea TVA. Blocată pe schema XML a e-Facturii. O diferență de un ban față de
     validatorul SFS respinge factura, oricât de corectă ar fi contabil.
+    > **Reconciliere, 2026-08-29.** Rândul de mai sus e din 2026-08-24 și nu mai descrie blocajul:
+    > [ADR-037](037-conventii-de-platforma.md) §0 a fixat structura (linia e autoritativă), iar din
+    > cele patru sarcini de verificare doar `V2` — schema XML — depinde de SFS și condiționează
+    > testul de acceptanță, nu codul. Ce rămâne e `V1`, Ordinul MF 118/2017, document public. Nu
+    > se editează decizia; se corectează ce afirma despre lume — inclusiv „singurul element extern
+    > pe drumul critic" de mai jos, care rămâne adevărat doar pentru formatele declarațiilor.
   - **Formatele declarațiilor** — SFS, CNAS, CNAM (`OD-24`, `OD-25`). Se citesc, nu se deduc.
   - Ambele se deblochează prin aceeași acțiune: semnătură electronică, entitate de test, acces în
     e-Factura, ghidul de integrare. **Acesta este acum singurul element extern pe drumul critic.**

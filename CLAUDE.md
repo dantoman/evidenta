@@ -29,7 +29,10 @@ tenancy, Spec B — accounting), `docs/decisions/` (ADR-uri și decizii deschise
 - **R5** — Trei roluri de bază de date: `evidenta_owner` (migrare, deține tabelele),
   `evidenta_app` (runtime, fără `BYPASSRLS`, fără ownership), `evidenta_rls` (`BYPASSRLS`,
   `NOLOGIN`, deține exclusiv predicatele de acces). Aplicația primește doar `EXECUTE` pe predicate
-  și nu este membru al lui `evidenta_rls`.
+  și nu este membru al lui `evidenta_rls`. Al patrulea, `evidenta_refdata`, nu e rol de runtime:
+  scrie exclusiv tabelele globale de referință declarate cu `writer_role` în
+  `infra/rls/exceptions.toml`, fără `BYPASSRLS`, fără ownership, fără `DELETE`
+  ([ADR-049](docs/decisions/049-rolul-de-date-de-referinta.md)).
 - **R6** — Fiecare task Celery primește `tenant_id` explicit ca argument și setează contextul
   înainte de orice query. Un task care deduce tenantul din stare globală este defect.
 - **R7** — Interogările cross-tenant sunt permise exclusiv în stratul de read models
@@ -54,6 +57,13 @@ tenancy, Spec B — accounting), `docs/decisions/` (ADR-uri și decizii deschise
   `Journal Line → Journal Entry → Accounting Event → Source Document → Sursă`.
 - **R14** — O înregistrare de storno are două legături: spre documentul sursă **și** spre
   înregistrarea anulată.
+- **R28** — **Forma postării stă în cod, într-o singură versiune pentru toți tenanții**: câte linii
+  produce un eveniment, ce semn are fiecare, din ce câmp derivă suma. Nu există DSL de postare
+  interpretat la runtime, nici cod per tenant, nici evaluator de expresii peste `payload` — cheile
+  de context ale legării condiționate sunt enumerate în cod. Ce stă în jurul formei e date, per
+  tenant: legarea rol → cont, subconturile, politicile contabile (listă închisă, din SNC citat),
+  șabloanele de note manuale. Un rol nelegat e eroare la postare, nu cont de rezervă
+  ([ADR-036](docs/decisions/036-forma-postarii.md), [ADR-051](docs/decisions/051-chei-de-context-enumerate.md)).
 
 ### 1.3 Conformitate
 
@@ -259,9 +269,12 @@ Sursa pentru `C23`–`C27`: `docs/decisions/009-componente-si-stil.md` (Acceptat
   aplicate de `DataGrid` și `EntryGrid` prin token, nu presărate prin ecrane. Fără ele, coloanele de
   sume se mișcă vizual de la un rând la altul.
 
-*Contractul de introducere cu tastatura (`OD-36`) nu este încă scris, deci nu are regulă numerotată.
-Până când există, se aplică o singură constrângere: ecranele nu adaugă handlere proprii de taste
-peste `EntryGrid`. Comportamentul de tastatură aparține componentei.*
+- **C40** — Comportamentul de tastatură aparține `EntryGrid`, conform contractului din
+  [ADR-052](docs/decisions/052-contractul-de-tastatura.md): `Enter` avansează și pe ultimul câmp
+  deschide linie nouă, `Escape` anulează celula apoi rândul, tastarea peste o celulă selectată o
+  înlocuiește, o tastă `F` deschide nomenclatorul, `Ctrl+Enter` validează documentul, săgețile
+  navighează fără editare, punctul și virgula sunt ambele separator zecimal. Ecranele nu adaugă
+  handlere proprii de taste. *Nicio operațiune frecventă nu cere mouse-ul.*
 
 ---
 
@@ -312,6 +325,11 @@ operations   ←  depinde de toate cele de mai sus
 - Nu se generează un document legal în limba activă a cererii sau a task-ului. Contextul
   românesc se deschide explicit, la intrarea în pipeline.
 - Nu se extinde predicatul de acces ca să înlănțuie două engagementuri.
+- Nu se scrie un evaluator de expresii peste `payload` pentru postare, nici chei de context
+  definibile de client.
+- Nu se scriu date de referință (parametri fiscali, plan de conturi, cursuri) pe conexiunea de
+  owner sau de aplicație. Se scriu sub rolul de date de referință, prin `privileged_run`, cu rând
+  în `privileged_access_log` ([ADR-049](docs/decisions/049-rolul-de-date-de-referinta.md)).
 - Nu se calculează totaluri contabile în client.
 
 ---

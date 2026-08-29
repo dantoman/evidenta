@@ -11,11 +11,11 @@ inspection asks. One call, one transaction, no way to do half of it.
 **This runs on the privileged path, never on the application connection.**
 `fiscal_parameter` and this table are global and have INSERT/UPDATE revoked from
 `evidenta_app`; a tenant must not be able to declare that a rate is now
-confirmed. Spec A calls that path `P-4`, and P-4 has no mechanism yet -- the same
-gap as `OD-56` for the chart of accounts. Until it exists, the caller supplies the
-connection explicitly through ``using``, which is why that argument is here rather
-than hidden: a service that silently reached for a privileged connection would be
-a privileged path nobody declared.
+confirmed. Spec A calls that path `P-4`, and since ADR-049 it has a mechanism:
+the reference-data role, reached through ``privileged_run``, which writes the
+``privileged_access_log`` row in the same transaction. ``using`` stays as an
+argument for one reason -- the tests that prove the refusals point it at the
+application connection and watch the database say no.
 """
 
 from __future__ import annotations
@@ -23,12 +23,15 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
-from django.db import DEFAULT_DB_ALIAS, transaction
-
 from evidenta.fiscal.parameters.models import (
     FiscalParameter,
     FiscalParameterConfidenceEvent,
     SourceConfidence,
+)
+from evidenta.platform.audit.services.privileged import (
+    REFDATA_ALIAS,
+    PrivilegedPath,
+    privileged_run,
 )
 
 
@@ -48,7 +51,8 @@ def set_confidence(
     effective_at: datetime,
     provisional_reason: str | None = None,
     recorded_by_user_id: uuid.UUID | None = None,
-    using: str = DEFAULT_DB_ALIAS,
+    actor: str | None = None,
+    using: str = REFDATA_ALIAS,
 ) -> FiscalParameterConfidenceEvent:
     """Record a confidence state and make it current.
 
@@ -62,7 +66,17 @@ def set_confidence(
     than no history at all -- a reader would date the transition to the wrong
     moment.
     """
-    with transaction.atomic(using=using):
+    with privileged_run(
+        PrivilegedPath.P4_FISCAL_RULES,
+        actor=actor,
+        actor_user_id=recorded_by_user_id,
+        payload={
+            "operation": "set_confidence",
+            "parameter_key": parameter.parameter_key,
+            "confidence": confidence,
+        },
+        using=using,
+    ):
         return _set_confidence(
             parameter,
             confidence,

@@ -81,8 +81,8 @@ Diferența este numită aici ca decizia să fie luată știind ce se sacrifică.
 - **Terminat:** un raport real din F1.8 randează peste extrasul 1C la volum, cu subtotaluri primite
   de la server, drill-down funcțional, și zero import direct de `@tanstack/react-table` în ecrane —
   verificat de ESLint, nu de citire.
-- **Blocat de:** `OD-35` (scara de densitate — `C21` cere scara, care nu există), `OD-19`
-  (management de stare, client HTTP). *`OD-34` închisă prin `ADR-009`.*
+- **Blocat de:** `OD-19` (management de stare, client HTTP). *`OD-34` închisă prin `ADR-009`;
+  `OD-35` prin `ADR-042`; ținta de performanță (`OD-29`) prin [ADR-053](../decisions/053-tinta-de-performanta.md).*
 
 ---
 
@@ -105,7 +105,7 @@ Diferența este numită aici ca decizia să fie luată știind ce se sacrifică.
   *`ADR-001` spune „`EntryGrid` — introducere" și enumeră exemple; nu restrânge domeniul. Sarcina
   de față îl specifică — elaborare, nu contrazicere.*
 - **Precondiție:** contractul de introducere cu tastatura (`OD-36`) se scrie și se aprobă **înainte**
-  de cod. Ordinea de tab, tastele rapide, deplasarea pe linii și comportamentul tastaturii numerice
+  de cod. *Scris și aprobat: [ADR-052](../decisions/052-contractul-de-tastatura.md), 2026-08-29.* Ordinea de tab, tastele rapide, deplasarea pe linii și comportamentul tastaturii numerice
   sunt decizie, nu detaliu de implementare.
 - **Conține:**
   - editare pe celulă;
@@ -131,7 +131,7 @@ Diferența este numită aici ca decizia să fie luată știind ce se sacrifică.
   3. **aceeași componentă, fără fork și fără ramuri specifice ecranului, servește o suprafață care
      nu este linii de document** — maparea conturilor la import. Fără acest criteriu,
      „primitivă generală" rămâne intenție, iar `OD-41` se redeschide singură.
-- **Blocat de:** `OD-36` (contractul însuși), `OD-35`, `OD-19`. *`OD-34` închisă prin `ADR-009`.*
+- **Blocat de:** `OD-19`. *`OD-34` închisă prin `ADR-009`; `OD-35` prin `ADR-042`; `OD-36` — contractul — prin [ADR-052](../decisions/052-contractul-de-tastatura.md), 2026-08-29.*
 
 ---
 

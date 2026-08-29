@@ -1,0 +1,55 @@
+# Convențiile de platformă ca parametri fiscali — ADR-037 §0, §3.2; se încarcă prin
+#
+#     manage.py load_fiscal_parameters platform_conventions.toml
+#
+# sub rolul de date de referință (ADR-049, calea P-4). Fiecare rulare lasă un rând în
+# `privileged_access_log`; a doua rulare a aceluiași fișier nu scrie nimic.
+#
+# CE LIPSEȘTE, ȘI DE CE NU E COMPLETAT AICI. Precizia de rotunjire — `accounting.amount_scale`,
+# `accounting.unit_price_scale` — e parametru fiscal (R15), rezolvat după dată, cu sursă. Ipoteza
+# de lucru a proprietarului e „patru la prețul unitar, două la sume" (ADR-037 §0), dar nici
+# valorile, nici data intrării în vigoare nu au fost citite din act: sarcina `V1` din ADR-037 §5 —
+# Anexele 1 și 1a ale Ordinului MF nr. 118 din 28.08.2017 — e document public și nu a fost
+# deschisă. Un parametru scris din memorie e defect critic (R15), iar o dată de intrare în
+# vigoare inventată e același defect cu altă coloană.
+#
+# Ce se încarcă de aici azi: actul, cu identitatea și publicarea citate verbatim în ADR-037 §0
+# dintr-un document al Ministerului Finanțelor. Când `V1` e citită, se completează
+# `effective_from` pe act și se adaugă cele două intrări `[[parameter]]` de mai jos (șablonul e
+# în comentariu), cu `confidence = "confirmed"` dacă instrucțiunea prescrie precizia, sau
+# `"provisional"` cu motivul, dacă doar o implică.
+
+schema_version = 1
+
+[[act]]
+ref = "omf-118-2017"
+act_type = "ordin_mf"
+act_number = "118"
+act_date = 2017-08-28
+title = "Ordinul ministrului finanțelor nr. 118 din 28 august 2017 privind aprobarea formularului tipizat de document primar cu regim special „Factura fiscală” și a Instrucțiunii privind completarea acestuia"
+# effective_from = ...   # de citit din act (V1). Fără el, niciun parametru nu se poate lega de act.
+notes = "Identitatea și publicarea: citate în ADR-037 §0 dintr-un document al Ministerului Finanțelor. Textul Instrucțiunii nu a fost citit (legis.md 403, sfs.md 403, contabilsef.md cu abonament — 2026-08-28)."
+
+[[act.publications]]
+gazette_year = 2017
+gazette_number = "340-351"
+article = "1750"
+# published_at = ...     # ziua nu apare în citare; se completează când e citită
+
+# [[parameter]]
+# key = "accounting.amount_scale"
+# act = "omf-118-2017"
+# value_type = "integer"
+# value = 2
+# valid_from = 2017-..-..            # data intrării în vigoare, din act
+# confidence = "provisional"
+# provisional_reason = "ADR-037 §0: ipoteza de lucru a proprietarului; instrucțiunea (V1) necitită"
+#
+# [[parameter]]
+# key = "accounting.unit_price_scale"
+# act = "omf-118-2017"
+# value_type = "integer"
+# value = 4
+# valid_from = 2017-..-..
+# confidence = "provisional"
+# provisional_reason = "ADR-037 §0: ipoteza de lucru a proprietarului; instrucțiunea (V1) necitită"
