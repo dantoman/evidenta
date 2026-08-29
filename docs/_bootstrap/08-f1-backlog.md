@@ -267,6 +267,24 @@ redeschide. Unde o sarcină pare să ceară altceva, ADR-ul câștigă și sarci
   explicit: amortizarea fiscală — HG 704/2019 neobținută; handlerul de reevaluare — Anexa 1 din SNC
   „Diferențe de curs" neextrasă; cotele reale — `OD-22`.)*
 
+  **Ordinea handlerelor, decisă de proprietar (2026-08-29, după F1.5.4) — mai multe sesiuni, nu una:**
+
+  1. **C4 la decontare** — diferențele de curs realizate. Primul fiindcă e singurul dintre cele cinci
+     care produce formule pe care **nu le cere nicio linie de document**: diferența apare din
+     compararea a două momente, nu dintr-o linie de intrare; dacă motorul poate emite asta, restul
+     sunt cazuri mai simple. Ce e fixat deja și se testează, nu se omite: **trei perechi de conturi**
+     (6226/7224 curs, 6227/7225 sumă, 6127/7147 ecartul BNM–bancă, în rezultatul operațional), iar
+     cursul contractual de pe antet poate face ca diferența să **nu apară deloc** (pct. 21) — ramura
+     „zero postări" e un caz de test. Handlerul de **reevaluare** nu intră: Anexa 1 neextrasă.
+  2. **C5, indirectele** — formula de subabsorbție e scrisă în standard (pct. 30), fără ambiguitate;
+     baza de repartizare vine din nomenclator, listă deschisă (pct. 31). Validează că o regulă cu
+     calcul propriu funcționează cu date deschise.
+  3. **C2, amortizarea** — per obiect, lunar, strat 3 pe metodă (pct. 19, 22). Validează strategia
+     de calcul al valorii, separată de formă. **Fără partea fiscală** (HG 704/2019).
+  4. **C1 ultimul** — cel mai mare: două handlere de moment (permanent / periodic), plus costul
+     standard, plus prețul cu amănuntul; și singurul care depinde de un modul de stocuri care nu
+     există încă.
+
   *Textul blocajului, păstrat:* cazurile `C1`–`C5` cereau lista permisă de SNC, **citată**, nu
   dedusă — citarea există de la `3c3fccc` (2026-08-26) în
   [`c1-c3-c5-stocuri.md`](../_input/cercetare/c1-c3-c5-stocuri.md),

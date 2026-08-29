@@ -139,7 +139,9 @@ citită** (formularul tace asupra zecimalelor), cele două convenții sunt **apr
 e închisă ([ADR-055](decisions/055-precizia-cantitatii-e-a-unitatii.md)), direcția e `half_up`,
 activă. **F1.6 e livrată; F1.5.4 e livrată** ([ADR-056](decisions/056-inchiderea-lunii-si-a-exercitiului.md)).
 **F1 nu mai așteaptă pe nimeni — nici din afară, nici pe proprietar.** Rămân F1.4.4 și F1.10, în
-ordinea fixată; `OD-73` (reformarea bilanțului) e deschisă pentru prima închidere reală de exercițiu.
+ordinea fixată. **F1.4.4 e mai multe sesiuni, în ordinea decisă de proprietar: C4 la decontare, C5,
+C2, C1** — motivele în `08-f1-backlog.md`. `OD-73` (reformarea bilanțului) rămâne deschisă până când
+blochează ceva: tăcerea actului nu se rezolvă aici prin structură, e alegere de proces.
 
 **F1 — Accounting Core.** F0 este închisă (criteriul de ieșire îndeplinit, mai jos). Livrate:
 **F1.1** (planul de conturi, structura fără conținut) cu API-ul lui, **F1.3** (evenimentele),
@@ -295,6 +297,10 @@ nouă puncte (sesiunea `evidenta-77`):**
   precondiție, postarea contabilului. Fără rută HTTP încă: ecranul vine cu F1.8/F2. Pe drum, ADR-039
   §10.2 („conturile concrete sunt parametri fiscali") a primit nota de reconciliere pe care ADR-050 o
   cerea și nimeni n-o scrisese.
+- **Ce a subliniat proprietarul la F1.5.4:** tranzacția unică — o lună incorectă derulează înapoi și
+  închiderea exercițiului — *impune structural* ce altfel s-ar verifica; handlerul pur cu soldurile
+  în payload e ce face din `R18` o proprietate, nu o promisiune; iar numele `period.month.closed`,
+  dat greșit de el în trei instrucțiuni consecutive, l-a prins **mecanismul**, nu un cititor.
 - **Două nume pentru aceeași sesiune:** `ListAgents` a numit conversația aceasta `evidenta-77` dimineața
   și `evidenta-49` după o repornire de socket la prânz. Toate commiturile zilei poartă
   `Session: evidenta-77` — o conversație, un trailer (ADR-002).
