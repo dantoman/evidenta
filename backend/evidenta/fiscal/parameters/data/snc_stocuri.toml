@@ -1,0 +1,47 @@
+# SNC „Stocuri" ca logică versionată — regula de absorbție a costurilor indirecte constante (pct. 30).
+#
+#     manage.py load_fiscal_parameters snc_stocuri.toml
+#     manage.py activate_fiscal_parameters snc_stocuri.toml --approver <id>
+#
+# Formula e a actului: costurile constante intră în cost în baza capacității normale — integral
+# când volumul efectiv o atinge, altfel proporțional cu raportul efectiv/normal, iar restul e
+# cheltuieli curente. E logică (R17), nu parametru: se poate schimba prin ordin, iar recalcularea
+# unei perioade trecute trebuie să folosească regula de atunci (R18). Implementările stau în
+# `accounting.posting.absorption.IMPLEMENTATIONS`; rândul de mai jos spune care rulează.
+#
+# Actul: OMF nr. 118 din 06.08.2013 (SNC), cu cele două publicări — una comună cu OMF 119/2013,
+# faptul care a cerut registrul de acte (OD-65). Intrare în vigoare 01.01.2014 (obligatoriu de la
+# 01.01.2015); pct. 30 e text din 2013, rescris în formă prin OMF 48/2019 fără schimbare de fond
+# (`c1-c3-c5-stocuri.md`).
+
+schema_version = 1
+
+[[act]]
+ref = "omf-118-2013"
+act_type = "ordin_mf"
+act_number = "118"
+act_date = 2013-08-06
+title = "Ordinul Ministerului Finanțelor nr. 118 din 06.08.2013 privind aprobarea Standardelor Naționale de Contabilitate"
+effective_from = 2014-01-01
+notes = "Text consolidat pe mf.gov.md (263 p., până la OMF 73/2022). Recomandat de la 01.01.2014, obligatoriu de la 01.01.2015 — aceeași cadență ca planul de conturi."
+
+[[act.publications]]
+gazette_year = 2013
+gazette_number = "177-181"
+article = "1224"
+published_at = 2013-08-16
+
+[[act.publications]]
+gazette_year = 2013
+gazette_number = "233-237"
+article = "1534"
+published_at = 2013-10-22
+role = "a doua publicare, comună cu Ordinul MF nr. 119 din 06.08.2013"
+
+[[logic]]
+logic_key = "production.overhead_absorption"
+implementation_ref = "normal_capacity_v1"
+version = "1"
+act = "omf-118-2013"
+valid_from = 2014-01-01
+regression_case_set = "corpus/production.overhead_absorption/1"

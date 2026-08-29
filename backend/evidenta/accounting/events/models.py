@@ -43,6 +43,11 @@ class SourceModule(models.TextChoices):
     #: (F1.5.4). Not `manual` -- nobody typed the closing chain -- and not an
     #: operational module: the source document is the period itself.
     PERIODS = "periods"
+    #: The production activity: the period's indirect costs allocated to the
+    #: products (F1.4.4, C5). There is no production module yet; the value names
+    #: the source of the fact, not an app -- `manual` would say somebody typed
+    #: the split, and nobody did.
+    PRODUCTION = "production"
 
 
 class AccountingEvent(models.Model):

@@ -9,7 +9,7 @@
 
 **Felia verticală merge cap-coadă: companie → plan de conturi → notă manuală → balanță echilibrată.**
 Un test de integrare o parcurge prin HTTP, sub rolul aplicației
-(`backend/tests/integration/test_vertical_slice.py`). Suita: **927 trec, 1 sărit** (2026-08-29).
+(`backend/tests/integration/test_vertical_slice.py`). Suita: **1.022 trec, 1 sărit** (2026-08-30).
 
 - **A1** — planul SNC ca date: `accounting/coa/data/snc_2020.csv`, 476 de conturi (156 gradul I,
   320 gradul II), transcrise din extragerea proprie a actului; încărcător idempotent
@@ -144,7 +144,10 @@ C2, C1** — motivele în `08-f1-backlog.md`. `OD-73` (reformarea bilanțului) r
 blochează ceva: tăcerea actului nu se rezolvă aici prin structură, e alegere de proces.
 **C4 la decontare e livrat** (2026-08-30, [ADR-057](decisions/057-diferentele-realizate-la-decontare.md)):
 termenul pe antet cu implicitul actului, handlerul diferențelor realizate cu discriminatorul refuzat,
-trei perechi ca roluri, prima ștampilă de parametru. Urmează **C5**, apoi C2, C1, apoi F1.10.
+trei perechi ca roluri, prima ștampilă de parametru. **C5 e livrat** (2026-08-30,
+[ADR-058](decisions/058-repartizarea-costurilor-indirecte.md)): formula pct. 30 ca logică versionată,
+baza pct. 31 ca date deschise, restul la 714, o lună cu producție devine închidibilă. Urmează **C2**,
+apoi C1, apoi F1.10.
 
 **F1 — Accounting Core.** F0 este închisă (criteriul de ieșire îndeplinit, mai jos). Livrate:
 **F1.1** (planul de conturi, structura fără conținut) cu API-ul lui, **F1.3** (evenimentele),
@@ -154,6 +157,55 @@ Descompunerea completă: `_bootstrap/08-f1-backlog.md` — patru fire care pot m
 `F1.2.1` ca singur punct de sincronizare timpuriu, și tabelul de blocaje la final.
 
 ## Ultima sesiune
+
+**2026-08-30, F1.8 + F1.G2 — rapoartele contabile și grila de introducere (instrucțiune scrisă:
+„două sarcini reale din F1, izolate de motor, una frontend curat"; sesiunea `evidenta-04`, listată
+de `ListAgents` ca `evidenta-2d` după o repornire de socket):**
+
+- **F1.8, ce s-a livrat:** fișa contului — **un rând per document** (ADR-053 §3.1), corespondența
+  citită din `journal_formula` (ADR-048), soldul curent calculat pe server peste toată fereastra chiar
+  când rândurile sunt tăiate (`C19`); Cartea Mare — pe **lunile companiei** (prin `period`, nu luni
+  calendaristice tăiate din date: exercițiul aprilie–martie își închide lunile unde le închide),
+  rulaje în corespondență cu conturile, iar **ce nu explică nicio formulă se numește** (`unassigned`),
+  nu se împarte; rulajele pe corespondențe (șahul) cu `lines_total − total` ca rest declarat;
+  drill-down-ul înregistrării — ștampile ADR-048, formule, linii, sursa (`R13`, ultimul salt se
+  oprește la identificatorul documentului, `D2`); export **CSV** pe server, din același dataclass ca
+  ecranul (`C20`). O notă manuală rămâne rând fără corespondență, `has_formulas = false` — nu se
+  inventează perechi din linii.
+- **`C38` are primul pipeline, deci primul gardian real.** `platform/documents/formatting.py`:
+  virgulă zecimală, `zz.ll.aaaa`, fără `django.utils.formats` — nu consultă limba activă. Exportul
+  deschide `translation.override("ro")` la intrare; testul din `test_document_language.py` randează
+  același raport sub `ro`, `ru` și `en` și cere aceiași octeți. `ROUND_HALF_UP` la două zecimale e
+  strat de afișare (ADR-037 §4 rămâne: suma stocată nu se atinge), ales ca CSV-ul și `Intl` din client
+  să arate aceeași cifră.
+- **Măsurat, și a schimbat codul:** `?format=csv` răspunde **404** — DRF rezervă `format` pentru
+  negocierea proprie de renderer. Parametrul e `?export=csv`, iar `xlsx` refuză cu
+  `ledger.unknown_format` în loc să mintă în numele fișierului. Excel/PDF → **`OD-74`**.
+- **ADR-053 §3.3, prima măsurătoare** (`tests/volume/test_account_ledger.py`, sub rolul aplicației,
+  2.000 de documente generate prin `generate_series` cu politicile evaluate pe rând): o lună a
+  contului celui mai încărcat, 170 de documente, **22,7 ms** prin serviciu, planul prin
+  `journal_line_account_idx`. Pragul de 1 s se asertează doar la scara opt-in
+  (`EVIDENTA_VOLUME_ROWS`).
+- **F1.G2, `EntryGrid`** (`frontend/src/shared/EntryGrid/`): contractul ADR-052 §3 rând cu rând, cu
+  un test Vitest per tastă peste componentă; punct și virgulă la aceeași formă canonică; indicatorul
+  de echilibru în aritmetică întreagă la scara serverului; nomenclatorul pe `F4` cu potrivire pe cod.
+  **Nota manuală și rândurile GL ale soldurilor inițiale** stau pe ea — două suprafețe, una nu e linii
+  de document (criteriul 3), niciun `onKeyDown` în ecrane (`C40`). Cele trei implicite din ADR-052
+  §3.1 (`Tab`, `F4`/`F2`, `Ctrl+Delete`) sunt implementate cum sunt propuse și **rămân de confirmat**.
+- **Defect prins de testul de cinci rânduri, nu de cele unitare:** confirmarea celulei și deschiderea
+  rândului următor porneau amândouă din rândurile randării curente, iar al doilea `onChange` îl
+  ștergea pe primul — creditul dispărea exact când `Enter` deschidea linia. Testul unitar pe tastă
+  nu-l vedea fiindcă niciun test nu confirma o valoare **și** deschidea un rând în același eveniment.
+- **`DataGrid` n-a crescut**: primește rânduri de document și drill-down pe rând (ADR-053 §4);
+  virtualizarea, coloanele înghețate, configurația per utilizator rămân goluri numite în
+  `07-f1-grile.md`, fiindcă niciun ecran de azi nu le cere.
+- **Ce rămâne din F1.8, numit:** jurnalele de vânzări/cumpărări — pe document prin definiție, deci
+  fără conținut până la primul document postat (F1.4.4 / Etapa 8); **reconcilierea la leu contra 1C**,
+  criteriul de ieșire, așteaptă extrasul real (F3, ADR-054).
+- Suita backend: **1.022 trec, 1 sărit**; Vitest: **27**; `mypy .` curat pe 354 de fișiere; ESLint,
+  `tsc`, build curate. Reviewer-ii `accounting-reviewer` și `tenancy-guard` rulați înainte de commit.
+
+## Sesiuni mai vechi
 
 **2026-08-29 (a doua), `OD-67`/`OD-65` livrate și șase decizii consemnate — instrucțiune scrisă cu
 nouă puncte (sesiunea `evidenta-77`):**
@@ -331,6 +383,44 @@ nouă puncte (sesiunea `evidenta-77`):**
   note de reconciliere care spun ce era greșit.
 
 ## Sesiuni mai vechi
+
+**2026-08-30, F1.4.4 / C5 — repartizarea costurilor indirecte de producție
+([ADR-058](decisions/058-repartizarea-costurilor-indirecte.md)):**
+
+- **Ce validează al doilea handler:** o regulă **cu calcul propriu** peste **date deschise**. Formula
+  pct. 30 e a actului și stă ca logică versionată în registrul fiscal
+  (`production.overhead_absorption` → `normal_capacity_v1`, `valid_from 2014-01-01`, sursa OMF
+  118/2013 cu ambele publicări), selectată la ultima zi a perioadei (R17); **fără rând, refuzul e al
+  registrului**, nu un implicit al handlerului — test. Baza pct. 31 e a entității („de exemplu") și
+  vine pe fapt ca nume plus valoare per produs, nevalidată contra unei liste; **bază goală refuzată**,
+  nu împărțită egal. Prima confirmare practică a graniței din ADR-036 §10.1: metoda se enumeră,
+  baza nu.
+- **Conturile din normele planului, nu deduse** (`c5-costuri-indirecte-conturi.md`): creditul lui
+  821 „în corespondenţă cu debitul conturilor: 714, 811, 812" — o formulă `Dt 811[item] / Ct 821`
+  per produs, restul constant nerepartizat `Dt 714 / Ct 821`; rol nou
+  `COSTURI_INDIRECTE_NEREPARTIZATE` → 714 gradul I (catalogul la 46); subcontul nu-l numește niciun
+  text citit. Produsul e dimensiune pe partea care o declară (ADR-048): verificat pe debit, absent pe
+  credit.
+- **Ultimul ban:** fiecare cotă rotunjită o dată, ultima ia restul — alegere de inginerie, scrisă ca
+  atare: pct. 31 fixează baza, nu banii rămași. 100 peste trei baze egale → 33,33 / 33,33 / 33,34.
+- **Verificat cu sume:** 1000 + 500 la capacitate, baza 3:1 → 1125 / 375; volum 800 din 1000 →
+  1050 / 350 și **100 la 714**; variabilul integral la volum 10 din 1000; aceeași repartizare de două
+  ori → o înregistrare; zero de repartizat → eveniment `posted` fără înregistrare. Opt teste sub
+  rolul aplicației.
+- **Sursa evenimentului spune adevărul:** `manual` ar fi însemnat că cineva a tastat repartizarea;
+  `SourceModule.PRODUCTION` prin migrarea aditivă `0003`, forma lui `0002`/`periods` — valoare de
+  vocabular, nu app. Aplicată pe baza de dezvoltare, `drift-check` curat.
+- **Ce face adevărat pentru închidere:** după repartizare 821 e la zero — invariantul clasei 8
+  (ADR-056) devine **satisfiabil**, nu doar verificabil; o lună cu producție se poate închide.
+- **Raportat, nu decis:** rândul de logică e `draft` pe baza de dezvoltare (activarea e a
+  proprietarului); Indicațiile metodice privind costurile de producție, necitite; 812 activități
+  auxiliare neexprimabile azi (refuz prin lipsa rolului, nu aproximare); capacitatea normală e a
+  politicii entității și vine pe fapt — unde stă stabil e întrebarea modulului de producție din F2;
+  Anexa 1 din SNC „Stocuri" (exemplul numeric) e candidatul primului caz citat al corpusului (F1.10).
+  `OD-72` nu s-a declanșat: al doilea rând de logică e pe **altă cheie**, nu a doua versiune.
+- **Un rest din C4, curățat:** rândul F1.4 din lista de sarcini spunea încă „niciun handler concret".
+- Suita: **1022 trec, 1 sărit** (de la 1001 la C4; 21 noi — opt C5, restul ale sesiunii paralele,
+  care rulează în același arbore). `ruff`, `mypy` pe pachet, `drift-check` pe baza vie: curate.
 
 **2026-08-30, F1.4.4 / C4 — diferențele de curs și de sumă realizate la decontare (instrucțiune
 scrisă; [ADR-057](decisions/057-diferentele-realizate-la-decontare.md)):**
@@ -2057,7 +2147,9 @@ F1.2 nu poate fi prima. Ordinea reală se notează aici, pe măsură ce se stabi
       date ale liniei și câmpurile de valută: [ADR-039](decisions/039-valuta-si-perioade.md))*
 - [ ] F1.4 — Posting Engine: **rezoluția, cei șase invarianți, rolurile cu legarea necondiționată și
       formula ca unitate** ([ADR-048](decisions/048-formula-si-sloturile-tipizate.md)) livrate;
-      **niciun handler concret** — *deblocat 29.08: `C1`–`C5` clasificate (ADR-036 `Acceptat`),
+      **primele două handlere livrate, 30.08** — C4 ([ADR-057](decisions/057-diferentele-realizate-la-decontare.md)),
+      C5 ([ADR-058](decisions/058-repartizarea-costurilor-indirecte.md)); rămân C2, C1 —
+      *deblocat 29.08: `C1`–`C5` clasificate (ADR-036 `Acceptat`),
       legarea condiționată decisă ([ADR-051](decisions/051-chei-de-context-enumerate.md)); rolurile
       lanțului de închidere în catalog ([ADR-050](decisions/050-lantul-de-inchidere-ca-roluri.md))*
 - [x] F1.6 — Logică fiscală, primul strat: rotunjirea în registru, selectată după dată; `half_up`,
@@ -2067,12 +2159,16 @@ F1.2 nu poate fi prima. Ordinea reală se notează aici, pe măsură ce se stabi
       *Criteriul „trece corpusul" se închide cu F1.10*
 - [x] F1.7 — Note contabile manuale, solduri inițiale, șabloane de operațiuni — toate prin motor,
       cu API și ecran
-- [ ] F1.8 — Rapoarte contabile *(deblocată 29.08: [ADR-053](decisions/053-tinta-de-performanta.md);
-      balanța și registrul există din felia verticală)*
+- [ ] F1.8 — Rapoarte contabile: **fișa contului, Cartea Mare, rulajele pe corespondențe,
+      drill-down la sursă, export CSV** livrate 30.08 (ADR-053 pentru granularitate); rămân jurnalele
+      pe document (fără documente postate) și **reconcilierea la leu contra 1C** — criteriul de ieșire,
+      care așteaptă extrasul (F3); Excel/PDF `OD-74`
 - ~~F1.9 — Importator 1C~~ → **F3, Migration Center** ([ADR-054](decisions/054-importul-e-distributie-corpusul-e-intern.md))
 - [ ] F1.10 — Corpus de regresie, **intern**: ~20 de cazuri cu citare, construite de sesiune (ADR-054)
-- [ ] F1.G0, F1.G1 (`DataGrid`), F1.G2 (`EntryGrid`) — `_bootstrap/07-f1-grile.md`;
-      contractul de tastatură scris ([ADR-052](decisions/052-contractul-de-tastatura.md)); F1.G0 pe `OD-28`
+- [x] F1.G2 (`EntryGrid`) — livrată 30.08 pe contractul [ADR-052](decisions/052-contractul-de-tastatura.md);
+      nota manuală și soldurile inițiale pe ea
+- [ ] F1.G0, F1.G1 (`DataGrid`) — `_bootstrap/07-f1-grile.md`; `DataGrid` servește F1.8, fără
+      virtualizare și fără configurație per utilizator (goluri numite); F1.G0 pe `OD-28` → F3
 
 ## Blocaje active
 
@@ -2179,6 +2275,18 @@ fiecare are un refuz sau o absență explicită în locul ei.
 19. **Care conturi poartă ce dimensiuni** — declarațiile sunt goale, în CSV-ul planului
     (`dimension_slots`, `required_dimensions`, cu `|` între nume) și per companie prin
     `PATCH /accounts/<id>` cu `dimension_slots`. Decizia e a ta; structura o așteaptă.
+
+**Din F1.8 + F1.G2 (2026-08-30).**
+
+20. **`OD-74` — Excel și PDF pentru rapoarte.** CSV există pe server; Excel cere o bibliotecă
+    pinuită, PDF cere pipeline-ul de tipar din `C22`. Care, și când.
+21. **Cele trei implicite din ADR-052 §3.1** — `Tab` navighează fără linie nouă, `F4` nomenclator și
+    `F2` editare, `Ctrl+Delete` cu a doua apăsare când rândul are conținut — sunt implementate așa;
+    confirmă-le sau schimbă-le acum, cât sunt două ecrane pe ele.
+22. **Pragurile ADR-053 §3.3** au prima cifră: 22,7 ms pentru fișa unui cont pe o lună la 2.000 de
+    documente. Rămân propuse; măsurătoarea la scara „Mare" se rulează cu `EVIDENTA_VOLUME_ROWS`.
+23. **`ROUND_HALF_UP` la două zecimale în export** — convenție de afișare, aliniată cu `Intl` din
+    client, nu regulă fiscală. Dacă vrei exportul la patru zecimale (scara stocată), e un parametru.
 
 Peste acestea, punctele „DECIZIE NECESARĂ" rămase din Spec A §11 și Spec B §11. Dintre cele care
 cereau contabilul practicant, `DNB-05`, `DNB-07` și `DNB-09` sunt deblocate de `ADR-010`. `DNB-08`

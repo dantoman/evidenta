@@ -31,6 +31,7 @@ class PostingConfig(AppConfig):
         from evidenta.accounting.posting.services import (
             closing,  # noqa: F401
             manual,  # noqa: F401
+            production,  # noqa: F401
             reversal,  # noqa: F401
             settlement,  # noqa: F401
         )
