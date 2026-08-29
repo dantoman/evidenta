@@ -187,7 +187,9 @@ def test_a_unit_cannot_convert_to_itself(
 ) -> None:
     """Either a no-op or a mistake, and the mistake is the conversion loop."""
     with tenant_context(context):
-        piece = UnitOfMeasure.objects.create(tenant_id=world["tenant_a"], code="BUC", name="Bucată")
+        piece = UnitOfMeasure.objects.create(
+            tenant_id=world["tenant_a"], code="BUC", name="Bucată", decimal_places=0
+        )
         with (
             pytest.raises(IntegrityError, match="unit_conversion_not_self"),
             transaction.atomic(),
@@ -210,8 +212,12 @@ def test_a_conversion_is_a_ratio_not_a_factor(
     precision that every later quantity inherits.
     """
     with tenant_context(context):
-        piece = UnitOfMeasure.objects.create(tenant_id=world["tenant_a"], code="BUC", name="Bucată")
-        box = UnitOfMeasure.objects.create(tenant_id=world["tenant_a"], code="CUT", name="Cutie")
+        piece = UnitOfMeasure.objects.create(
+            tenant_id=world["tenant_a"], code="BUC", name="Bucată", decimal_places=0
+        )
+        box = UnitOfMeasure.objects.create(
+            tenant_id=world["tenant_a"], code="CUT", name="Cutie", decimal_places=0
+        )
         conversion = UnitConversion.objects.create(
             tenant_id=world["tenant_a"],
             from_unit=box,
@@ -227,7 +233,9 @@ def test_a_service_tracks_neither_lots_nor_serials(
 ) -> None:
     """A service has no stock, so the setting could never be honoured."""
     with tenant_context(context):
-        unit = UnitOfMeasure.objects.create(tenant_id=world["tenant_a"], code="ORA", name="Oră")
+        unit = UnitOfMeasure.objects.create(
+            tenant_id=world["tenant_a"], code="ORA", name="Oră", decimal_places=2
+        )
         with (
             pytest.raises(IntegrityError, match="item_service_tracks_nothing"),
             transaction.atomic(),
@@ -252,7 +260,9 @@ def test_lot_and_serial_flags_exist_before_the_module_does(
     start rather than added when lots arrive.
     """
     with tenant_context(context):
-        unit = UnitOfMeasure.objects.create(tenant_id=world["tenant_a"], code="BUC", name="Bucată")
+        unit = UnitOfMeasure.objects.create(
+            tenant_id=world["tenant_a"], code="BUC", name="Bucată", decimal_places=0
+        )
         item = Item.objects.create(
             tenant_id=world["tenant_a"],
             sku="MARF-01",

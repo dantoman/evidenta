@@ -16,8 +16,14 @@
 # cu motivul scris, și de aceea intră ca `draft`: activarea e actul proprietarului
 # (`manage.py activate_fiscal_parameters platform_conventions.toml --approver <id>`).
 #
-# Cantitatea NU primește valoare aici: formularul tace, iar cine alege atunci — platformă, tenant
-# sau unitate de măsură — e `OD-70`, deschisă. Un rând scris acum ar închide-o tacit.
+# Cantitatea NU e aici, și nu va fi: formularul tace, iar proprietarul a decis (ADR-055, OD-70)
+# că precizia cantității e a unității de măsură — `unit_of_measure.decimal_places`, obligatorie,
+# fără implicit. Nu vine dintr-un act, nu se schimbă prin lege, n-are `valid_from`: nu e parametru.
+#
+# CE LIPSEȘTE ÎNCĂ: direcția de rotunjire la echidistanță (ADR-037 §3.3). Registrul are ambele
+# implementări (`half_up`, `half_even`); care rulează e un rând în `fiscal_logic_version`, iar
+# rândul nu există — deci, măsurat pe baza de dezvoltare, `line_amounts` refuză orice linie și după
+# aprobarea celor două valori. Alegerea e a proprietarului; șablonul e mai jos, comentat.
 
 schema_version = 1
 
@@ -54,4 +60,16 @@ valid_from = 2017-10-28
 confidence = "provisional"
 provisional_reason = "Formularul (OMF 118/2017, anexa nr. 1) și Instrucțiunea (anexa nr. 2) tac asupra zecimalelor — V1 citită 2026-08-29. Convenție de platformă (ADR-037 §6.2 B); valoarea e ipoteza de lucru a proprietarului din ADR-037 §0."
 
-# accounting.quantity_scale — fără rând, deliberat: OD-70.
+
+# --- direcția la echidistanță: de ales de proprietar, apoi de decomentat și aprobat ---------------
+# Ambele implementări sunt înregistrate în `accounting.currency.money.IMPLEMENTATIONS`; formularul
+# tace și aici (V1). ADR-037 §6.3: implicitul se aliniază la 1C în limitele legii — dar aceea e
+# observație de practică, nu temei, și nu se alege din cod.
+#
+# [[logic]]
+# logic_key = "accounting.money_rounding"
+# implementation_ref = "half_up"        # sau "half_even"
+# version = "1"
+# act = "omf-118-2017"
+# valid_from = 2017-10-28
+# regression_case_set = "corpus/accounting.money_rounding/1"

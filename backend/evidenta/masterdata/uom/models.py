@@ -24,7 +24,15 @@ class UnitOfMeasure(models.Model):
     # Decimal places allowed for quantities in this unit. Pieces do not come in
     # halves; kilograms do. Enforcing it here stops a stock movement of 0.5
     # pieces from being valued as if it were real.
-    decimal_places = models.SmallIntegerField(default=0)
+    #
+    # **Mandatory, and without a default** (ADR-055, OD-70). The column had
+    # `default=0` from F0.7, which made every unit pieces unless somebody
+    # remembered otherwise -- a silent answer to a question the form leaves open
+    # (V1: silent on quantity decimals). The precision is a property of the thing
+    # measured, so whoever creates the unit states it. Once a document or journal
+    # line carries a quantity in the unit, the value is frozen by trigger
+    # (`0061`): changing it afterwards would re-describe what was delivered.
+    decimal_places = models.SmallIntegerField()
 
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)

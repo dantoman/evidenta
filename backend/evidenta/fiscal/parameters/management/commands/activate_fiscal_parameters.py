@@ -27,6 +27,7 @@ from evidenta.fiscal.parameters.management.commands.load_fiscal_parameters impor
     SCHEMA_VERSION,
 )
 from evidenta.fiscal.parameters.models import FiscalParameter, ParameterScope, ParameterStatus
+from evidenta.fiscal.registry.services import versions as logic_versions
 from evidenta.platform.audit.services.privileged import (
     REFDATA_ALIAS,
     PrivilegedPath,
@@ -105,6 +106,28 @@ class Command(BaseCommand):
                     using=db,
                     update_fields=["status", "approved_by_user_id", "approved_at", "updated_at"],
                 )
+                activated += 1
+            for entry in document.get("logic", []):
+                version = logic_versions.find_version(
+                    entry["logic_key"], str(entry["version"]), using=db
+                )
+                if version is None:
+                    raise CommandError(
+                        f"logic {entry['logic_key']!r} version {entry['version']!r} is not loaded"
+                    )
+                if version.implementation_ref != str(entry["implementation_ref"]):
+                    raise CommandError(
+                        f"logic {entry['logic_key']!r}: the database holds "
+                        f"{version.implementation_ref!r}, the file says "
+                        f"{entry['implementation_ref']!r}; approving the file would approve "
+                        f"something else"
+                    )
+                if version.status == logic_versions.ACTIVE:
+                    already += 1
+                    continue
+                if version.status != logic_versions.DRAFT:
+                    raise CommandError(f"logic {entry['logic_key']!r} is {version.status}")
+                logic_versions.activate_version(version.id, approver=approver, using=db)
                 activated += 1
             run.payload.update({"activated": activated, "already_active": already})
 

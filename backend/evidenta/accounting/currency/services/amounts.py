@@ -32,11 +32,7 @@ from datetime import date
 from decimal import Decimal
 
 from evidenta.accounting.currency.money import rounding_for
-from evidenta.fiscal.parameters.services.scales import (
-    amount_scale,
-    quantity_scale,
-    unit_price_scale,
-)
+from evidenta.fiscal.parameters.services.scales import amount_scale, unit_price_scale
 from evidenta.platform.api.errors import ApiError
 
 #: A rate arrives as a percentage -- `20`, not `0.20` -- because that is how the
@@ -74,6 +70,7 @@ class LineAmounts:
 def line_amounts(
     *,
     quantity: Decimal,
+    quantity_scale: int,
     unit_price: Decimal,
     vat_rate: Decimal,
     on: date,
@@ -82,11 +79,26 @@ def line_amounts(
 ) -> LineAmounts:
     """The three amounts of one line, rounded once each, at the prescribed scale.
 
+    ``quantity_scale`` comes from the caller, not from a fiscal parameter, and
+    that is ADR-055: the precision of a quantity is a property of the thing
+    measured -- pieces have none, kilograms three -- so it lives on the unit of
+    measure (`unit_of_measure.decimal_places`, mandatory, no default) and the
+    document layer reads it through `masterdata.uom.services.precision`. The
+    form is silent on it (V1), and nothing in an act sets it, so it is not `R15`
+    data. The amount and price scales stay fiscal parameters: the same for every
+    unit, changeable by an instruction, resolved by date.
+
     ``discount_percent`` and ``discount_amount`` are alternatives, not a pair to
     be reconciled: a document states one of them. Both given is a refusal rather
     than a precedence rule, because a precedence rule is a silent answer to
     "which did the person mean".
     """
+    if isinstance(quantity_scale, bool) or not isinstance(quantity_scale, int):
+        raise TypeError("quantity_scale must be an int, the unit's decimal_places")
+    if not 0 <= quantity_scale <= 6:
+        raise AmountMalformedError(
+            f"a quantity scale of {quantity_scale} is outside what a unit may declare (0..6)"
+        )
     for name, value in (
         ("quantity", quantity),
         ("unit_price", unit_price),
@@ -114,12 +126,12 @@ def line_amounts(
         )
     # The third axis (ADR-037 section 3.2): the quantity enters the product, so
     # its precision is part of what a posted line stands on and cannot move
-    # afterwards. Refused, not rounded, for the same reason as the price.
-    qty_scale = quantity_scale(on)
-    if _decimals(quantity) > qty_scale:
+    # afterwards. Refused, not rounded: a rounded price is a money error, a
+    # rounded quantity is a document describing a different delivery.
+    if _decimals(quantity) > quantity_scale:
         raise AmountMalformedError(
-            f"the quantity {quantity} carries more than the {qty_scale} decimals "
-            f"in force on {on}; rounding it here would change what was delivered"
+            f"the quantity {quantity} carries more than the {quantity_scale} decimals "
+            f"its unit of measure allows; rounding it here would change what was delivered"
         )
 
     gross = quantity * unit_price

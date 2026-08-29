@@ -28,6 +28,7 @@ from django.db import transaction
 from django.db.utils import IntegrityError
 
 from evidenta.masterdata.partners.models import Partner
+from evidenta.masterdata.uom.models import UnitOfMeasure
 from evidenta.operations.purchases.models import PurchaseDocument
 from evidenta.operations.purchases.services.documents import (
     SupplierDocumentAlreadyRecordedError,
@@ -812,3 +813,68 @@ def test_a_document_of_another_tenant_is_absent_not_forbidden(
         assert not Document.objects.filter(id=mine.id).exists()
         assert not DocumentLine.objects.filter(document_id=mine.id).exists()
         assert Document.objects.count() == 0
+
+
+# --- the precision of a quantity is the unit's, and freezes once used (ADR-055) --
+
+
+def test_a_unit_states_its_precision_or_is_refused(
+    context: TenantContext, world: dict[str, uuid.UUID]
+) -> None:
+    """No silent default. `decimal_places` had one from F0.7 -- every unit was
+    pieces unless somebody remembered -- and the form is silent on the matter
+    (V1), so whoever creates the unit answers."""
+    from django.db import IntegrityError, transaction
+
+    with tenant_context(context), pytest.raises(IntegrityError), transaction.atomic():
+        UnitOfMeasure.objects.create(tenant_id=world["tenant_a"], code="X", name="Fără precizie")
+
+
+def test_a_units_precision_freezes_at_the_first_quantity_it_carries(
+    context: TenantContext,
+    world: dict[str, uuid.UUID],
+    company: uuid.UUID,
+    partner: uuid.UUID,
+    series: None,
+) -> None:
+    """Changing it afterwards would re-describe what was delivered; the fix is a
+    new unit. Refused by the database, so an import or a psql session cannot do
+    it either."""
+    from django.db import DatabaseError, transaction
+
+    with tenant_context(context):
+        kg = UnitOfMeasure.objects.create(
+            tenant_id=world["tenant_a"], code="KG", name="Kilogram", decimal_places=3
+        )
+        spare = UnitOfMeasure.objects.create(
+            tenant_id=world["tenant_a"], code="L", name="Litru", decimal_places=3
+        )
+        document_id = open_sale(company_id=company, partner_id=partner, document_date=ON)
+        position = line(quantity="12.500")
+        replace_lines(
+            document_id,
+            [
+                LineInput(
+                    description=position.description,
+                    quantity=position.quantity,
+                    unit_price=position.unit_price,
+                    vat_regime_code=position.vat_regime_code,
+                    vat_rate=position.vat_rate,
+                    net_amount=position.net_amount,
+                    vat_amount=position.vat_amount,
+                    total_amount=position.total_amount,
+                    unit_id=kg.id,
+                    unit_code="KG",
+                )
+            ],
+        )
+
+        with pytest.raises(DatabaseError, match="frozen"), transaction.atomic():
+            UnitOfMeasure.objects.filter(pk=kg.pk).update(decimal_places=0)
+
+        # A unit nothing carries a quantity in is still free to be corrected.
+        UnitOfMeasure.objects.filter(pk=spare.pk).update(decimal_places=2)
+        spare.refresh_from_db()
+        assert spare.decimal_places == 2
+        # And a change that changes nothing is not a change.
+        UnitOfMeasure.objects.filter(pk=kg.pk).update(decimal_places=3)

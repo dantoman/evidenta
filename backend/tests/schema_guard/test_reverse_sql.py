@@ -82,6 +82,12 @@ ALREADY_CORRECT = [
         # trigger functions.
         "0056_dimension_slots",
         "0057_journal_formula",
+        # ADR-049 and ADR-055: a log with its trigger, an act registry, the write
+        # policies, and the precision freeze -- each drops only what it created.
+        "0058_privileged_access_log",
+        "0059_legislation",
+        "0060_refdata_write_policies",
+        "0061_unit_precision_frozen",
     )
 ]
 

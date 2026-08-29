@@ -42,12 +42,13 @@ AMOUNT_SCALE_KEY = "accounting.amount_scale"
 #: would force the two to move together.
 UNIT_PRICE_SCALE_KEY = "accounting.unit_price_scale"
 
-#: Decimals a quantity carries. The third axis, and the one the owner added to
-#: `V1` after the fact (2026-08-29): the quantity enters the line calculation, so
-#: its precision cannot change once documents are posted -- which makes it the
-#: same kind of thing as the other two, resolved by date, with a source, and not
-#: a constant somebody picks in a form widget.
-QUANTITY_SCALE_KEY = "accounting.quantity_scale"
+# There is deliberately no quantity scale here. It lived in this module for a few
+# hours on 2026-08-29 and was moved out by ADR-055: the precision of a quantity
+# is not prescribed by any act (the invoice form is silent -- V1), does not change
+# by law, has no `valid_from`, and differs by what is measured. It is an
+# attribute of the unit of measure (`unit_of_measure.decimal_places`), the way a
+# conversion ratio is. A fiscal parameter would be the wrong container even with
+# the right scope.
 
 
 def amount_scale(on: date) -> int:
@@ -58,11 +59,6 @@ def amount_scale(on: date) -> int:
 def unit_price_scale(on: date) -> int:
     """Decimals for the unit price, in force on ``on``."""
     return _scale(UNIT_PRICE_SCALE_KEY, on)
-
-
-def quantity_scale(on: date) -> int:
-    """Decimals for a quantity, in force on ``on``."""
-    return _scale(QUANTITY_SCALE_KEY, on)
 
 
 def _scale(key: str, on: date) -> int:

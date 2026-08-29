@@ -4,8 +4,12 @@
   implementate. **`V1` citită** (2026-08-29, [cercetare](../_input/cercetare/v1-factura-fiscala-omf-118-2017.md)):
   formularul și Instrucțiunea **tac** asupra zecimalelor, pentru preț, sume și cantitate — deci
   precizia e convenție de platformă (§6.2, B), cu valorile proprietarului încărcate ca `draft`
-  provizoriu prin [ADR-049](049-rolul-de-date-de-referinta.md). **Ce rămâne:** activarea celor două
-  valori (actul proprietarului, `activate_fiscal_parameters`) și `OD-70` pentru cantitate. `V2` (schema
+  provizoriu prin [ADR-049](049-rolul-de-date-de-referinta.md) și **aprobate de proprietar în aceeași
+  zi** (§0). Cantitatea e a unității de măsură ([ADR-055](055-precizia-cantitatii-e-a-unitatii.md),
+  `OD-70` închisă). **Ce rămâne, măsurat pe baza de dezvoltare:** direcția la echidistanță (§3.3) —
+  ambele implementări sunt în registru, dar `fiscal_logic_version` n-are niciun rând, deci
+  `line_amounts` refuză orice linie până când proprietarul alege `half_up` sau `half_even`; șablonul
+  e în `platform_conventions.toml`, iar `load_fiscal_parameters` încarcă și versiuni de logică. `V2` (schema
   XML e-Factura) e singura sarcină care depinde de accesul SFS (`OD-24`) și condiționează **testul de
   acceptanță**, nu codul; `V3` e Codul fiscal, public; `V4` vine în pachetul 1C din §7. Excepția: §4
   nu depinde de verificare
@@ -57,6 +61,14 @@ adică **linia e autoritativă prin construcția formularului**, exact regula de
 în vigoare: 28.10.2017 (pct. 7); publicarea: MO nr. 340-351 art. 1750 din 22.09.2017. Cele două
 valori ale ipotezei de lucru sunt încărcate ca `draft`, `provisional`, cu motivul; activarea e a
 proprietarului. Cantitatea rămâne `OD-70`.
+
+**Aprobate, 2026-08-29, cu motivele proprietarului:** *două zecimale la sume — practica universală,
+nimic din act n-o contrazice; patru la prețul unitar — acoperă cantitățile mari fără a pierde bani
+la înmulțire.* **Sunt convenții de platformă, nu prescripții legale** — `provisional` e statutul
+corect și rămâne; dacă apare o instrucțiune care le contrazice, se schimbă parametrul, nu structura.
+Activate pe baza de dezvoltare prin `activate_fiscal_parameters`, cu identitatea proprietarului pe
+rânduri și în jurnalul `P-4`. `OD-70` e închisă prin
+[ADR-055](055-precizia-cantitatii-e-a-unitatii.md): precizia cantității e a unității de măsură.
 
 **Al doilea blocaj, găsit la implementare și nou pe acest drum: `OD-67`.** `fiscal_parameter` are
 politică doar de **citire** (`0027_fiscal.up.sql`); nu există cale prin care precizia să fie
@@ -154,8 +166,11 @@ Axe distincte:
 - zecimale la valorile totale ale documentului
 - **zecimale la cantitate** — *adăugată 2026-08-29, la instrucțiunea proprietarului, după ce fusese
   omisă:* cantitatea intră în calculul liniei, iar precizia ei nu se poate schimba după ce există
-  documente postate. Aceeași natură ca celelalte: parametru (`accounting.quantity_scale`), rezolvat
-  după dată, cu sursă
+  documente postate. **Nu** aceeași natură ca celelalte, s-a dovedit în aceeași zi
+  ([ADR-055](055-precizia-cantitatii-e-a-unitatii.md)): nu vine dintr-un act, nu se schimbă prin
+  lege, n-are `valid_from`, și diferă după lucrul măsurat — e atribut al unității de măsură
+  (`unit_of_measure.decimal_places`, obligatorie, fără implicit, înghețată la prima cantitate), nu
+  parametru fiscal
 
 **Observație din practica regională:** pe factură, singura valoare care poate avea mai mult de două
 zecimale este de regulă prețul unitar; restul valorilor se trec cu două zecimale. Aceasta e practica

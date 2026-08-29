@@ -87,18 +87,22 @@ def direction(seed: Callable[..., None], world: dict[str, uuid.UUID], ref: str) 
 
 @pytest.fixture
 def convention(seed: Callable[..., None], world: dict[str, uuid.UUID], source: uuid.UUID) -> None:
-    """The working hypothesis: two decimals on amounts, four on the unit price --
-    and three on the quantity, a test value with no source (the form has not
-    been read; ADR-037 section 3.2, the fourth axis)."""
+    """The working hypothesis: two decimals on amounts, four on the unit price.
+    The quantity's scale is not a parameter (ADR-055): `line()` passes the unit's."""
     scale(seed, world, "accounting.amount_scale", 2)
     scale(seed, world, "accounting.unit_price_scale", 4)
-    scale(seed, world, "accounting.quantity_scale", 3)
     direction(seed, world, "half_up")
+
+
+#: What a unit of measure with three decimals allows -- kilograms, say. A test
+#: value, passed the way the document layer passes `unit_of_measure.decimal_places`.
+UNIT_SCALE = 3
 
 
 def line(quantity: str, price: str, rate: str = "20") -> LineAmounts:
     return line_amounts(
         quantity=Decimal(quantity),
+        quantity_scale=UNIT_SCALE,
         unit_price=Decimal(price),
         vat_rate=Decimal(rate),
         on=ON,
@@ -180,12 +184,15 @@ def test_the_tie_direction_comes_from_the_registry_not_from_code(
     """
     scale(seed, world, "accounting.amount_scale", 2)
     scale(seed, world, "accounting.unit_price_scale", 4)
-    scale(seed, world, "accounting.quantity_scale", 3)
 
     direction(seed, world, "half_up")
     with tenant_context(context):
         up = line_amounts(
-            quantity=Decimal(1), unit_price=Decimal("0.625"), vat_rate=Decimal(20), on=ON
+            quantity_scale=UNIT_SCALE,
+            quantity=Decimal(1),
+            unit_price=Decimal("0.625"),
+            vat_rate=Decimal(20),
+            on=ON,
         )
     assert up.net == Decimal("0.63")
 
@@ -193,7 +200,11 @@ def test_the_tie_direction_comes_from_the_registry_not_from_code(
     direction(seed, world, "half_even")
     with tenant_context(context):
         even = line_amounts(
-            quantity=Decimal(1), unit_price=Decimal("0.625"), vat_rate=Decimal(20), on=ON
+            quantity_scale=UNIT_SCALE,
+            quantity=Decimal(1),
+            unit_price=Decimal("0.625"),
+            vat_rate=Decimal(20),
+            on=ON,
         )
     assert even.net == Decimal("0.62")
 
@@ -211,7 +222,6 @@ def test_the_precision_comes_from_a_parameter(
     """
     scale(seed, world, "accounting.amount_scale", 4)
     scale(seed, world, "accounting.unit_price_scale", 4)
-    scale(seed, world, "accounting.quantity_scale", 3)
     direction(seed, world, "half_up")
     with tenant_context(context):
         amounts = line("1", "0.3333")
@@ -248,7 +258,6 @@ def test_without_a_registered_direction_nothing_is_calculated(
 ) -> None:
     scale(seed, world, "accounting.amount_scale", 2)
     scale(seed, world, "accounting.unit_price_scale", 4)
-    scale(seed, world, "accounting.quantity_scale", 3)
     with tenant_context(context), pytest.raises(FiscalResolutionError) as caught:
         line("1", "10.00")
     assert caught.value.code == "fiscal.no_logic"
@@ -270,8 +279,8 @@ def test_a_unit_price_finer_than_the_form_allows_is_refused(
 def test_a_quantity_finer_than_the_form_allows_is_refused(
     context: TenantContext, convention: None
 ) -> None:
-    """The third axis, added to V1 after the fact: a quantity with more decimals
-    than the form prescribes would be rounded into a different delivery."""
+    """The third axis: a quantity with more decimals than its unit allows would be
+    rounded into a different delivery (ADR-055)."""
     with tenant_context(context), pytest.raises(AmountMalformedError):
         line("1.2345", "10")
 
@@ -291,6 +300,7 @@ def test_a_discount_stated_twice_is_a_question_not_an_input(
     """A precedence rule here would be a silent answer to "which did they mean"."""
     with tenant_context(context), pytest.raises(AmountMalformedError):
         line_amounts(
+            quantity_scale=UNIT_SCALE,
             quantity=Decimal(1),
             unit_price=Decimal("100.00"),
             vat_rate=Decimal(20),

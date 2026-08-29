@@ -20,6 +20,10 @@ reads as what it is:
 * **Idempotent.** A parameter is matched on `(key, scope, scope_ref,
   valid_from)`; the second run writes nothing and says so. Every run leaves one
   row in `privileged_access_log`.
+* **Logic versions ride the same file.** A `[[logic]]` entry names which
+  registered implementation runs from when (`R17`) -- the tie-direction of
+  rounding, for one -- and is matched on `(logic_key, version)`. Same rules:
+  draft in, no edit of an active row, the act's `effective_from` required.
 
 The file format is TOML, chosen for one property: the source citation sits next
 to the value it justifies, in a form a reviewer reads without a schema. See
@@ -45,6 +49,7 @@ from evidenta.fiscal.parameters.models import (
     SourceConfidence,
     ValueType,
 )
+from evidenta.fiscal.registry.services import versions as logic_versions
 from evidenta.platform.audit.services.privileged import (
     REFDATA_ALIAS,
     PrivilegedPath,
@@ -63,6 +68,8 @@ class Outcome:
     created: int = 0
     updated: int = 0
     unchanged: int = 0
+    logic_created: int = 0
+    logic_unchanged: int = 0
 
 
 def _date(value: Any, where: str) -> date:
@@ -136,6 +143,7 @@ class Command(BaseCommand):
 
         acts = {entry.get("ref"): _act(entry) for entry in document.get("act", [])}
         parameters = document.get("parameter", [])
+        logic = document.get("logic", [])
 
         db = options["database"]
         with privileged_run(
@@ -144,22 +152,31 @@ class Command(BaseCommand):
             payload={"file": path.name},
             using=db,
         ) as run:
-            outcome = self._load(acts, parameters, db)
+            outcome = self._load(acts, parameters, logic, db)
             run.payload.update(
                 {
                     "acts": outcome.acts,
                     "created": outcome.created,
                     "updated": outcome.updated,
                     "unchanged": outcome.unchanged,
+                    "logic_created": outcome.logic_created,
+                    "logic_unchanged": outcome.logic_unchanged,
                 }
             )
 
         self.stdout.write(
             f"{path.name}: {outcome.acts} acte, {outcome.created} parametri noi, "
-            f"{outcome.updated} actualizați, {outcome.unchanged} neschimbați"
+            f"{outcome.updated} actualizați, {outcome.unchanged} neschimbați; "
+            f"{outcome.logic_created} versiuni de logică noi, {outcome.logic_unchanged} neschimbate"
         )
 
-    def _load(self, acts: dict[str, Act], parameters: list[dict[str, Any]], db: str) -> Outcome:
+    def _load(
+        self,
+        acts: dict[str, Act],
+        parameters: list[dict[str, Any]],
+        logic: list[dict[str, Any]],
+        db: str,
+    ) -> Outcome:
         sources: dict[str, FiscalParameterSource] = {}
         for ref, act in acts.items():
             row = register_act(act, using=db)
@@ -278,4 +295,54 @@ class Command(BaseCommand):
             existing.save(using=db, update_fields=[*changed, "updated_at"])
             updated += 1
 
-        return Outcome(acts=len(acts), created=created, updated=updated, unchanged=unchanged)
+        logic_created = logic_unchanged = 0
+        for entry in logic:
+            key = entry.get("logic_key")
+            if not key:
+                raise CommandError("a [[logic]] entry has no `logic_key`")
+            act_ref = entry.get("act")
+            if act_ref not in sources:
+                raise CommandError(
+                    f"logic {key!r}: act {act_ref!r} is not declared with an `effective_from`"
+                )
+            for field in ("implementation_ref", "version", "valid_from", "regression_case_set"):
+                if entry.get(field) in (None, ""):
+                    raise CommandError(f"logic {key!r}: `{field}` is required")
+            valid_from = _date(entry["valid_from"], f"logic {key!r}")
+            known = logic_versions.find_version(key, str(entry["version"]), using=db)
+            if known is None:
+                logic_versions.register_version(
+                    logic_key=key,
+                    version=str(entry["version"]),
+                    implementation_ref=str(entry["implementation_ref"]),
+                    valid_from=valid_from,
+                    valid_to=(
+                        _date(entry["valid_to"], f"logic {key!r}")
+                        if entry.get("valid_to")
+                        else None
+                    ),
+                    source_id=uuid.UUID(str(sources[act_ref].pk)),
+                    regression_case_set=str(entry["regression_case_set"]),
+                    using=db,
+                )
+                logic_created += 1
+                continue
+            if (
+                known.implementation_ref != str(entry["implementation_ref"])
+                or known.valid_from != valid_from
+            ) and known.status == logic_versions.ACTIVE:
+                raise CommandError(
+                    f"logic {key!r} version {entry['version']!r} is active with "
+                    f"{known.implementation_ref!r} from {known.valid_from}; an active "
+                    f"version is not edited -- a change is a new version"
+                )
+            logic_unchanged += 1
+
+        return Outcome(
+            acts=len(acts),
+            created=created,
+            updated=updated,
+            unchanged=unchanged,
+            logic_created=logic_created,
+            logic_unchanged=logic_unchanged,
+        )

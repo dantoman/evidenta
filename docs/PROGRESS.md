@@ -135,8 +135,10 @@ Calea de scriere a datelor de referință există ([ADR-049](decisions/049-rolul
 **Blocaje externe: niciunul** ([ADR-054](decisions/054-importul-e-distributie-corpusul-e-intern.md)):
 importatorul 1C a plecat la F3 cu `OD-28`/`OD-30`, criteriul de ieșire se validează pe un corpus
 intern, două puncte ale lui sunt deja bifate din teste, iar F1.10 e sarcină, nu blocaj. **`V1` e
-citită** (formularul tace asupra zecimalelor); F1.6 mai așteaptă două acte ale proprietarului —
-activarea celor două convenții încărcate ca `draft` și `OD-70` (cine alege precizia cantității).
+citită** (formularul tace asupra zecimalelor), cele două convenții sunt **aprobate și active**, `OD-70`
+e închisă ([ADR-055](decisions/055-precizia-cantitatii-e-a-unitatii.md)). F1.6 mai așteaptă **un rând**:
+direcția de rotunjire la echidistanță — `half_up` sau `half_even` — alegerea proprietarului, măsurat
+absentă din `fiscal_logic_version` pe baza de dezvoltare.
 
 **F1 — Accounting Core.** F0 este închisă (criteriul de ieșire îndeplinit, mai jos). Livrate:
 **F1.1** (planul de conturi, structura fără conținut) cu API-ul lui, **F1.3** (evenimentele),
@@ -247,6 +249,20 @@ nouă puncte (sesiunea `evidenta-77`):**
   comandă nouă, care pune identitatea aprobatorului pe rând și în jurnalul `P-4`. **Cantitatea nu
   primește valoare**: `OD-70` e acum necondiționată, iar `line_amounts` refuză orice linie până se
   decide — mecanismul e complet și așteaptă o decizie, nu o valoare strecurată.
+- **Aprobarea și `OD-70`, în aceeași zi, la instrucțiunea proprietarului.** Cele două convenții sunt
+  **active** pe baza de dezvoltare, aprobate cu identitatea `dev@example.md` (singurul cont care nu e
+  „proba"; presupunere spusă), rând `P-4` cu `actor_user_id`. Proprietarul a cerut să fie spus
+  explicit: **convenții de platformă, nu prescripții legale** — `provisional` rămâne. `OD-70` e
+  închisă prin [ADR-055](decisions/055-precizia-cantitatii-e-a-unitatii.md): precizia cantității e a
+  **unității de măsură** — coloana exista din F0.7 cu `default=0`; acum e obligatorie, fără implicit,
+  și **înghețată** la prima cantitate purtată (trigger `0061`, peste document, jurnal, formulă,
+  solduri). `accounting.quantity_scale` a stat câteva ore în rezolvatorul fiscal și a ieșit: nu vine
+  dintr-un act, n-are `valid_from`. Întrebarea „vreun motiv să fie totuși parametru?" — verificată pe
+  cod, nu (ADR-055 §2).
+- **Măsurat, nu presupus, ce mai lipsește pentru F1.6:** `fiscal_logic_version` e **goală** pe baza
+  de dezvoltare — direcția la echidistanță n-are rând, deci `line_amounts` refuză orice linie și după
+  aprobare. Nu se alege din cod: `load_fiscal_parameters` încarcă acum și `[[logic]]`, șablonul e
+  comentat în `platform_conventions.toml`, alegerea (`half_up` / `half_even`) e a proprietarului.
 
 ## Sesiuni mai vechi
 

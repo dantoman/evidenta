@@ -99,7 +99,9 @@ def test_the_owner_connection_is_refused_now() -> None:
 # --- fiscal parameters (P-4) -----------------------------------------------------
 
 
-def write_file(tmp_path: Path, *, value: int = 1, effective: bool = True) -> Path:
+def write_file(
+    tmp_path: Path, *, value: int = 1, effective: bool = True, logic: str = "half_up"
+) -> Path:
     effective_line = "effective_from = 2000-01-01" if effective else ""
     path = tmp_path / "fictitious.toml"
     path.write_text(
@@ -127,6 +129,14 @@ value = {value}
 valid_from = 2000-01-01
 confidence = "provisional"
 provisional_reason = "test: fictitious"
+
+[[logic]]
+logic_key = "test.loader.rounding"
+implementation_ref = "{logic}"
+version = "1"
+act = "test-act"
+valid_from = 2000-01-01
+regression_case_set = "test/rounding/1"
 """,
         encoding="utf-8",
     )
@@ -143,6 +153,7 @@ def test_parameters_load_as_draft_with_their_act(tmp_path: Path) -> None:
     before = len(log_rows("P-4"))
     output = load_parameters(write_file(tmp_path))
     assert "1 parametri noi" in output
+    assert "1 versiuni de logică noi" in output
 
     row = FiscalParameter.objects.using(REFDATA_ALIAS).get(parameter_key="test.loader.alpha")
     assert row.status == ParameterStatus.DRAFT, "a file cannot carry an approval (D.1)"
@@ -156,7 +167,10 @@ def test_the_second_load_is_a_no_op(tmp_path: Path) -> None:
     path = write_file(tmp_path)
     load_parameters(path)
     output = load_parameters(path)
-    assert "0 parametri noi, 0 actualizați, 1 neschimbați" in output
+    assert (
+        "0 parametri noi, 0 actualizați, 1 neschimbați; 0 versiuni de logică noi, 1 neschimbate"
+        in output
+    )
     assert (
         FiscalParameter.objects.using(REFDATA_ALIAS)
         .filter(parameter_key="test.loader.alpha")
@@ -197,7 +211,9 @@ def test_the_shipped_conventions_file_loads_the_act_and_two_drafts(tmp_path: Pat
     decimals, so the values are the owner's, not the act's. No quantity scale:
     that is OD-70, and a row here would close it tacitly."""
     output = load_parameters(Path("platform_conventions.toml"))
-    assert "1 acte, 2 parametri noi" in output
+    assert (
+        "1 acte, 2 parametri noi, 0 actualizați, 0 neschimbați; 0 versiuni de logică noi" in output
+    )
     act = NormativeAct.objects.using(REFDATA_ALIAS).get(
         act_number="118", act_date=date(2017, 8, 28)
     )
@@ -239,12 +255,19 @@ def test_activation_is_the_approvers_act_and_is_logged_with_their_identity(
         )
         return out.getvalue()
 
-    assert "1 activați, 0 erau deja activi" in activate(write_file(tmp_path))
+    assert "2 activați, 0 erau deja activi" in activate(write_file(tmp_path))
     row = FiscalParameter.objects.using(REFDATA_ALIAS).get(parameter_key="test.loader.alpha")
     assert row.status == ParameterStatus.ACTIVE and row.approved_by_user_id == approver
     assert log_rows("P-4")[-1].actor_user_id == approver
 
-    assert "0 activați, 1 erau deja activi" in activate(write_file(tmp_path))
+    assert "0 activați, 2 erau deja activi" in activate(write_file(tmp_path))
 
     with pytest.raises(CommandError, match="something else"):
         activate(write_file(tmp_path, value=9))
+    with pytest.raises(CommandError, match="something else"):
+        activate(write_file(tmp_path, logic="half_even"))
+
+    from evidenta.fiscal.registry.models import FiscalLogicVersion, LogicStatus
+
+    version = FiscalLogicVersion.objects.using(REFDATA_ALIAS).get(logic_key="test.loader.rounding")
+    assert version.status == LogicStatus.ACTIVE and version.approved_by_user_id == approver
