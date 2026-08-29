@@ -233,7 +233,7 @@ rescrie tăcut istoricul.
 
 | # | Sarcină | Sursă | Răspunde la |
 |---|---|---|---|
-| `V1` | Citește formularul tipizat al facturii fiscale și anexele. **Verifică și dacă formularul prescrie zecimale pentru cantitate**, nu doar pentru preț și sume; dacă tace, consemnează că tace | Ordinul Ministerului Finanțelor nr. 118 din 28.08.2017, Anexele 1 și 1a | §3.1, §3.2 — coloane și precizie, inclusiv cantitatea |
+| `V1` | Citește formularul tipizat al facturii fiscale și anexele. **Verifică și dacă formularul prescrie zecimale pentru cantitate**, nu doar pentru preț și sume; dacă tace, consemnează că tace — și atunci cine alege e `OD-70`, nu o consecință | Ordinul Ministerului Finanțelor nr. 118 din 28.08.2017, Anexele 1 și 1a | §3.1, §3.2 — coloane și precizie, inclusiv cantitatea |
 | `V2` | Obține și citește schema XML e-Factura | Specificația SFS / Regulamentul aprobat prin Ordinul SFS nr. 317/2020 și modificările ulterioare | §3.1, §3.2 — dacă validatorul impune coerență linie↔total |
 | `V3` | Verifică regimul de rotunjire în Codul fiscal și practica generalizată SFS | sfs.md — baza generalizată a practicii fiscale | §3.1 — temei legal moldovenesc |
 | `V4` | Obține 3–5 facturi reale cu multe linii și TVA, ca **export, nu PDF** | Contabilul care furnizează balanța 1C | §3.1–3.3 — deducerea convențiilor efective 1C Moldova |

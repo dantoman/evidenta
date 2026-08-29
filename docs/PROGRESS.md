@@ -225,6 +225,12 @@ nouă puncte (sesiunea `evidenta-77`):**
   Motivele stau în `08-f1-backlog.md`, sub „Ce nu poate începe". Un lucru de verificat la `V1`, adăugat
   de proprietar: dacă formularul prescrie zecimale și pentru **cantitate** — a treia axă, omisă din
   instrucțiune; cheia `accounting.quantity_scale` are rezolvator și loc în `platform_conventions.toml`.
+- **`OD-70`, deschisă la predare, condiționată:** dacă `V1` tace pe cantitate, decizia care rămâne nu e
+  „câte zecimale", ci **cine** le alege — platformă, tenant sau unitate de măsură. Înclinația
+  proprietarului e unitatea de măsură (bucățile se numără altfel decât kilogramele), consemnată ca
+  înclinație. Implicația structurală — `fiscal_parameter` n-are `scope` per unitate — e scrisă în
+  rând, ca să nu fie descoperită la implementare. *Tăcerea înregistrată e un fapt; tăcerea
+  neînregistrată devine, peste șase luni, o presupunere pe care nimeni nu o mai poate data.*
 
 ## Sesiuni mai vechi
 

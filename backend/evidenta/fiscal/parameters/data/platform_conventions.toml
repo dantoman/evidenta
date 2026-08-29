@@ -61,6 +61,7 @@ article = "1750"
 # act = "omf-118-2017"
 # value_type = "integer"
 # value = ...                       # de citit din formular (V1): dacă Anexa 1/1a prescrie zecimale
-#                                   # pentru cantitate; dacă tace, se consemnează că tace, nu se alege
+#                                   # pentru cantitate; dacă tace, se consemnează că tace, nu se alege —
+#                                   # iar cine alege atunci (platformă, tenant, unitate de măsură) e OD-70
 # valid_from = 2017-..-..
 # confidence = ...
