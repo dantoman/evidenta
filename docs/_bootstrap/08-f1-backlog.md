@@ -456,7 +456,9 @@ unde spec-ul le pusese de la început.*
 
 - **Obiectiv:** *circa douăzeci de cazuri construite intern*, fiecare cu documentul, postarea
   așteptată — conturi și sume —, și **citarea** care o susține (SNC, Planul general de conturi,
-  ADR-036 §11). Un caz care nu poate cita nu intră.
+  ADR-036 §11). Un caz care nu poate cita nu intră. **Ce testează corpusul:** că implementarea
+  corespunde actelor citate — nu că înțelegerea corespunde practicii. Un caz greșit e un caz cu
+  citare greșită, ceea ce se vede.
 - **Depinde de:** F1.4.4 (primele handlere), F1.5.4 (lanțul de închidere — cel puțin un caz de
   închidere de lună fără nicio linie pe 351 și unul de închidere de an cu lanțul din ADR-050 §3.2)
 - **Review:** `fiscal-reviewer`, `accounting-reviewer`
@@ -513,6 +515,14 @@ Firul D   F1.2.1 → F1.2.2 → F1.2.3 → F1.2.4    ledgerul
 **Ce nu poate începe, și de ce e util să fie vizibil** *(recalculat 2026-08-29, după ADR-049–054)*:
 **nimic din F1 nu așteaptă ceva din afară.** F1.6 așteaptă `V1` — un document public, o oră. F1.9 a
 plecat la F3; F1.G0 se construiește sintetic; F1.10 e sarcină, nu blocaj. Tot restul poate începe.
+
+**Ordinea, decisă de proprietar (2026-08-29): F1.5.4 întâi, apoi F1.4.4.** Trei motive: rolurile și
+ordinea lanțului sunt în ADR-050, deci nu mai e nicio decizie în față, pe când handlerele concrete
+vor ridica întrebări de mapare pe drum; închiderea produce `period.month.closed`, care lipsește din
+registrul de evenimente — singura verificare mecanică că F1.5.4 e neterminată, și merită să devină
+pozitivă; și închiderea validează invariantul clasei 8 și blocarea perioadei, precondiții pentru
+orice handler care postează — un handler scris înainte se testează într-un mediu unde perioada nu se
+închide niciodată. F1.10 vine după oricare, fiindcă cazurile ei cer handlerele.
 
 *Versiunea anterioară a paragrafului:* F1.4.4 aștepta `C1`–`C5`; F1.5.4 și F1.6 așteptau `OD-22`;
 F1.8 aștepta `OD-35`; F1.G2 aștepta `OD-36` — cinci din zece sarcini blocate pe lucruri care nu se

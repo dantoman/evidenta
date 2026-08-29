@@ -87,9 +87,12 @@ def direction(seed: Callable[..., None], world: dict[str, uuid.UUID], ref: str) 
 
 @pytest.fixture
 def convention(seed: Callable[..., None], world: dict[str, uuid.UUID], source: uuid.UUID) -> None:
-    """The working hypothesis: two decimals on amounts, four on the unit price."""
+    """The working hypothesis: two decimals on amounts, four on the unit price --
+    and three on the quantity, a test value with no source (the form has not
+    been read; ADR-037 section 3.2, the fourth axis)."""
     scale(seed, world, "accounting.amount_scale", 2)
     scale(seed, world, "accounting.unit_price_scale", 4)
+    scale(seed, world, "accounting.quantity_scale", 3)
     direction(seed, world, "half_up")
 
 
@@ -177,6 +180,7 @@ def test_the_tie_direction_comes_from_the_registry_not_from_code(
     """
     scale(seed, world, "accounting.amount_scale", 2)
     scale(seed, world, "accounting.unit_price_scale", 4)
+    scale(seed, world, "accounting.quantity_scale", 3)
 
     direction(seed, world, "half_up")
     with tenant_context(context):
@@ -207,6 +211,7 @@ def test_the_precision_comes_from_a_parameter(
     """
     scale(seed, world, "accounting.amount_scale", 4)
     scale(seed, world, "accounting.unit_price_scale", 4)
+    scale(seed, world, "accounting.quantity_scale", 3)
     direction(seed, world, "half_up")
     with tenant_context(context):
         amounts = line("1", "0.3333")
@@ -243,6 +248,7 @@ def test_without_a_registered_direction_nothing_is_calculated(
 ) -> None:
     scale(seed, world, "accounting.amount_scale", 2)
     scale(seed, world, "accounting.unit_price_scale", 4)
+    scale(seed, world, "accounting.quantity_scale", 3)
     with tenant_context(context), pytest.raises(FiscalResolutionError) as caught:
         line("1", "10.00")
     assert caught.value.code == "fiscal.no_logic"
@@ -259,6 +265,15 @@ def test_a_unit_price_finer_than_the_form_allows_is_refused(
     """
     with tenant_context(context), pytest.raises(AmountMalformedError):
         line("1", "10.123456")
+
+
+def test_a_quantity_finer_than_the_form_allows_is_refused(
+    context: TenantContext, convention: None
+) -> None:
+    """The third axis, added to V1 after the fact: a quantity with more decimals
+    than the form prescribes would be rounded into a different delivery."""
+    with tenant_context(context), pytest.raises(AmountMalformedError):
+        line("1.2345", "10")
 
 
 def test_trailing_zeros_are_not_precision(context: TenantContext, convention: None) -> None:

@@ -6,7 +6,9 @@
 # `privileged_access_log`; a doua rulare a aceluiași fișier nu scrie nimic.
 #
 # CE LIPSEȘTE, ȘI DE CE NU E COMPLETAT AICI. Precizia de rotunjire — `accounting.amount_scale`,
-# `accounting.unit_price_scale` — e parametru fiscal (R15), rezolvat după dată, cu sursă. Ipoteza
+# `accounting.unit_price_scale`, `accounting.quantity_scale` — e parametru fiscal (R15), rezolvat
+# după dată, cu sursă. Cantitatea e a treia axă, adăugată de proprietar la `V1`: intră în calculul
+# liniei și precizia ei nu se poate schimba după ce există documente postate. Ipoteza
 # de lucru a proprietarului e „patru la prețul unitar, două la sume" (ADR-037 §0), dar nici
 # valorile, nici data intrării în vigoare nu au fost citite din act: sarcina `V1` din ADR-037 §5 —
 # Anexele 1 și 1a ale Ordinului MF nr. 118 din 28.08.2017 — e document public și nu a fost
@@ -53,3 +55,12 @@ article = "1750"
 # valid_from = 2017-..-..
 # confidence = "provisional"
 # provisional_reason = "ADR-037 §0: ipoteza de lucru a proprietarului; instrucțiunea (V1) necitită"
+#
+# [[parameter]]
+# key = "accounting.quantity_scale"
+# act = "omf-118-2017"
+# value_type = "integer"
+# value = ...                       # de citit din formular (V1): dacă Anexa 1/1a prescrie zecimale
+#                                   # pentru cantitate; dacă tace, se consemnează că tace, nu se alege
+# valid_from = 2017-..-..
+# confidence = ...

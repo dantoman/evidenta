@@ -139,6 +139,10 @@ Axe distincte:
 - zecimale la prețul unitar
 - zecimale la valoarea liniei
 - zecimale la valorile totale ale documentului
+- **zecimale la cantitate** — *adăugată 2026-08-29, la instrucțiunea proprietarului, după ce fusese
+  omisă:* cantitatea intră în calculul liniei, iar precizia ei nu se poate schimba după ce există
+  documente postate. Aceeași natură ca celelalte: parametru (`accounting.quantity_scale`), rezolvat
+  după dată, cu sursă
 
 **Observație din practica regională:** pe factură, singura valoare care poate avea mai mult de două
 zecimale este de regulă prețul unitar; restul valorilor se trec cu două zecimale. Aceasta e practica
@@ -229,7 +233,7 @@ rescrie tăcut istoricul.
 
 | # | Sarcină | Sursă | Răspunde la |
 |---|---|---|---|
-| `V1` | Citește formularul tipizat al facturii fiscale și anexele | Ordinul Ministerului Finanțelor nr. 118 din 28.08.2017, Anexele 1 și 1a | §3.1, §3.2 — coloane și precizie |
+| `V1` | Citește formularul tipizat al facturii fiscale și anexele. **Verifică și dacă formularul prescrie zecimale pentru cantitate**, nu doar pentru preț și sume; dacă tace, consemnează că tace | Ordinul Ministerului Finanțelor nr. 118 din 28.08.2017, Anexele 1 și 1a | §3.1, §3.2 — coloane și precizie, inclusiv cantitatea |
 | `V2` | Obține și citește schema XML e-Factura | Specificația SFS / Regulamentul aprobat prin Ordinul SFS nr. 317/2020 și modificările ulterioare | §3.1, §3.2 — dacă validatorul impune coerență linie↔total |
 | `V3` | Verifică regimul de rotunjire în Codul fiscal și practica generalizată SFS | sfs.md — baza generalizată a practicii fiscale | §3.1 — temei legal moldovenesc |
 | `V4` | Obține 3–5 facturi reale cu multe linii și TVA, ca **export, nu PDF** | Contabilul care furnizează balanța 1C | §3.1–3.3 — deducerea convențiilor efective 1C Moldova |

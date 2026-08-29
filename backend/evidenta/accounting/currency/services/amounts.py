@@ -32,7 +32,11 @@ from datetime import date
 from decimal import Decimal
 
 from evidenta.accounting.currency.money import rounding_for
-from evidenta.fiscal.parameters.services.scales import amount_scale, unit_price_scale
+from evidenta.fiscal.parameters.services.scales import (
+    amount_scale,
+    quantity_scale,
+    unit_price_scale,
+)
 from evidenta.platform.api.errors import ApiError
 
 #: A rate arrives as a percentage -- `20`, not `0.20` -- because that is how the
@@ -107,6 +111,15 @@ def line_amounts(
             f"the unit price {unit_price} carries more than the {price_scale} "
             f"decimals in force on {on}; rounding it here would change a price "
             f"somebody agreed"
+        )
+    # The third axis (ADR-037 section 3.2): the quantity enters the product, so
+    # its precision is part of what a posted line stands on and cannot move
+    # afterwards. Refused, not rounded, for the same reason as the price.
+    qty_scale = quantity_scale(on)
+    if _decimals(quantity) > qty_scale:
+        raise AmountMalformedError(
+            f"the quantity {quantity} carries more than the {qty_scale} decimals "
+            f"in force on {on}; rounding it here would change what was delivered"
         )
 
     gross = quantity * unit_price

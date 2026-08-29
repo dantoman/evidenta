@@ -69,6 +69,10 @@ măsura riscului contabil devine acoperirea corpusului de regresie. Backlogul î
    douăzeci, fiecare cu documentul, postarea așteptată, contul și suma, și **citarea** (SNC,
    Planul general de conturi, ADR-036 §11) — făcută de sesiunea de implementare, cu review
    `fiscal-reviewer` / `accounting-reviewer`. Cazul care nu poate cita nu intră.
+   *Precizarea proprietarului, aceeași zi:* cerința de citare **schimbă natura riscului** — corpusul
+   nu mai testează dacă înțelegerea corespunde practicii, ci dacă **implementarea corespunde actelor
+   citate**. O proprietate mai slabă, dar onestă și verificabilă intern: un caz greșit e un caz cu
+   citare greșită, ceea ce se vede.
 4. **F1.G0 se construiește sintetic**, alegând explicit alternativa pe care `07-f1-grile.md` o
    numea: volum realist din modelul F0.11, structură din corpus (plan real de 476 de conturi,
    parteneri, un an de rulaje generat). Ce se sacrifică e scris acolo și rămâne scris: structurile

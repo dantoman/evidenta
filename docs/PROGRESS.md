@@ -221,6 +221,10 @@ nouă puncte (sesiunea `evidenta-77`):**
   marcat ca atare în ADR-054 §4.
 - **F1.G0 sintetic, ales explicit** — nu prin omisiune, cum cerea `07-f1-grile.md`.
 - **Harta, a doua recalculare:** F1 nu mai are **niciun** blocaj extern. Rămâne `V1`. Atât.
+- **Ordinea următoarei sesiuni, decisă de proprietar: F1.5.4 (închiderea) întâi, apoi F1.4.4.**
+  Motivele stau în `08-f1-backlog.md`, sub „Ce nu poate începe". Un lucru de verificat la `V1`, adăugat
+  de proprietar: dacă formularul prescrie zecimale și pentru **cantitate** — a treia axă, omisă din
+  instrucțiune; cheia `accounting.quantity_scale` are rezolvator și loc în `platform_conventions.toml`.
 
 ## Sesiuni mai vechi
 
