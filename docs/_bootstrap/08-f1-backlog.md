@@ -295,9 +295,16 @@ redeschide. Unde o sarcină pare să ceară altceva, ADR-ul câștigă și sarci
      celelalte două sunt stipulații contractuale care se **înscriu** pe antet. Ce mai lipsește pe
      drum: discriminatorul dintre *diferență de curs* și *diferență de sumă* e contrapartea
      (rezident, contract în valută sau unități convenționale — pct. 4, 17), nu formula.
-  2. **C5, indirectele** — formula de subabsorbție e scrisă în standard (pct. 30), fără ambiguitate;
-     baza de repartizare vine din nomenclator, listă deschisă (pct. 31). Validează că o regulă cu
-     calcul propriu funcționează cu date deschise.
+  2. **C5, indirectele — LIVRAT 2026-08-30** ([ADR-058](../decisions/058-repartizarea-costurilor-indirecte.md)):
+     regula pct. 30 ca logică versionată (`production.overhead_absorption` → `normal_capacity_v1`,
+     selectată la ultima zi a perioadei; fără rând, refuzul e al registrului fiscal), baza pct. 31 ca
+     valori pe fapt, nevalidată contra unei liste — bază goală **refuzată**, nu împărțită egal; o
+     formulă `Dt 811[item] / Ct 821` per produs, restul constant nerepartizat la 714 (rol nou,
+     catalogul la 46); ultima cotă ia restul; sursa `production` în vocabular (`0003`). Rândul de
+     logică e `draft` pe baza de dezvoltare — activarea e a proprietarului. Textul sarcinii, păstrat:
+     formula de subabsorbție e scrisă în standard (pct. 30), fără ambiguitate; baza de repartizare
+     vine din nomenclator, listă deschisă (pct. 31). Validează că o regulă cu calcul propriu
+     funcționează cu date deschise.
   3. **C2, amortizarea** — per obiect, lunar, strat 3 pe metodă (pct. 19, 22). Validează strategia
      de calcul al valorii, separată de formă. **Fără partea fiscală** (HG 704/2019).
   4. **C1 ultimul** — cel mai mare: două handlere de moment (permanent / periodic), plus costul
