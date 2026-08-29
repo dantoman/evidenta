@@ -206,13 +206,13 @@ def test_an_act_without_its_effective_date_cannot_carry_a_parameter(tmp_path: Pa
 
 
 def test_the_shipped_conventions_file_loads_the_act_and_two_drafts(tmp_path: Path) -> None:
-    """What the repository ships after V1 (2026-08-29): the act with its dates, and
-    the two platform conventions as provisional drafts -- the form is silent on
-    decimals, so the values are the owner's, not the act's. No quantity scale:
-    that is OD-70, and a row here would close it tacitly."""
+    """What the repository ships after V1 (2026-08-29): the act with its dates, the
+    two platform conventions and the tie direction as drafts -- the form is silent
+    on decimals, so the values are the owner's, not the act's. No quantity scale:
+    that is the unit's (ADR-055)."""
     output = load_parameters(Path("platform_conventions.toml"))
     assert (
-        "1 acte, 2 parametri noi, 0 actualizați, 0 neschimbați; 0 versiuni de logică noi" in output
+        "1 acte, 2 parametri noi, 0 actualizați, 0 neschimbați; 1 versiuni de logică noi" in output
     )
     act = NormativeAct.objects.using(REFDATA_ALIAS).get(
         act_number="118", act_date=date(2017, 8, 28)
@@ -236,6 +236,13 @@ def test_the_shipped_conventions_file_loads_the_act_and_two_drafts(tmp_path: Pat
     assert all(r.status == ParameterStatus.DRAFT for r in rows.values())
     assert all(r.source_confidence == SourceConfidence.PROVISIONAL for r in rows.values())
     assert "tac" in (rows["accounting.amount_scale"].provisional_reason or "")
+    assert "NU prescripție legală" in (rows["accounting.amount_scale"].provisional_reason or "")
+
+    from evidenta.fiscal.registry.services.versions import DRAFT, find_version
+
+    direction = find_version("accounting.money_rounding", "1", using=REFDATA_ALIAS)
+    assert direction is not None
+    assert direction.implementation_ref == "half_up" and direction.status == DRAFT
 
 
 def test_activation_is_the_approvers_act_and_is_logged_with_their_identity(

@@ -413,7 +413,7 @@ Pentru claritate, următoarele sunt permise și încurajate:
 | C7 | Conturi diferite per grupă / depozit | **Strat 2**, legare condiționată | Echivalent „conturi de evidență" 1C. Cheile: **enumerate în cod** ([ADR-051](051-chei-de-context-enumerate.md)) | — |
 | C8 | Schimbare legislativă de numerotare | **Strat 2** | Insert cu `valid_from`. Vezi `DNB-03` = `OD-03` | — |
 | C9 | Formulare de listă / detaliu, tipar, rapoarte | **Strat 0** | Integral configurabil. Nu a fost niciodată restricționat | — |
-| C10 | Rotunjire TVA, granularitate postare | **Convenție de platformă** | Nu se consemnează în politica contabilă. Linia e autoritativă (ADR-037 §0); rămâne `V1` | [ADR-037](037-conventii-de-platforma.md) |
+| C10 | Rotunjire TVA, granularitate postare | **Structura formularului** + convenții de platformă | Linia e autoritativă prin construcția formularului — OMF 118/2017 pct. 15–24, act citat; zecimalele (2 / 4 / `half_up`) sunt convenții aprobate, `provisional` fiindcă formularul tace. Nu se consemnează în politica contabilă | [ADR-037](037-conventii-de-platforma.md) `Acceptat` |
 
 **Ce nu se atinge, spus explicit:** `OD-22` pentru parametrii fiscali reali; HG 704/2019 (amortizarea
 fiscală); Anexa 1 din SNC „Diferențe de curs" (reevaluarea). Refuzurile existente rămân, cu
@@ -493,7 +493,7 @@ Nimic încă — Posting Engine nu există. Ce va verifica, la implementare:
 | `DN-05` | Modelul de perioade și exercițiu fiscal — invariantul 3 din §5.2 se sprijină pe el | **Închisă** prin [ADR-039](039-valuta-si-perioade.md): perioada operațională e luna, exercițiul are date explicite |
 | `OD-55` | Mulțimea cheilor de context la legarea condiționată (§6.2) | **Închisă** prin [ADR-051](051-chei-de-context-enumerate.md): enumerate în cod |
 | `OD-36` | Contractul de introducere cu tastatura | **Închisă** prin [ADR-052](052-contractul-de-tastatura.md) — e strat 0 |
-| [ADR-037](037-conventii-de-platforma.md) | Rotunjire, zecimale, granularitate | Linia e autoritativă (§0); rămâne `V1` — Ordinul MF 118/2017, Anexele 1 și 1a, document public |
+| [ADR-037](037-conventii-de-platforma.md) | Rotunjire, zecimale, granularitate | **Închis** 2026-08-29: `Acceptat` — linia e autoritativă prin structura formularului; convențiile de precizie aprobate |
 | `DNB-03` = `OD-03` | Propagarea planului de conturi | **Nu blochează F1** — vezi §13.1 |
 
 ### 13.1 De ce `DNB-03` nu blochează F1

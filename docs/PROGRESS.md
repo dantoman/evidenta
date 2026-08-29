@@ -136,9 +136,9 @@ Calea de scriere a datelor de referință există ([ADR-049](decisions/049-rolul
 importatorul 1C a plecat la F3 cu `OD-28`/`OD-30`, criteriul de ieșire se validează pe un corpus
 intern, două puncte ale lui sunt deja bifate din teste, iar F1.10 e sarcină, nu blocaj. **`V1` e
 citită** (formularul tace asupra zecimalelor), cele două convenții sunt **aprobate și active**, `OD-70`
-e închisă ([ADR-055](decisions/055-precizia-cantitatii-e-a-unitatii.md)). F1.6 mai așteaptă **un rând**:
-direcția de rotunjire la echidistanță — `half_up` sau `half_even` — alegerea proprietarului, măsurat
-absentă din `fiscal_logic_version` pe baza de dezvoltare.
+e închisă ([ADR-055](decisions/055-precizia-cantitatii-e-a-unitatii.md)), direcția e `half_up`,
+activă. **F1.6 e livrată. F1 nu mai așteaptă pe nimeni — nici din afară, nici pe proprietar.** Rămân
+F1.5.4, F1.4.4, F1.10, în ordinea fixată.
 
 **F1 — Accounting Core.** F0 este închisă (criteriul de ieșire îndeplinit, mai jos). Livrate:
 **F1.1** (planul de conturi, structura fără conținut) cu API-ul lui, **F1.3** (evenimentele),
@@ -263,6 +263,21 @@ nouă puncte (sesiunea `evidenta-77`):**
   de dezvoltare — direcția la echidistanță n-are rând, deci `line_amounts` refuză orice linie și după
   aprobare. Nu se alege din cod: `load_fiscal_parameters` încarcă acum și `[[logic]]`, șablonul e
   comentat în `platform_conventions.toml`, alegerea (`half_up` / `half_even`) e a proprietarului.
+- **`half_up`, decis de proprietar și activat** în aceeași zi (`accounting.money_rounding` v1, de la
+  28.10.2017, aprobat cu identitatea lui). Motivele stau în ADR-037 §3.3; statutul rămâne provizoriu,
+  cu același motiv ca celelalte două. **[ADR-037](decisions/037-conventii-de-platforma.md) e
+  `Acceptat`, `DNB-08` închisă**: regula linie-autoritativă nu mai e alegere de inginerie — e
+  structura formularului, pct. 15 → 17 → 18 → 23 → 24, cu MO 340-351 art. 1750 din 22.09.2017 și
+  intrare în vigoare 28.10.2017; corectată și în Spec B §7.4, care spunea că regula „se citește din
+  schema XML". „Convenție de platformă, nu prescripție legală" stă acum **pe rând**, în
+  `provisional_reason`, unde e citit — nu doar în ADR.
+- **`default=0` pe `decimal_places` — a opta apariție a familiei**, numită de proprietar: o coloană
+  `NOT NULL` cu un implicit care pare rezonabil e cea mai bună deghizare a unei alegeri netăcute —
+  nu strigă niciodată, iar rezultatul e o cantitate acceptată la precizie greșită pentru orice
+  unitate care nu e bucata. Și distincția de păstrat de la `R18`: aici nu cere istoric de valori, ci
+  ca valoarea să nu se miște sub liniile care o poartă — un trigger, nu un `valid_from`.
+- **`OD-71`, nouă, înainte de F2:** aprobatorul din producție trebuie să fie o identitate reală —
+  legat de utilizatorii de sistem din Spec A §3.4, care nu există. Nu blochează nimic acum.
 
 ## Sesiuni mai vechi
 
@@ -1966,9 +1981,11 @@ F1.2 nu poate fi prima. Ordinea reală se notează aici, pe măsură ce se stabi
       **niciun handler concret** — *deblocat 29.08: `C1`–`C5` clasificate (ADR-036 `Acceptat`),
       legarea condiționată decisă ([ADR-051](decisions/051-chei-de-context-enumerate.md)); rolurile
       lanțului de închidere în catalog ([ADR-050](decisions/050-lantul-de-inchidere-ca-roluri.md))*
-- [ ] F1.6 — Logică fiscală, primul strat *(structura rotunjirii livrată 28.08; calea de scriere
-      livrată 29.08 — [ADR-049](decisions/049-rolul-de-date-de-referinta.md); valorile pe `V1`,
-      document public, și pe `OD-22`)*
+- [x] F1.6 — Logică fiscală, primul strat: rotunjirea în registru, selectată după dată; `half_up`,
+      2 la sume, 4 la preț — **active**, aprobate de proprietar, `provisional` fiindcă formularul tace
+      (`V1` citită 29.08); calea de scriere [ADR-049](decisions/049-rolul-de-date-de-referinta.md);
+      precizia cantității pe unitate ([ADR-055](decisions/055-precizia-cantitatii-e-a-unitatii.md)).
+      *Criteriul „trece corpusul" se închide cu F1.10*
 - [x] F1.7 — Note contabile manuale, solduri inițiale, șabloane de operațiuni — toate prin motor,
       cu API și ecran
 - [ ] F1.8 — Rapoarte contabile *(deblocată 29.08: [ADR-053](decisions/053-tinta-de-performanta.md);

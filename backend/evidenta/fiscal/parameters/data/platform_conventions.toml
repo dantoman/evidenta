@@ -11,19 +11,26 @@
 # coloanelor numește moneda, nu precizia. Tăcerea se consemnează, nu se interpretează.
 #
 # Deci valorile de mai jos NU sunt citite din act: sunt convenție de platformă (ADR-037 §6.2,
-# opțiunea B — o singură convenție în motor), cu valoarea aleasă de proprietar — ipoteza lui de lucru
-# din ADR-037 §0: patru zecimale la prețul unitar, două la sume. De aceea `confidence = "provisional"`
-# cu motivul scris, și de aceea intră ca `draft`: activarea e actul proprietarului
+# opțiunea B — o singură convenție în motor), **aprobate de proprietar la 2026-08-29** cu motivele
+# lui: două zecimale la sume e practica universală și nimic din act n-o contrazice; patru la prețul
+# unitar acoperă cantitățile mari fără a pierde bani la înmulțire. `confidence = "provisional"`
+# rămâne, cu motivul pe rând — acolo unde e citit, nu doar aici: convenții de platformă, nu
+# prescripții legale; dacă apare vreodată o instrucțiune care le contrazice, se schimbă parametrul,
+# nu structura. Intră ca `draft`; activarea e actul proprietarului
 # (`manage.py activate_fiscal_parameters platform_conventions.toml --approver <id>`).
 #
 # Cantitatea NU e aici, și nu va fi: formularul tace, iar proprietarul a decis (ADR-055, OD-70)
 # că precizia cantității e a unității de măsură — `unit_of_measure.decimal_places`, obligatorie,
 # fără implicit. Nu vine dintr-un act, nu se schimbă prin lege, n-are `valid_from`: nu e parametru.
 #
-# CE LIPSEȘTE ÎNCĂ: direcția de rotunjire la echidistanță (ADR-037 §3.3). Registrul are ambele
-# implementări (`half_up`, `half_even`); care rulează e un rând în `fiscal_logic_version`, iar
-# rândul nu există — deci, măsurat pe baza de dezvoltare, `line_amounts` refuză orice linie și după
-# aprobarea celor două valori. Alegerea e a proprietarului; șablonul e mai jos, comentat.
+# Direcția de rotunjire la echidistanță (ADR-037 §3.3): `half_up`, aleasă de proprietar
+# (2026-08-29). Motivele lui, pe scurt: e ce fac oamenii pe hârtie, ce face 1C și ce se așteaptă
+# contabilul să vadă — clientul care verifică factura cu calculatorul trebuie să obțină același
+# număr; `half_even` e mai bun statistic pe volume mari, dar avantajul e invizibil în contabilitate
+# (sute de linii verificate manual, nu milioane de rotunjiri independente), iar 2,5 → 2 și 3,5 → 4
+# arată ca o eroare pentru oricine nu cunoaște regula; unde legislația fiscală prescrie explicit o
+# metodă, e aproape întotdeauna half_up — actul tace, dar tăcerea nu e motiv să alegi convenția
+# neobișnuită. Tot convenție de platformă, cu același motiv ca celelalte două: formularul tace.
 
 schema_version = 1
 
@@ -49,7 +56,7 @@ value_type = "integer"
 value = 2
 valid_from = 2017-10-28
 confidence = "provisional"
-provisional_reason = "Formularul (OMF 118/2017, anexa nr. 1) și Instrucțiunea (anexa nr. 2) tac asupra zecimalelor — V1 citită 2026-08-29. Convenție de platformă (ADR-037 §6.2 B); valoarea e ipoteza de lucru a proprietarului din ADR-037 §0."
+provisional_reason = "Formularul (OMF 118/2017, anexa nr. 1) și Instrucțiunea (anexa nr. 2) tac asupra zecimalelor — V1 citită 2026-08-29. Convenție de platformă, NU prescripție legală (ADR-037 §3.2, §6.2 B), aprobată de proprietar la 2026-08-29. Dacă apare o instrucțiune care o contrazice, se schimbă parametrul, nu structura."
 
 [[parameter]]
 key = "accounting.unit_price_scale"
@@ -58,18 +65,18 @@ value_type = "integer"
 value = 4
 valid_from = 2017-10-28
 confidence = "provisional"
-provisional_reason = "Formularul (OMF 118/2017, anexa nr. 1) și Instrucțiunea (anexa nr. 2) tac asupra zecimalelor — V1 citită 2026-08-29. Convenție de platformă (ADR-037 §6.2 B); valoarea e ipoteza de lucru a proprietarului din ADR-037 §0."
+provisional_reason = "Formularul (OMF 118/2017, anexa nr. 1) și Instrucțiunea (anexa nr. 2) tac asupra zecimalelor — V1 citită 2026-08-29. Convenție de platformă, NU prescripție legală (ADR-037 §3.2, §6.2 B), aprobată de proprietar la 2026-08-29. Dacă apare o instrucțiune care o contrazice, se schimbă parametrul, nu structura."
 
 
-# --- direcția la echidistanță: de ales de proprietar, apoi de decomentat și aprobat ---------------
-# Ambele implementări sunt înregistrate în `accounting.currency.money.IMPLEMENTATIONS`; formularul
-# tace și aici (V1). ADR-037 §6.3: implicitul se aliniază la 1C în limitele legii — dar aceea e
-# observație de practică, nu temei, și nu se alege din cod.
-#
-# [[logic]]
-# logic_key = "accounting.money_rounding"
-# implementation_ref = "half_up"        # sau "half_even"
-# version = "1"
-# act = "omf-118-2017"
-# valid_from = 2017-10-28
-# regression_case_set = "corpus/accounting.money_rounding/1"
+# --- direcția la echidistanță ---------------------------------------------------------------------
+# Ambele implementări sunt înregistrate în `accounting.currency.money.IMPLEMENTATIONS`; care rulează
+# e rândul de mai jos, selectat după dată (R17). `fiscal_logic_version` nu are coloană de încredere
+# (ADR-046 a dat-o parametrilor); caracterul provizoriu e consemnat aici și în ADR-037 §3.3.
+
+[[logic]]
+logic_key = "accounting.money_rounding"
+implementation_ref = "half_up"
+version = "1"
+act = "omf-118-2017"
+valid_from = 2017-10-28
+regression_case_set = "corpus/accounting.money_rounding/1"

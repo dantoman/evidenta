@@ -881,20 +881,22 @@ sau F2 — vezi OD-10 pentru statutul conectorului BNM în F0.
 
 ### 7.4 Precizie și rotunjire
 
-**Regula corectă nu se deduce din principii. Se citește din schema XML a e-Facturii.** Dacă
-rotunjirea noastră diferă cu un ban de ce calculează SFS, factura este respinsă — deci regula
-validă este cea pe care o validează sistemul lor, oricare ar fi ea.
+**Regula se citește din formular, și e structură, nu principiu.** Ordinul MF nr. 118 din
+28.08.2017 (MO nr. 340-351 art. 1750 din 22.09.2017, în vigoare 28.10.2017), anexa nr. 2: valoarea
+liniei e produsul cantității cu prețul (pct. 15), TVA-ul liniei e produsul valorii cu cota (pct. 17),
+valoarea cu TVA e suma lor (pct. 18), totalul pe pagină e totalul coloanelor (pct. 23), totalul
+facturii e suma paginilor (pct. 24). Lanțul merge într-o singură direcție și nicăieri nu se
+recalculează invers: **TVA se calculează și se rotunjește pe fiecare linie, iar totalul e suma
+liniilor**. Nu mai e alegere de platformă. Zecimalele, în schimb, formularul **nu** le prescrie —
+pentru preț, sume sau cantitate — deci sunt convenții de platformă: două la sume, patru la prețul
+unitar, `half_up` la echidistanță, aprobate de proprietar, `provisional` cu motivul pe rând; precizia
+cantității e a unității de măsură ([ADR-055](../decisions/055-precizia-cantitatii-e-a-unitatii.md)).
 
-`DNB-08` rămâne deschisă pe o singură sarcină, **`V1`** din [ADR-037](../decisions/037-conventii-de-platforma.md)
-§5 — Ordinul MF nr. 118 din 28.08.2017, Anexele 1 și 1a, document **public**. Nu e blocată pe
-ghidul de integrare SFS: doar `V2` (schema XML) depinde de `OD-24`, și condiționează testul de
-acceptanță, nu codul. *Formularea anterioară a acestui paragraf spunea contrariul; corectată
-2026-08-29, a treia oară când corecția e făcută în alt loc decât acesta.*
-
-Axele rămase de decis, sarcinile de verificare și motivul pentru care întârzierea lor lovește direct
-în milestone-ul F1 stau în [ADR-037](../decisions/037-conventii-de-platforma.md) (`Propus`). Nuanță găsită
-acolo: din cele patru verificări, doar schema XML depinde de accesul SFS — formularul tipizat și Codul fiscal
-sunt publice.
+`DNB-08` e **închisă** prin [ADR-037](../decisions/037-conventii-de-platforma.md) (`Acceptat`,
+2026-08-29). Ce validează schema XML a e-Facturii (`V2`, `OD-24`) e **testul de acceptanță**: dacă
+validatorul SFS refuză cu un ban, se află atunci și se corectează parametrul, nu structura. *Paragraful
+acesta a spus, pe rând, că regula se citește din schema XML și că `DNB-08` e blocată extern; ambele
+corectate 2026-08-29, cu actul citit.*
 
 **Ce se fixează acum, fără risc:**
 
@@ -1120,7 +1122,7 @@ o stare „suspectat duplicat" pe document și un flux de rezolvare.
 | DNB-05 | Granularitatea postării de payroll | F2, volumul lui `journal_line` | contabil + arhitectură |
 | DNB-06 | Forma parametrilor fiscali care nu sunt scalari (grile, tranșe) | F0.8 | arhitectură |
 | DNB-07 | Granularitatea perioadei și blocarea per modul | F1.5 | contabil |
-| DNB-08 | Precizia, regula de rotunjire, locul rotunjirii TVA. **Structura decisă** ([ADR-037](../decisions/037-conventii-de-platforma.md) §0: linia e autoritativă) și calea de scriere există (ADR-049). Rămâne **`V1`** — Ordinul MF 118/2017, Anexele 1 și 1a, document public — pentru numărul de zecimale; `V2` (SFS) condiționează doar testul de acceptanță | F1 calcule; **precondiție a milestone-ului F1** | **lectura unui document public**, nu SFS |
+| DNB-08 | Precizia, regula de rotunjire, locul rotunjirii TVA. **Închisă** 2026-08-29 — [ADR-037](../decisions/037-conventii-de-platforma.md) `Acceptat`: linia e autoritativă **prin structura formularului** (OMF 118/2017, pct. 15–24, act citat); zecimalele — convenții de platformă aprobate (2 / 4 / `half_up`), `provisional` fiindcă formularul tace; cantitatea pe unitate (ADR-055). `V2` (SFS) e testul de acceptanță | F1 calcule | — |
 | ~~DNB-09~~ | Împărțită: structura în [ADR-006](../decisions/006-reversal-two-dates.md) (`Acceptat`), politica în [ADR-007](../decisions/007-reversal-period.md) (`Propus`) | — | **contabil**, pentru ADR-007 |
 | DNB-10 | Fereastra de reținere a cheilor de idempotență în API | F1.3 | arhitectură |
 | DNB-11 | Cheile naturale de deduplicare per tip de document | F2 | contabil + investigație |
@@ -1141,7 +1143,7 @@ Decizii din registrul general care blochează această specificație și **nu** 
 ## 12. Ce urmează după această specificație
 
 1. **Review contabil**, nu doar tehnic. `DNB-05` și `DNB-07` nu pot fi decise de un inginer;
-   `DNB-09` este împărțită, cu partea contabilă în ADR-007, `Propus`; `DNB-08` așteaptă `V1`, un document public.
+   `DNB-09` este împărțită, cu partea contabilă în ADR-007, `Propus`; `DNB-08` e închisă prin ADR-037.
 2. **ADR pentru fiecare decizie luată.**
 3. **Conținutul planului de conturi și parametrii fiscali** (OD-22, OD-23), fără de care structura
    de aici rămâne un schelet gol.

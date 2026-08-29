@@ -1,27 +1,23 @@
 # ADR-037 — Convenții de platformă: rotunjire, zecimale, granularitatea postării
 
-- **Status:** **Parțial decis** (2026-08-28) — §3.1 și forma rotunjirii sunt fixate de proprietar și
-  implementate. **`V1` citită** (2026-08-29, [cercetare](../_input/cercetare/v1-factura-fiscala-omf-118-2017.md)):
-  formularul și Instrucțiunea **tac** asupra zecimalelor, pentru preț, sume și cantitate — deci
-  precizia e convenție de platformă (§6.2, B), cu valorile proprietarului încărcate ca `draft`
-  provizoriu prin [ADR-049](049-rolul-de-date-de-referinta.md) și **aprobate de proprietar în aceeași
-  zi** (§0). Cantitatea e a unității de măsură ([ADR-055](055-precizia-cantitatii-e-a-unitatii.md),
-  `OD-70` închisă). **Ce rămâne, măsurat pe baza de dezvoltare:** direcția la echidistanță (§3.3) —
-  ambele implementări sunt în registru, dar `fiscal_logic_version` n-are niciun rând, deci
-  `line_amounts` refuză orice linie până când proprietarul alege `half_up` sau `half_even`; șablonul
-  e în `platform_conventions.toml`, iar `load_fiscal_parameters` încarcă și versiuni de logică. `V2` (schema
-  XML e-Factura) e singura sarcină care depinde de accesul SFS (`OD-24`) și condiționează **testul de
-  acceptanță**, nu codul; `V3` e Codul fiscal, public; `V4` vine în pachetul 1C din §7. Excepția: §4
-  nu depinde de verificare
+- **Status:** **Acceptat** — 2026-08-29, de proprietar. §3.1 nu mai e alegere: e **structura
+  formularului**, cu act citat (§0); §3.2 — convenții de platformă aprobate (2 la sume, 4 la preț;
+  cantitatea e a unității, [ADR-055](055-precizia-cantitatii-e-a-unitatii.md)); §3.3 — `half_up`
+  (§3.3); §3.4 — o formulă per linie de document ([ADR-048](048-formula-si-sloturile-tipizate.md));
+  §3.5 — [ADR-051](051-chei-de-context-enumerate.md); §3.6 — [ADR-006](006-reversal-two-dates.md),
+  [ADR-039](039-valuta-si-perioade.md). Toate trei valorile sunt `active` pe baza de dezvoltare,
+  aprobate cu identitatea proprietarului, `provisional` cu motivul pe rând. `V2` (schema XML) și `V4`
+  (facturi 1C reale) rămân **precondiții ale testului de acceptanță**, nu ale codului; §4 e decizie
+  tehnică, implementată
 - **Data:** 2026-08-25; §3.1 decisă 2026-08-28
 - **Decide:** proprietarul proiectului
-- **Închide:** `DNB-08` (Spec B §7.2, §11) — partea de precizie și rotunjire, la deblocare
+- **Închide:** `DNB-08` (Spec B §7.4, §11) — 2026-08-29
 - **Afectează:** Posting Engine (F1.4), milestone-ul F1 (balanță verificabilă la leu contra 1C),
   importatorul 1C (F1.9); `OD-24` (accesul SFS) doar prin `V2`
 
 ---
 
-## 0. Decizia din 2026-08-28 — linia este autoritativă
+## 0. Decizia din 2026-08-28 — linia este autoritativă; din 2026-08-29, cu act citat
 
 **Consemnare, nu decizie nouă.** Proprietarul a fixat regula prin instrucțiune scrisă; sesiunea de
 implementare a scris-o în cod și o consemnează aici, ca `ADR-002` să nu rămână cu o decizie luată și
@@ -57,8 +53,11 @@ apariții; „lei" din antetele coloanelor 10.4/10.5/10.7/10.8 numește moneda, 
 consemnată ca tăcere. Ce prescrie, în schimb, e **structura**: valoarea liniei = produsul 10.3 × 10.4
 (pct. 15), TVA-ul liniei = produsul 10.5 × 10.6 (pct. 17), valoarea cu TVA = suma 10.5 + 10.7 (pct.
 18), totalul pe pagină = totalul coloanelor (pct. 23), totalul facturii = suma paginilor (pct. 24) —
-adică **linia e autoritativă prin construcția formularului**, exact regula de mai sus. Data intrării
-în vigoare: 28.10.2017 (pct. 7); publicarea: MO nr. 340-351 art. 1750 din 22.09.2017. Cele două
+adică **linia e autoritativă prin construcția formularului**, exact regula de mai sus. **Regula nu
+mai e o alegere de inginerie**: lanțul pct. 15 → 17 → 18 → 23 → 24 merge într-o singură direcție și
+nicăieri nu se recalculează invers — Ordinul MF nr. 118 din 28.08.2017, Monitorul Oficial nr. 340-351
+art. 1750 din 22.09.2017, în vigoare 28.10.2017. Data intrării în vigoare: 28.10.2017 (pct. 7);
+publicarea: MO nr. 340-351 art. 1750 din 22.09.2017. Cele două
 valori ale ipotezei de lucru sunt încărcate ca `draft`, `provisional`, cu motivul; activarea e a
 proprietarului. Cantitatea rămâne `OD-70`.
 
@@ -188,6 +187,17 @@ totalul facturii, iar diferența crește cu numărul de poziții.
 
 Aceasta e un plasture pentru un simptom, nu o alegere contabilă.
 
+**Decis, 2026-08-29: `half_up`.** Motivele proprietarului, consemnate ca atare: e ce fac oamenii pe
+hârtie, ce face 1C și ce se așteaptă contabilul să vadă — un client care verifică factura cu
+calculatorul trebuie să obțină același număr. `half_even` e mai bun statistic pe volume mari, dar
+avantajul lui e invizibil în contabilitate: nu se însumează milioane de rotunjiri independente, ci
+sute de linii pe care cineva le verifică manual; iar prețul lui e că 2,5 se rotunjește la 2 și 3,5 la
+4, ceea ce arată ca o eroare pentru oricine nu cunoaște regula. Argument de conformitate: unde
+legislația fiscală prescrie explicit o metodă, e aproape întotdeauna `half_up`; actul tace aici, iar
+tăcerea nu e motiv să alegi convenția neobișnuită. Statutul rămâne provizoriu, cu același motiv ca
+celelalte două: formularul tace. Rând în `fiscal_logic_version` (`accounting.money_rounding`, v1,
+`half_up`, de la 28.10.2017), încărcat din `platform_conventions.toml` și activat de proprietar.
+
 ### 3.4 Granularitatea postării
 
 Un document produce:
@@ -303,7 +313,7 @@ din 1C cu altă convenție vede diferențe de bani pe documentele **noi** — pe
 dedicate, **dacă** §4 e implementat de la început. Spre deosebire de multe alte decizii din acest
 proiect, aceasta nu e cu sens unic.
 
-**Propunere: (B).**
+**Propunere: (B).** *Decisă (B), 2026-08-29: o singură convenție în motor, aprobată de proprietar.*
 
 ### 6.3 Alinierea implicitului
 

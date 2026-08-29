@@ -107,7 +107,7 @@ Acte normative, secțiuni din documentele de intrare, benchmark-uri, discuții.
 | [034](034-denumire-legala-si-interna.md) | Nomenclatoarele au denumire legală și denumire internă | Acceptat | 2026-08-25 | — *(`OD-40` rămâne deschisă)* |
 | [035](035-fara-delegare-tranzitiva.md) | Delegarea nu este tranzitivă | Acceptat | 2026-08-25 | — *(deschide `OD-54`)* |
 | [036](036-forma-postarii.md) | Forma postării stă în cod; restul configurării stă în date | **Acceptat — 2026-08-29, `C1`–`C5` clasificate de proprietar** — `C1`–`C5` cer SNC citat | 2026-08-25 | `DNB-04` *(la `Acceptat`; deschide `OD-55`)* |
-| [037](037-conventii-de-platforma.md) | Convenții de platformă: rotunjire, zecimale, granularitatea postării | **Parțial decis** — linia e autoritativă; rămâne `V1`, document public | 2026-08-25 | `DNB-08` *(parțial, la deblocare)* |
+| [037](037-conventii-de-platforma.md) | Convenții de platformă: rotunjire, zecimale, granularitatea postării | Acceptat — 2026-08-29; linia e autoritativă prin structura formularului (act citat); 2 / 4 / `half_up` aprobate | 2026-08-25 | `DNB-08` |
 | [038](038-vocabularul-de-evenimente.md) | Nucleul deține vocabularul de `event_type`; handlerul se selectează după dată | Acceptat | 2026-08-25 | `DNB-01` |
 | [039](039-valuta-si-perioade.md) | Moneda funcțională MDL, exercițiu cu date explicite, trei date pe linia de jurnal | Acceptat | 2026-08-25 | `DN-04`, `DN-05` |
 | [040](040-crearea-tenantului-si-a-companiei.md) | Crearea unui tenant și a unei companii este cale privilegiată (`P-9`) | Acceptat | 2026-08-25 | `OD-53` |
