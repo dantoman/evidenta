@@ -153,3 +153,57 @@ class EmploymentRelationshipType(models.Model):
 
     def __str__(self) -> str:
         return self.code
+
+
+class CalculationInvariantDomain(models.Model):
+    """Which relationship types a calculation invariant applies to -- ADR-071 §7.1.
+
+    **A set, not a type, and that is the whole reason this is a table.** Art. 22
+    para (1) of Law 489/1999 says *"for each employee"*, and a person appointed by
+    administrative act **is** an employee for it -- so the minimum-base invariant
+    covers `employment_contract` **and** `service_relationship`, and does not
+    cover `civil_contract`.
+
+    A single foreign key column can say *"this invariant applies to type X"*. It
+    cannot say *"to X and Y"*. Written that way, art. 22 would bind to one type,
+    the other would slip through, and the result would be a contribution below the
+    minimum -- perfectly balanced, `R11` green, invisible to every balance test.
+    That is the defect ADR-071 exists to prevent, coming back through cardinality
+    instead of through vocabulary (`OD-106`).
+
+    So: **one row per applicable type**. Adding a type to an invariant is a row;
+    removing one is a row removed. Neither is a schema change, and both are
+    visible in a diff -- which is the property ADR-070 section 4 says structure
+    can actually deliver.
+
+    **`invariant_key` is code, not a foreign key.** The invariant itself is
+    versioned logic (`R16`): its algorithm lives in the repository and is selected
+    by `FiscalLogicVersion`. What is data here is only *where it applies*.
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+
+    #: The invariant, by the key its implementation is registered under.
+    invariant_key = models.TextField()
+
+    relationship_type = models.ForeignKey(
+        EmploymentRelationshipType,
+        on_delete=models.PROTECT,
+        db_column="relationship_type",
+        related_name="invariant_domains",
+    )
+
+    class Meta:
+        db_table = "calculation_invariant_domain"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["invariant_key", "relationship_type"],
+                name="calculation_invariant_domain_unique",
+            ),
+        ]
+        indexes = [
+            models.Index(fields=["invariant_key"], name="calc_invariant_domain_idx"),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.invariant_key} → {self.relationship_type_id}"

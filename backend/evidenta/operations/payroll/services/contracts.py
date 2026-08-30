@@ -83,6 +83,7 @@ def create_contract(
     base_salary: Decimal,
     weekly_hours: Decimal,
     cas_payer_point: str,
+    budget_funded_employer: bool,
     effective_to: date | None = None,
 ) -> EmploymentContract:
     """Open a work relationship. Every clause the calculation reads is required.
@@ -143,6 +144,7 @@ def create_contract(
                 base_salary=base_salary,
                 weekly_hours=weekly_hours,
                 cas_payer_point=cas_payer_point,
+                budget_funded_employer=budget_funded_employer,
             )
     except IntegrityError as exc:
         raise ContractDuplicateError(f"contract {number} already exists in this company") from exc
@@ -366,6 +368,7 @@ def as_dict(contract: EmploymentContract) -> dict[str, Any]:
         "base_salary": _amount(contract.base_salary),
         "weekly_hours": _amount(contract.weekly_hours),
         "cas_payer_point": contract.cas_payer_point,
+        "budget_funded_employer": contract.budget_funded_employer,
     }
 
 

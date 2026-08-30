@@ -31,6 +31,7 @@ import { CompaniesScreen } from '@/app/companies/CompaniesScreen'
 import { PartnersScreen } from '@/app/partners/PartnersScreen'
 import { ContractsScreen } from '@/app/payroll/ContractsScreen'
 import { ExemptionsScreen } from '@/app/payroll/ExemptionsScreen'
+import { PayrollRunScreen } from '@/app/payroll/PayrollRunScreen'
 import { PeopleScreen } from '@/app/payroll/PeopleScreen'
 import { TimesheetScreen } from '@/app/payroll/TimesheetScreen'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
@@ -604,6 +605,69 @@ describe('ecranele', () => {
     // count is asserted, not worked around -- the dropdown offering exactly the
     // five real codes is half of why there is no `S`.
     expect(screen.getAllByText('P — personală')).toHaveLength(2)
+  })
+
+  it('calculul salarial arată motivul, nu un zero, pentru o sumă necalculată', async () => {
+    stubFetch({
+      [`/api/v1/payroll/companies/${COMPANY}/runs`]: [
+        { id: 'r1', year: 2026, month: 3, accrual_date: '2026-03-31', status: 'draft' },
+      ],
+      '/api/v1/payroll/runs/r1': {
+        id: 'r1',
+        year: 2026,
+        month: 3,
+        accrual_date: '2026-03-31',
+        status: 'draft',
+        unresolved: 1,
+        complete: false,
+        totals: { gross: '10000.00', withheld: '0', employer_charges: '0', net: '10000.00' },
+        lines: [
+          {
+            employee_id: 'e1',
+            employee_name: 'Rusu Ion',
+            contract_number: 'CIM-001',
+            gross: '10000.00',
+            withheld: '0',
+            employer_charges: '0',
+            net: null,
+            complete: false,
+            components: [
+              {
+                component_key: 'salary.gross',
+                nature: 'salary_accrual',
+                amount: '10000.00',
+                basis: null,
+                rate: null,
+                parameter_key: null,
+                unresolved_reason: null,
+              },
+              {
+                component_key: 'cas.employer',
+                nature: 'employer_charge',
+                amount: null,
+                basis: null,
+                rate: null,
+                parameter_key: null,
+                unresolved_reason: 'cnas.employer_rate: fiscal.no_parameter pe 2026-03-31',
+              },
+            ],
+          },
+        ],
+      },
+    })
+    renderScreen(<PayrollRunScreen />, {
+      path: '/companii/:companyId/salarii',
+      route: `/companii/${COMPANY}/salarii`,
+    })
+
+    fireEvent.click(await screen.findByRole('button', { name: /2026-03/ }))
+    expect(await screen.findByText('Rusu Ion')).toBeInTheDocument()
+    // The reason the server gave, shown where a zero would have been.
+    expect(
+      screen.getByText(/cnas.employer_rate: fiscal.no_parameter pe 2026-03-31/),
+    ).toBeInTheDocument()
+    // And approval is out of reach while it is open.
+    expect(screen.getByRole('button', { name: 'Aprobă' })).toBeDisabled()
   })
 
   it('fără sesiune, aplicația arată ecranul de autentificare', async () => {

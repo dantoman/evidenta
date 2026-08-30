@@ -122,6 +122,7 @@ def a_contract(
         base_salary=Decimal(salary),
         weekly_hours=Decimal("40.00"),
         cas_payer_point="1.1",
+        budget_funded_employer=False,
     )
 
 

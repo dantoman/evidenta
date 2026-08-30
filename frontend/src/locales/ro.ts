@@ -539,6 +539,36 @@ export const ro = {
     grantedBy: 'cerere din',
     noExemptions: 'Nicio scutire.',
     inForceAt: 'În vigoare la data',
+
+    // Rularea lunara. Doua date: perioada de munca (luna) si data de angajament
+    // (cand s-a calculat) — a doua alege parametrii, si de aceea se cere.
+    runs: 'Calcul salarial',
+    newRun: 'Calculează luna',
+    accrualDate: 'Data calculului',
+    accrualHint: 'Data la care s-a calculat plata. Ea alege cotele aplicabile, nu luna lucrată.',
+    compute: 'Calculează',
+    recompute: 'Recalculează',
+    approve: 'Aprobă',
+    approved: 'Aprobat',
+    draft: 'În lucru',
+    gross: 'Salariu brut',
+    withheld: 'Total reținut',
+    employerCharges: 'Sarcini ale angajatorului',
+    net: 'Salariu net',
+    // O suma care n-a putut fi calculata NU e zero. Ecranul arata motivul.
+    notComputed: 'Nu s-a calculat',
+    unresolvedCount: 'sume necalculate',
+    incompleteHint: 'Luna nu se poate aproba cât timp există sume necalculate.',
+    noRuns: 'Nicio lună calculată.',
+    payslip: 'Fluturaș',
+    // Documentul e generat pe server, in romana, cu conventii `ro-MD` fixe.
+    // Ecranul afiseaza ce a trimis serverul; nu formateaza nimic el insusi.
+    payslipTitle: 'Fluturaș de salariu',
+    basis: 'Bază',
+    rate: 'Cotă',
+    parameter: 'Parametru',
+    budgetFunded: 'Angajator bugetar',
+    budgetFundedHint: 'Anexa nr. 1 pct. 1.1: 29% bugetar, 24% privat. Alege cota, deci se cere.',
   },
   errors: {
     // Keyed by the stable code from C10, never by the server's message. A client
@@ -674,6 +704,12 @@ export const ro = {
     'payroll.exemption_malformed': 'Datele cererii de scutire nu au forma cerută.',
     'payroll.exemption_overlap': 'Scutirea este deja în vigoare pentru această perioadă.',
     'payroll.exemption_not_found': 'Scutirea nu a fost găsită.',
+    'payroll.run_malformed': 'Datele rulării nu au forma cerută.',
+    'payroll.run_exists': 'Luna are deja o rulare.',
+    'payroll.run_not_found': 'Rularea nu a fost găsită.',
+    'payroll.run_not_draft': 'Rularea este aprobată; liniile ei nu se mai schimbă.',
+    'payroll.run_incomplete':
+      'Rularea are sume necalculate. Se aprobă doar când e completă.',
     'ledger.entry_already_reversed': 'Înregistrarea a fost deja stornată.',
     'ledger.entry_not_posted': 'Înregistrarea nu este postată, deci nu are ce anula.',
     'posting.reversal_payload_invalid': 'Stornarea are nevoie de un motiv.',

@@ -209,6 +209,15 @@ class EmploymentContract(models.Model):
     #: rate misses it, which is why the hours are stored rather than assumed.
     weekly_hours = models.DecimalField(max_digits=5, decimal_places=2)
 
+    #: Which of the two rates point 1.1 carries. Annex 1 gives **29% budgetary /
+    #: 24% private**, and the difference is the employer's sector rather than the
+    #: category -- so it is a second field, not a sixth payer point. On the
+    #: relationship for the same reason the category is (ADR-068 section 3), and
+    #: without a default: a boolean that defaulted to `false` would quietly apply
+    #: the private rate to every budget-funded employer, and the result would
+    #: balance. `OD-107`.
+    budget_funded_employer = models.BooleanField()
+
     #: The CAS payer category, **of the relationship rather than of the company**
     #: (ADR-068 section 3). A resident of an IT park is simultaneously point 1.4
     #: for its employees and point 1.1 for its civil contracts, so a column on the
@@ -678,3 +687,217 @@ class ExemptionEntitlement(models.Model):
 
     def __str__(self) -> str:
         return f"{self.employee_id} {self.code} {self.valid_from}"
+
+
+class PayrollRunStatus(models.TextChoices):
+    DRAFT = "draft"
+    APPROVED = "approved"
+
+
+class LineNature(models.TextChoices):
+    """The three structures of ADR-065 sections 2 and 2.2 -- natures, not institutions.
+
+    The asymmetry of 2026 (CAS on the employer, CNAM and income tax withheld from
+    the employee) is a **fact of this year**, and a model built on it would be
+    right today and wrong after the first law that moves a rate from one side to
+    the other. So the split is by what the fact *is*:
+
+    - `salary_accrual` recognises the gross: expense against the payroll liability;
+    - `employer_charge` is computed **over** the gross and borne by the employer:
+      a second expense and a second liability;
+    - `employee_withholding` is taken **out of** the gross: it creates no expense,
+      it moves part of the liability from the employee towards a budget.
+
+    The net is not stored. It is what remains on the payroll liability after the
+    withholdings -- ADR-065 section 8.5 verifies it on an example, and a stored
+    net would be a fourth number that can disagree with the other three.
+    """
+
+    SALARY_ACCRUAL = "salary_accrual"
+    EMPLOYER_CHARGE = "employer_charge"
+    EMPLOYEE_WITHHOLDING = "employee_withholding"
+
+
+class PayrollRun(models.Model):
+    """One month of one company's payroll.
+
+    **Two dates, and the second is the one that gets forgotten** (ADR-065 section
+    6). `year`/`month` are the *work period* -- the economic date, what the
+    nominal declaration and the entitlements are read by. `accrual_date` is the
+    *technical* date: when the pay was calculated, and therefore which parameters
+    and which rate apply. Art. 20 para (5) of Law 489/1999 charges contributions
+    on salaries **calculated**, and annex 1 applies the tariff to salaries
+    calculated monthly -- so a March salary calculated in June accrues in June
+    (ADR-044 section 6). It is not a recalculation of March.
+
+    `accrual_date` has no default. A run that defaulted it to the end of the work
+    period would answer the parameter-resolution question with the economic date,
+    silently, and be right exactly as long as nothing is ever paid late.
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    tenant = models.ForeignKey(Tenant, on_delete=models.PROTECT, db_column="tenant_id")
+    company = models.ForeignKey(Company, on_delete=models.PROTECT, db_column="company_id")
+
+    #: The sheet the hours come from. A foreign key rather than a lookup by
+    #: month, so the run can always say *which* set of hours it was computed
+    #: from -- the same reason a posting names its source document (`R13`).
+    timesheet = models.ForeignKey(
+        Timesheet, on_delete=models.PROTECT, db_column="timesheet_id", related_name="runs"
+    )
+
+    year = models.IntegerField()
+    month = models.IntegerField()
+    accrual_date = models.DateField()
+
+    status = models.TextField(choices=PayrollRunStatus.choices, default=PayrollRunStatus.DRAFT)
+    approved_by_user_id = models.UUIDField(null=True, blank=True)
+    approved_at = models.DateTimeField(null=True, blank=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "payroll_run"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["company", "year", "month"], name="payroll_run_month_unique"
+            ),
+            models.CheckConstraint(
+                condition=models.Q(month__gte=1) & models.Q(month__lte=12),
+                name="payroll_run_month_valid",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(status__in=PayrollRunStatus.values),
+                name="payroll_run_status_valid",
+            ),
+            models.CheckConstraint(
+                condition=~models.Q(status=PayrollRunStatus.APPROVED)
+                | models.Q(approved_by_user_id__isnull=False),
+                name="payroll_run_approved_has_an_approver",
+            ),
+        ]
+        indexes = [
+            models.Index(fields=["tenant", "company", "year", "month"], name="payroll_run_idx"),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.year}-{self.month:02d}"
+
+
+class PayrollLine(models.Model):
+    """One amount, for one person, of one nature.
+
+    **`UUID` primary key and frozen at `approved`** -- `OD-87`, both required. The
+    measurement behind the key is in `_bootstrap/12-volumul-salarizarii.md`: the
+    line does not go into the append-only list, so it does not need the `bigint`
+    that list implies, and `R10` is imposed separately and where the law asks for
+    it. The freeze is the trigger, on the pattern of
+    `rls.opening_balance_line_frozen`: what is approved is what was calculated.
+
+    **`amount` is nullable, and that is the design rather than a gap.** A rate
+    whose margin has never been established cannot resolve (`OD-92`: a value
+    without a `valid_from` nobody can cite is not in force on any date), and the
+    honest result is a line that exists, carries no amount, and says why -- not a
+    zero, and not a refusal that hides the twelve lines that *did* compute. The
+    CHECK makes the pair exclusive: an amount or a reason, never neither and
+    never both. Approval then refuses while any line is unresolved, which is
+    where the incompleteness stops being harmless.
+
+    **All amounts are positive** (ADR-061): the sign is carried by the nature,
+    not by the number. Two conventions coexisting silently is what the CHECK on
+    the opening cumulatives already prevents on the other side.
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    tenant = models.ForeignKey(Tenant, on_delete=models.PROTECT, db_column="tenant_id")
+    company = models.ForeignKey(Company, on_delete=models.PROTECT, db_column="company_id")
+    run = models.ForeignKey(
+        PayrollRun, on_delete=models.CASCADE, db_column="run_id", related_name="lines"
+    )
+    contract = models.ForeignKey(
+        EmploymentContract,
+        on_delete=models.PROTECT,
+        db_column="contract_id",
+        related_name="payroll_lines",
+    )
+
+    #: Denormalised from the contract. The nominal declaration is built over a
+    #: population of insured relationships (ADR-069) and reads the person
+    #: directly; a join through the contract would make the query depend on the
+    #: contract still existing in the shape it had.
+    employee = models.ForeignKey(
+        Employee,
+        on_delete=models.PROTECT,
+        db_column="employee_id",
+        related_name="payroll_lines",
+    )
+
+    nature = models.TextField(choices=LineNature.choices)
+
+    #: What this amount is: `salary.gross`, `cas.employer`, `cnam.employee`,
+    #: `income_tax.withheld`. A code, not a label -- the interface name lives in
+    #: the resource files (`C32`).
+    component_key = models.TextField()
+
+    amount = models.DecimalField(max_digits=18, decimal_places=2, null=True, blank=True)
+    unresolved_reason = models.TextField(null=True, blank=True)
+
+    #: What the rate applied to, and which rate. Kept because a payslip that
+    #: cannot show the base is a payslip nobody can check, and because "which
+    #: parameter produced this" is the question an inspection asks.
+    basis = models.DecimalField(max_digits=18, decimal_places=2, null=True, blank=True)
+    rate = models.DecimalField(max_digits=9, decimal_places=4, null=True, blank=True)
+
+    #: The parameter row this amount came from. A plain identifier, not a foreign
+    #: key: `fiscal` owns those rows and a business module holding a key into
+    #: them would tie their lifetimes together -- the same reason
+    #: `ParameterScope.COMPANY` keeps a bare `scope_ref`.
+    parameter_id = models.UUIDField(null=True, blank=True)
+    parameter_key = models.TextField(null=True, blank=True)
+
+    #: The work period -- the economic date, read by the nominal declaration.
+    work_period_start = models.DateField()
+    work_period_end = models.DateField()
+
+    #: The technical date, denormalised from the run. ADR-065 section 6 says why
+    #: it cannot be added later: a posted payroll line has no way of finding out
+    #: afterwards when it accrued.
+    accrual_date = models.DateField()
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "payroll_line"
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(nature__in=LineNature.values), name="payroll_line_nature_valid"
+            ),
+            models.CheckConstraint(
+                condition=(
+                    models.Q(amount__isnull=False) & models.Q(unresolved_reason__isnull=True)
+                )
+                | (models.Q(amount__isnull=True) & models.Q(unresolved_reason__isnull=False)),
+                name="payroll_line_amount_or_reason",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(amount__isnull=True) | models.Q(amount__gte=0),
+                name="payroll_line_amount_positive",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(work_period_end__gte=models.F("work_period_start")),
+                name="payroll_line_period_ordered",
+            ),
+            models.UniqueConstraint(
+                fields=["run", "contract", "component_key"], name="payroll_line_unique"
+            ),
+        ]
+        indexes = [
+            models.Index(
+                fields=["tenant", "company", "accrual_date"], name="payroll_line_accrual_idx"
+            ),
+            models.Index(fields=["run", "employee"], name="payroll_line_employee_idx"),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.employee_id} {self.component_key}"

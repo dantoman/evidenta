@@ -236,10 +236,56 @@ diferenţa: *„a ales greşit"* se prinde citind; *„n-a ales"* nu are ce fi c
 - **Dacă tipurile primesc atribute** (coloana (d) a anexei — prestaţiile asigurate diferă pe puncte).
   Azi tabela e vocabular; dacă devine purtătoare de drepturi, e altă decizie.
 
+### 7.1 Dar cardinalitatea domeniului **se decide aici**, şi e opusul a ce sugera §4bis
+
+> **REZERVĂ ÎNCHISĂ (`OD-106`):** ridicată aici, închisă în aceeaşi zi de `F2.B2`, prin **prima**
+> dintre cele două forme sancţionate mai jos: `calculation_invariant_domain`, un rând per tip
+> aplicabil. Invariantul art. 22 are două rânduri — `employment_contract` şi `service_relationship` —
+> iar calculul citeşte o **mulţime** şi face test de apartenenţă, nu egalitate. Testul care le
+> desparte există: cu brutul sub minim, primele două se încarcă pe minim, al treilea pe brut.
+
+**Constatarea proprietarului, 2026-08-30, imediat după ce a treia valoare a intrat.** §1.1 stabileşte
+că funcţionarul numit prin act administrativ **este salariat în sensul art. 22**. Deci invariantul
+bazei minime se aplică la **două** dintre cele trei tipuri — `employment_contract` **şi**
+`service_relationship` — şi nu se aplică la `civil_contract`.
+
+**O singură coloană `FK` poate spune „acest invariant se aplică tipului X". Nu poate spune „tipurilor
+X şi Y".** Iar §4bis, citit repede, sugerează exact forma greşită: vorbeşte despre *„domeniul unui
+invariant"* ca despre o coloană `NOT NULL`, fiindcă la redactare vocabularul avea două valori şi
+invariantul părea să prindă exact una.
+
+**Ce s-ar întâmpla dacă F2.B2 leagă printr-o singură cheie**, scris ca să fie recunoscut:
+
+- art. 22 se leagă de `employment_contract`;
+- `service_relationship` **nu-l primeşte**;
+- contribuţia funcţionarului iese **sub minim**, perfect echilibrată — `R11` trece, niciun test de
+  sold n-o vede.
+
+**Adică exact defectul pe care ADR-071 există ca să-l facă imposibil**, reintrat prin cardinalitate în
+loc de prin vocabular. Al treilea drum de întoarcere al aceleiaşi familii, după „a treia valoare-coş"
+(§2) şi „domeniu nullable" (§4bis).
+
+**Ce se fixează, deci:**
+
+> **Domeniul unui invariant este o MULŢIME de tipuri, nu un tip.** Formele care exprimă asta: **un rând
+> per tip aplicabil** (invariantul apare de două ori, o dată per tip), sau o **tabelă de legătură**
+> `invariant × tip`. Formele care NU o exprimă, şi sunt de aceea excluse: o coloană `FK` unică, şi
+> orice codificare a mulţimii într-un şir.
+
+**Şi consecinţa asupra lui §4bis, ca să nu se citească contradictoriu:** cerinţa *„fără implicit,
+`NOT NULL`"* rămâne — se mută doar de pe coloană pe **legătură**: un invariant fără **niciun** rând de
+domeniu e la fel de inexprimabil pe cât era un `NULL`. Ce se schimbă e că „exact unul" devine „cel
+puţin unul".
+
+**De ce se scrie acum şi nu la `F2.B2`:** motivul e proaspăt şi verificabil azi — anexa e citită, cele
+trei tipuri există în bază, iar propoziţia din §1.1 care îl produce e la două paragrafe distanţă.
+Peste trei sarcini, acelaşi raţionament s-ar reface **din defect**, care e forma cea mai scumpă de a-l
+afla.
 ## 8. Consecinţe
 
 - **Devine posibil, acum:** `C1(b)`, apoi `C2`, apoi restul `F2.B1`.
 - **Devine imposibil:** un domeniu de invariant care nu corespunde niciunui tip real.
+- **Rămâne de decis, cu cardinalitatea fixată:** forma legării (§7.1, `OD-106`).
 - **De modificat ca urmare:** `infra/rls/exceptions.toml` (o intrare), `fiscal` (tabela şi
   însămânţarea ei), `F2.B1` (legarea), `F2.B2` (invariantul art. 22 cu domeniul lui).
 - **Se implementează acum.** Condiţia era `Acceptat`, iar acceptarea a venit cu cele trei corecţii

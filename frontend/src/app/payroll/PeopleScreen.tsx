@@ -99,6 +99,9 @@ export function PeopleScreen() {
           <Link to={`/companii/${companyId}/pontaj`} className="text-sm text-accent">
             {t.payroll.timesheets}
           </Link>
+          <Link to={`/companii/${companyId}/salarii`} className="text-sm text-accent">
+            {t.payroll.runs}
+          </Link>
           <form
             className="flex items-center gap-2"
             onSubmit={(event: FormEvent) => {

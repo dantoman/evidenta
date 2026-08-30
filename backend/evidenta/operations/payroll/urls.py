@@ -62,6 +62,29 @@ urlpatterns = [
         views.TimesheetClosingView.as_view(),
         name="timesheet-closing",
     ),
+    # The run is of a company and a month; once it exists its own id addresses
+    # it, and RLS decides whether this context may see it.
+    path(
+        "companies/<uuid:company_id>/runs",
+        views.PayrollRunListView.as_view(),
+        name="runs",
+    ),
+    path("runs/<uuid:run_id>", views.PayrollRunDetailView.as_view(), name="run"),
+    path(
+        "runs/<uuid:run_id>/recomputation",
+        views.PayrollRunRecomputeView.as_view(),
+        name="run-recomputation",
+    ),
+    path(
+        "runs/<uuid:run_id>/approval",
+        views.PayrollRunApprovalView.as_view(),
+        name="run-approval",
+    ),
+    path(
+        "runs/<uuid:run_id>/payslips/<uuid:employee_id>",
+        views.PayslipView.as_view(),
+        name="payslip",
+    ),
     # Exemptions hang off the person, not off a company: the application is
     # theirs, and point 18 dates it. `on` is a query because "what was in force
     # in March" is a question asked each time, not a property of the row.

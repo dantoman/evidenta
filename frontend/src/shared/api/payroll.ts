@@ -74,6 +74,7 @@ export interface Contract {
   base_salary: string
   weekly_hours: string
   cas_payer_point: string
+  budget_funded_employer: boolean
   amendments?: Amendment[]
 }
 
@@ -90,6 +91,7 @@ export interface NewContract {
   base_salary: string
   weekly_hours: string
   cas_payer_point: string
+  budget_funded_employer: boolean
 }
 
 export interface NewAmendment {
@@ -323,4 +325,102 @@ export function exemptionEffectiveDate(
   return request<{ filed_on: string; effective_from: string }>(
     `/api/v1/payroll/exemption-effective-date?filed_on=${filedOn}`,
   )
+}
+
+/**
+ * The monthly run -- calculate, read the register, approve, take a payslip.
+ *
+ * **A line can have no amount**, and the screen shows the reason rather than a
+ * zero: a rate whose margin was never established applies on no date, and *a
+ * rate that is missing is not a rate of zero*. Approval is refused while any line
+ * is in that state, so nothing incomplete becomes a declared fact.
+ */
+
+export interface RunComponent {
+  component_key: string
+  nature: 'salary_accrual' | 'employer_charge' | 'employee_withholding'
+  amount: string | null
+  basis: string | null
+  rate: string | null
+  parameter_key: string | null
+  unresolved_reason: string | null
+}
+
+export interface RunLine {
+  employee_id: string
+  employee_name: string
+  contract_number: string
+  components: RunComponent[]
+  gross: string
+  withheld: string
+  employer_charges: string
+  net: string | null
+  complete: boolean
+}
+
+export interface PayrollRun {
+  id: string
+  year: number
+  month: number
+  accrual_date: string
+  status: 'draft' | 'approved'
+  lines?: RunLine[]
+  totals?: { gross: string; withheld: string; employer_charges: string; net: string }
+  unresolved?: number
+  complete?: boolean
+}
+
+export interface PayslipComponent {
+  component_key: string
+  label: string
+  nature: string
+  amount: string | null
+  amount_ro: string | null
+  basis_ro: string | null
+  rate: string | null
+  unresolved_reason: string | null
+}
+
+export interface Payslip {
+  title: string
+  period: string
+  accrual_date_ro: string
+  employee_name: string
+  idnp: string | null
+  position_title: string
+  contract_number: string
+  components: PayslipComponent[]
+  exemptions: { code: string; label: string; dependent_name: string | null }[]
+  gross_ro: string
+  withheld_ro: string
+  employer_charges_ro: string
+  net_ro: string | null
+  complete: boolean
+}
+
+export function listRuns(companyId: string): Promise<PayrollRun[]> {
+  return request<PayrollRun[]>(`${base(companyId)}/runs`)
+}
+
+export function createRun(
+  companyId: string,
+  body: { year: number; month: number; accrual_date: string },
+): Promise<PayrollRun> {
+  return request<PayrollRun>(`${base(companyId)}/runs`, { method: 'POST', body })
+}
+
+export function getRun(runId: string): Promise<PayrollRun> {
+  return request<PayrollRun>(`/api/v1/payroll/runs/${runId}`)
+}
+
+export function recomputeRun(runId: string): Promise<PayrollRun> {
+  return request<PayrollRun>(`/api/v1/payroll/runs/${runId}/recomputation`, { method: 'POST' })
+}
+
+export function approveRun(runId: string): Promise<PayrollRun> {
+  return request<PayrollRun>(`/api/v1/payroll/runs/${runId}/approval`, { method: 'POST' })
+}
+
+export function getPayslip(runId: string, employeeId: string): Promise<Payslip> {
+  return request<Payslip>(`/api/v1/payroll/runs/${runId}/payslips/${employeeId}`)
 }

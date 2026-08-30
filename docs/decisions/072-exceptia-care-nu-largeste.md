@@ -13,6 +13,10 @@
 - **Legate:** [ADR-003](003-rls-tenancy-tables.md), [ADR-020](020-roluri-ca-date.md),
   [ADR-049](049-rolul-de-date-de-referinta.md), [ADR-071](071-tipurile-de-raport-ca-tabela.md)
 
+> **REZERVĂ NEATINSĂ (`OD-106`):** ADR-071 §7.1 poartă o rezervă asupra **cardinalităţii domeniului
+> unui invariant**. Acest ADR se sprijină pe ADR-071 doar ca pe **exemplul** de intrare care nu lărgeşte
+> accesul (§4); nu foloseşte nimic din legarea invariantului.
+
 ## 1. Ce se schimbă, exact
 
 `R1` spunea: **modificarea `infra/rls/exceptions.toml` este ADR.** Fără distincție.

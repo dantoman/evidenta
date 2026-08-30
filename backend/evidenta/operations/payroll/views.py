@@ -44,10 +44,18 @@ from evidenta.operations.payroll.services.exemptions import (
     month_after,
     withdraw,
 )
+from evidenta.operations.payroll.services.payslip import payslip, render_text
 from evidenta.operations.payroll.services.people import (
     create_employee,
     employee_in_context,
     employees_of,
+)
+from evidenta.operations.payroll.services.runs import (
+    approve,
+    create_run,
+    recompute,
+    run_in_context,
+    runs_of,
 )
 from evidenta.operations.payroll.services.timesheets import (
     close_month,
@@ -88,6 +96,10 @@ class ContractSerializer(serializers.Serializer[dict[str, Any]]):
     base_salary = serializers.DecimalField(max_digits=18, decimal_places=4)
     weekly_hours = serializers.DecimalField(max_digits=5, decimal_places=2)
     cas_payer_point = serializers.ChoiceField(choices=list(EMPLOYER_CAS_POINTS))
+    #: Which of point 1.1's two rates applies -- 29% budgetary against 24%
+    #: private. Required, with no default: a boolean defaulting to `false` would
+    #: quietly charge every budget-funded employer the private rate.
+    budget_funded_employer = serializers.BooleanField()
 
 
 class AmendmentSerializer(serializers.Serializer[dict[str, Any]]):
@@ -230,6 +242,7 @@ class ContractListView(APIView):
             base_salary=data["base_salary"],
             weekly_hours=data["weekly_hours"],
             cas_payer_point=data["cas_payer_point"],
+            budget_funded_employer=data["budget_funded_employer"],
         )
         return Response(as_dict(contract), status=201)
 
@@ -452,6 +465,76 @@ class ExemptionEffectiveDateView(APIView):
         except ValueError as exc:
             raise ClauseDateRequiredError(f"{raw!r} is not a date") from exc
         return Response({"filed_on": str(filed_on), "effective_from": str(month_after(filed_on))})
+
+
+class RunSerializer(serializers.Serializer[dict[str, Any]]):
+    """The run. **Two dates, and the second is not derived from the first.**
+
+    `accrual_date` is asked for because art. 20 para (5) charges contributions on
+    salaries *calculated*: a March salary calculated in June accrues in June, and
+    a default of "the end of the work period" would be right exactly as long as
+    nothing is ever paid late.
+    """
+
+    year = serializers.IntegerField(min_value=2000, max_value=2100)
+    month = serializers.IntegerField(min_value=1, max_value=12)
+    accrual_date = serializers.DateField()
+
+
+class PayrollRunListView(APIView):
+    def get(self, request: Request, company_id: uuid.UUID) -> Response:
+        return Response(runs_of(company_id))
+
+    def post(self, request: Request, company_id: uuid.UUID) -> Response:
+        context = _context()
+        payload = RunSerializer(data=request.data)
+        payload.is_valid(raise_exception=True)
+        data = dict(payload.validated_data)
+        run = create_run(
+            tenant_id=context.tenant_id,
+            company_id=company_id,
+            year=data["year"],
+            month=data["month"],
+            accrual_date=data["accrual_date"],
+        )
+        return Response(run_in_context(run.id), status=201)
+
+
+class PayrollRunDetailView(APIView):
+    def get(self, request: Request, run_id: uuid.UUID) -> Response:
+        return Response(run_in_context(run_id))
+
+
+class PayrollRunRecomputeView(APIView):
+    def post(self, request: Request, run_id: uuid.UUID) -> Response:
+        return Response(recompute(run_id=run_id))
+
+
+class PayrollRunApprovalView(APIView):
+    """Approval, refused while any line has no amount.
+
+    The approver is the context's user, never a parameter: an approval whose
+    author the caller chooses records whatever the caller prefers -- the same rule
+    the audit trail already enforces.
+    """
+
+    def post(self, request: Request, run_id: uuid.UUID) -> Response:
+        context = _context()
+        return Response(approve(run_id=run_id, approver_user_id=context.user_id))
+
+
+class PayslipView(APIView):
+    """One payslip. `format=text` returns the Romanian rendering, not JSON.
+
+    Both come from the same values and the same source (`C20`), so the text
+    handed to an employee cannot diverge from the register the accountant reads.
+    """
+
+    def get(self, request: Request, run_id: uuid.UUID, employee_id: uuid.UUID) -> Response:
+        slip = payslip(run_id=run_id, employee_id=employee_id)
+        if request.query_params.get("format") == "text":
+            return Response(render_text(slip), content_type="text/plain; charset=utf-8")
+        return Response(slip)
 
 
 class RelationshipTypeListView(APIView):

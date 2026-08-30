@@ -64,6 +64,9 @@ export function TimesheetScreen() {
           <Link to={`/companii/${companyId}/contracte`} className="text-sm text-accent">
             {t.payroll.contracts}
           </Link>
+          <Link to={`/companii/${companyId}/salarii`} className="text-sm text-accent">
+            {t.payroll.runs}
+          </Link>
         </div>
       </header>
 

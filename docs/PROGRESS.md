@@ -293,9 +293,41 @@ civile — de decis la pasul 8), `OD-103` (testul de plan de execuție care cade
 cerea refuzul ștergerii a trecut prin el fără să clipească. A doua oară în aceeași sesiune când un
 `GRANT` incomplet arată ca o interdicție.
 
-**Unde s-a oprit.** Pașii 1 și 2 sunt livrați și utilizabili, fiecare cu ecranul lui. Urmează
-**pasul 3** — calculul lunar, statul de plată, fluturașul. Ce nu s-a atins deliberat: **nicio sumă
-calculată** — pasul 3 le aduce, iar structurile lui sunt cele pe care le consumă IPC-ul de la pasul 4.
+**Pasul 3 livrat: calculul lunar, statul de plată, fluturașul.** `payroll_run` și `payroll_line`,
+motorul, documentul, ecranul.
+
+- **Constatarea proprietarului, consemnată înainte de a fi folosită, apoi folosită** (`OD-106`,
+  ADR-071 §7.1): **domeniul unui invariant e o mulțime, nu un tip.** Art. 22 prinde `employment_contract`
+  **și** `service_relationship`, nu unul. O cheie străină unică nu poate spune „X și Y", iar scrisă așa,
+  un tip ar fi scăpat tăcut. Închisă în aceeași zi de consumatorul ei: `calculation_invariant_domain`,
+  un rând per tip, citită ca mulțime. **Testul care o dovedește:** cu brutul sub minim, primele două se
+  încarcă pe minim, contractul civil pe brut.
+- **Suma poate fi nulă, și e proiectare, nu gol.** Cele 22 de valori încărcate n-au margine (`C1(a)`),
+  deci nu se rezolvă la nicio dată — iar răspunsul onest e **linia care există, n-are sumă și spune de
+  ce**, nu zero și nu un refuz care ascunde ce s-a calculat. Regula 1 a metodei, aplicată exact acolo
+  unde contează. **Aprobarea refuză** cât timp există o linie nerezolvată: acolo se oprește
+  incompletitudinea.
+- **Metoda cumulativă, nu aproximarea lunară** (HG 697/2014 pct. 38): venit cumulat, scutiri cumulate
+  citite **lună cu lună** (pct. 18 le face istorie), impozit cumulat minus cât s-a reținut deja. Plus
+  cumulativele de deschidere, prin serviciu public nou în `accounting.opening` — o punere în funcțiune
+  la mijloc de an ar fi acordat scutirile anului a doua oară, aritmetic consistent și greșit.
+- **Fluturașul e primul document legal generat**, deci momentul în care precondiția `C38` devine vie.
+  Textul lui stă pe server, în română, **nu** în fișierul de resurse: `C32` face interfața traductibilă,
+  `C33` interzice ca o traducere să ajungă pe un document. **Testul pe care gardianul de limbă îl ceruse
+  în docstring-ul lui** — randează cu `ru` activ, cere ieșire românească — e scris acum: `martie 2026`,
+  `10000,00`, cu `ru` activat.
+- **`budget_funded_employer` pe contract** (`OD-107`): pct. 1.1 împarte 29% bugetar / 24% privat, iar
+  sectorul nu e categoria. Fără implicit — un boolean căzut pe `false` ar fi aplicat cota privată
+  oricărui angajator bugetar, echilibrat.
+
+**Unde s-a oprit.** Trei pași livrați, patru ecrane, poarta verde la fiecare. Urmează **pasul 4** —
+IPC lunar: registrul de sume raportabile există deja ca `payroll_line` (per persoană, per tip, cu cele
+două date), iar ce lipsește e structura declarației, care e `C4` din lista de deblocare — parțial, deci
+se construiește registrul și se așteaptă textul pentru formular.
+
+**Ce nu s-a atins deliberat:** **postarea**. Rularea produce sume; transformarea lor în linii de jurnal
+trece prin evenimente contabile (`R9`) și cere rolurile de cont din ADR-065 §7. E livrabil propriu, nu
+o coadă a acestuia.
 
 
 **2026-08-30 — răspunsul proprietarului la cele opt întrebări ale F2; F2 pornită. Nicio linie de cod

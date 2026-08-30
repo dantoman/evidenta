@@ -105,6 +105,14 @@ reason = "Istoricul încrederii în sursă: când o valoare a trecut de la dedus
 source = "ADR-046"
 
 [[table]]
+name = "calculation_invariant_domain"
+tenant_column = false
+policy_shape = "global_read_only"
+writer_role = "evidenta_owner"
+reason = "Unde se aplică un invariant de calcul: un rând per tip de raport acoperit. Domeniul e o MULȚIME, iar o cheie străină unică n-o poate exprima (ADR-071 §7.1, OD-106). Global din același motiv ca vocabularul pe care îl referă — distincția e a legii, aceeași pentru toți tenanții unei jurisdicții — și însămânțat din migrarea care îl definește. Excepția se oprește aici: rezultatele calculului sunt tenant-scoped, nu moștenesc nimic din rândul acesta."
+source = "ADR-071 §7.1; regimul intrării — ADR-072 §2, clasa (b)"
+
+[[table]]
 name = "employment_relationship_type"
 tenant_column = false
 policy_shape = "global_read_only"

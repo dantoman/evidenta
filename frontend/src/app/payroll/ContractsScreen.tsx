@@ -178,6 +178,9 @@ function NewContractForm({
   const [salary, setSalary] = useState('')
   const [hours, setHours] = useState('40')
   const [casPoint, setCasPoint] = useState('1.1')
+  // No default that could be wrong silently: 29% budgetary against 24% private
+  // is chosen by this box, and the server refuses the payload without it.
+  const [budgetFunded, setBudgetFunded] = useState(false)
 
   const create = useMutation({
     mutationFn: () =>
@@ -193,6 +196,7 @@ function NewContractForm({
         base_salary: salary,
         weekly_hours: hours,
         cas_payer_point: casPoint,
+        budget_funded_employer: budgetFunded,
       }),
     onSuccess: onCreated,
   })
@@ -337,6 +341,15 @@ function NewContractForm({
             </option>
           ))}
         </select>
+      </label>
+
+      <label className="flex items-center gap-2 text-sm" title={t.payroll.budgetFundedHint}>
+        <input
+          type="checkbox"
+          checked={budgetFunded}
+          onChange={(event) => setBudgetFunded(event.target.checked)}
+        />
+        <span className="text-ink-muted">{t.payroll.budgetFunded}</span>
       </label>
 
       <button type="submit" disabled={!complete || create.isPending} className={BUTTON}>
