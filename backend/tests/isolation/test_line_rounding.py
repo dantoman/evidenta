@@ -65,10 +65,15 @@ def source(seed: Callable[..., None]) -> uuid.UUID:
 
 def scale(seed: Callable[..., None], world: dict[str, uuid.UUID], key: str, value: int) -> None:
     seed(
+        # The margin carries what establishes it (`OD-92`). These two keys are
+        # platform conventions, so the basis is the decision that made them --
+        # ADR-037 -- not an act. Claiming an act here would be the same
+        # fabrication the constraint exists to prevent, from the other side.
         "INSERT INTO fiscal_parameter (id, parameter_key, scope, value_type, value,"
-        " valid_from, source_id, status, approved_by_user_id, approved_at,"
-        " source_confidence, created_at, updated_at)"
-        " VALUES (%s, %s, 'global', 'integer', %s::jsonb, DATE '2020-01-01', %s,"
+        " valid_from, margin_basis, margin_reference, source_id, status,"
+        " approved_by_user_id, approved_at, source_confidence, created_at, updated_at)"
+        " VALUES (%s, %s, 'global', 'integer', %s::jsonb, DATE '2020-01-01',"
+        " 'platform_convention', 'ADR-037 §3.2', %s,"
         " 'active', %s, now(), 'confirmed', now(), now())",
         [uuid.uuid4(), key, str(value), SOURCE_ID, world["user_a"]],
     )

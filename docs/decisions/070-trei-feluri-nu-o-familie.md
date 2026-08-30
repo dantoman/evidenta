@@ -133,6 +133,26 @@ mecanismul lui.
 se extinde cu o a patra categorie. Consemnată aici ca predicţie datată, 2026-08-30, exact ca să aibă
 ce infirma.
 
+### 8.1 Patru instanţe în aceeaşi zi, **niciuna căutată**, câte una pe fiecare categorie
+
+| Instanţa | Categoria | Cum a fost găsită |
+|---|---|---|
+| Clauza de excludere de la pct. 1.9 **există** — demonstraţia sesiunii era falsă | **comparaţie nefăcută** | căutând tabelul de cote |
+| Formularul IALS21 şi instrucţiunile lui definesc **nouă din şaisprezece** coloane diferit | **întrebare nepusă** | căutând valorile lui `P` |
+| Backfill-ul a parcurs zero rânduri şi **a raportat succes** | **operand lipsă** | rulând migrarea |
+| Un act citat care nu e nici pe lista celor obţinute, nici pe a celor neobţinute | **întrebare nepusă** | citind |
+
+**Fiecare dintre cele trei categorii a primit o instanţă independentă, într-o singură zi, şi niciuna
+n-a fost căutată.** Prima confirmare a predicţiei era slabă — o găsisem în timp ce scriam predicţia,
+deci o căutam. Acestea nu.
+
+### 8.2 Ce ar infirma-o de aici înainte, scris ca să fie recunoscut
+
+> **Un defect consistent cu tot ce verificăm, în care ambii operanzi EXISTĂ, întrebarea E pusă,
+> comparaţia E făcută — şi tot trece.**
+
+Dacă apare, reformularea e **greşită, nu incompletă**.
+
 ## 8bis. Testul de enumerare, rulat — şi ce a găsit în loc
 
 Proprietarul a cerut, înainte de orice renumerotare: **enumeră membrii fiecărei familii; dacă

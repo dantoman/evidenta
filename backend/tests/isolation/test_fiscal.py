@@ -104,11 +104,16 @@ def _param(
         provisional_reason = "test: inferred, reason supplied so the check passes"
     seed(
         """
+        -- `OD-92`: a present margin says what establishes it. These fixtures use
+        -- a synthetic act, so they cite it rather than leaving the margin bare.
         INSERT INTO fiscal_parameter
             (id, parameter_key, scope, scope_ref, value_type, value, valid_from,
+             margin_basis, margin_reference,
              valid_to, source_id, status, approved_by_user_id, approved_at,
              source_confidence, provisional_reason, created_at, updated_at)
-        VALUES (%s, %s, %s, %s, %s, %s::jsonb, %s, %s, %s, %s, %s, now(), %s, %s,
+        VALUES (%s, %s, %s, %s, %s, %s::jsonb, %s,
+                'platform_convention', 'fixture — act sintetic, fără MO',
+                %s, %s, %s, %s, now(), %s, %s,
                 now(), now())
         """,
         [
@@ -429,6 +434,8 @@ def test_a_tenant_cannot_write_a_fiscal_parameter(
             value_type=ValueType.INTEGER,
             value=1,
             valid_from=date(2020, 1, 1),
+            margin_basis="platform_convention",
+            margin_reference="fixture — act sintetic, fără MO",
             source_id=SOURCE_ID,
         )
 

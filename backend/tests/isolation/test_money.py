@@ -91,11 +91,14 @@ def probe_rule(seed: Callable[..., None]) -> Iterator[None]:
         [source_id],
     )
     seed(
+        # `OD-92`: a margin says what establishes it. This key is a platform
+        # convention (ADR-037), so the basis is the decision, not an act.
         "INSERT INTO fiscal_parameter (id, parameter_key, scope, value_type, value,"
-        " valid_from, source_id, status, approved_by_user_id, approved_at,"
-        " source_confidence, created_at, updated_at)"
+        " valid_from, margin_basis, margin_reference, source_id, status,"
+        " approved_by_user_id, approved_at, source_confidence, created_at, updated_at)"
         " VALUES (%s, 'accounting.amount_scale', 'global', 'integer', '2'::jsonb,"
-        " DATE '2000-01-01', %s, 'active', %s, now(), 'confirmed', now(), now())",
+        " DATE '2000-01-01', 'platform_convention', 'ADR-037 §3.2', %s,"
+        " 'active', %s, now(), 'confirmed', now(), now())",
         [uuid.uuid4(), source_id, APPROVER],
     )
     seed(

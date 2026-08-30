@@ -341,10 +341,14 @@ def test_a_catalogue_line_takes_the_legal_name_and_the_rate_of_the_day(
         ("18", "2026-02-01", None),
     ):
         seed(
+            # `OD-92`: a VAT rate's margin comes from an act's final article. The
+            # fixture cites the synthetic source it seeded rather than leaving the
+            # margin unsourced, which the constraint would refuse.
             "INSERT INTO fiscal_parameter (id, parameter_key, scope, value_type, value,"
-            " valid_from, valid_to, source_id, status, approved_by_user_id, approved_at,"
-            " source_confidence, created_at, updated_at)"
-            " VALUES (%s, 'vat.rate.standard', 'global', 'percentage', %s::jsonb, %s, %s,"
+            " valid_from, margin_basis, margin_reference, valid_to, source_id, status,"
+            " approved_by_user_id, approved_at, source_confidence, created_at, updated_at)"
+            " VALUES (%s, 'vat.rate.standard', 'global', 'percentage', %s::jsonb, %s,"
+            " 'platform_convention', 'fixture — act sintetic, fără MO', %s,"
             " %s, 'active', %s, now(), 'confirmed', now(), now())",
             [uuid.uuid4(), value, valid_from, valid_to, source_id, world["user_a"]],
         )

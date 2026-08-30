@@ -58,6 +58,8 @@ act = "omf-118-2017"
 value_type = "integer"
 value = 2
 valid_from = 2017-10-28
+margin_basis = "platform_convention"
+margin_reference = "ADR-037 §3.2 — convenție de platformă, aprobată de proprietar"
 confidence = "provisional"
 provisional_reason = "Formularul (OMF 118/2017, anexa nr. 1) și Instrucțiunea (anexa nr. 2) tac asupra zecimalelor — V1 citită 2026-08-29. Convenție de platformă, NU prescripție legală (ADR-037 §3.2, §6.2 B), aprobată de proprietar la 2026-08-29. Dacă apare o instrucțiune care o contrazice, se schimbă parametrul, nu structura."
 
@@ -67,6 +69,8 @@ act = "omf-118-2017"
 value_type = "integer"
 value = 4
 valid_from = 2017-10-28
+margin_basis = "platform_convention"
+margin_reference = "ADR-037 §3.2 — convenție de platformă, aprobată de proprietar"
 confidence = "provisional"
 provisional_reason = "Formularul (OMF 118/2017, anexa nr. 1) și Instrucțiunea (anexa nr. 2) tac asupra zecimalelor — V1 citită 2026-08-29. Convenție de platformă, NU prescripție legală (ADR-037 §3.2, §6.2 B), aprobată de proprietar la 2026-08-29. Dacă apare o instrucțiune care o contrazice, se schimbă parametrul, nu structura."
 

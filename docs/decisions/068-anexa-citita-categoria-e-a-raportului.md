@@ -112,9 +112,20 @@ corpus, **nu parametru** (`R15`). Parametru e doar salariul minim pe ţară, car
 
 ## 6. Anexa nr. 3 — nomenclator închis, încărcabil ca date
 
-**43 de poziţii** de drepturi şi venituri aferent cărora **nu se calculează CAS**, cu text complet şi
-cu trimiteri la actele care le stabilesc. E `R15` curat: listă închisă, versionabilă, cu act pe fiecare
-poziţie. → `F2.X1`.
+Drepturi şi venituri aferent cărora **nu se calculează CAS**, cu text complet şi cu trimiteri la
+actele care le stabilesc. E `R15` curat: listă închisă, versionabilă, cu act pe fiecare poziţie.
+→ `F2.X1`.
+
+> ## ⚠ CORECTAT 2026-08-30: „43 de poziţii" era greşit ca descriere
+>
+> Identificatorii reali sunt **1, 2, 2¹, 3, 4, …, 38, 40, 41, 42, 43, plus 10¹** — **poziţia 39
+> lipseşte**, iar două poziţii poartă exponent.
+>
+> **Cine încarcă „1–43" fabrică un 39 inexistent şi pierde doi exponenţi.** Coloana de identificator
+> e **TEXT, nu întreg**.
+>
+> **Cifra 43 era un număr de rânduri produs de o numărare, prezentat ca proprietate a documentului** —
+> exact forma pe care o vânăm de o zi, produsă de mine în timp ce o descriam.
 
 ## 7. Ce **nu** e utilizabil din versiunea 2020, şi de ce
 
@@ -141,15 +152,25 @@ date. Ce e demonstrabil greşit e coloana de valabilitate a rândului din cercet
 
 ## 8. Fapt de metodă, cu dovadă directă
 
-**LP318/2025 modifică la pct. 1.9 textul „pct. 1.1–1.8" în „pct. 1.1–1.7".** În versiunea 2020, pct.
-1.9 **nu conţine nicio clauză de excludere**.
+> ## ⚠ RETRAS 2026-08-30, în aceeaşi zi. Demonstraţia era falsă.
+>
+> Acest paragraf afirma: *„LP318/2025 modifică la pct. 1.9 «pct. 1.1–1.8» în «pct. 1.1–1.7», iar în
+> versiunea 2020 pct. 1.9 nu conţine nicio clauză de excludere — deci există o redacţie intermediară
+> pe care n-o avem."*
+>
+> **Clauza există.** Anexa deschisă integral o dă verbatim, şi citeşte exact *„pct. 1.1–1.8"*. LP318
+> art. II pct. 3 o confirmă independent: ca să substitui text **în interiorul** poziţiei 1.9, poziţia
+> trebuie să aibă text. Nu exista nicio redacţie intermediară de dedus.
+>
+> **Regula per-redacţie rămâne în picioare** — stă pe verificările din §8.1 şi §8.2, confirmate
+> empiric de două ori (nota de mai jos). **Ce cade e demonstraţia**, iar o regulă cu exemplul retras
+> nu se lasă cu exemplul retras tăcut.
 
-> **Deci există cel puţin o redacţie intermediară care a adăugat-o, şi noi nu o avem.**
-
-Aceasta e demonstraţia directă a constatării că **un `doc_id` e o redacţie, nu un consolidat cu
-istoric**: două redacţii ale aceluiaşi punct pot fi amândouă „textul anexei", iar diferenţa dintre ele
-nu e vizibilă din niciuna. **Consemnată cu exemplul, nu doar ca regulă** — o regulă fără caz se
-citeşte ca precauţie.
+**Mecanismul probabil, şi e formă nouă pentru taxonomia „nimic nu strigă": conţinut citit printr-un
+convertor cu pierderi, tratat ca documentul.** Clauza stă la coada unei celule de tabel — exact ce
+taie un extractor de text. **Aceeaşi familie cu `git commit -- <căi> ia din arborele de lucru, nu din
+index**: o proprietate a **uneltei**, atribuită **sursei**. Şi e mai perfidă decât aceea, fiindcă
+unealta a returnat un document plauzibil şi complet la citire.
 
 Consecinţa practică: *„am obţinut anexa"* nu înseamnă *„ştim ce spune azi"*.
 
@@ -159,6 +180,16 @@ Consecinţa practică: *„am obţinut anexa"* nu înseamnă *„ştim ce spune 
 unei redacţii e forma în vigoare la acea redacţie, iar ce nu se poate cumula sunt notele editoriale
 care spun *ce act a schimbat ce*. Fără această precondiţie, citirea pragului de 70% din corpul legii
 n-ar fi fost legitimă — ar fi fost o presupunere că textul e la zi.
+
+**Confirmată empiric, de două ori independent** (2026-08-30, proprietarul):
+
+1. **Anexa nr. 3 la Legea nr. 489/1999, în redacţia LP318, conţine pct. 10¹** — introdus de
+   LP187/2025 — **deşi chenarele marchează doar LP318**. Textul cumulează; chenarul nu.
+2. **Ordinul Ministerului Finanţelor nr. 103/2024 a dispărut din antetul redacţiei 154297**, deşi
+   efectele lui sunt în text.
+
+Deci chenarul e o **notă despre ultima modificare**, nu un istoric — iar cine îl citeşte ca istoric
+conchide că o modificare anterioară nu s-a aplicat.
 
 ### 8.2 A doua dovadă, mai tare decât prima
 

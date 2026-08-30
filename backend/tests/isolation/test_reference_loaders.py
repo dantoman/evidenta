@@ -127,6 +127,8 @@ act = "test-act"
 value_type = "integer"
 value = {value}
 valid_from = 2000-01-01
+margin_basis = "act"
+margin_reference = "art. 1 — clauza de intrare în vigoare"
 confidence = "provisional"
 provisional_reason = "test: fictitious"
 

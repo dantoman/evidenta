@@ -20,7 +20,9 @@
 > |---|---|---|---|
 > | Codul muncii | `lex.justice.md/md/326757/` — predecesorul lui `legis.md`, oprit din actualizare | **LP19 din 11.03.2019** (MO 94-99/15.03.19) | Wayback, captura **15.01.2020** (`web.archive.org/web/20200115084648/http://lex.justice.md/md/326757/`). Aceeași pagină tipărită la 21.11.2023 de Oficiul Avocatului Poporului (`ombudsman.md/wp-content/uploads/2023/11/codul-nr.-154.pdf`) are textul identic — confirmă că `lex.justice.md` nu s-a mai actualizat după 2019 |
 > | Legea 289/2004 | `lex.justice.md/md/313082/` | **LP310 din 30.11.2018** (în vigoare 01.07.2019) | Wayback, captura **31.12.2019** (`web.archive.org/web/20191231215837/http://lex.justice.md:80/md/313082/`) |
-> | HG 426/2004 | tipăritura paginii `legis.md` (doc_id 119783), versiunea **31.12.2019** | **HG685 din 27.12.2019** | copie găzduită de NATLEX/OIM (`natlex.ilo.org/dyn/natlex2/natlex2/files/download/68242/MDA-68242.pdf`) — **nu e sursă a RM**; antetul `legis.md` e vizibil în tipăritură. Numărul, data, titlul și legătura spre doc_id 119783 confirmate de `mf.gov.md` |
+> *Notă de citare, adăugată 2026-08-30:* actul modificator apare în chenarele transcrise verbatim mai jos ca `HG685`, fără separator — forma din original. Îl numim aici în forma citabilă, **HG nr. 685/2019**, ca inventarul să poată fi verificat mecanic (`tests/architecture/test_cited_acts_are_inventoried.py`); **citatele rămân neatinse**.
+
+| HG 426/2004 | tipăritura paginii `legis.md` (doc_id 119783), versiunea **31.12.2019** | **HG685 din 27.12.2019** | copie găzduită de NATLEX/OIM (`natlex.ilo.org/dyn/natlex2/natlex2/files/download/68242/MDA-68242.pdf`) — **nu e sursă a RM**; antetul `legis.md` e vizibil în tipăritură. Numărul, data, titlul și legătura spre doc_id 119783 confirmate de `mf.gov.md` |
 > | HG 108/2005 | copie consolidată, cu notele de modificare | **HG1221 din 12.12.2018** (în vigoare 01.01.2019) | găzduită de `usmf.md` (universitate de stat, **nu emitent**): `usmf.md/sites/default/files/2020-01/Hotărâre privind aprobarea Regulamentului (...).pdf` |
 >
 > **Verificarea „mai e așa în 2026?"** s-a făcut pe două căi: paginile proprii ale CNAS

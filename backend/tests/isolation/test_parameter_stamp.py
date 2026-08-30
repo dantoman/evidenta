@@ -84,18 +84,30 @@ def parameter(seed: Callable[..., None]) -> uuid.UUID:
         " '2026-01-01', now())",
         [source_id],
     )
+    act_id = uuid.uuid4()
+    seed(
+        "INSERT INTO normative_act (id, act_type, act_number, act_date, title,"
+        " created_at, updated_at) VALUES (%s, 'lege', 'FIXTURE-1', '2025-12-01',"
+        " 'Act sintetic pentru fixture', now(), now())",
+        [act_id],
+    )
     parameter_id = uuid.uuid4()
     seed(
+        # `OD-92`: the margin says what establishes it, and the act it names is
+        # the synthetic one seeded above. The *value* stays provisional -- the two
+        # are separate claims, which is the whole point of two columns.
         "INSERT INTO fiscal_parameter (id, parameter_key, scope, scope_ref, value_type,"
-        " value, unit, valid_from, valid_to, source_id, status, approved_by_user_id,"
+        " value, unit, valid_from, margin_basis, margin_act_id, margin_reference,"
+        " valid_to, source_id, status, approved_by_user_id,"
         " approved_at, source_confidence, provisional_reason, created_at, updated_at)"
         " VALUES (%s, %s, 'global', NULL, 'money', '1000'::jsonb, 'MDL', '2026-01-01',"
+        " 'act', %s, 'art. 1 — clauza de intrare în vigoare',"
         " NULL, %s, 'active', %s, now(), 'provisional',"
         " 'dedus din lista de modificari', now(), now())",
         # Active means a practising accountant approved it (`R15`); the constraint
         # says so, and a fixture that worked around it would be testing a state
         # the register cannot hold.
-        [parameter_id, KEY, source_id, uuid.uuid4()],
+        [parameter_id, KEY, act_id, source_id, uuid.uuid4()],
     )
     seed(
         "INSERT INTO fiscal_parameter_confidence_event (id, parameter_id, confidence,"

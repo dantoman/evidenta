@@ -76,7 +76,7 @@ key = "income_tax.rate_individual"
 act = "l-178-2018"
 value_type = "percentage"
 value = 12
-valid_from = 2018-10-01
+observed_in = "Valoarea apare în actul citat cu data 2018-10-01; articolul final care stabilește marginea nu a fost citit (OD-92). Data păstrată ca observație, nu ca margine."
 confidence = "provisional"
 provisional_reason = "Codul fiscal art. 15 lit. a) — 12%, cotă unică, fără tranșe, persoane fizice (od-22-impozitul-pe-venit.md §1). Citat din BGPF (SFS), nu din textul MO al Codului."
 
@@ -88,7 +88,7 @@ act = "l-214-2024"
 value_type = "money"
 value = 29700
 unit = "MDL"
-valid_from = 2025-01-01
+observed_in = "Valoarea apare în actul citat cu data 2025-01-01; articolul final care stabilește marginea nu a fost citit (OD-92). Data păstrată ca observație, nu ca margine."
 confidence = "provisional"
 provisional_reason = "Art. 33 alin. (1), cod P — 29 700 lei/an din 2025 (od-22-impozitul-pe-venit.md §2; 2025 confirmat verbatim de SFS). Pentru 2026 valoarea e DEDUSĂ din absența oricărei modificări în listele exhaustive SFS/MF — comunicatul SFS pentru 2026 nu există încă."
 
@@ -98,7 +98,7 @@ act = "l-214-2024"
 value_type = "money"
 value = 34620
 unit = "MDL"
-valid_from = 2025-01-01
+observed_in = "Valoarea apare în actul citat cu data 2025-01-01; articolul final care stabilește marginea nu a fost citit (OD-92). Data păstrată ca observație, nu ca margine."
 confidence = "provisional"
 provisional_reason = "Art. 33 alin. (2), cod M — 34 620 lei/an din 2025 (od-22-impozitul-pe-venit.md §2). Aceeași bază și aceeași deducere pentru 2026 ca `income_tax.exemption_personal`."
 
@@ -108,7 +108,7 @@ act = "l-214-2024"
 value_type = "money"
 value = 0
 unit = "MDL"
-valid_from = 2025-01-01
+observed_in = "Valoarea apare în actul citat cu data 2025-01-01; articolul final care stabilește marginea nu a fost citit (OD-92). Data păstrată ca observație, nu ca margine."
 confidence = "provisional"
 provisional_reason = "Art. 34 alin. (1), cod S — NU SE ACORDĂ (SFS o codifică `x`, od-22-impozitul-pe-venit.md §2). Rândul există cu valoarea 0 ca un motor să nu implementeze o scutire generală de soț/soție; HG 697/2014 pct. 11 încă trimite la alin. (1) — regulamentul a rămas în urma Codului (ADR-045). Actul care a eliminat-o nu e identificat; ancorat în L. 214/2024 ca restul scutirilor."
 
@@ -118,7 +118,7 @@ act = "l-214-2024"
 value_type = "money"
 value = 21780
 unit = "MDL"
-valid_from = 2025-01-01
+observed_in = "Valoarea apare în actul citat cu data 2025-01-01; articolul final care stabilește marginea nu a fost citit (OD-92). Data păstrată ca observație, nu ca margine."
 confidence = "provisional"
 provisional_reason = "Art. 34 alin. (2), cod Sm — 21 780 lei/an din 2025, condiționată de calitatea soțului/soției de persoană din categoriile art. 33 alin. (2) (od-22-impozitul-pe-venit.md §2)."
 
@@ -128,7 +128,7 @@ act = "l-214-2024"
 value_type = "money"
 value = 9900
 unit = "MDL"
-valid_from = 2025-01-01
+observed_in = "Valoarea apare în actul citat cu data 2025-01-01; articolul final care stabilește marginea nu a fost citit (OD-92). Data păstrată ca observație, nu ca margine."
 confidence = "provisional"
 provisional_reason = "Art. 35 alin. (1), cod N — 9 900 lei/an per persoană întreținută din 2025 (od-22-impozitul-pe-venit.md §2). Definiția persoanei întreținute și plafonul ei de venit — art. 35 alin. (2), procedură, nu cuantum."
 
@@ -138,7 +138,7 @@ act = "l-214-2024"
 value_type = "money"
 value = 21780
 unit = "MDL"
-valid_from = 2025-01-01
+observed_in = "Valoarea apare în actul citat cu data 2025-01-01; articolul final care stabilește marginea nu a fost citit (OD-92). Data păstrată ca observație, nu ca margine."
 confidence = "provisional"
 provisional_reason = "Art. 35 alin. (1), cod H — 21 780 lei/an per persoană întreținută cu dizabilități congenitale/din copilărie, severe sau accentuate, din 2025 (od-22-impozitul-pe-venit.md §2)."
 
@@ -148,6 +148,6 @@ act = "l-318-2025"
 value_type = "money"
 value = 360000
 unit = "MDL"
-valid_from = 2026-01-01
+observed_in = "Valoarea apare în actul citat cu data 2026-01-01; articolul final care stabilește marginea nu a fost citit (OD-92). Data păstrată ca observație, nu ca margine."
 confidence = "provisional"
 provisional_reason = "Plafonul de acces la scutirea personală și la cea majorată: venit anual impozabil sub 360 000 lei (od-22-impozitul-pe-venit.md §2). Plafonul PREEXISTĂ lui L. 318/2025, care doar îi schimbă modul de calcul din 2026 (§7); actul care l-a introdus nu e identificat, deci rândul e ancorat în ultimul act care îl atinge — INFERENȚĂ marcată."

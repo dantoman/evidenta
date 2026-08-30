@@ -238,7 +238,45 @@ class Command(BaseCommand):
                 )
             if "value" not in entry:
                 raise CommandError(f"parameter {key!r}: no `value`")
-            valid_from = _date(entry.get("valid_from"), f"parameter {key!r}")
+            # `OD-92`: the margin and the observation are two claims, and the
+            # loader keeps them apart. `valid_from` is a margin and may only be
+            # written with what establishes it; a value whose margin was never
+            # read carries `observed_in` instead and stays unresolvable, which is
+            # the honest state rather than a date nobody can check.
+            margin_act = None
+            margin_basis = entry.get("margin_basis")
+            margin_reference = entry.get("margin_reference")
+            observed_in = entry.get("observed_in")
+            valid_from = (
+                _date(entry["valid_from"], f"parameter {key!r}")
+                if entry.get("valid_from")
+                else None
+            )
+            if valid_from is not None:
+                if margin_basis not in ("act", "platform_convention"):
+                    raise CommandError(
+                        f"parameter {key!r}: a `valid_from` needs `margin_basis` "
+                        f"(`act` or `platform_convention`) -- OD-92"
+                    )
+                if not (margin_reference or "").strip():
+                    raise CommandError(
+                        f"parameter {key!r}: a `valid_from` needs `margin_reference`, "
+                        f"the article or the ADR that establishes it -- OD-92"
+                    )
+                if margin_basis == "act":
+                    margin_ref = entry.get("margin_act", act_ref)
+                    if margin_ref not in sources:
+                        raise CommandError(
+                            f"parameter {key!r}: `margin_act` {margin_ref!r} is not an "
+                            f"[[act]] in this file -- OD-92 wants the act whose final "
+                            f"article sets the margin, which need not be the act the "
+                            f"value was read in"
+                        )
+                    margin_act = sources[margin_ref].act
+            elif not (reason or "").strip():
+                raise CommandError(
+                    f"parameter {key!r}: without a `valid_from` the row states why -- OD-92"
+                )
             valid_to = (
                 _date(entry["valid_to"], f"parameter {key!r}") if entry.get("valid_to") else None
             )
@@ -253,6 +291,10 @@ class Command(BaseCommand):
                 "provisional_reason": reason
                 if confidence == SourceConfidence.PROVISIONAL
                 else None,
+                "margin_basis": margin_basis,
+                "margin_act": margin_act,
+                "margin_reference": margin_reference,
+                "observed_in": observed_in,
             }
             existing = (
                 FiscalParameter.objects.using(db)
@@ -282,13 +324,26 @@ class Command(BaseCommand):
             if not changed:
                 unchanged += 1
                 continue
-            if existing.status == ParameterStatus.ACTIVE and (
-                "value" in changed or "value_type" in changed or "unit" in changed
-            ):
+            # The provenance fields are in this list for the reason `OD-92` exists.
+            # A margin is defensible only if what establishes it can be read back
+            # unchanged; a citation edited in place after activation leaves the
+            # row claiming a source it no longer has, with no new row and no
+            # history to show the swap. Same argument as the value itself, and it
+            # was missed until `schema-reviewer` named it.
+            protected = {
+                "value",
+                "value_type",
+                "unit",
+                "margin_basis",
+                "margin_act",
+                "margin_reference",
+            }
+            if existing.status == ParameterStatus.ACTIVE and (protected & set(changed)):
+                touched = sorted(protected & set(changed))
                 raise CommandError(
-                    f"parameter {key!r} valid from {valid_from} is active with value "
-                    f"{existing.value!r}; the file says {entry['value']!r}. An active value is "
-                    f"not edited (R15): a new value is a new row with its own valid_from"
+                    f"parameter {key!r} valid from {valid_from} is active; the file changes "
+                    f"{touched}. An active value and the margin that dates it are not edited "
+                    f"(R15, OD-92): a new claim is a new row with its own valid_from"
                 )
             for name, value in changed.items():
                 setattr(existing, name, value)

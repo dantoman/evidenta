@@ -54,6 +54,20 @@ class ParameterStatus(models.TextChoices):
     SUPERSEDED = "superseded"
 
 
+class MarginBasis(models.TextChoices):
+    """What establishes a `valid_from` -- `OD-92`.
+
+    Two, because there are two honest ways a margin comes to exist and no third.
+    An act's final article is the ordinary one. A **platform convention** is the
+    other: where no act prescribes, the platform chooses and says so (ADR-037),
+    and that margin is sourced -- by a decision rather than by a law. Forcing a
+    convention to claim an act would be the same fabrication from the other side.
+    """
+
+    ACT = "act"
+    PLATFORM_CONVENTION = "platform_convention"
+
+
 class SourceConfidence(models.TextChoices):
     """How firmly the value is attached to its act -- orthogonal to status.
 
@@ -163,7 +177,45 @@ class FiscalParameter(models.Model):
     value = models.JSONField()
     unit = models.TextField(null=True, blank=True)
 
-    valid_from = models.DateField()
+    #: The **margin**, and it is nullable on purpose -- `OD-92`, ADR-070 section 3.
+    #: A margin is what an amending act's final article establishes; it is not
+    #: what a redaction shows. From "the value appears in redaction R" only
+    #: ``valid_from <= date(R) <= valid_to`` follows, so writing `date(R)` here
+    #: would be a fabricated margin: right as a value, invented as an interval,
+    #: and nothing would ever compare it to anything.
+    #:
+    #: **The prohibition is on a margin without a source, not on an absent
+    #: margin.** A row whose margin was never established has to remain writable,
+    #: or whoever needs it invents one -- which is the defect this exists to
+    #: prevent, produced by its own enforcement.
+    valid_from = models.DateField(null=True, blank=True)
+
+    #: What establishes the margin. **No default**, like `source_confidence` and
+    #: for the same reason: a default lets the row arrive without anyone deciding.
+    margin_basis = models.TextField(choices=MarginBasis.choices, null=True, blank=True)
+
+    #: The act whose final article sets the margin -- **not** ``act`` above, which
+    #: is where the *value* was read. They differ in the ordinary case: the 70%
+    #: agricultural threshold reads in the LP318 redaction while its margin sits
+    #: in LP187/2025's final article. One citation slot was never enough.
+    margin_act = models.ForeignKey(
+        "legislation.NormativeAct",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="fiscal_margins",
+        db_column="margin_act_id",
+    )
+
+    #: The article, point or clause that carries the margin -- or, for a platform
+    #: convention, the ADR that decided it. Free text because acts number their
+    #: divisions in a dozen ways and a parser would refuse valid citations.
+    margin_reference = models.TextField(null=True, blank=True)
+
+    #: The **observation**, kept apart from the margin and never collapsed into
+    #: it: "this value appears in redaction R". Knowing where a value was seen is
+    #: not knowing from when it applies.
+    observed_in = models.TextField(null=True, blank=True)
     valid_to = models.DateField(null=True, blank=True)
 
     source = models.ForeignKey(
@@ -202,9 +254,45 @@ class FiscalParameter(models.Model):
         db_table = "fiscal_parameter"
         constraints = [
             models.CheckConstraint(
-                condition=models.Q(valid_to__isnull=True)
+                condition=models.Q(valid_from__isnull=True)
+                | models.Q(valid_to__isnull=True)
                 | models.Q(valid_to__gt=models.F("valid_from")),
                 name="fiscal_parameter_period_valid",
+            ),
+            # `OD-92`, ADR-070 section 3. A margin that is present has to say what
+            # establishes it; a margin that is absent has to say why. The pair is
+            # the whole rule: forbidding the absent margin would make the rows
+            # whose margin was never established unwritable, and somebody would
+            # invent one -- the defect, produced by its own enforcement.
+            models.CheckConstraint(
+                condition=models.Q(valid_from__isnull=True)
+                | (
+                    models.Q(margin_basis=MarginBasis.ACT)
+                    & models.Q(margin_act__isnull=False)
+                    & ~models.Q(margin_reference="")
+                    & models.Q(margin_reference__isnull=False)
+                )
+                | (
+                    models.Q(margin_basis=MarginBasis.PLATFORM_CONVENTION)
+                    & ~models.Q(margin_reference="")
+                    & models.Q(margin_reference__isnull=False)
+                ),
+                name="fiscal_parameter_margin_is_sourced",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(valid_from__isnull=False)
+                | (~models.Q(provisional_reason__isnull=True) & ~models.Q(provisional_reason="")),
+                name="fiscal_parameter_absent_margin_has_reason",
+            ),
+            # A row whose margin is unknown cannot go live: the resolver filters
+            # on `valid_from <= date`, which a NULL never satisfies, and the
+            # `active` exclusion constraint builds a daterange from it -- a NULL
+            # there is an unbounded range that overlaps everything. Refusing at
+            # activation says so once instead of failing strangely twice.
+            models.CheckConstraint(
+                condition=~models.Q(status=ParameterStatus.ACTIVE)
+                | models.Q(valid_from__isnull=False),
+                name="fiscal_parameter_active_needs_margin",
             ),
             models.CheckConstraint(
                 condition=models.Q(scope__in=ParameterScope.values),
