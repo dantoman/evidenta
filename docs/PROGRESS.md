@@ -295,8 +295,46 @@ corecţii cu sursă, plus un fapt de metodă:
   Zilierii nu sunt o contradicţie — 6% e citit din Ordinul CNAS 31-A/2026, anexa 2020 dă taxă fixă, şi
   punctul s-a schimbat între timp. Rândul din cercetare care spunea „permanent" e corectat cu data.
 
+**Addendum de surse, aceeaşi zi: trei acte în text integral** — OMF nr. 95/2020 în **două redacţii**
+(OMF 103/17.09.2024 şi OMF 59/04.05.2026, în vigoare 08.05.2026) şi Legea nr. 489/1999 consolidată la
+LP318/29.12.2025, **în vigoare azi**. Nouă puncte, dintre care două ating sarcina curentă:
+
+- **[ADR-069](decisions/069-persoana-asigurata-nu-e-angajatul.md) — populaţia declaraţiei nominale nu
+  e mulţimea angajaţilor.** Prestatorul pe contract civil e persoană asigurată, cu cont personal, şi
+  apare **nominal** (art. 19 alin. (7) teza a doua, verbatim în ADR). Dacă declaraţia se construieşte
+  din angajaţi, **el e invizibil şi declaraţia se validează, incompletă** — nu o eroare la depunere, un
+  rând care lipseşte dintr-un răspuns corect la întrebarea greşită.
+- **Efectul opus, şi e cel periculos:** art. 22 spune „pentru fiecare **salariat**", deci invariantul
+  bazei minime **nu** se aplică pe contracte civile. ADR-068 §5 purtase cuvântul fără să spună unde se
+  opreşte. Aplicat orbeşte, umflă rândurile la salariul minim — **datorie reală mărită tăcut şi perfect
+  echilibrată**, deci `R11` trece şi niciun test de sold n-o vede. Test cerut la `F2.B2`.
+- **Corecţie la rândul de metodă pe care îl propusesem** (ADR-068 §8.4): *„fiecare valoare poartă data
+  redacţiei"* e greşit. **O redacţie dă un punct interior, nu o margine** — din „V apare în R" se
+  deduce doar `valid_from ≤ data(R) ≤ valid_to`. Un `valid_from` scris din data redacţiei e **margine
+  fabricată**, şi nimic n-o compară vreodată cu ceva. → `OD-92`, cu două câmpuri: observaţia şi
+  marginea.
+- **A doua dovadă pentru fapt de metodă, mai tare:** cele două redacţii IALS21 sunt **acelaşi act,
+  deţinute amândouă** — diferenţa **se arată**, nu se deduce.
+- **`OD-85` restrânsă a doua oară, şi mai mult:** pragul 70% (art. 17 alin. (3¹)) şi porţiunea 6% de la
+  buget (art. 17 alin. (3²)) recuperate din **corpul legii**, fără anexă; pct. 1.8 taxi **se închide**
+  pe două acte independente. **Ce lipseşte sunt MARGINILE, nu valorile.** Pasul care a mers 2/2: când
+  o anexă lipseşte, verifică dacă articolele o referenţiază cu valoare explicită.
+- **`OD-89`, a cincea apariţie, de altă formă:** primele patru sunt stare de **entitate**; IALS21 2026
+  e stare de **regulă în interiorul unei perioade** — o declaraţie, două regimuri, iar cheia nu e
+  perioada declaraţiei, e **data faptului generator al rândului**.
+- **Anexa nr. 3 iese din „neobţinut"** — 43 de poziţii, dar e ea însăşi listă cu redacţii (poz. 42, 43
+  sunt adăugiri). Fără margini, o poziţie lipsă **nu dă eroare, dă CAS pe un venit care trebuia
+  exclus**. → `F2.X1`.
+- **Zilierii:** varianta „nu sunt asiguraţi" **eliminată** (art. 4 lit. b¹), prin L22/2018, fără cotă);
+  conflictul taxă fixă vs 6% rămâne. Regulă fermă la `F2.C2`: coloanele 8–15 ale IALS21 pentru un rând
+  de zilier sunt **refuz la scriere, nu zero calculat**.
+- **`OD-81` capătă sprijin structural neinvocat:** coloana 5 din IALS21 e codul sursei de venit **per
+  rând**, iar antetul n-are categorie de plătitor. **Declaraţia n-a fost proiectată nici pe companie,
+  nici pe angajat** — ceea ce mută reformularea din *corecţie juridică* în **constrângere a ieşirii**.
+
 **Unde s-a oprit.** Niciun cod de modul. `F2.B1` poate începe: are entitatea, câmpurile, clasificarea,
-categoria pe raport şi testul pe lista negativă de excepţii la suspendare. Ce îi trebuie, în ordine: rolurile de
+categoria pe raport, populaţia largă a declaraţiei şi testele — inclusiv cel pe domeniul invariantului
+art. 22. Ce îi trebuie, în ordine: rolurile de
 cont pentru salarii din Planul general de conturi (`od-22-planul-de-conturi.md`,
 `od-23-nomenclatorul-planului-de-conturi.md`), asimetria CAS/CNAM din `od-22-cnas-cnam.md`, linia cu
 două date (ADR-039 §9, ADR-044 §6), și ADR-ul care fixează toate acestea **înaintea** codului.

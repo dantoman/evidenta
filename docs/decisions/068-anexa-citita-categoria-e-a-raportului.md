@@ -105,6 +105,11 @@ Distincţia contează pentru unde stă: e **logică fiscală** (`R16`), versiona
 corpus, **nu parametru** (`R15`). Parametru e doar salariul minim pe ţară, care se încarcă prin
 `F2.X1`.
 
+> **Domeniul, adăugat prin [ADR-069](069-persoana-asigurata-nu-e-angajatul.md) §3:** articolul spune
+> *„pentru fiecare **salariat**"*, iar acest paragraf a purtat cuvântul fără să spună unde se opreşte.
+> **Invariantul e al raportului de muncă, nu al oricărei baze CAS** — aplicat pe contracte civile
+> umflă datoria tăcut şi perfect echilibrat.
+
 ## 6. Anexa nr. 3 — nomenclator închis, încărcabil ca date
 
 **43 de poziţii** de drepturi şi venituri aferent cărora **nu se calculează CAS**, cu text complet şi
@@ -146,8 +151,51 @@ istoric**: două redacţii ale aceluiaşi punct pot fi amândouă „textul anex
 nu e vizibilă din niciuna. **Consemnată cu exemplul, nu doar ca regulă** — o regulă fără caz se
 citeşte ca precauţie.
 
-Consecinţa practică: *„am obţinut anexa"* nu înseamnă *„ştim ce spune azi"*. Fiecare valoare luată de
-acolo poartă data redacţiei, nu data citirii.
+Consecinţa practică: *„am obţinut anexa"* nu înseamnă *„ştim ce spune azi"*.
+
+### 8.1 Precondiţia, fără de care nimic din §2–§6 n-ar fi legitim
+
+**Textul unei redacţii e consolidat; doar chenarele sunt necumulative.** Adică ce se citeşte în corpul
+unei redacţii e forma în vigoare la acea redacţie, iar ce nu se poate cumula sunt notele editoriale
+care spun *ce act a schimbat ce*. Fără această precondiţie, citirea pragului de 70% din corpul legii
+n-ar fi fost legitimă — ar fi fost o presupunere că textul e la zi.
+
+### 8.2 A doua dovadă, mai tare decât prima
+
+Prima dovadă (pct. 1.9) arată că **există** redacţii intermediare pe care nu le avem — dedus dintr-o
+trimitere care nu se potriveşte.
+
+A doua o **arată**: cele două redacţii ale Ordinului MF nr. 95/2020 — OMF nr. 103/17.09.2024 şi OMF
+nr. 59/04.05.2026 — sunt **acelaşi act, şi le deţinem pe amândouă**. Diferenţa dintre ele nu se
+deduce, se citeşte. **Două redacţii ale aceluiaşi `doc_id` spun lucruri diferite despre aceeaşi
+obligaţie** — nu ipotetic, ci verificabil, cu ambele texte pe masă.
+
+### 8.3 Pasul care a mers de două ori din două
+
+**Când o anexă e neobţinută, verifică dacă articolele corpului o referenţiază cu valoare explicită.**
+Aici a funcţionat de două ori: pragul de 70% e în **art. 17 alin. (3¹)**, iar porţiunea de 6% de la
+bugetul de stat în **art. 17 alin. (3²)** — amândouă observate în corpul redacţiei în vigoare, fără
+anexă. Ce a rămas neobţinut e doar totalul de 24% şi împărţirea 18/6.
+
+> **Deci `OD-85` se restrânge mai mult decât „la valori": ce lipseşte sunt MARGINILE, nu valorile.**
+> Ştim ce spune, nu ştim din când.
+
+### 8.4 Corecţia care schimbă forma rândului de metodă
+
+Formularea propusă de sesiune la 2026-08-30 — *„fiecare valoare poartă data redacţiei"* — e **greşită
+în felul în care greşesc lucrurile plauzibile**. O redacţie dă un **punct interior**, nu o margine:
+
+> din *„V apare în redacţia R"* se deduce doar `valid_from ≤ data(R) ≤ valid_to`.
+
+**Un `valid_from` scris din data redacţiei e o margine fabricată** — corectă ca valoare, inventată ca
+interval, şi nimic n-o compară vreodată cu ceva.
+
+**Exemplul, pe pragul de 70%** (art. 17 alin. (3¹)): ştim că e adevărat în redacţia LP318; **nu** ştim
+că e valabil din 18.07.2025 — asta stă în articolul final al LP187/2025, necitit; iar
+`valid_from = 2026-07-01` ar fi **fals**, fiindcă valoarea precedă redacţia.
+
+**Regula corectă cere două câmpuri, nu unul** — observaţia şi marginea. Decizia asupra formei lor e
+`OD-92`.
 
 ## 9. Consecinţe
 

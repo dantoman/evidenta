@@ -378,7 +378,13 @@ pe date reale la primul pilot.
   (4) **categoria de plătitor CAS e a raportului, cu cea de pe companie ca implicit**
   ([ADR-068](../decisions/068-anexa-citita-categoria-e-a-raportului.md) §3) — nu din cazuri marginale,
   ci fiindcă un rezident de parc IT e simultan pct. 1.4 pentru salariaţi şi pct. 1.1 pentru
-  contractele civile.
+  contractele civile;
+  (5) **constructorul declaraţiei nominale se scrie peste o populaţie de raporturi asigurate, nu peste
+  tabela de angajaţi** ([ADR-069](../decisions/069-persoana-asigurata-nu-e-angajatul.md)): prestatorul
+  pe contract civil e persoană asigurată cu cont personal şi apare nominal (art. 19 alin. (7) teza a
+  doua), deci **„persoane asigurate" nu e submulţime a lui „angajaţi"**. Azi populaţia are un singur
+  membru; **interfaţa e cea largă**, fiindcă lărgirea unei interogări scrise pe `employee` nu e
+  extindere, e rescrierea fiecărui apelant.
 - **Depinde de:** F2.B0.
 - **Review:** `tenancy-guard`, `schema-reviewer`.
 - **Terminat:** izolarea (angajații companiei B invizibili din A, sub rolul aplicației — `T1`);
@@ -413,6 +419,11 @@ pe date reale la primul pilot.
   parţial, contribuţia nu poate fi sub **25%** din cea calculată la salariul minim. E **logică**
   (`R16`), versionată şi cu caz de corpus — **nu parametru**; parametru e doar salariul minim.
   *Un handler care înmulţeşte baza cu cota îl ratează, iar declaraţia iese sub minim.*
+  **Domeniu explicit ([ADR-069](../decisions/069-persoana-asigurata-nu-e-angajatul.md) §3): se aplică
+  raporturilor de muncă, NU contractelor civile** — art. 22 spune „pentru fiecare **salariat**".
+  Aplicat orbeşte pe orice bază CAS, umflă rândurile contractelor civile la salariul minim: datorie
+  reală mărită tăcut şi **perfect echilibrată**, deci `R11` trece şi niciun test de sold n-o vede.
+  **Test cerut:** o bază CAS de pe contract civil sub salariul minim rămâne sub el.
   **Şi cota împărţită de la pct. 1.5** — 24% evaluat, 18% suportat — cere `EmployerCharge` cu două
   sume (ADR-068 §4).
 - **Depinde de:** F2.B0, F2.X1, F1.10 (forma corpusului).
@@ -505,6 +516,11 @@ pe date reale la primul pilot.
   lunare și trimestriale, iar duratele de funcționare utilă (HG 941/2020, Catalogul) nu s-au obținut —
   „da" n-ar fi cumpărat o dată mai devreme. Formularele sunt acte publice (ordine SFS/MF) —
   cercetare, nu blocaj extern; **canalul de depunere** e `OD-75`. Termenele: parametri (ADR-039 §7.1).
+  **Regulă de formular, fermă, din redacţiile IALS21 obţinute (2026-08-30):** pentru un rând de
+  **zilier** se completează **doar coloanele 1, 2, 3, 5, 6, 7 şi 16**; redacţia din 08.05.2026 a
+  **şters** paragraful cu scutirea personală. **Coloanele 8–15 pentru un rând de zilier sunt REFUZ la
+  scriere, nu zero calculat** — un zero calculat arată ca o scutire acordată şi zero folosit, ceea ce
+  formularul nu mai prevede.
 - **Depinde de:** F2.B4, F2.A6, F2.X2.
 - **Review:** `fiscal-reviewer`.
 - **Terminat:** fiecare raport se generează sub contextul românesc din aceleași date ca înregistrările
@@ -637,7 +653,12 @@ pe date reale la primul pilot.
   **Din anexa nr. 1 la Legea nr. 489/1999, obţinută 2026-08-30
   ([ADR-068](../decisions/068-anexa-citita-categoria-e-a-raportului.md)): anexa nr. 3 — cele 43 de
   poziţii de drepturi şi venituri aferent cărora nu se calculează CAS**, nomenclator închis cu act pe
-  fiecare poziţie; şi **salariul minim lunar pe ţară**, de care atârnă invariantul art. 22 (`F2.B2`). **Nu se activează** aici: activarea e `activate_fiscal_parameters --approver`, actul proprietarului, ca la convenții. Parametrii nescalari (scutirile
+  fiecare poziţie; şi **salariul minim lunar pe ţară**, de care atârnă invariantul art. 22 (`F2.B2`).
+  **Atenţie: anexa nr. 3 e ea însăşi listă cu redacţii** — poziţiile 42 (2 500 lei/lună pentru
+  îngrijirea copiilor) şi 43 (funcţionari electorali) sunt adăugiri recente. **Fără margini, o poziţie
+  lipsă nu dă eroare — dă CAS calculat pe un venit care trebuia exclus**, adică o datorie reală mai
+  mare, echilibrată. Fiecare poziţie se încarcă cu actul ei şi cu `valid_from` din articolul final al
+  actului, nu din data redacţiei (`OD-92`). **Nu se activează** aici: activarea e `activate_fiscal_parameters --approver`, actul proprietarului, ca la convenții. Parametrii nescalari (scutirile
   pe categorii, tranșele) — `DNB-06` (forma lor) e **încă deschisă** în registru, deși F0.8.1 e livrată;
   prima grilă reală de aici o închide sau o dizolvă, cu ADR.
 - **Depinde de:** — *(date, nu modul: poate merge înainte de F1.10)*.
