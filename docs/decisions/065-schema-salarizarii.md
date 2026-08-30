@@ -86,9 +86,14 @@ salariale** după reţineri — verificat pe exemplul din §8.2.
 
 ## 3. Cota CAS nu e globală — dar nici pur a companiei
 
-> **REZERVĂ (`OD-85`):** anexa nr. 1 la Legea nr. 489/1999 **nu e citită**; procentele vin din Ordinul
-> CNAS nr. 31-A, act care o aplică. Propagată din [ADR-044](044-data-de-rezolutie.md) §6, **nu
-> închisă** — anexa tot n-a fost obţinută.
+> **REZERVĂ (`OD-85`) — restrânsă 2026-08-30 prin
+> [ADR-068](068-anexa-citita-categoria-e-a-raportului.md):** anexa nr. 1 la Legea nr. 489/1999 **a
+> fost obţinută**, în **versiunea 2020**. Maparea punctelor de mai jos e confirmată acum la sursă, nu
+> doar din actul de aplicare. Ce rămâne rezervat sunt **valorile curente pentru pct. 1.5, 1.8 şi
+> 1.9** — redacţia curentă a anexei e neobţinută.
+>
+> **Şi §3.1 de mai jos e depăşit:** ADR-068 §3 arată că **categoria e a raportului, nu a companiei**,
+> şi nu din cazuri marginale, ci din regimul normal al unui rezident de parc IT.
 >
 > **Provenienţa, restaurată.** Prima redactare scria „Anexa nr. 1 la Legea nr. 489/1999 o dă pe
 > categorie de plătitor", ca şi cum anexa ar fi fost citită. **Nu e.** Cercetarea o spune explicit la

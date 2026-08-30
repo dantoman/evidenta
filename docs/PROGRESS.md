@@ -267,8 +267,36 @@ cu tarifele, iar un gardian care sâcâie ajunge oprit.
   fiindcă ADR-067 avea altfel doar două ieşiri — să pretindă o rezervă pe care nu se sprijină, sau
   să-şi scoată cea mai puternică dependenţă din `Legate:`.
 
-**Unde s-a oprit.** Niciun cod de modul. `F2.B1` poate începe: are entitatea, câmpurile, clasificarea
-şi testul pe lista negativă de excepţii la suspendare. Ce îi trebuie, în ordine: rolurile de
+**Anexa nr. 1 la Legea nr. 489/1999 obţinută de proprietar (versiunea 2020, ataşată la LP257/2020) —
+[ADR-068](decisions/068-anexa-citita-categoria-e-a-raportului.md), amendament la ADR-065.** Cinci
+corecţii cu sursă, plus un fapt de metodă:
+
+- **Maparea punctelor e confirmată la sursă.** Corecţia din 2026-08-30 era bună; acum nu mai stă doar
+  pe actul de aplicare. Şi pct. 1.4 **e** în anexă — rezerva adăugată la `OD-81` se retrage.
+- **Constatarea decisivă: categoria de plătitor CAS e a raportului, nu a companiei.** Pct. 1.1 a doua
+  liniuţă include contractele civile ale rezidenţilor de parc IT, deci un rezident e **simultan** 1.4
+  şi 1.1. Nu e caz marginal ca aviaţia sau zilierii — e regimul normal. Afirmaţia din ADR-065 §3.1 nu
+  se susţine nici pentru profilul-ţintă; forma extinderii era deja scrisă acolo şi **se aplică acum**.
+- **`OD-81` reformulată, nu inversată:** refuzul de parc IT se mută **de pe companie pe raport**, ca să
+  nu blocheze contractele civile, care sunt obişnuite. Ce iese la iveală: CAS datorat pe o plată care
+  **nu e salariu**, fără casă în niciun modul → `OD-91`.
+- **Pct. 1.5 e o cotă împărţită, nu una diferită** — 24% evaluat, din care 18% suportat de angajator şi
+  6% de la buget. Măsurat: `EmployerCharge` **nu o poate exprima**, fiind definit cu o singură sumă;
+  primeşte două — evaluată şi suportată —, egale în cazul obişnuit.
+- **Art. 22 alin. (1) e invariant de calcul, nu parametru:** baza nu poate fi sub salariul minim,
+  proporţional timpului lucrat, iar la timp parţial contribuţia nu sub 25% din cea la salariul minim.
+  Un handler care înmulţeşte baza cu cota îl ratează.
+- **Anexa nr. 3** — 43 de poziţii fără CAS, nomenclator închis → `F2.X1`.
+- **Faptul de metodă, cu dovadă:** LP318/2025 schimbă la pct. 1.9 trimiterea „1.1–1.8" în „1.1–1.7",
+  iar versiunea 2020 n-are acolo nicio clauză de excludere — deci **există o redacţie intermediară pe
+  care n-o avem.** Demonstraţia directă că un `doc_id` e o **redacţie, nu un consolidat cu istoric**:
+  „am obţinut anexa" nu înseamnă „ştim ce spune azi".
+- **`OD-85` restrânsă la valori**, nu închisă: structura e confirmată, valorile pct. 1.5, 1.8 şi 1.9 nu.
+  Zilierii nu sunt o contradicţie — 6% e citit din Ordinul CNAS 31-A/2026, anexa 2020 dă taxă fixă, şi
+  punctul s-a schimbat între timp. Rândul din cercetare care spunea „permanent" e corectat cu data.
+
+**Unde s-a oprit.** Niciun cod de modul. `F2.B1` poate începe: are entitatea, câmpurile, clasificarea,
+categoria pe raport şi testul pe lista negativă de excepţii la suspendare. Ce îi trebuie, în ordine: rolurile de
 cont pentru salarii din Planul general de conturi (`od-22-planul-de-conturi.md`,
 `od-23-nomenclatorul-planului-de-conturi.md`), asimetria CAS/CNAM din `od-22-cnas-cnam.md`, linia cu
 două date (ADR-039 §9, ADR-044 §6), și ADR-ul care fixează toate acestea **înaintea** codului.

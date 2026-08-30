@@ -374,7 +374,11 @@ pe date reale la primul pilot.
   ordin"*, nu de la contract; excepția explicită e funcția cu pensie în condiții avantajoase, unde
   *„nu se întocmește ordinul"*;
   (3) **`payroll_line` are cheie primară `UUID` și îngheață la `approved`**, prin trigger pe tiparul
-  `rls.opening_balance_line_frozen` — `OD-87`, ambele obligatorii.
+  `rls.opening_balance_line_frozen` — `OD-87`, ambele obligatorii;
+  (4) **categoria de plătitor CAS e a raportului, cu cea de pe companie ca implicit**
+  ([ADR-068](../decisions/068-anexa-citita-categoria-e-a-raportului.md) §3) — nu din cazuri marginale,
+  ci fiindcă un rezident de parc IT e simultan pct. 1.4 pentru salariaţi şi pct. 1.1 pentru
+  contractele civile.
 - **Depinde de:** F2.B0.
 - **Review:** `tenancy-guard`, `schema-reviewer`.
 - **Terminat:** izolarea (angajații companiei B invizibili din A, sub rolul aplicației — `T1`);
@@ -403,6 +407,14 @@ pe date reale la primul pilot.
   cu parametrii din `F2.X1`. Rotunjirea per angajat și per contribuție: dacă actul prescrie, e a
   actului; dacă tace, e convenție `provisional` (metoda 6). Un caz de corpus per regulă înainte de a
   fi „gata".
+  **Invariantul art. 22 alin. (1), din anexa citită
+  ([ADR-068](../decisions/068-anexa-citita-categoria-e-a-raportului.md) §5):** baza lunară a fiecărui
+  salariat **nu poate fi sub salariul minim lunar pe ţară**, proporţional timpului lucrat; la timp
+  parţial, contribuţia nu poate fi sub **25%** din cea calculată la salariul minim. E **logică**
+  (`R16`), versionată şi cu caz de corpus — **nu parametru**; parametru e doar salariul minim.
+  *Un handler care înmulţeşte baza cu cota îl ratează, iar declaraţia iese sub minim.*
+  **Şi cota împărţită de la pct. 1.5** — 24% evaluat, 18% suportat — cere `EmployerCharge` cu două
+  sume (ADR-068 §4).
 - **Depinde de:** F2.B0, F2.X1, F1.10 (forma corpusului).
 - **Review:** `fiscal-reviewer`.
 - **Terminat:** cazurile din corpus trec; același angajat, aceeași lună, de două ori → același
@@ -621,7 +633,11 @@ pe date reale la primul pilot.
   115), CNAS/CNAM (`od-22-cnas-cnam.md` — anexa nr. 1 la Legea 489/1999, anexa nr. 1 la Legea
   1593/2002, salariul mediu prognozat), impozitul pe venit (`od-22-impozitul-pe-venit.md` — art. 15,
   33–35, 88), calendarul de raportare (ADR-039 §7.1), cu `provisional_reason` = *numerele MO ale
-  actelor modificatoare lipsesc* (`OD-22`). **Nu se activează** aici: activarea e `activate_fiscal_parameters --approver`, actul proprietarului, ca la convenții. Parametrii nescalari (scutirile
+  actelor modificatoare lipsesc* (`OD-22`).
+  **Din anexa nr. 1 la Legea nr. 489/1999, obţinută 2026-08-30
+  ([ADR-068](../decisions/068-anexa-citita-categoria-e-a-raportului.md)): anexa nr. 3 — cele 43 de
+  poziţii de drepturi şi venituri aferent cărora nu se calculează CAS**, nomenclator închis cu act pe
+  fiecare poziţie; şi **salariul minim lunar pe ţară**, de care atârnă invariantul art. 22 (`F2.B2`). **Nu se activează** aici: activarea e `activate_fiscal_parameters --approver`, actul proprietarului, ca la convenții. Parametrii nescalari (scutirile
   pe categorii, tranșele) — `DNB-06` (forma lor) e **încă deschisă** în registru, deși F0.8.1 e livrată;
   prima grilă reală de aici o închide sau o dizolvă, cu ADR.
 - **Depinde de:** — *(date, nu modul: poate merge înainte de F1.10)*.
@@ -749,8 +765,9 @@ lipsește e data de adoptare a unor legi, care se citește din fișier act cu ac
   **(b)** structura declarației TVA, boxele 1–24 — `F2.A6` nu are forma;
   **(c)** HG 941/2020, Catalogul duratelor de funcționare utilă — `OD-79`;
   **(d)** HG 704/2019 în text propriu, nu din proiectul ședinței de Guvern;
-  **(e)** **anexa nr. 1 la Legea nr. 489/1999** — deblochează `OD-85`, care e purtat ca rezervă de
-  ADR-044 și ADR-065;
+  **(e)** **redacţia curentă a anexei nr. 1 la Legea nr. 489/1999** — versiunea 2020 **a fost
+  obţinută** la 2026-08-30 (de proprietar, ataşată la LP257/2020), deci structura nu mai lipseşte;
+  ce rămâne sunt valorile pct. 1.5, 1.8 şi 1.9 (`OD-85`, restrânsă);
   **(f)** Ordinul MF nr. 33/2019, clauza proprie de intrare în vigoare — `OD-90`;
   **(g)** `legis.md` însuși, dacă a devenit accesibil.
 - **Depinde de:** — *(lectură; nu blochează nimic)*.
