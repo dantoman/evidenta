@@ -96,6 +96,31 @@ nu are ce fi citit.
 > *imposibil de greşit* — nu, niciunul. Sesiunea le confundase când a întrebat dacă familia e
 > mecanizabilă.
 
+### 4.1 Domeniul regulii de dovadă — lărgit, nu dublat
+
+Regula practicată până acum era *„dovedeşte că gardianul poate cădea"*. **Domeniul ei e mai larg
+decât gardienii:**
+
+> **Orice mecanism care produce încredere trebuie dovedit căzând — gardian, remediu, aserţiune,
+> generator.**
+
+**Motivul, şi e mai general decât cazul care l-a scos la iveală:** un remediu instalat, un gardian
+crezut dar netestat, chiar şi un rând de registru care numeşte problema — **orice lucru care creează
+senzaţia că problema e tratată opreşte măsurarea.** De aceea cerinţa de dovadă e cea mai mare exact
+**acolo unde se produce încrederea**, nu acolo unde riscul tehnic pare mai mare.
+
+**Cele două cazuri care au produs lărgirea, amândouă din 2026-08-30:**
+
+- **Un remediu fals.** Poarta raporta verde pentru roşu; sesiunea a diagnosticat greşit şi a propus
+  *„rulez poarta pe bucăţi"*, care **nu repara nimic** — `make typecheck | tail` întoarce 0 şi singur.
+  Un diagnostic greşit se repară când cineva măsoară; **un remediu fals se instalează şi opreşte
+  măsurarea**, lăsând în urmă încredere în plus. Dovada că poate cădea a arătat asta în două comenzi.
+- **Un generator neverificat.** Lista „stare nedovedită" a fost comparată cu una manuală şi a ieşit
+  *„zero diferenţă"* — dar lista manuală îl conţinea pe al doilea membru **doar fiindcă mecanismul cu
+  care se compara îl găsise cu o zi înainte**. **O comparaţie între două surse dintre care una derivă
+  din cealaltă nu e o verificare** — arată exact ca un acord independent. Falsificat separat, cu o
+  migrare-sondă care scrie date în afara uşii: generatorul o vede.
+
 ## 5. Reconcilierea, de scris acum
 
 **Al patrulea test numit al lui `F2.B1`**, şi singurul dintre cele patru defecte care se prinde **fără

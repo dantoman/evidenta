@@ -521,6 +521,30 @@ validare.
 **Unde s-a oprit.** **`C1(b)` NU s-a construit: ADR-071 e `Propus`.** `T1`, `T3`, `T4` depind de
 entităţi inexistente şi nu s-au forţat.
 
+**Sesiune scurtă, sub disciplina de scop. `C1(b)` tot neconstruit: ADR-071 e `Propus`.**
+
+- **`P1` — „zero diferenţă" nu era informaţia care părea, şi o spusesem singur fără să trag
+  concluzia.** Lista manuală îl conţinea pe al doilea membru **doar fiindcă gardianul îl găsise cu o
+  zi înainte**, deci comparaţia a fost între generator şi o listă **deja corectată de mecanismul cu
+  care o compar**. **O comparaţie între două surse dintre care una derivă din cealaltă nu e o
+  verificare** — arată exact ca un acord independent. Falsificat separat: o migrare-sondă care scrie
+  date în afara uşii **apare** în lista generată (3 membri cu ea, 2 fără), ştearsă după.
+- **`P2` — domeniul regulii lărgit, nu un rând nou** (ADR-070 §4.1): *orice mecanism care produce
+  încredere trebuie dovedit căzând — gardian, remediu, aserţiune, generator.* Motivul, scris ca motiv:
+  **orice lucru care creează senzaţia că problema e tratată opreşte măsurarea**, deci cerinţa de dovadă
+  e cea mai mare **acolo unde se produce încrederea**, nu acolo unde riscul tehnic pare mai mare.
+- **`P3` — verificare, nu refacere.** Nimic nu caută `GATE: PASS` cu `grep`; la o rulare reuşită e
+  ultima linie. Citirea e prin **absenţă la poziţie fixă**. Limitarea — *„e ultima linie" nu e impusă
+  de nimic* — **consemnată, nefixată**.
+
+**Constatări de meta-nivel consemnate fără reparaţie, conform `P0`:** una — limitarea de poziţie a
+marcajului porţii. Lista e scurtă fiindcă sesiunea a fost scurtă şi n-a atins cod nou, nu fiindcă am
+reparat pe măsură.
+
+**Notă de reţinut, fără reparaţie:** `pipefail` în reţete **nu** apără împotriva unei conducte din
+**apelant** — cauza reală a porţii era în invocare, nu în Makefile. Lista de cauze nimerise mecanismul
+şi ratase locul.
+
 ## Sesiuni mai vechi
 
 **2026-08-30, F1.10 — corpusul de regresie (instrucțiune scrisă: „singura sarcină care deblochează
