@@ -429,6 +429,36 @@ două date (ADR-039 §9, ADR-044 §6), și ADR-ul care fixează toate acestea **
 trebuia să fie completă întâi — o decizie a proprietarului care rămâne doar în transcript e exact ce
 putrezește.
 
+**C1(a) livrat, C1(b) oprit la ADR, disciplina de backfill impusă.**
+
+- **`b4f471c` — C1(a):** `valid_from` pe `fiscal_parameter` e **margine** şi nu se scrie fără ce o
+  stabileşte (`OD-92`). **Măsurătoarea e rezultatul: 22 din 24 de parametri încărcaţi n-aveau margine
+  cu sursă** — datele lor au trecut în `observed_in`, rândurile au rămas nerezolvabile, ceea ce e
+  starea onestă. Trei eşecuri tăcute pe drum, fiecare găsit de următorul: auto-deadlock pe alias
+  greşit, backfill orb sub `FORCE`, despărţire pe prefix care ar fi fabricat o citare.
+- **[ADR-071](decisions/071-tipurile-de-raport-ca-tabela.md) — C1(b), `Propus`, NEIMPLEMENTAT.**
+  Atinge `infra/rls/exceptions.toml`, deci e ADR prin `R1`, iar `R1` face din confirmare o condiţie.
+  Două valori, `employment_contract` şi `civil_contract`, ancorate în anexa nr. 1 pct. 1.1 prima
+  liniuţă şi art. 19 alin. (7) teza a doua. **Fără „general"** — ar fi drumul prin care „invariant
+  aplicat orb" reintră, simetricul exact al rezervei din `OD-93`. §6 declară reziduul: rămâne *„a ales
+  greşit dintre două tipuri reale"*, nu *„n-a ales"*.
+- **`platform/rls/backfill.py` — `OD-94` (a) şi (b) impuse.** O singură uşă pentru scrierea de date
+  dintr-o migrare. Cardinalitatea e argument obligatoriu şi se verifică **înainte** de scriere. **Rolul
+  nu se declară, se detectează** — corecţia proprietarului, şi e cea care contează: *o declaraţie e o
+  valoare în care ai încredere*; sonda numără de două ori şi compară. **Dovedit că poate cădea** pe
+  Postgres real: rolul vede 0, tabela are 3.
+- **Gardianul de inventar** (`test_cited_acts_are_inventoried.py`): un act citat şi absent de pe ambele
+  liste e invizibil. Prima rulare — **trei găuri reale**, între care Legea nr. 419/2023, care ancorează
+  `cnas.employer_rate`. `OD-97`.
+
+**Unde s-a oprit.** `C1(b)` aşteaptă `Acceptat` pe ADR-071 — **singura oprire legitimă**, şi e pe
+decizia proprietarului, nu pe ambiguitate. `C2` şi restul `F2.B1` sunt neîncepute prin consecinţă:
+`C2` e definit ca *„exercită amândouă coloanele"*, iar a doua nu există încă. Cele patru teste ale
+`F2.B1` — nescrise.
+
+**Regula (c) din `OD-94`** — scrierea şi constrângerea în aceeaşi migrare — **rămâne neimpusă**: e
+disciplină de ordonare, iar un gardian peste ea ar fi euristic.
+
 ## Sesiuni mai vechi
 
 **2026-08-30, F1.10 — corpusul de regresie (instrucțiune scrisă: „singura sarcină care deblochează
