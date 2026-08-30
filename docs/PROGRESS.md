@@ -156,7 +156,81 @@ apoi C1, apoi F1.10.
 Descompunerea completă: `_bootstrap/08-f1-backlog.md` — patru fire care pot merge în paralel, cu
 `F1.2.1` ca singur punct de sincronizare timpuriu, și tabelul de blocaje la final.
 
+**F2 — descompusă, neîncepută** (2026-08-30): `_bootstrap/09-f2-backlog.md` — două fluxuri paralele
+(Commercial/Tax, Payroll) care converg în raportarea statutară, 29 de sarcini, verificarea a ce a fost
+„modelat" făcută pe `HEAD`, tabelul de blocaje cu patru instituții și șase decizii ale proprietarului.
+**Niciun cod de modul**: `CLAUDE.md` §4 îl interzice până la criteriul de ieșire din F1, care stă pe
+F1.10. Ce poate merge înainte: lectura actelor (`F2.X2`), parametrii ca `draft` (`F2.X1`), deciziile.
+
 ## Ultima sesiune
+
+**2026-08-30, F2 — descompunerea (instrucțiune: „start F2 după ce termină celelalte sesiuni";
+sesiunea `evidenta-87`):**
+
+- **Ce înseamnă „start F2" când criteriul de ieșire din F1 nu e închis:** trei din cinci puncte stau
+  pe F1.10, corpusul, care vine după C2 și C1 în ordinea proprietarului — iar `CLAUDE.md` §4
+  interzice modulele F2+ înainte de criteriu. Ce a fost F1 la început — `08-f1-backlog.md`, primul
+  commit al fazei — e ce e F2 acum: **`_bootstrap/09-f2-backlog.md`**, descompunerea. Niciun cod de
+  modul. Dacă proprietarul vrea altfel, e ADR pe o regulă din §4, nu excepție tăcută.
+- **Celelalte sesiuni, întrebate, nu deduse:** `evidenta-77` (`evidenta-49` în `ListAgents`) (C5 → C2 → C1 → F1.10; `posting`, `slots`,
+  datele fiscale), `evidenta-2d` (F1.8 + F1.G2; căile de citire ale registrului, formatarea, tot
+  `frontend/src`), `avaboss` nu e în acest checkout. Numerele: ADR-058 al lui 49, 059 al lui 2d,
+  **060+ și `OD-75`+ aici**. Acest document a așteptat commiturile lor înainte să atingă orice fișier
+  comun.
+- **O regulă de checkout partajat, primită de la cine a plătit-o (f2c210c):** `git commit -- <căi>` ia
+  conținutul **din arborele de lucru**, nu din index — deci `git diff --cached` nu dovedește nimic
+  pentru un fișier pe care îl editează două sesiuni, și un commit pe căi înghite hunk-urile celuilalt.
+  Fișierele comune se comit doar când `git diff -- <fișier>` arată exclusiv liniile proprii; altfel,
+  blob construit din `HEAD` plus hunk-urile proprii, `update-index --cacheinfo`, commit fără pathspec
+  și fără altceva stagiat.
+- **F2.0, măsurat pe `HEAD`, nu presupus** — ce a fost „modelat" pentru F2 (ADR-028: obligație
+  negativă, se verifică). **Verde:** statutul TVA cu dată efectivă pe companie și pe partener; antetul
+  documentului cu `rate_term`; `employee_id` / `asset_id` pe linie; toate cele șase seturi de solduri
+  (setul de salarii poartă forma lui `OD-04` și refuză conținutul); `VatPeriod`; `exchange_rate`
+  global; `SettlementFact`; 46 de roluri; `source_module` cu toate modulele F2. **Goluri, fiecare cu
+  sarcină:** `DocumentState.POSTED` declarată și de neatins; `sales` / `purchases` sunt cochilii —
+  fără rută, fără `emit()`; nicio entitate de decontare; `Partner` fără rezidență și `Document` fără
+  denominarea contractului (discriminatorul din ADR-057 vine azi de la apelant); rezolvatorul TVA
+  există și **niciun rând `vat.*`** în date; roluri de salarii și de imobilizări corporale absente;
+  `payroll` nu e capabilitate nicăieri (`DN-10`); `HandlerVersion.requires` neexersat; niciun pipeline
+  de tipar (`C22`); utilizatorii de sistem inexistenți; **corpusul F1.10 nu există** — niciun
+  `corpus/`, markerul `fiscal_regression` declarat și nefolosit, `regression_case_set` obligatoriu cu
+  două valori care arată spre nimic.
+- **Metoda F2, șapte puncte, în `09`:** F2 n-are spec — fiecare flux își fixează schema prin ADR
+  înaintea codului (`F2.A0`, `F2.B0`); două fluxuri paralele (Amd §C.2); **blocajele externe se despart
+  de construcție de la început**, nu la sfârșit ca la F1 — cititorii și transportul sunt adaptoare
+  (`OD-24`, `OD-25`, `OD-27`, `OD-75`); valorile intră `draft`/`provisional` (`OD-22`); actele
+  neobținute se citesc înainte de cod (`F2.X2` — nouă acte numite); tăcerea actului e convenție pe
+  rând; layout `operations/<modul>`.
+- **Două decizii noi, de arhitectură, nu de scop:** `OD-75` — canalul de depunere al declarațiilor
+  SFS (IPC21, TVA, VEN12): `OD-24` e strict e-Factura, iar criteriul de ieșire spune „depuse din
+  Evidenta". `OD-76` — unde locuiește `integrations/` (BNM, SFS, bănci): pe hartă e la nivelul întâi,
+  în `dependencies.toml` nu e nicăieri, deci `D0`; nu e `platform` (ar importa `operations`), nu e
+  `operations` (e canal); ADR înainte de primul conector, care e BNM și e cazul ușor.
+- **Ce s-a raportat, nu decis** — cinci întrebări de scop pentru proprietar, în `09` §„Întrebări":
+  VEN12 în F2 (cere ajustările fiscale și HG 704/2019, neobținută); ce document se emite la retur;
+  `DNB-05` (granularitatea salariilor); `DNB-11` (refuz sau „suspectat duplicat" la extras și
+  e-Factura); `OD-04` / `OD-71` / `DN-10`, marcate „înainte de F2" din Amendament încoace.
+- **O corecție primită înainte de commit:** scrisesem că C5 atinge declanșatorul `OD-72`; nu — a
+  adăugat a doua *cheie*, cu o versiune, iar declanșatorul e a doua *versiune* a aceleiași chei
+  (ADR-058 §4). Autorul ADR-ului a citit backlogul înainte de commit: exact verificarea pe care „două
+  semnături" n-o mai dă (ADR-010), venită de la a doua sesiune.
+- **Descompunerea, verificată contra `HEAD` înainte de commit** — un agent de citire a controlat
+  fiecare afirmație care numește ceva din repo (~150): **21 de neconcordanțe**, toate corectate.
+  Cele care contau: `resolve_parameter` întoarce doar `status = active`, deci „valorile intră
+  `draft`/`provisional`" era o descriere greșită a mecanismului — rândurile se încarcă `draft`,
+  testele le activează în baza de test, producția așteaptă aprobarea; `line_amounts` primește cota
+  ca argument și nu citește `vat.*` (refuzul e al lui `vat_rate()`); `OD-74` exista deja și acoperă
+  întrebarea pipeline-ului PDF din `F2.P1`; registrul numerotează `OD-75`, nu `OD-075`; F1.G1 e
+  nebifată în `PROGRESS.md` (golurile `DataGrid` sunt numite), F1.G2 e livrată. Un backlog scris din
+  lectură are cam o eroare la șapte afirmații verificabile; verificarea costă o oră și le scoate
+  înainte să devină sarcini.
+- **Criteriul de ieșire din F2 rămâne al proprietarului, neschimbat:** toate trei punctele sunt
+  externe — pilot, instituții, un trimestru. Ce s-a adăugat e ce F1 a primit abia prin ADR-054:
+  lista a ce se poate verifica intern înainte de pilot, ca eroarea de motor să nu se afle de la client.
+- Suita: **neschimbată** — nimic de cod în această sesiune.
+
+## Sesiuni mai vechi
 
 **2026-08-30, F1.8 + F1.G2 — rapoartele contabile și grila de introducere (instrucțiune scrisă:
 „două sarcini reale din F1, izolate de motor, una frontend curat"; sesiunea `evidenta-04`, listată
