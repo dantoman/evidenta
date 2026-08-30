@@ -112,24 +112,44 @@ def absorption_for(effective_date: date) -> Absorption:
 
 
 def distribute(
-    total: Decimal, weights: Sequence[Decimal], *, rule: Rounding, scale: int
+    total: Decimal,
+    weights: Sequence[Decimal],
+    *,
+    keys: Sequence[str],
+    rule: Rounding,
+    scale: int,
 ) -> list[Decimal]:
     """Split ``total`` over ``weights`` at ``scale``, exactly.
 
-    Each share is the proportional amount reduced once; the **last** share takes
-    the residual so the shares sum to the total to the last decimal. That is an
-    engineering choice, stated here rather than left to whichever product happened
-    to come last: pct. 31 fixes the base, not the treatment of the bani that a
-    proportional split leaves over, and a split that did not add up would break
-    invariant 1 on the very entry that exists to allocate.
+    Each share is the proportional amount reduced once; the bani a proportional
+    split leaves over go to the **largest share**, and between equal largest
+    shares to the smallest ``key``. Two properties, both about the data and
+    neither about the call:
+
+    * the residual lands where the relative difference it makes is smallest --
+      one ban on the biggest share moves it by the least;
+    * the same fact split in another order gives the same answer. "The last
+      product" is not a property of the data, it is a property of the order the
+      products happened to arrive in, and a split whose bani move when a list is
+      sorted differently is deterministic against execution, not against data.
+
+    ``keys`` are the products' own codes -- a datum -- so the tie-breaker is the
+    product, not its position. pct. 31 fixes the base and says nothing about the
+    residual; this is the engineering reading, and there is one version of it.
     """
     if not weights:
         raise ValueError("nothing to distribute over")
+    if len(keys) != len(weights):
+        raise ValueError("one key per weight")
     if any(w < 0 for w in weights):
         raise ValueError("a base value is not negative")
     denominator = sum(weights, Decimal(0))
     if denominator <= 0:
         raise ValueError("the base sums to zero; nothing can be proportional to it")
-    shares = [rule.quantize(total * w / denominator, scale) for w in weights[:-1]]
-    shares.append(total - sum(shares, Decimal(0)))
+    shares = [rule.quantize(total * w / denominator, scale) for w in weights]
+    residual = total - sum(shares, Decimal(0))
+    if residual:
+        # Largest share first; equal shares by key, ascending.
+        at = min(range(len(shares)), key=lambda i: (-shares[i], keys[i]))
+        shares[at] += residual
     return shares

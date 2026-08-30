@@ -121,6 +121,15 @@ class AllocationBaseEmptyError(PostingRefusedError):
 class ProductShare:
     item_id: uuid.UUID
     base_value: Decimal
+    #: The product's own code, as the caller states it -- the tie-breaker of the
+    #: split's residual (`absorption.distribute`). A datum, unlike the position in
+    #: this tuple; when the caller has none, the item's identifier stands in, which
+    #: is still the product and not its place in the list.
+    code: str | None = None
+
+    @property
+    def key(self) -> str:
+        return self.code if self.code is not None else str(self.item_id)
 
 
 @dataclass(frozen=True, slots=True)
@@ -150,7 +159,8 @@ class AllocationFact:
             "actual_volume": str(self.actual_volume),
             "base_name": self.base_name,
             "products": [
-                {"item_id": str(p.item_id), "base_value": str(p.base_value)} for p in self.products
+                {"item_id": str(p.item_id), "base_value": str(p.base_value), "code": p.code}
+                for p in self.products
             ],
         }
 
@@ -202,7 +212,7 @@ def allocate_overheads(
     raw_products = payload.get("products")
     if not isinstance(raw_products, list) or not raw_products:
         raise AllocationPayloadError("products is a non-empty list of {item_id, base_value}")
-    products: list[tuple[uuid.UUID, Decimal]] = []
+    products: list[tuple[uuid.UUID, Decimal, str]] = []
     for number, item in enumerate(raw_products, start=1):
         if not isinstance(item, Mapping):
             raise AllocationPayloadError(f"product {number} is not an object")
@@ -215,8 +225,11 @@ def allocate_overheads(
         base = _decimal(item.get("base_value"), f"product {number}: base_value")
         if base < 0:
             raise AllocationPayloadError(f"product {number}: base_value is negative")
-        products.append((item_id, base))
-    if sum((base for _, base in products), Decimal(0)) <= 0:
+        code = item.get("code")
+        if code is not None and not isinstance(code, str):
+            raise AllocationPayloadError(f"product {number}: code is not text")
+        products.append((item_id, base, code if code else str(item_id)))
+    if sum((base for _, base, _ in products), Decimal(0)) <= 0:
         raise AllocationBaseEmptyError(
             f"the base {payload.get('base_name')!r} sums to zero over {len(products)} products"
         )
@@ -251,8 +264,14 @@ def allocate_overheads(
     out: list[RoleFormula] = []
     into_cost = absorbed.into_cost
     if into_cost > 0:
-        shares = distribute(into_cost, [base for _, base in products], rule=rule, scale=scale)
-        for (item_id, _), share in zip(products, shares, strict=True):
+        shares = distribute(
+            into_cost,
+            [base for _, base, _ in products],
+            keys=[key for _, _, key in products],
+            rule=rule,
+            scale=scale,
+        )
+        for (item_id, _, _), share in zip(products, shares, strict=True):
             if share != 0:
                 out.append(
                     formula(

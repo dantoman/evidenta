@@ -17,7 +17,7 @@ from __future__ import annotations
 import uuid
 from dataclasses import dataclass
 
-from evidenta.accounting.coa.models import CompanyChart
+from evidenta.accounting.coa.models import CoaTemplate, CompanyChart
 
 
 @dataclass(frozen=True, slots=True)
@@ -46,3 +46,18 @@ def chart_version_of(company_id: uuid.UUID) -> ChartVersion | None:
     return ChartVersion(
         template_id=chart.template.id, code=chart.template.code, version=chart.template.version
     )
+
+
+def template_version(template_id: uuid.UUID) -> ChartVersion | None:
+    """The version a stamped `chart_template_id` names, for a reader of the entry.
+
+    Distinct from `chart_version_of`, and the distinction is the reason the stamp
+    exists: that one answers what the company uses *now*, this one what an entry
+    was posted *against*. After propagation (`OD-03`) the two differ, and a
+    drill-down that labelled an old entry with the current version would be
+    stating something the entry never said.
+    """
+    template = CoaTemplate.objects.filter(id=template_id).only("id", "code", "version").first()
+    if template is None:
+        return None
+    return ChartVersion(template_id=template.id, code=template.code, version=template.version)

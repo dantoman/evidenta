@@ -325,13 +325,13 @@ def test_the_lines_are_stored_exactly_as_proposed(
     refused rather than rounded (see the foreign-currency test).
     """
     with tenant_context(context):
-        result = post(scene, note(scene, amount="1234.5678"))
+        result = post(scene, note(scene, amount="1234.56"))
 
         lines = list(JournalLine.objects.filter(journal_entry_id=result.journal_entry_id))
         assert [line.line_number for line in lines] == [1, 2]
-        assert lines[0].debit == Decimal("1234.5678")
+        assert lines[0].debit == Decimal("1234.56")
         assert lines[0].credit == Decimal(0)
-        assert lines[1].credit == Decimal("1234.5678")
+        assert lines[1].credit == Decimal("1234.56")
         for stored in lines:
             assert stored.currency == "MDL"
             assert stored.exchange_rate == Decimal(1)
@@ -341,7 +341,38 @@ def test_the_lines_are_stored_exactly_as_proposed(
             assert stored.rate_date == POSTING
 
         entry = JournalEntry.objects.get(id=result.journal_entry_id)
-        assert entry.total_debit == entry.total_credit == Decimal("1234.5678")
+        assert entry.total_debit == entry.total_credit == Decimal("1234.56")
+
+
+def test_a_third_decimal_is_refused_before_the_database_sees_it(
+    context: TenantContext, scene: dict[str, uuid.UUID]
+) -> None:
+    """Two decimals is the approved convention (ADR-037 §3.2) and a CHECK on the
+    line (ADR-059). The payload refuses it with a code; the CHECK would refuse it
+    without one, after an event and a number had been consumed."""
+    with tenant_context(context), pytest.raises(ManualPayloadError) as excinfo:
+        post(scene, note(scene, amount="1234.567"))
+    assert excinfo.value.code == "posting.manual_payload_malformed"
+    assert "2 decimals" in str(excinfo.value)
+
+
+def test_a_line_dated_off_the_notes_day_is_refused(
+    context: TenantContext, scene: dict[str, uuid.UUID]
+) -> None:
+    """A line carries the entry's date (ADR-039 §9, ADR-059). The document's own
+    day is `document_date`, and that one stays free."""
+    payload = note(scene)
+    payload["lines"][0]["accounting_date"] = "2026-01-20"
+    with tenant_context(context), pytest.raises(ManualPayloadError) as excinfo:
+        post(scene, payload)
+    assert "accounting_date 2026-01-20 differs" in str(excinfo.value)
+
+    dated = note(scene)
+    dated["lines"][0]["document_date"] = "2026-01-05"
+    with tenant_context(context):
+        result = post(scene, dated)
+        first = JournalLine.objects.get(journal_entry_id=result.journal_entry_id, line_number=1)
+    assert first.document_date == date(2026, 1, 5) and first.accounting_date == POSTING
 
 
 def test_the_entry_is_numbered_from_the_company_template(

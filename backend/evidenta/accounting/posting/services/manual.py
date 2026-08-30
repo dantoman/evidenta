@@ -127,11 +127,15 @@ SOURCE_DOCUMENT_TYPE = "manual_journal_note"
 #: it unmakeable.
 NUMBERING_DOCUMENT_TYPE = "journal_entry"
 
-#: `journal_line.debit` and `.credit` are `numeric(20,4)`. PostgreSQL would round
-#: a fifth decimal silently on INSERT, and a rounding nobody decided is exactly
-#: what `DNB-08` is open about -- so the engine refuses the value instead of
-#: storing a different one than it was given.
-SCALE = 4
+#: Decimals a posted amount carries: two, the platform convention ADR-037 §3.2
+#: approved and `journal_line_amount_scale` enforces in the database (ADR-059).
+#: The column is `numeric(20,4)`, so a third decimal would be stored, not
+#: rounded -- and then refused by the CHECK with no code. The engine refuses it
+#: first, with one. This is a convention written as data too
+#: (`accounting.amount_scale`); the day that parameter moves, this constant and
+#: the CHECK move in the same migration, which is where the existing rows get
+#: looked at.
+SCALE = 2
 
 
 class ManualPayloadError(PostingRefusedError):
@@ -261,6 +265,16 @@ def _line(item: Any, number: int, posting_date: date, functional_currency: str) 
         )
 
     accounting_date = _date(item.get("accounting_date"), posting_date, number, "accounting_date")
+    if accounting_date != posting_date:
+        # A line is posted on the entry's day (ADR-039 §9, ADR-059). The economic
+        # date is `document_date`, which stays the line's own. Refused here, at
+        # the payload, rather than by the engine or the trigger downstream: no
+        # event exists yet and no number has been consumed.
+        raise ManualPayloadError(
+            f"line {number}: accounting_date {accounting_date} differs from the note's "
+            f"{posting_date}. A line carries the date of the entry it belongs to; the "
+            f"document's own date goes in document_date"
+        )
     return ManualLine(
         account_id=_uuid(item.get("account_id"), number, "account_id"),
         debit=_amount(item.get("debit", 0), number, "debit"),
@@ -309,12 +323,14 @@ def _amount(value: Any, number: int, field: str) -> Decimal:
     if not amount.is_finite():
         raise ManualPayloadError(f"line {number}: {field} is {value!r}, not a finite number")
 
-    exponent = amount.as_tuple().exponent
+    # Trailing zeros are how the value was typed, not how precise it is:
+    # `1000.0000` carries no decimals and is the server's own wire form.
+    exponent = amount.normalize().as_tuple().exponent
     if isinstance(exponent, int) and -exponent > SCALE:
         raise ManualPayloadError(
-            f"line {number}: {field} has more than {SCALE} decimals ({amount}). The "
-            f"column would round it silently, and which way it rounds is an open "
-            f"decision (DNB-08) -- so the value is refused, not altered"
+            f"line {number}: {field} has more than {SCALE} decimals ({amount}). A posted "
+            f"amount carries two (ADR-037 §3.2, `journal_line_amount_scale`), so the "
+            f"value is refused here, with a code, rather than by the database without one"
         )
     return amount
 

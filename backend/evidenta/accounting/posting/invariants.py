@@ -145,8 +145,17 @@ class MixedCompanyError(PostingRefusedError):
     code = "posting.mixed_company"
 
 
-class MixedPeriodError(PostingRefusedError):
-    """Invariant 3, first half -- lines outside the posting's own period.
+class LineDateDiffersError(PostingRefusedError):
+    """Invariant 3, first half -- a line dated on a day other than the posting's.
+
+    ADR-039 §9: ``accounting_date`` is *the posting date* -- one per entry, the
+    date the register shows and the period is decided by. The line carries the
+    same date because it is the partition column of the largest table (ADR-032),
+    not because a line may be posted on its own day. Until ADR-059 the engine
+    asked only for the same *period*, and a manual note could date a line inside
+    the month but off the entry's day; nothing accounting needed that (the
+    economic date is ``document_date``), and three reports disagreed over which
+    day a document was posted on. So the invariant is the date, exactly.
 
     The period being *open* is the second half, and it is not raised here: that
     is ``periods.assert_postable``, which already owns the three-state machine
@@ -154,7 +163,7 @@ class MixedPeriodError(PostingRefusedError):
     second copy of R12, and the copy is always the one that drifts.
     """
 
-    code = "posting.mixed_period"
+    code = "posting.line_date_differs"
 
 
 class AccountNotPostableError(PostingRefusedError):
@@ -406,7 +415,7 @@ def _check_origin(posting: ProposedPosting) -> None:
 
 
 def _check_period(posting: ProposedPosting) -> uuid.UUID:
-    """Invariant 3 -- one period for every line, and that period open (R12).
+    """Invariant 3 -- every line carries the posting's date, and its period is open (R12).
 
     ``assert_postable`` answers the second half and owns its codes:
     ``periods.period_not_found`` for a hole in the calendar,
@@ -415,25 +424,24 @@ def _check_period(posting: ProposedPosting) -> uuid.UUID:
     remedies differ per code, and flattening them into one would tell a caller
     "it did not post" while hiding whether reopening is even possible.
 
-    ``end_date`` is **inclusive** on ``period``, unlike the half-open validity
-    windows elsewhere in the system. Comparing against it as if it were exclusive
-    would silently reject the last day of every month.
+    The first half is an equality, not a window (ADR-059): the database refuses
+    the same thing on INSERT (``journal_line_carries_the_entry_date``), and this
+    is the barrier that says which line, with a code.
     """
     period = assert_postable(posting.company_id, posting.accounting_date)
 
-    outside = sorted(
+    differing = sorted(
         {
             line.accounting_date
             for line in posting.lines
-            if not (period.start_date <= line.accounting_date <= period.end_date)
+            if line.accounting_date != posting.accounting_date
         }
     )
-    if outside:
-        raise MixedPeriodError(
-            f"line date(s) {', '.join(d.isoformat() for d in outside)} fall outside "
-            f"period {period.start_date.isoformat()}..{period.end_date.isoformat()}, "
-            f"which is the one the posting is dated into "
-            f"({posting.accounting_date.isoformat()})"
+    if differing:
+        raise LineDateDiffersError(
+            f"line date(s) {', '.join(d.isoformat() for d in differing)} differ from the "
+            f"posting's {posting.accounting_date.isoformat()}; a line carries the date of "
+            f"the entry it belongs to (ADR-039 §9) -- the economic date is document_date"
         )
 
     return period.id

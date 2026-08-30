@@ -296,6 +296,80 @@ export const ro = {
       reverseDone: 'Înregistrarea a fost stornată.',
       cancel: 'Renunță',
     },
+    // Grila de introducere -- contractul de tastatura (ADR-052). Sirurile stau
+    // aici, componenta le primeste (C32).
+    entryGrid: {
+      balanceDebit: 'Debit',
+      balanceCredit: 'Credit',
+      balanceDifference: 'Diferență',
+      balanced: 'Echilibrat',
+      invalidAmount: 'Nu este o sumă. Se acceptă punct sau virgulă ca separator zecimal.',
+      noMatch: 'Niciun element nu corespunde.',
+      deleteAgain: 'Rândul are conținut. Apăsați din nou Ctrl+Delete pentru a-l șterge.',
+      // Ajutorul de tastatura, cum e in contract; nicio tasta nu se schimba per ecran (C40).
+      keys:
+        'Enter avansează (pe ultimul câmp deschide rând nou) · Tab navighează · F4 nomenclator · F2 editează · Escape anulează celula, apoi rândul · Ctrl+Delete șterge rândul · Ctrl+Enter validează',
+    },
+    reports: {
+      // Fisa contului, Cartea Mare, rulajele pe corespondente -- toate cu
+      // totalurile de pe server (C19) si exportul de pe server (C20).
+      from: 'De la',
+      to: 'Până la',
+      show: 'Afișează',
+      exportCsv: 'Export CSV',
+      exportHint:
+        'Fișierul se generează pe server, din aceleași cifre ca ecranul; Excel și PDF nu sunt încă disponibile.',
+      truncated: 'Lista a fost tăiată; totalurile acoperă întreaga perioadă. Restrângeți perioada pentru a vedea toate rândurile.',
+      empty: 'Nicio mișcare în perioada aleasă.',
+      opening: 'Sold inițial',
+      closing: 'Sold final',
+      total: 'Total',
+      // Fisa contului -- un rand per document (ADR-053).
+      ledger: 'Fișa contului',
+      ledgerLead: 'Un rând per document, cu contul corespondent; deschiderea unui rând arată formulele.',
+      date: 'Data',
+      number: 'Număr',
+      documentDate: 'Data doc.',
+      description: 'Descriere',
+      correspondent: 'Cont corespondent',
+      noCorrespondent: 'fără corespondență',
+      debit: 'Debit',
+      credit: 'Credit',
+      runningBalance: 'Sold',
+      // Cartea Mare -- pe luni, in corespondenta cu conturile.
+      generalLedger: 'Cartea Mare',
+      generalLedgerLead: 'Rulajele lunare ale contului, în corespondență cu conturile.',
+      month: 'Luna',
+      debitBy: 'Debit în corespondență cu',
+      creditBy: 'Credit în corespondență cu',
+      unassigned: 'fără corespondență (note manuale)',
+      turnover: 'Rulaj',
+      // Rulajele pe corespondente -- sahul.
+      correspondence: 'Rulaje pe corespondențe',
+      correspondenceLead:
+        'Suma fiecărei corespondențe debit–credit din perioadă. Ce nu are corespondență (notele manuale) apare separat.',
+      debitAccount: 'Cont debitor',
+      creditAccount: 'Cont creditor',
+      amount: 'Sumă',
+      correspondenceTotal: 'Total corespondențe',
+      linesTotal: 'Total rulaj debitor',
+      // Detaliul unei inregistrari -- drill-down pana la sursa (R13).
+      detail: 'Înregistrarea',
+      formulas: 'Formule',
+      lines: 'Rânduri',
+      stoodOn: 'Postată sub',
+      rule: 'Regula',
+      chart: 'Planul de conturi',
+      fiscalDate: 'Data fiscală',
+      origin: 'Sursa',
+      originEvent: 'Eveniment',
+      originDocument: 'Document',
+      vatRate: 'Cota TVA',
+      noFormulas: 'Înregistrare introdusă pe rânduri, fără formule.',
+      close: 'Închide',
+      openLedger: 'Fișa contului',
+      openGeneralLedger: 'Cartea Mare',
+    },
     balance: {
       title: 'Balanța de verificare',
       from: 'De la',

@@ -103,10 +103,17 @@ creditul lui 821.
 ### 2.5 Ultimul ban
 
 `distribute`: fiecare cotă e suma proporțională redusă **o dată** la scara în vigoare (Spec B §7.4,
-o rotunjire per valoare); **ultima cotă ia restul**, ca împărțirea să însumeze totalul la ultimul ban.
-E alegere de inginerie și e scrisă ca atare: pct. 31 fixează baza, nu tratamentul banilor pe care o
-împărțire proporțională îi lasă; o împărțire care nu însumează ar sparge invariantul 1 chiar pe
-înregistrarea care există ca să repartizeze. Testat: 100 peste trei baze egale → 33,33 / 33,33 / 33,34.
+o rotunjire per valoare); banii pe care împărțirea îi lasă merg **pe cota cea mai mare**, iar între
+cote egale **pe codul de produs cel mai mic**. Motivul e **determinismul față de date, nu o
+prescripție a actului**: pct. 31 fixează baza și tace despre rest. Prima versiune dădea restul
+*ultimului* produs — dar „ultimul" nu e o proprietate a datelor, e a ordinii în care s-a întâmplat să
+vină produsele; aceeași repartizare cu lista sortată altfel punea banul în altă parte, deci rezultatul
+era determinist față de execuție, nu față de date. Pe cota cea mai mare banul merge unde diferența
+relativă e cea mai mică, iar la egalitate perfectă departajatorul e un datum al produsului — codul,
+purtat pe fapt (`ProductShare.code`; identificatorul, când apelantul nu are cod) — nu poziția.
+Rămâne **o singură versiune**: o convenție de inginerie, nu o alternativă de politică. Testat: 100
+peste trei baze egale → 33,33 / 33,33 / 33,33 plus un ban pe codul cel mai mic, suma exact 100; aceeași
+listă în altă ordine dă aceleași cote pe aceleași produse.
 
 ### 2.6 Sursa evenimentului
 
@@ -145,8 +152,9 @@ pentru un fapt necalculabil să nu stea în coadă arătând ca muncă. Zero de 
    capacitate și e refuzată.
 5. **Verificat cu sume:** 1000 variabil + 500 constant la capacitate, baza 3:1 → 1125 / 375, fără
    linie de cheltuieli; volum 800 din 1000 → 400 absorbit, 1050 / 350 și **100 la 714**; variabilul
-   intră integral la volum 10 din 1000 → 750 / 250; 100 peste trei baze egale → 33,33 / 33,33 / 33,34,
-   suma exact 100. Opt teste, sub rolul aplicației (T1).
+   intră integral la volum 10 din 1000 → 750 / 250; 100 peste trei baze egale → 33,33 pe fiecare și
+   banul pe codul cel mai mic (§2.5), suma exact 100, invariant la ordinea listei. Sub rolul
+   aplicației (T1).
 
 ## 4. Consecințe
 
@@ -171,7 +179,11 @@ pentru un fapt necalculabil să nu stea în coadă arătând ca muncă. Zero de 
    snc_stocuri.toml` (P-4); activarea e a proprietarului
    (`activate_fiscal_parameters snc_stocuri.toml --approver <id>`), ca la convențiile de platformă.
    Suita își seedează rândul activ. Până la activare, pe baza de dezvoltare handlerul refuză cu
-   „nicio regulă în vigoare" — corect, nu defect.
+   „nicio regulă în vigoare" — corect, nu defect. *Activat la 2026-08-30, cu aprobatorul
+   `22222222-2222-2222-2222-222222222222`, după confirmarea celor patru pași: variabilele integral
+   (pct. 30(1)); constantele × min(1, volum efectiv / capacitate normală), o rotunjire `half_up` la 2
+   zecimale; restul la 714; ce intră în cost pe produse proporțional cu baza din politică, fiecare cotă
+   rotunjită o dată.*
 2. **Subcontul lui 714** nu-l numește niciun text citit: 714 are 7141–7148, iar 7148 „Alte cheltuieli
    operaţionale" e plauzibil — plauzibil nu e citat. Rolul se leagă la gradul I; compania își leagă
    subcontul în stratul 2.
@@ -193,3 +205,16 @@ pentru un fapt necalculabil să nu stea în coadă arătând ca muncă. Zero de 
 6. **`regression_case_set = corpus/production.overhead_absorption/1` e gol.** SNC „Stocuri" are un
    exemplu numeric în Anexa 1 (menționat, netranscris în cercetare) — candidatul firesc pentru
    primul caz citat al corpusului (F1.10), fiindcă rezultatul lui e al actului, nu al sesiunii.
+
+## 6. Golul 2014–2017 rămâne cum e
+
+Regula de absorbție e valabilă din **01.01.2014** (`omf-118-2013`); direcția de rotunjire
+(`accounting.money_rounding`, `half_up`) și scara (`accounting.amount_scale`) din **28.10.2017**
+(`omf-118-2017`). O repartizare datată între cele două găsește regula și **nu găsește direcția**, iar
+registrul refuză — `resolve_logic` nu are rând în vigoare pentru `accounting.money_rounding` la acea
+dată. **Comportamentul e corect și rămâne așa**: nu se inventează o direcție pentru 2014–2017 și nu se
+mută `valid_from` al direcției înapoi ca să „meargă" — ar fi o cotă scrisă în cod sub altă formă.
+Consemnat aici ca nimeni să nu-l repare peste doi ani; testul
+`test_a_period_before_the_rounding_direction_is_refused_not_guessed` îl păzește, iar mesajul de refuz
+numește cheia lipsă și data.
+

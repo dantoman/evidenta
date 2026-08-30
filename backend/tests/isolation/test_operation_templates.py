@@ -490,15 +490,16 @@ def test_a_typed_amount_reaches_the_engine_unchanged(
     """
     with tenant_context(context):
         template_id = two_liner(scene)
-        payload = payload_for(
-            template_id, company_id=scene["company"], inputs={"suma": "1234.5678"}
-        )
-        assert payload["lines"][0]["debit"] == "1234.5678"
+        # Two decimals: what a posted amount carries (ADR-037 §3.2, ADR-059). The
+        # string is still the person's -- the point of the test is that nothing
+        # in between re-printed it.
+        payload = payload_for(template_id, company_id=scene["company"], inputs={"suma": "1234.56"})
+        assert payload["lines"][0]["debit"] == "1234.56"
 
-        result = post(scene, template_id, {"suma": "1234.5678"})
+        result = post(scene, template_id, {"suma": "1234.56"})
         stored = JournalLine.objects.filter(journal_entry_id=result.journal_entry_id).first()
         assert stored is not None
-        assert stored.debit == Decimal("1234.5678")
+        assert stored.debit == Decimal("1234.56")
 
 
 def test_a_dimension_can_be_fixed_or_asked_for(

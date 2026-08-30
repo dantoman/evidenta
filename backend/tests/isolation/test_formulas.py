@@ -147,6 +147,8 @@ def formula(
     currency: str = MDL,
     rate: str = "1",
     amount_currency: str | None = None,
+    rate_date: date = POSTING,
+    document_date: date = POSTING,
     **extra: Any,
 ) -> Formula:
     return Formula(
@@ -156,8 +158,8 @@ def formula(
         currency=currency,
         amount_currency=Decimal(amount_currency or amount),
         exchange_rate=Decimal(rate),
-        rate_date=POSTING,
-        document_date=POSTING,
+        rate_date=rate_date,
+        document_date=document_date,
         dimensions=tuple(dimensions),
         vat_rate=Decimal(vat_rate) if vat_rate is not None else None,
         **extra,
@@ -165,13 +167,16 @@ def formula(
 
 
 def post(
-    scene: dict[str, Any], formulas: Sequence[Formula], seed: Callable[..., None]
+    scene: dict[str, Any],
+    formulas: Sequence[Formula],
+    seed: Callable[..., None],
+    accounting_date: date = POSTING,
 ) -> uuid.UUID:
     event = seed_event(seed, scene["tenant"], scene["company"], scene["user"])
     result = post_formulas(
         tenant_id=scene["tenant"],
         company_id=scene["company"],
-        accounting_date=POSTING,
+        accounting_date=accounting_date,
         functional_currency=MDL,
         accounting_event_id=event,
         origin=Origin(module="manual", document_type="fixture", document_id=uuid.uuid4()),

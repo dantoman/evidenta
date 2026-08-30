@@ -14,4 +14,9 @@ which is not worth making as a side effect of adding a benchmark.
 
 from __future__ import annotations
 
-from tests.isolation.conftest import seed, world  # noqa: F401
+from tests.isolation.conftest import (  # noqa: F401
+    company_of,
+    grant_company,
+    seed,
+    world,
+)

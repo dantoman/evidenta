@@ -4,7 +4,10 @@ import { t } from '@/locales'
 import { ApiError } from '@/shared/api/client'
 import { LoginScreen } from './auth/LoginScreen'
 import { useIdentity } from './auth/useIdentity'
+import { AccountLedgerScreen } from './accounting/AccountLedgerScreen'
 import { AccountScreen } from './accounting/AccountScreen'
+import { CorrespondenceScreen } from './accounting/CorrespondenceScreen'
+import { GeneralLedgerScreen } from './accounting/GeneralLedgerScreen'
 import { ChartOfAccountsScreen } from './accounting/ChartOfAccountsScreen'
 import { ChartSetupScreen } from './accounting/ChartSetupScreen'
 import { ManualEntryScreen } from './accounting/ManualEntryScreen'
@@ -85,6 +88,17 @@ export function App() {
             element={<ChartSetupScreen />}
           />
           <Route path="companii/:companyId/conturi/:accountId" element={<AccountScreen />} />
+          {/* F1.8. The account's ledgers hang off the account, the chess-board
+              off the company -- the same shapes as the server's routes. */}
+          <Route
+            path="companii/:companyId/conturi/:accountId/fisa"
+            element={<AccountLedgerScreen />}
+          />
+          <Route
+            path="companii/:companyId/conturi/:accountId/cartea-mare"
+            element={<GeneralLedgerScreen />}
+          />
+          <Route path="companii/:companyId/rulaje" element={<CorrespondenceScreen />} />
           <Route path="companii/:companyId/note" element={<ManualEntryScreen />} />
           <Route path="companii/:companyId/balanta" element={<TrialBalanceScreen />} />
           <Route path="companii/:companyId/registru" element={<RegisterScreen />} />

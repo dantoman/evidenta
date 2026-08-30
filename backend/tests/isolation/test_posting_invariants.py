@@ -38,9 +38,9 @@ from evidenta.accounting.periods.errors import (
 )
 from evidenta.accounting.posting.invariants import (
     AccountNotPostableError,
+    LineDateDiffersError,
     MalformedLineAmountError,
     MixedCompanyError,
-    MixedPeriodError,
     MixedTenantError,
     NoLinesError,
     Origin,
@@ -420,9 +420,10 @@ def test_a_line_outside_the_postings_period_is_refused(
     """One entry, two months. The database checks only the entry's own date.
 
     ``journal_entry_needs_open_period`` compares ``journal_entry.accounting_date``
-    against its period. Line dates are never looked at -- and they are the
+    against its period. Line dates are never looked at there -- and they are the
     partition column of the largest table in the system, so an entry straddling
-    two months lands in two partitions and its own period contains half of it.
+    two months would land in two partitions. Since ADR-059 the refusal is the
+    stricter one below; this case is kept because it is the one that costs most.
     """
     lines = (
         make_line(scene, debit="1000.0000"),
@@ -430,21 +431,25 @@ def test_a_line_outside_the_postings_period_is_refused(
             scene, credit="1000.0000", account_id=scene["credit_account"], on=date(2026, 2, 3)
         ),
     )
-    with tenant_context(context), pytest.raises(MixedPeriodError) as excinfo:
+    with tenant_context(context), pytest.raises(LineDateDiffersError) as excinfo:
         verify(make_posting(scene, lines))
-    assert excinfo.value.code == "posting.mixed_period"
+    assert excinfo.value.code == "posting.line_date_differs"
 
 
-def test_a_line_dated_elsewhere_inside_the_same_period_is_accepted(
+def test_a_line_dated_elsewhere_inside_the_same_period_is_refused(
     context: TenantContext, scene: dict[str, uuid.UUID]
 ) -> None:
-    """The invariant says *period*, not *date*, and the difference is deliberate.
+    """The invariant is the *date*, not the period -- ADR-059.
 
-    Refusing this would be stricter than ADR-036 section 5.2 asks -- and the
-    stricter rule is not obviously the right one to invent here, so it is not
-    invented. The last day of the month is used on purpose: ``period.end_date``
-    is inclusive, unlike every half-open validity window in the system, and
-    comparing it as exclusive would reject the closing day of every month.
+    The first version of this test asserted the opposite, on the grounds that
+    ADR-036 section 5.2 says "period" and a stricter rule should not be invented
+    at the point of posting. It was not invented there: the owner asked the
+    model question -- is there an accounting reason for a line to carry a day
+    other than its entry's? -- and there is none (ADR-039 §9: `accounting_date`
+    is the posting date, one per entry; the economic date is `document_date`).
+    Three reports disagreed over which day a document was posted on while the
+    permission existed. The last day of the month is kept on purpose: it is the
+    case the old, inclusive-window logic was written to accept.
     """
     lines = (
         make_line(scene, debit="1000.0000", on=date(2026, 1, 2)),
@@ -452,8 +457,10 @@ def test_a_line_dated_elsewhere_inside_the_same_period_is_accepted(
             scene, credit="1000.0000", account_id=scene["credit_account"], on=date(2026, 1, 31)
         ),
     )
-    with tenant_context(context):
-        assert verify(make_posting(scene, lines)) == scene["open_period"]
+    with tenant_context(context), pytest.raises(LineDateDiffersError) as excinfo:
+        verify(make_posting(scene, lines))
+    assert excinfo.value.code == "posting.line_date_differs"
+    assert "2026-01-02" in str(excinfo.value) and "2026-01-31" in str(excinfo.value)
 
 
 # --- invariant 4: the account exists and is valid on the day ----------------

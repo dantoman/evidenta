@@ -9,7 +9,7 @@
 
 **Felia verticală merge cap-coadă: companie → plan de conturi → notă manuală → balanță echilibrată.**
 Un test de integrare o parcurge prin HTTP, sub rolul aplicației
-(`backend/tests/integration/test_vertical_slice.py`). Suita: **1.022 trec, 1 sărit** (2026-08-30).
+(`backend/tests/integration/test_vertical_slice.py`). Suita: **1.031 trec, 1 sărit** (2026-08-30).
 
 - **A1** — planul SNC ca date: `accounting/coa/data/snc_2020.csv`, 476 de conturi (156 gradul I,
   320 gradul II), transcrise din extragerea proprie a actului; încărcător idempotent
@@ -202,8 +202,53 @@ de `ListAgents` ca `evidenta-2d` după o repornire de socket):**
 - **Ce rămâne din F1.8, numit:** jurnalele de vânzări/cumpărări — pe document prin definiție, deci
   fără conținut până la primul document postat (F1.4.4 / Etapa 8); **reconcilierea la leu contra 1C**,
   criteriul de ieșire, așteaptă extrasul real (F3, ADR-054).
-- Suita backend: **1.022 trec, 1 sărit**; Vitest: **27**; `mypy .` curat pe 354 de fișiere; ESLint,
-  `tsc`, build curate. Reviewer-ii `accounting-reviewer` și `tenancy-guard` rulați înainte de commit.
+- **Revizuirea contabilă a găsit trei avertismente cu o singură rădăcină, și proprietarul a pus
+  întrebarea de model înaintea oricărei reparații:** are divergența de dată pe liniile unei
+  înregistrări un motiv contabil? **Nu** — ADR-039 §9 definește `accounting_date` ca data postării,
+  una per înregistrare; linia o poartă fiindcă e tabela partiționată, iar data economică are coloana
+  ei, `document_date`. Permisiunea era un rest al proiectării linie-cu-linie. **[ADR-059](decisions/059-linia-poarta-data-inregistrarii.md)**:
+  invariantul 3 devine egalitate (`posting.line_date_differs`), nota manuală refuză la payload o
+  linie cu altă zi, triggerul `journal_line_carries_the_entry_date` (`0062`) e a doua barieră pentru
+  importul și migrările care nu trec prin motor. Trei rapoarte spun acum aceeași zi prin construcție;
+  fișa poartă și legăturile `R14`, ca registrul.
+- **Scara sumei, impusă structural:** `journal_line_amount_scale` și `journal_formula_amount_scale`
+  — `debit = round(debit, 2)` — CHECK în bază, la scara aprobată în ADR-037 §3.2. A zecea apariție a
+  familiei „proprietate presupusă în amonte, neimpusă în schemă, consumator în aval care se sparge
+  tăcut": exporturile rotunjesc rândurile și totalurile independent, deci o sumă cu patru zecimale ar
+  fi făcut coloana să nu mai dea totalul, fără niciun semnal. Nota manuală refuză a treia zecimală
+  cu cod (`SCALE = 2`, era 4) înaintea bazei. Când `accounting.amount_scale` se schimbă, se schimbă
+  și constrângerea — în migrarea care se uită la rânduri. Stornoul și închiderea au acum test prin
+  toate cele patru rapoarte.
+- **C5, cele trei puncte ale proprietarului, executate în ordine.** (1) Cei patru pași confirmați în
+  cod — variabilele integral (pct. 30(1)), constantele × min(1, efectiv/normal) cu o rotunjire
+  `half_up` la 2, restul la 714, ce intră în cost pe produse proporțional cu baza, fiecare cotă
+  rotunjită o dată — și `production.overhead_absorption` **activată** pe baza de dezvoltare cu
+  `--approver 22222222-…`, rând în `privileged_access_log`. (2) **Restul pe cota cea mai mare**, la
+  egalitate pe **codul produsului** (`ProductShare.code`, purtat pe fapt; identificatorul când codul
+  lipsește) — nu pe ultimul produs, care e o proprietate a ordinii, nu a datelor; ADR-058 §2.5
+  rescris cu motivul determinismului față de date; testul repartizează aceeași listă în două ordini
+  și cere aceleași cote pe aceleași produse. (3) **Golul 2014–2017 rămâne**: regula din 2014, direcția
+  din 28.10.2017, o repartizare între ele e refuzată de registru — consemnat în ADR-058 §6 și păzit
+  de un test, ca nimeni să nu-l „repare".
+- **Punctul 4 — gardienii, întrebați „ce afișezi dacă lucrul păzit se produce?"** (raport, nimic
+  reparat):
+
+  | Gardian | Cazul păzit | Ce afișează când se produce |
+  |---|---|---|
+  | `make drift-check` (`check_schema_drift`) | baza vie a deviat de la contracte: RLS oprit, `FORCE` lipsă, politică fără `WITH CHECK`, colație greșită, FK spre append-only, coloană de partiționare nulabilă, privilegiu de scriere pe tabelă `global_read_only` | **răspunde**: o linie per constatare, `[regulă] tabelă: detaliu`, plus `[PRIV] tabelă: evidenta_app holds …`, apoi `exit 1`. Verificat: a prins `fiscal_parameter_confidence_event` la prima rulare |
+  | IZ-78 (`schema_audit._audit_writer`, `_audit_writer_sweep`) | o tabelă globală scrisă de altcineva decât rolul declarat, sau rolul de încărcare cu privilegii în afara tabelelor lui | **răspunde**: cinci mesaje distincte, fiecare cu rol, tabelă și cauza (`holds …`, `second door`, `no INSERT privilege`, `may DELETE`, `not its declared writer`); probele din `test_model_guard` le fac să cadă |
+  | „gardianul de registre" din `tests/conftest.py` (`_registries_survive_the_test`) | un test lasă în urmă tipuri, handlere sau roluri în registrul în memorie, iar următorul test le moștenește | **nu răspunde**: e o *restaurare*, nu o verificare — golește și repune dicționarele după fiecare test și **nu afișează nimic** când un test a mutat registrul. Cazul păzit se produce tăcut și e reparat tăcut; un test care depinde de registrul poluat trece sau cade fără ca nimeni să afle de ce. **A unsprezecea apariție**, în forma cea mai curată: gardianul ascunde exact simptomul pe care ar trebui să-l strige. Reparația propusă (neaplicată): după test, dacă starea diferă de instantaneu, `pytest.fail` cu numele testului și cheile mutate |
+  | `_assert_application_role` (`tests/conftest.py`) | suita rulează ca superuser, `BYPASSRLS` sau proprietar de tabele, deci trece prin politici fără să le exercite | **răspunde**: `pytest.exit` cu lista problemelor (rolul, `superuser`, `bypassrls`, tabelele deținute) — întreaga suită se oprește, nu un test |
+  | CI `quality`: `ruff check`, `ruff format --check`, `mypy .`, `pytest tests/deps_guard tests/architecture`, `makemigrations --check` | stil, tipuri, D1–D6, app-uri goale, model schimbat fără migrare | **răspund**: fiecare unealtă tipărește fișier:linie și cauza; `makemigrations --check` tipărește migrarea pe care ar genera-o |
+  | CI `tests`: bootstrap pe bază curată, `migrate` ca owner, `pytest -q`, „Confirm the suites ran as the application role" | un fișier de bootstrap care nu se aplică de la zero, o migrare care nu rulează, o suită care a rulat sub alt rol | **răspund** — cu o observație: pasul de confirmare a rolului tipărește rolul și cade pe `assert`; dar harness-ul refuză deja mai devreme, deci pasul afișează *care* rol a fost, nu *că* a fost greșit — e jurnal, nu gardian, și e scris ca atare în `ci.yml` |
+  | CI `frontend`: `tsc -b`, `eslint .` (`C16`, `C21`), `vite build` | import direct de `react-table`, literal de înălțime în grile, tip rupt, bundle care nu se construiește | **răspund**: ESLint tipărește regula cu mesajul ei (`C16: …`, `C21: …`), `tsc` fișier:linie |
+  | `make check-committed` | fișierul uitat din commit, invizibil pentru orice verificare care citește discul | **răspunde**, cu `--self-test` care scoate un fișier și cere ca verificarea **să cadă** — dar **nu rulează în CI**: CI verifică arborele împins, deci cazul e acoperit acolo implicit, fără să fie numit |
+
+  Concluzie: dintre gardienii întrebați, unul singur nu poate răspunde — restaurarea registrelor din
+  `conftest`. Nereparat; așteaptă aprobarea.
+- Suita backend: **1.031 trec, 1 sărit**; Vitest: **27**; `mypy .` curat; ESLint, `tsc`, build
+  curate. Reviewer-ii `accounting-reviewer` și `tenancy-guard` rulați înainte de commit; al doilea
+  fără constatări, primul cu cele de mai sus.
 
 ## Sesiuni mai vechi
 

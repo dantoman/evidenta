@@ -90,6 +90,14 @@ denumiri de lungime realistă. Versionat ca fixture de dezvoltare, ca și cum ar
 - **Blocat de:** `OD-19` (management de stare, client HTTP). *`OD-34` închisă prin `ADR-009`;
   `OD-35` prin `ADR-042`; ținta de performanță (`OD-29`) prin [ADR-053](../decisions/053-tinta-de-performanta.md).*
 
+> **Starea la 2026-08-30.** `DataGrid` (din 26.08) servește acum trei rapoarte reale din F1.8 —
+> fișa contului, șahul, balanța — cu totaluri de la server, drill-down pe rând și zero import direct
+> de `react-table` în ecrane (ESLint). Din listă **lipsesc încă**: virtualizarea (ADR-053 §4 o
+> înlocuiește pe fișă cu agregarea pe document; rămâne pentru o Carte Mare la volum), coloanele
+> înghețate, redimensionarea/reordonarea, configurația persistată per utilizator și rândurile de
+> subtotal — niciunul cerut de un ecran existent, deci niciunul construit în avans. F1.G0 nu există
+> ca fixture versionat; `tests/volume/test_account_ledger.py` generează volumul modelului la cerere.
+
 ---
 
 ## F1.G2 — `EntryGrid`
@@ -138,6 +146,24 @@ denumiri de lungime realistă. Versionat ca fixture de dezvoltare, ca și cum ar
      nu este linii de document** — maparea conturilor la import. Fără acest criteriu,
      „primitivă generală" rămâne intenție, iar `OD-41` se redeschide singură.
 - **Blocat de:** `OD-19`. *`OD-34` închisă prin `ADR-009`; `OD-35` prin `ADR-042`; `OD-36` — contractul — prin [ADR-052](../decisions/052-contractul-de-tastatura.md), 2026-08-29.*
+
+> **Livrată la 2026-08-30** (`frontend/src/shared/EntryGrid/`), pe cele trei criterii:
+> 1. o notă de **cinci rânduri** se introduce și se postează fără mouse — test peste ecranul notei,
+>    prin `Enter`, `F4` și `Ctrl+Enter`, cu punct și virgulă amestecate în aceleași rânduri;
+> 2. `1234,5` și `1234.50` produc `1234.5`, iar ecranul nu adaugă niciun handler de taste — `C40`,
+>    verificat prin citire: nota și soldurile nu au `onKeyDown`;
+> 3. **aceeași componentă servește o suprafață care nu e linii de document**: rândurile GL ale
+>    **soldurilor inițiale**, fără fork și fără ramură. Maparea conturilor la import — exemplul din
+>    criteriu — a plecat la F3 odată cu importatorul (ADR-054), deci suprafața aleasă e cea din
+>    domeniul enumerat mai sus care există azi.
+>
+> Un test Vitest per rând al tabelului ADR-052 §3, plus `Tab`, `F2`, `Ctrl+Delete` și separatorul
+> zecimal, peste componentă. Cele trei implicite din ADR-052 §3.1 s-au implementat așa cum sunt
+> propuse — `Tab` navigare fără linie nouă, `F4`/`F2`, `Ctrl+Delete` cu a doua apăsare când rândul
+> are conținut — și **rămân de confirmat**, nu confirmate. Un defect prins de testul de cinci rânduri,
+> nu de cele unitare: două `onChange` din același eveniment (confirmarea celulei, apoi deschiderea
+> rândului) porneau amândouă din rândurile randării, iar al doilea îl ștergea pe primul — creditul
+> dispărea exact când `Enter` deschidea linia următoare.
 
 ---
 

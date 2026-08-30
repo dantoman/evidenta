@@ -67,3 +67,50 @@ def test_the_server_activates_no_language() -> None:
         "names: render a document with `ru` active and assert the output is Romanian. "
         "Add that test, then narrow this one to the call sites it covers."
     )
+
+
+def test_a_register_export_is_romanian_whatever_language_is_active() -> None:
+    """The guard the ADR named for the day a pipeline exists. It exists now: the
+    CSV export of F1.8 (C20). Rendered with `ru` active, the bytes are the same
+    as with `ro` -- the formatter reads no language, and the pipeline's own
+    `override("ro")` would keep it so if one day it did.
+
+    `translation.override`, not `activate`, on purpose: the test above forbids
+    server-side activation, and this one has to leave no language behind it.
+    """
+    from datetime import date
+    from decimal import Decimal
+    from uuid import uuid4
+
+    from django.utils import translation
+
+    from evidenta.accounting.ledger.services.export import trial_balance_csv
+    from evidenta.accounting.ledger.services.trial_balance import TrialBalance, TrialBalanceRow
+
+    balance = TrialBalance(
+        start_date=date(2026, 3, 7),
+        end_date=date(2026, 3, 31),
+        rows=(
+            TrialBalanceRow(
+                account_id=uuid4(),
+                account_code="FIXTURE-A",
+                name_ro="Cont de fixture cu diacritice: ăîșț",
+                opening=Decimal("1234.5678"),
+                debit=Decimal("0.0050"),
+                credit=Decimal("10"),
+                closing=Decimal("1224.5728"),
+            ),
+        ),
+    )
+
+    with translation.override("ro"):
+        romanian = trial_balance_csv(balance)
+    with translation.override("ru"):
+        under_russian = trial_balance_csv(balance)
+    with translation.override("en"):
+        under_english = trial_balance_csv(balance)
+
+    assert romanian == under_russian == under_english
+    text = romanian.decode("utf-8-sig")
+    assert "1234,57" in text and "0,01" in text and "ăîșț" in text
+    assert "1234.57" not in text

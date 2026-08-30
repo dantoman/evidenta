@@ -24,6 +24,7 @@ from __future__ import annotations
 import uuid
 
 from django.db import models
+from django.db.models.functions import Round
 
 from evidenta.accounting.coa.dimensions import DIMENSION_KEYS, GENERIC_SLOTS, SLOT_COUNT
 from evidenta.platform.amounts import PERCENT_DIGITS, PERCENT_SCALE
@@ -353,6 +354,18 @@ class JournalLine(models.Model):
                 condition=models.Q(debit__gte=0) & models.Q(credit__gte=0),
                 name="journal_line_amounts_not_negative",
             ),
+            # Two decimals -- ADR-037 §3.2, approved, and ADR-059: a property
+            # every reader assumed and nothing enforced. The exports round each
+            # row and the totals independently, so a four-decimal amount upstream
+            # would make a column stop adding up to its total with nothing to
+            # say so. The column keeps four places (storage width, Spec B §1.3);
+            # what is written into it carries two. Moving the convention means
+            # moving this constraint, in a migration that looks at the rows.
+            models.CheckConstraint(
+                condition=models.Q(debit=Round(models.F("debit"), 2))
+                & models.Q(credit=Round(models.F("credit"), 2)),
+                name="journal_line_amount_scale",
+            ),
             # Spec B section 1.3 writes this as "currency = functional OR rate > 0".
             # The functional currency lives on the company, which a CHECK cannot
             # reach, and the disjunction collapses to the second half anyway: the
@@ -587,6 +600,11 @@ class JournalFormula(models.Model):
             ),
             models.CheckConstraint(
                 condition=models.Q(exchange_rate__gt=0), name="journal_formula_rate_positive"
+            ),
+            # The same two decimals as the lines it expands into (ADR-059).
+            models.CheckConstraint(
+                condition=models.Q(amount=Round(models.F("amount"), 2)),
+                name="journal_formula_amount_scale",
             ),
             # Debit and credit on one account, with one set of slots, is a
             # movement of nothing. Expressing a transfer between two values of

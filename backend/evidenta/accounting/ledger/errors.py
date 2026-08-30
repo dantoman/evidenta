@@ -42,3 +42,22 @@ class AlreadyReversedError(ApiError):
 
     code = "ledger.entry_already_reversed"
     status = 409
+
+
+class LedgerAccountNotFoundError(ApiError):
+    """An account the report was asked for that this context cannot see.
+
+    One code for "no such account" and "not yours", the same absence of an answer
+    `platform.api.lookup` gives: a report that could tell the two apart would let
+    a caller enumerate another tenant's chart by asking for ledgers.
+    """
+
+    code = "ledger.account_not_found"
+    status = 404
+
+
+class InvalidPeriodError(ApiError):
+    """`?from=`/`?to=` missing or not a date. A stable code, not a field error."""
+
+    code = "ledger.invalid_period"
+    status = 400

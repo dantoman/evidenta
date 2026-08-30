@@ -13,11 +13,11 @@
 
 import { useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
-import { Link, useParams } from 'react-router'
+import { Link, useNavigate, useParams } from 'react-router'
 
 import { t } from '@/locales'
 import { amount } from '@/shared/format'
-import { trialBalance, type TrialBalanceRow } from '@/shared/api/ledger'
+import { trialBalance, trialBalanceExport, type TrialBalanceRow } from '@/shared/api/ledger'
 import { DataGrid, type Column } from '@/shared/DataGrid'
 import { Failure } from '@/shared/Failure'
 
@@ -71,6 +71,7 @@ function yearEnd(): string {
 
 export function TrialBalanceScreen() {
   const { companyId = '' } = useParams()
+  const navigate = useNavigate()
 
   // The window is a choice, and the default is the calendar year rather than
   // "today": a balance for a single day is almost never the question, and a
@@ -98,6 +99,9 @@ export function TrialBalanceScreen() {
         </Link>
         <Link to={`/companii/${companyId}/registru`} className="text-accent">
           {t.accounting.register.title}
+        </Link>
+        <Link to={`/companii/${companyId}/rulaje`} className="text-accent">
+          {t.accounting.reports.correspondence}
         </Link>
       </nav>
       <header className="flex flex-wrap items-end justify-between gap-4">
@@ -133,6 +137,16 @@ export function TrialBalanceScreen() {
           >
             {t.accounting.balance.show}
           </button>
+          {/* The same balance as a file, built by the server from the same
+              result (C20). A link: the browser downloads it with the cookie. */}
+          <a
+            href={trialBalanceExport(companyId, window.from, window.to)}
+            download
+            title={t.accounting.reports.exportHint}
+            className="rounded border border-border bg-surface px-3 text-sm text-accent"
+          >
+            {t.accounting.reports.exportCsv}
+          </a>
         </form>
       </header>
 
@@ -146,6 +160,9 @@ export function TrialBalanceScreen() {
             rows={balance.data.rows}
             rowKey={(row) => row.account_id}
             emptyMessage={t.accounting.balance.empty}
+            // A balance row opens the account's ledger -- the drill-down F1.8
+            // asks for, one level at a time: balance -> ledger -> entry -> source.
+            onRowClick={(row) => navigate(`/companii/${companyId}/conturi/${row.account_id}/fisa`)}
             serverTotals={{
               account_code: t.accounting.balance.total,
               debit: amount(balance.data.total_debit),

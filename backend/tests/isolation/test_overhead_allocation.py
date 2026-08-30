@@ -206,27 +206,67 @@ def test_variable_costs_enter_in_full_whatever_the_capacity(
         ]
 
 
-def test_the_split_adds_up_to_the_last_ban(scene: dict[str, Any], context: TenantContext) -> None:
-    """100 over three equal bases: 33.33, 33.33 and 33.34 -- the last takes the
-    residual, and the entry balances against 821 exactly."""
+def test_the_split_adds_up_and_the_residual_ban_goes_to_the_largest_share(
+    scene: dict[str, Any], context: TenantContext
+) -> None:
+    """100 over three equal bases: 33.33 each, and the ban that is left over
+    goes to the largest share -- here all equal, so to the smallest product code
+    (ADR-058 §2.5). The same fact in another order gives the same shares to the
+    same products: the residual is a property of the data, not of the list."""
     a = scene["accounts"]
+    products = (
+        ProductShare(A, Decimal("1"), code="P-B"),
+        ProductShare(B, Decimal("1"), code="P-A"),
+        ProductShare(C, Decimal("1"), code="P-C"),
+    )
     with tenant_context(context):
         result = allocate(
+            scene,
+            fact(variable_costs=Decimal("100"), constant_costs=Decimal("0"), products=products),
+        )
+        by_product = {
+            item: amount for _, _, amount, item in correspondences(result.journal_entry_id)
+        }
+        assert by_product == {A: Decimal("33.33"), B: Decimal("33.34"), C: Decimal("33.33")}
+        assert sum(by_product.values()) == Decimal("100")
+
+        reordered = allocate(
             scene,
             fact(
                 variable_costs=Decimal("100"),
                 constant_costs=Decimal("0"),
-                products=(
-                    ProductShare(A, Decimal("1")),
-                    ProductShare(B, Decimal("1")),
-                    ProductShare(C, Decimal("1")),
-                ),
+                products=tuple(reversed(products)),
             ),
         )
-        shares = [amount for _, _, amount, _ in correspondences(result.journal_entry_id)]
-        assert shares == [Decimal("33.3300"), Decimal("33.3300"), Decimal("33.3400")]
-        assert sum(shares) == Decimal("100")
+        assert {
+            item: amount for _, _, amount, item in correspondences(reordered.journal_entry_id)
+        } == by_product
         assert a  # the accounts exist; the assertion is on the arithmetic
+
+
+def test_the_residual_goes_to_the_largest_share_when_shares_differ() -> None:
+    """Straight on `distribute`, no ledger: 10 over 7:2:1 leaves the ban on the 7."""
+    from evidenta.accounting.currency.money import IMPLEMENTATIONS
+    from evidenta.accounting.posting.absorption import distribute
+
+    rule = IMPLEMENTATIONS["half_up"]
+    shares = distribute(
+        Decimal("10"),
+        [Decimal("1"), Decimal("7"), Decimal("2")],
+        keys=["c", "a", "b"],
+        rule=rule,
+        scale=2,
+    )
+    assert sum(shares) == Decimal("10")
+    # 1.00 + 7.00 + 2.00 already sum; a residual appears with 100 over 3:3:3.
+    shares = distribute(
+        Decimal("100"),
+        [Decimal("3"), Decimal("3"), Decimal("3")],
+        keys=["z", "y", "x"],
+        rule=rule,
+        scale=2,
+    )
+    assert shares == [Decimal("33.33"), Decimal("33.33"), Decimal("33.34")]
 
 
 def test_an_empty_base_is_refused_not_spread_evenly(
@@ -284,3 +324,33 @@ def test_without_a_registered_rule_nothing_is_allocated(
     scene = {"tenant": tenant, "company": company, "user": world["user_a"]}
     with tenant_context(context), pytest.raises(FiscalResolutionError):
         allocate(scene, fact())
+
+
+def test_a_period_before_the_rounding_direction_is_refused_not_guessed(
+    seed: Callable[..., None],
+    world: dict[str, uuid.UUID],
+    company_of: Callable[..., uuid.UUID],
+    grant_company: Callable[..., uuid.UUID],
+    context: TenantContext,
+    source: uuid.UUID,  # noqa: F811
+) -> None:
+    """The 2014-2017 gap, kept as it is (ADR-058 §6).
+
+    The absorption rule is in force from 01.01.2014; the rounding direction and
+    the scale from 28.10.2017 (`omf-118-2017`). A period between the two finds
+    the rule and does not find the direction, and the registry refuses -- naming
+    the key it could not resolve. Nobody invents a direction for those years and
+    nobody moves the direction's `valid_from` back to make it "work": that would
+    be a rate written into code in another shape. The fixture's direction starts
+    in 2020, which is later still; the property is the same.
+    """
+    tenant = world["tenant_a"]
+    company = company_of(tenant, "1002600000906", "Alpha 2016")
+    grant_company(tenant, company, world["user_a"], world["user_a"])
+    scale(seed, world, "accounting.amount_scale", 2)
+    direction(seed, world, "half_up")
+    absorption_rule(seed, world)
+    scene = {"tenant": tenant, "company": company, "user": world["user_a"]}
+    with tenant_context(context), pytest.raises(FiscalResolutionError) as excinfo:
+        allocate(scene, fact(period_start=date(2016, 6, 1), period_end=date(2016, 6, 30)))
+    assert "accounting.money_rounding" in str(excinfo.value)

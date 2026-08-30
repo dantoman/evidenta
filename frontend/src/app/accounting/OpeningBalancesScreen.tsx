@@ -53,13 +53,14 @@ import {
   type BatchSource,
 } from '@/shared/api/opening'
 import { listPartners, type Partner } from '@/shared/api/partners'
+import { EntryGrid, type EntryColumn } from '@/shared/EntryGrid'
 import { Failure } from '@/shared/Failure'
 
 const FIELD = 'w-full rounded border border-border bg-surface px-2 text-sm'
 const BUTTON =
   'rounded border border-border bg-surface px-3 text-sm text-accent disabled:text-ink-muted'
 
-interface Draft {
+type Draft = {
   account_id: string
   debit: string
   credit: string
@@ -324,6 +325,21 @@ function Batch({
   const editable = contents.status === 'draft'
   const byId = new Map(accounts.map((account) => [account.id, account]))
 
+  const glColumns: EntryColumn<Draft>[] = [
+    {
+      key: 'account_id',
+      header: t.accounting.opening.account,
+      kind: 'lookup',
+      options: accounts.map((account) => ({
+        id: account.id,
+        code: account.account_code,
+        label: `${account.account_code} — ${account.name_ro}`,
+      })),
+    },
+    { key: 'debit', header: t.accounting.opening.debit, kind: 'amount', width: '10rem' },
+    { key: 'credit', header: t.accounting.opening.credit, kind: 'amount', width: '10rem' },
+  ]
+
   const save = useMutation({
     mutationFn: () =>
       addGlRows(
@@ -332,8 +348,9 @@ function Batch({
           .filter((row) => row.account_id !== '')
           .map((row) => ({
             account_id: row.account_id,
-            debit: row.debit.replace(',', '.') || '0',
-            credit: row.credit.replace(',', '.') || '0',
+            // Canonical already: the grid stores a point, whichever key produced it.
+            debit: row.debit || '0',
+            credit: row.credit || '0',
           })),
       ),
     onSuccess: async () => {
@@ -352,11 +369,6 @@ function Batch({
   const savedDebit = contents.gl.reduce((sum, row) => sum + units(row.debit), 0)
   const savedCredit = contents.gl.reduce((sum, row) => sum + units(row.credit), 0)
   const difference = savedDebit - savedCredit
-
-  const set = (index: number, field: keyof Draft, value: string) =>
-    setRows((current) =>
-      current.map((row, at) => (at === index ? { ...row, [field]: value } : row)),
-    )
 
   return (
     <div className="flex flex-col gap-4">
@@ -423,62 +435,24 @@ function Batch({
       )}
 
       {editable && (
-        <form
-          className="flex flex-col gap-2 rounded border border-border bg-surface p-3"
-          onSubmit={(event) => {
-            event.preventDefault()
-            save.mutate()
-          }}
-        >
-          {rows.map((row, index) => (
-            <div key={index} className="flex flex-wrap items-end gap-2">
-              <label className="flex flex-1 flex-col gap-1 text-sm">
-                <span className="text-ink-muted">{t.accounting.opening.account}</span>
-                <select
-                  value={row.account_id}
-                  onChange={(event) => set(index, 'account_id', event.target.value)}
-                  className={FIELD}
-                  aria-label={`${t.accounting.opening.account} ${index + 1}`}
-                >
-                  <option value="" />
-                  {accounts.map((account) => (
-                    <option key={account.id} value={account.id}>
-                      {account.account_code} — {account.name_ro}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="flex flex-col gap-1 text-sm">
-                <span className="text-ink-muted">{t.accounting.opening.debit}</span>
-                <input
-                  value={row.debit}
-                  onChange={(event) => set(index, 'debit', event.target.value)}
-                  inputMode="decimal"
-                  className={`${FIELD} tabular w-32 text-right`}
-                  aria-label={`${t.accounting.opening.debit} ${index + 1}`}
-                />
-              </label>
-              <label className="flex flex-col gap-1 text-sm">
-                <span className="text-ink-muted">{t.accounting.opening.credit}</span>
-                <input
-                  value={row.credit}
-                  onChange={(event) => set(index, 'credit', event.target.value)}
-                  inputMode="decimal"
-                  className={`${FIELD} tabular w-32 text-right`}
-                  aria-label={`${t.accounting.opening.credit} ${index + 1}`}
-                />
-              </label>
-              <button
-                type="button"
-                onClick={() => setRows((current) => current.filter((_, at) => at !== index))}
-                disabled={rows.length <= 1}
-                className="text-sm text-accent disabled:text-ink-muted"
-              >
-                {t.accounting.opening.removeRow}
-              </button>
-            </div>
-          ))}
-
+        <div className="flex flex-col gap-2 rounded border border-border bg-surface p-3">
+          {/* The same primitive as the manual note (F1.G2): a surface that is
+              not document lines, served by `EntryGrid` without a fork -- which
+              is the criterion that makes it a general primitive rather than a
+              lines grid. Ctrl+Enter saves the rows; no key handler here (C40). */}
+          <EntryGrid<Draft>
+            columns={glColumns}
+            rows={rows}
+            onChange={setRows}
+            newRow={() => ({ ...EMPTY })}
+            onValidate={() => {
+              if (!rows.every((row) => row.account_id === '') && !save.isPending) save.mutate()
+            }}
+            balance={{ debit: 'debit', credit: 'credit' }}
+            label={t.accounting.opening.title}
+            strings={t.accounting.entryGrid}
+            footer={<span className="text-xs text-ink-muted">{t.accounting.entryGrid.keys}</span>}
+          />
           <div className="flex flex-wrap items-center gap-4">
             <button
               type="button"
@@ -488,7 +462,8 @@ function Batch({
               {t.accounting.opening.addRow}
             </button>
             <button
-              type="submit"
+              type="button"
+              onClick={() => save.mutate()}
               disabled={rows.every((row) => row.account_id === '') || save.isPending}
               className={BUTTON}
             >
@@ -496,7 +471,7 @@ function Batch({
             </button>
           </div>
           {save.isError && <Failure error={save.error} />}
-        </form>
+        </div>
       )}
 
       {editable && (

@@ -480,6 +480,17 @@ redeschide. Unde o sarcină pare să ceară altceva, ADR-ul câștigă și sarci
   fișa contului agregă implicit pe document, cu drill-down la formule; datele din modelul de volum;
   pragurile propuse, de confirmat. `OD-35` închisă prin ADR-042.)* Rămâne dependența de **F1.G1**.
 
+> **Livrat la 2026-08-30, cu ce rămâne numit.** Fișa contului (un rând per document, corespondența
+> din `journal_formula`, soldul curent al serverului), Cartea Mare (pe lunile companiei, rulaje în
+> corespondență, restul neexplicat numit), rulajele pe corespondențe (șahul), drill-down-ul
+> înregistrării până la sursă (`R13`), toate cu totaluri pe server (`C19`) și export **CSV** pe server
+> din același rezultat (`C20`, `C38`). Balanța există din A5 și primește exportul. **Rămân:** jurnalele
+> de vânzări/cumpărări — sunt „pe document prin definiție" (ADR-053) și nu au ce lista până nu
+> postează un document (F1.4.4 / Etapa 8); exportul Excel/PDF (`OD-74`); **reconcilierea la leu contra
+> 1C**, care e criteriul de ieșire și așteaptă extrasul real (F3, ADR-054). Ținta ADR-053 §3.3 pentru
+> fișă are prima măsurătoare, la scara implicită: 22,7 ms pe o lună a contului celui mai încărcat din
+> 2.000 de documente, prin `journal_line_account_idx` (`tests/volume/test_account_ledger.py`).
+
 ---
 
 ## ~~F1.9 — Importatorul 1C, fundament~~ → **F3, Migration Center**
@@ -531,8 +542,8 @@ o a doua copie a aceleiași sarcini diverge de prima, iar F0 a produs destule ex
 
 | Sarcină | Poziție în secvență | Blocat de |
 |---|---|---|
-| **F1.G1** `DataGrid` | după F1.2, înainte de F1.8 | — *(`OD-19` prin [ADR-031](../decisions/031-stack-frontend.md); `OD-35` prin ADR-042; ținta prin ADR-053; fixture-ul F1.G0 sintetic, ADR-054)* |
-| **F1.G2** `EntryGrid` | după F1.2, înainte de F1.7 | — *(contractul: [ADR-052](../decisions/052-contractul-de-tastatura.md))* |
+| **F1.G1** `DataGrid` | după F1.2, înainte de F1.8 | — *(`OD-19` prin [ADR-031](../decisions/031-stack-frontend.md); `OD-35` prin ADR-042; ținta prin ADR-053; fixture-ul F1.G0 sintetic, ADR-054)*. **Servește F1.8 de la 2026-08-30** — fișa contului, șahul, balanța — cu drill-down în loc de virtualizare (ADR-053 §4); virtualizarea rămâne gol numit în componentă |
+| **F1.G2** `EntryGrid` | după F1.2, înainte de F1.7 | — *(contractul: [ADR-052](../decisions/052-contractul-de-tastatura.md))*. **Livrată 2026-08-30**: contractul §3 rând cu rând, cu un test Vitest per tastă; nota manuală și soldurile inițiale (GL) pe ea, fără handler propriu de taste (`C40`) — vezi `07-f1-grile.md` |
 
 `F1.G0` — setul de date 1C — este aceeași precondiție ca `OD-28`.
 

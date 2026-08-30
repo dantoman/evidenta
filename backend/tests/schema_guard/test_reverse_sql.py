@@ -82,6 +82,8 @@ ALREADY_CORRECT = [
         # trigger functions.
         "0056_dimension_slots",
         "0057_journal_formula",
+        # ADR-059: the line-date trigger.
+        "0062_line_date_and_scale",
         # ADR-049 and ADR-055: a log with its trigger, an act registry, the write
         # policies, and the precision freeze -- each drops only what it created.
         "0058_privileged_access_log",

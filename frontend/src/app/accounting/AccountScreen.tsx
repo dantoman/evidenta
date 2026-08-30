@@ -98,6 +98,15 @@ export function AccountScreen() {
         <Link to={`/companii/${companyId}/plan-de-conturi`} className="text-sm text-accent">
           {t.common.back} — {t.accounting.chart.title}
         </Link>
+        <Link to={`/companii/${companyId}/conturi/${accountId}/fisa`} className="text-sm text-accent">
+          {t.accounting.reports.ledger}
+        </Link>
+        <Link
+          to={`/companii/${companyId}/conturi/${accountId}/cartea-mare`}
+          className="text-sm text-accent"
+        >
+          {t.accounting.reports.generalLedger}
+        </Link>
         <h1 className="text-base font-semibold">
           <span className="font-mono">{row.account_code}</span> {row.name_ro}
         </h1>
