@@ -137,6 +137,7 @@ Acte normative, secțiuni din documentele de intrare, benchmark-uri, discuții.
 | [064](064-diferenta-explicata-nu-diferenta-zero.md) | Punctul 3 al criteriului de ieșire din F2: diferență explicată, nu diferență zero | Acceptat — scop, proprietar | 2026-08-30 | — |
 | [065](065-schema-salarizarii.md) | Schema salarizării: sarcina angajatorului și reținerea din salariat sunt două structuri, nu una parametrizată; detaliul per angajat în registru; două date pe linia de salariu | Acceptat — domeniu, proprietar | 2026-08-30 | `DNB-05`, `OD-81` *(deschide `OD-83`, `OD-84`)* |
 | [066](066-rezerva-e-decizie-deschisa.md) | O rezervă cu declanșator este o decizie deschisă și are rând în registru; marcaj auto-declarat plus gardian | Acceptat — decizie de proces | 2026-08-30 | `OD-82` *(deschide `OD-85`)* |
+| [067](067-contractul-e-cap-de-serie.md) | Amendament la ADR-065: contractul de muncă e cap de serie, nu stare — orice clauză schimbată cere act adițional; o sarcină adaugă câmpuri, nu entități | Acceptat — domeniu, proprietar | 2026-08-30 | — |
 
 *Indexul se actualizează la fiecare ADR nou. Un ADR care nu apare aici este invizibil.*
 

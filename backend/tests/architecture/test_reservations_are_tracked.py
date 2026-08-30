@@ -26,9 +26,18 @@ from pathlib import Path
 DECISIONS = Path(__file__).resolve().parents[3] / "docs" / "decisions"
 REGISTER = DECISIONS / "000-open-decisions.md"
 
-#: `REZERVĂ (`OD-nn`)` opens one; `REZERVĂ ÎNCHISĂ (`OD-nn`)` closes it here.
-#: The token is mandatory: a reservation without one is the failure this guards.
-RESERVATION = re.compile(r"REZERV[ĂA](\s+ÎNCHIS[ĂA])?\s*\(\s*`?(OD-\d+)`?\s*\)")
+#: Three forms, and the third was discovered at the convention's second use.
+#: `REZERVĂ (`OD-nn`)` carries one forward; `REZERVĂ ÎNCHISĂ (`OD-nn`)` closes it;
+#: `REZERVĂ NEATINSĂ (`OD-nn`)` says this document leans on the carrier without
+#: relying on the reserved claim. Without the third, ADR-067 -- an amendment to
+#: ADR-065's section 4, nowhere near the reserved tariff table -- had only two
+#: ways out: claim a reservation it does not rest on, or drop the strongest
+#: dependency it has from `Legate:`. Both are worse than saying so.
+#:
+#: It is an escape hatch, and it is meant to be a visible one: it still names the
+#: token, so a reader sees both that the reservation exists and the claim that
+#: this document does not depend on it -- which is reviewable, unlike silence.
+RESERVATION = re.compile(r"REZERV[ĂA](\s+(?:ÎNCHIS[ĂA]|NEATINS[ĂA]))?\s*\(\s*`?(OD-\d+)`?\s*\)")
 
 #: The `- **Legate:** ...` line, where an ADR names what it leans on.
 RELATED_LINE = re.compile(r"^- \*\*Legate:\*\*(.*?)(?=^- \*\*|\n## )", re.M | re.S)
@@ -67,12 +76,12 @@ FENCE = re.compile(r"^```.*?^```", re.M | re.S)
 
 
 def _reservations(text: str) -> tuple[set[str], set[str]]:
-    """(open tokens declared here, tokens declared closed here)."""
+    """(tokens carried open here, tokens settled here -- closed or untouched)."""
     carried: set[str] = set()
-    closed: set[str] = set()
-    for closing, token in RESERVATION.findall(FENCE.sub("", text)):
-        (closed if closing.strip() else carried).add(token)
-    return carried, closed
+    settled: set[str] = set()
+    for qualifier, token in RESERVATION.findall(FENCE.sub("", text)):
+        (settled if qualifier.strip() else carried).add(token)
+    return carried, settled
 
 
 def test_a_declared_reservation_names_a_tracked_decision() -> None:

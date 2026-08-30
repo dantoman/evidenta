@@ -502,10 +502,35 @@ dezactivează şi nu se plătesc separat** — `R24` pe ieşiri, în cod.
 
 ## 11. Ce **nu** decide acest ADR, cu declanşatorul fiecăruia
 
-- **Câmpurile contractului nu vin dintr-un act citit.** Codul muncii art. 49 **necercetat**; **IRM19**
-  — informaţia de angajare/modificare/încetare, 10 zile lucrătoare — **fără formular obţinut**. Deci
-  câmpurile sunt **derivate din ce consumă calculul**, nu transcrise. *Declanşator: `F2.X2 (k)`, nouă —
-  IRM19 şi art. 49, înaintea lui `F2.B1`.*
+- ~~**Câmpurile contractului nu vin dintr-un act citit.**~~ **Declanşatorul a fost tras: `F2.X2 (k)`
+  făcută, 2026-08-30** — [`f2-x2-k-contractul-si-irm19.md`](../_input/cercetare/f2-x2-k-contractul-si-irm19.md).
+  Art. 49 alin. (1) e obţinut integral (19 clauze, dintr-o consolidare terţă oprită în 2019, cu lit. i)
+  **semnalată ca schimbată ulterior şi actul modificator neidentificat**); IRM19 e obţinut integral
+  pentru starea din 2021 — 12 coloane, 9 rubrici de preambul, şi cele două clasificatoare. IRM19 **nu
+  are ordin propriu**: e Anexa nr. 3 la Ordinul Ministerului Finanţelor nr. 126 din 04.10.2017
+  (Monitorul Oficial nr. 383-388 din 03.11.2017, poz. 1947), rescrisă prin Ordinul nr. 33 din
+  19.02.2019 (Monitorul Oficial nr. 59-65 din 22.02.2019, Partea III, poz. 364a).
+
+  **Cinci lucruri pe care lista derivată din calcul nu le avea, şi două dintre ele schimbă schema:**
+
+  1. **Faptul generator al raportării e ordinul angajatorului, nu contractul** — termenul de 10 zile
+     lucrătoare curge *„începând cu ziua următoare după data indicată în ordin"*. Înregistrarea trebuie
+     să poarte **data ordinului, numărul lui şi tipul evenimentului**; contractul singur nu ajunge.
+     **Schimbă schema.**
+  2. **Orice schimbare a oricărei clauze din art. 49 alin. (1) cere act adiţional semnat**, anexat şi
+     parte integrantă. **Un `employment_contract` actualizat pe loc, fără istoric de acte adiţionale,
+     nu poate demonstra conformitatea. Schimbă schema.**
+  3. Suspendarea şi anularea ei sunt raportabile (codurile 03/04) cu o listă **negativă** de excepţii —
+     o implementare care raportează orice suspendare produce declaraţii greşite.
+  4. „Angajat şi eliberat în 10 zile" cere **două înscrieri** în acelaşi formular: o singură relaţie de
+     muncă poate genera legitim mai multe rânduri, şi asta nu e coliziune de date.
+  5. Ramura „militar" (codurile 06–10) e un al doilea vocabular selectat după **calitatea persoanei**,
+     nu după eveniment — o cheie de context care trebuie să existe.
+
+  **Lista rămâne verificabilă, nu completă**, şi ce blochează declaraţia de completitudine e numit:
+  redacţia curentă a lit. i) şi **Anexa nr. 4¹** (specificaţia validărilor la depunere, text
+  neobţinut). Niciuna nu blochează **construcţia** înregistrării — blochează depunerea, ca la celelalte
+  canale.
 - **Clasificarea append-only a tabelelor proprii ale salarizării.** `infra/schema/append_only.toml` nu
   e atins de acest ADR, iar linia de salariu per angajat e singura candidată. **Trebuie decis înainte
   de `F2.B1`, nu la prima migrare:** direcţia cheilor străine e ireversibilă în practică — o tabelă cu

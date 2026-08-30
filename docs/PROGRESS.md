@@ -245,8 +245,30 @@ scos, gardianul raportează exact cazul real — *065 leans on ADR-044 and drops
 îngustat la ADR-urile scrise după regulă, fiindcă aplicat retroactiv acuza patru ADR-uri fără legătură
 cu tarifele, iar un gardian care sâcâie ajunge oprit.
 
-**Unde s-a oprit.** Niciun cod de modul încă — `F2.B0` e ADR, iar următoarea e `F2.B1`, care aşteaptă
-`F2.X2 (k)` (IRM19 şi Codul muncii art. 49) şi clasificarea append-only a tabelelor salarizării. Ce îi trebuie, în ordine: rolurile de
+**`F2.X2 (k)` făcută şi `OD-87` închisă — `F2.B1` e deblocată.**
+
+- **[`f2-x2-k-contractul-si-irm19.md`](_input/cercetare/f2-x2-k-contractul-si-irm19.md)** — art. 49
+  integral (19 clauze, consolidare terţă oprită în 2019, lit. i) semnalată ca schimbată şi actul
+  modificator neidentificat) şi IRM19 integral pentru 2021. **IRM19 n-are ordin propriu:** e Anexa
+  nr. 3 la OMF 126/2017, rescrisă prin OMF 33/2019 — identitate MO verificată independent pe pagina
+  ediţiei. **Metodă schimbată: Wayback e accesibil acum**, ceea ce a deschis `sfs.md`; de aici `F2.X3`.
+- **Două constatări schimbă schema.** Ordinul angajatorului e faptul generator al raportării, nu
+  contractul → câmpuri în `F2.B1`. Orice clauză schimbată cere act adiţional → **entitate nouă**, deci
+  [ADR-067](decisions/067-contractul-e-cap-de-serie.md), cu regula care le desparte: *o sarcină adaugă
+  câmpuri unei entităţi pe care ADR-ul o descrie; nu introduce una pe care n-o cunoaşte.*
+- **`OD-87` închisă** pe măsurătoarea din
+  [`_bootstrap/12-volumul-salarizarii.md`](_bootstrap/12-volumul-salarizarii.md): linia de salariu
+  **nu** intră în append-only. Argumentul decisiv a fost (c) — nume comun, cerinţe diferite: lista
+  impune partiţionabilitatea, `R10` e impusă separat şi e deja unde cerinţa legală o cere.
+- **Patru rânduri noi:** `OD-88` (păstrarea calculelor intermediare — rezervă cu declanşator),
+  `OD-89` (**starea datată ca implicit de proiectare** — a patra apariţie independentă a tiparului,
+  înrudită cu `OD-83`), `OD-90` (datele IRM19 vin din chenarele consolidării).
+- **Convenţia `REZERVĂ` a primit a treia formă la a doua folosire**, nu prin proiectare: `NEATINSĂ`,
+  fiindcă ADR-067 avea altfel doar două ieşiri — să pretindă o rezervă pe care nu se sprijină, sau
+  să-şi scoată cea mai puternică dependenţă din `Legate:`.
+
+**Unde s-a oprit.** Niciun cod de modul. `F2.B1` poate începe: are entitatea, câmpurile, clasificarea
+şi testul pe lista negativă de excepţii la suspendare. Ce îi trebuie, în ordine: rolurile de
 cont pentru salarii din Planul general de conturi (`od-22-planul-de-conturi.md`,
 `od-23-nomenclatorul-planului-de-conturi.md`), asimetria CAS/CNAM din `od-22-cnas-cnam.md`, linia cu
 două date (ADR-039 §9, ADR-044 §6), și ADR-ul care fixează toate acestea **înaintea** codului.

@@ -68,6 +68,21 @@ Iar unde se închide:
 > **REZERVĂ ÎNCHISĂ (`OD-85`):** anexa obținută la <data>, procentele confirmate verbatim.
 ```
 
+Şi o a treia formă, **găsită la a doua folosire a convenţiei, nu proiectată** — un ADR care se
+sprijină pe purtător fără să se sprijine pe afirmaţia rezervată:
+
+```
+> **REZERVĂ NEATINSĂ (`OD-85`):** acest amendament atinge §4 și §11, nu tabelul de tarife.
+```
+
+Fără ea, [ADR-067](067-contractul-e-cap-de-serie.md) — amendament la §4 al lui ADR-065, la distanţă de
+tabelul rezervat — avea doar două ieşiri: să pretindă o rezervă pe care nu se sprijină, sau să-şi
+scoată din `Legate:` cea mai puternică dependenţă pe care o are. Amândouă sunt mai rele decât să spună.
+
+**E o portiţă, şi e făcută să fie vizibilă:** numeşte tokenul, deci cititorul vede şi că rezerva
+există, şi afirmaţia că documentul nu depinde de ea — ceea ce se poate contesta, spre deosebire de
+tăcere.
+
 **Auto-declarat, deliberat** — la fel ca `decizie de domeniu`. Nimic mecanic nu poate ști dacă o frază
 e o rezervă; ce se poate impune e ca declarația, odată făcută, să fie urmărită.
 

@@ -365,11 +365,33 @@ pe date reale la primul pilot.
 - **Obiectiv:** `operations/payroll/employees`, `contracts`: CRUD, rute, ecran; datele personale sunt
   sensibile — accesul se auditează (`platform/audit`), iar `C37` rămâne: niciun termen de model în
   interfață. Dimensiunea `employee_id` se leagă de aici.
+  **Din `F2.X2 (k)`, trei cerințe care nu vin din calcul:**
+  (1) **contractul e cap de serie** — `employment_contract_amendment` per act adițional
+  ([ADR-067](../decisions/067-contractul-e-cap-de-serie.md)); „ce clauză era în vigoare la data D" se
+  citește parcurgând seria, nu dintr-o coloană;
+  (2) înregistrarea poartă **ordinul angajatorului** — dată, număr, tip de eveniment —, fiindcă
+  termenul IRM19 de 10 zile lucrătoare curge *„începând cu ziua următoare după data indicată în
+  ordin"*, nu de la contract; excepția explicită e funcția cu pensie în condiții avantajoase, unde
+  *„nu se întocmește ordinul"*;
+  (3) **`payroll_line` are cheie primară `UUID` și îngheață la `approved`**, prin trigger pe tiparul
+  `rls.opening_balance_line_frozen` — `OD-87`, ambele obligatorii.
 - **Depinde de:** F2.B0.
 - **Review:** `tenancy-guard`, `schema-reviewer`.
 - **Terminat:** izolarea (angajații companiei B invizibili din A, sub rolul aplicației — `T1`);
-  contractul cu dată de încetare nu mai intră în rulare după ea.
-- **Blocat de:** `F2.B0`.
+  contractul cu dată de încetare nu mai intră în rulare după ea; o clauză schimbată produce act
+  adițional și lasă contractul inițial citibil; **test explicit pe lista negativă de excepții la
+  suspendare** — suspendările din circumstanțe independente de voința părților, concediul pentru
+  îngrijirea unui membru bolnav al familiei și concediul parțial plătit până la 3 ani **nu** se
+  raportează cu codul 03. *E cea mai periculoasă dintre constatările mici ale lui `F2.X2 (k)`: o
+  implementare care raportează orice suspendare produce declarații greșite, iar greșeala e tăcută.*
+- **Blocat de:** `OD-87` — clasificarea append-only; tipul cheii primare o încorporează, deci nu se
+  lasă pe seama primei migrări (măsurătoarea: `12-volumul-salarizarii.md`). ~~`F2.X2 (k)`~~ **făcută
+  2026-08-30** ([`f2-x2-k-contractul-si-irm19.md`](../_input/cercetare/f2-x2-k-contractul-si-irm19.md)):
+  art. 49 şi IRM19 obţinute integral, cu două constatări care **schimbă schema** — înregistrarea poartă
+  **ordinul angajatorului** (dată, număr, tip de eveniment), fiindcă de el curge termenul de 10 zile, şi
+  contractul are nevoie de **istoric de acte adiţionale**, fiindcă orice schimbare a oricărei clauze din
+  art. 49 alin. (1) cere unul semnat. Depunerea rămâne blocată pe **Anexa nr. 4¹** (validările, text
+  neobţinut) şi pe clasificatorul funcţiilor de la col. 11 — bifa, nu construcţia.
 
 ### F2.B2 — Calculul salarial
 
@@ -713,6 +735,29 @@ IALS21 și VEN12 tac.
 **`F2.X1` poate face a doua încărcare:** Codul fiscal are ancoră (01.07.1998 pentru TVA, 01.01.1998
 pentru impozitul pe venit), L. 12/2026 și HG 773/2025 au publicarea, L. 60/2020 are MO — ce mai
 lipsește e data de adoptare a unor legi, care se citește din fișier act cu act.
+
+### F2.X3 — Recontrolarea blocajelor de acces
+
+- **Obiectiv:** un blocaj de acces marcat „neobținut" rămâne așa la nesfârșit dacă nimeni nu
+  recontrolează. **Declanșatorul e deja tras:** la 2026-08-30, în timpul lui `F2.X2 (k)`, **Wayback a
+  devenit accesibil** din acest mediu — ceea ce în `f2-x2-formularele-sfs.md` și `f2-x1` era refuzat
+  a funcționat, și a deschis instantanee `sfs.md` (care întoarce în continuare 403 direct). Actele de
+  mai jos au fost marcate neobținute **din cauza accesului, nu a inexistenței**, înainte de această
+  schimbare — deci merită o trecere:
+  **(a)** IALS21 adoptat, Ordinul MF nr. 95/2020 cu modificarea nr. 103/2024 — extinde `OD-04`
+  ([ADR-061](../decisions/061-cumulativele-de-salarii.md));
+  **(b)** structura declarației TVA, boxele 1–24 — `F2.A6` nu are forma;
+  **(c)** HG 941/2020, Catalogul duratelor de funcționare utilă — `OD-79`;
+  **(d)** HG 704/2019 în text propriu, nu din proiectul ședinței de Guvern;
+  **(e)** **anexa nr. 1 la Legea nr. 489/1999** — deblochează `OD-85`, care e purtat ca rezervă de
+  ADR-044 și ADR-065;
+  **(f)** Ordinul MF nr. 33/2019, clauza proprie de intrare în vigoare — `OD-90`;
+  **(g)** `legis.md` însuși, dacă a devenit accesibil.
+- **Depinde de:** — *(lectură; nu blochează nimic)*.
+- **Review:** `fiscal-reviewer` (pe fișier).
+- **Terminat:** fiecare poziție ori are actul în repo, ori are „reîncercat la <dată>, tot inaccesibil,
+  cu ce s-a încercat". **Tăcerea se reconsemnează, cu data nouă** — nu se lasă cea veche.
+- **Blocat de:** — *(nimic; e chiar ridicarea unor blocaje)*.
 
 ### F2.G — Ecranele
 
