@@ -46,42 +46,48 @@ se prinde la primul client real (F3).
 | `test_opening_balances.py` | soldurile inițiale | Plan 216, 221, 242, 311, 521 („Soldul contului … este debitor/creditor"); cap. I, partida dublă |
 | `test_storno.py` | stornoul (ADR-006, ADR-038 §7.2) | SNC „Politici contabile…" pct. 33 (1), (2); SNC „Venituri" pct. 17, Exemplul 8 |
 
-## Divergențe raportate, nedecise
+## Abateri cunoscute, motivate
 
-Corpusul le face vizibile; nu le rezolvă. Sunt întrebări pentru proprietar, consemnate și în
-`PROGRESS.md`.
+Nu sunt eșecuri tolerate: fiecare are o decizie în spate și un caz care o afirmă.
 
-1. **C5, nivelul la care se aplică cota din pct. 30.** Anexa 1 aplică raportul
-   *efectiv / normal* **pe fiecare produs**, cu capacitatea normală a produsului, și abia apoi
-   însumează: 103 764,71 în cost, 16 235,29 la cheltuieli. Handlerul primește **o** capacitate
-   normală și **un** volum efectiv pe fapt; cu cele trei produse într-un singur fapt (17 000 din
-   20 000) ar da 102 000 / 18 000 — altceva decât tabelul actului. Corpusul reproduce actul postând
-   **un fapt per produs**, ceea ce e o utilizare legitimă a handlerului când capacitatea e per
-   produs; dacă `AllocationFact` ar trebui să poarte capacitatea per produs e o întrebare de model
-   (ADR-058), nu a corpusului.
-2. **C5, banul rămas.** Coloana 4 a tabelului însumează 120 000 cu banul din împărțire pe „B"
-   (28 235,30); ADR-058 §2.5 îl pune pe cota cea mai mare („A": 49 411,77). Cele două postări ale
-   actului — totalurile — ies exact; două celule diferă cu un ban. Actul tace despre rest; decizia
-   e a proprietarului (instrucțiune, 2026-08-30) și rămâne.
-3. **C4, Exemplul 2, termenul avansului.** Actul recunoaște creanța integral la cursul livrării
-   (60 000 × 15,3845) și, la trecerea în cont a avansului primit la alt curs, înregistrează pe
-   partea avansată o diferență de curs de **783 lei** (primul termen din cei 2 910). Handlerul, cu
-   `settles_advance = True`, nu postează nimic — pct. 23, care e însă la *diferențe de sumă*, nu de
-   curs. Dacă partea avansată produce diferență de curs depinde de cum recunoaște modulul de vânzări
-   (F2) creanța pe partea achitată în avans (ADR-039 §3.2, art. 97/108 CF) — nu se decide aici.
-   Corpusul reproduce al doilea termen (2 127 lei).
-4. **Golul 2014–2017** (ADR-058 §6). Regula de absorbție e în vigoare din 01.01.2014, direcția de
+1. **C5, banul rămas — pe cota cea mai mare.** Coloana 4 a tabelului din Anexa 1 însumează 120 000
+   cu banul din împărțire pe „B" (28 235,30); motorul îl pune pe cota cea mai mare („A": 49 411,77)
+   și între cote egale pe codul cel mai mic (ADR-058 §2.5). Cele două postări ale actului —
+   totalurile — ies exact; două celule diferă cu un ban. Actul nu prescrie regula restului; noi am
+   ales **determinismul față de date** (același fapt, altă ordine, aceleași cote). Decizia
+   proprietarului (2026-08-30), afirmată în
+   `test_anexa_1_in_full_reproduces_the_two_postings_the_act_writes`.
+2. **Golul 2014–2017** (ADR-058 §6). Regula de absorbție e în vigoare din 01.01.2014, direcția de
    rotunjire din 28.10.2017; un fapt datat între ele găsește regula și nu găsește direcția, iar
    registrul refuză numind cheia și data — rămâne refuz, cum a decis proprietarul. Cazul din corpus
    e datat 30.06.2016 și stă pe datele din fișierele livrate: cine ar închide golul mutând
    `valid_from` înapoi ar vedea aici.
 
-5. **Storno parțial fără legătură navigabilă.** Cazurile pct. 33 (2) și Exemplul 8 (returul)
-   corectează *o parte* dintr-o înregistrare, deci trec prin nota manuală cu corespondența inversă,
-   nu prin `post_reversal` — și nota nu poartă nicio legătură spre înregistrarea corectată, doar
-   descrierea. Cele două legături `R14` există numai la stornoul integral. Dacă o corecție parțială
-   trebuie să poarte o legătură de tip `corrects_entry_id` (pentru drill-down din fișa contului) e
-   întrebare pentru proprietar — ridicată de revizorul contabil, neraportată de corpus până la el.
+## Explicate, nu divergențe
+
+3. **C4, Exemplul 2, termenul avansului — redacție abrogată.** Actul recunoaște creanța integral la
+   cursul livrării și, la trecerea în cont a avansului primit la alt curs, înregistrează pe partea
+   avansată **783 lei** diferență de curs (primul termen din cei 2 910). **Datare verificată
+   (2026-08-30):** Exemplul 2 e textul din 2013, fără notă de modificare; pct. 11 și 12 au fost
+   rescrise prin OMF 48/2019 (în vigoare 01.01.2020) și mută avansurile acordate/primite pe partea
+   nemonetară — nu se recalculează, se înregistrează la cursul recunoașterii inițiale. Handlerul, cu
+   `settles_advance = True`, nu postează nimic: e redacția în vigoare, nu o lacună. Primul termen
+   ilustrează redacția abrogată și **nu e de implementat**; corpusul reproduce al doilea (2 127 lei).
+
+## Raportate — acum decizii deschise
+
+4. **C5, nivelul la care se aplică cota din pct. 30 — `OD-77`.** Anexa 1 aplică raportul
+   *efectiv / normal* **pe fiecare produs**, cu capacitatea normală a produsului, și abia apoi
+   însumează: 103 764,71 în cost, 16 235,29 la cheltuieli. Handlerul primește **o** capacitate
+   normală și **un** volum efectiv pe fapt; cu cele trei produse într-un singur fapt (17 000 din
+   20 000) ar da 102 000 / 18 000. Corpusul reproduce actul postând un fapt per produs. Propunerea
+   din `OD-77`: `AllocationFact` poartă capacitatea per produs — de închis prin ADR peste ADR-058,
+   nu în corpus.
+5. **Storno parțial fără legătură navigabilă — `OD-78`.** Cazurile pct. 33 (2) și Exemplul 8
+   (returul) corectează *o parte* dintr-o înregistrare, deci trec prin nota manuală cu corespondența
+   inversă, nu prin `post_reversal` — și nota nu poartă nicio legătură spre înregistrarea corectată.
+   Cele două legături `R14` există numai la stornoul integral. De închis înainte de F2: vânzările vor
+   produce retururi parțiale în volum.
 
 ## Ce nu e aici
 

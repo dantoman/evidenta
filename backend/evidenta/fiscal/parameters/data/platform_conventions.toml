@@ -30,7 +30,10 @@
 # (sute de linii verificate manual, nu milioane de rotunjiri independente), iar 2,5 → 2 și 3,5 → 4
 # arată ca o eroare pentru oricine nu cunoaște regula; unde legislația fiscală prescrie explicit o
 # metodă, e aproape întotdeauna half_up — actul tace, dar tăcerea nu e motiv să alegi convenția
-# neobișnuită. Tot convenție de platformă, cu același motiv ca celelalte două: formularul tace.
+# neobișnuită. Tot convenție de platformă, dar cu alt motiv al provizoratului decât celelalte două
+# (ADR-037 §3.3, rescris 2026-08-30): formularul tace, iar **actul o demonstrează fără s-o
+# prescrie** — SNC „Stocuri", Anexa 1: 42 352,94 × 6000/8000 = 31 764,705, scris în tabel 31 764,71.
+# Corpusul o ancorează: `corpus/accounting.money_rounding/1` (tests/corpus/test_c5_absorption.py).
 
 schema_version = 1
 

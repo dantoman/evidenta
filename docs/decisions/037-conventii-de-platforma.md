@@ -9,7 +9,8 @@
   aprobate cu identitatea proprietarului, `provisional` cu motivul pe rând. `V2` (schema XML) și `V4`
   (facturi 1C reale) rămân **precondiții ale testului de acceptanță**, nu ale codului; §4 e decizie
   tehnică, implementată
-- **Data:** 2026-08-25; §3.1 decisă 2026-08-28
+- **Data:** 2026-08-25; §3.1 decisă 2026-08-28; §3.3 motivul provizoratului rescris 2026-08-30
+  (actul demonstrează `half_up` fără s-o prescrie — SNC „Stocuri", Anexa 1)
 - **Decide:** proprietarul proiectului
 - **Închide:** `DNB-08` (Spec B §7.4, §11) — 2026-08-29
 - **Afectează:** Posting Engine (F1.4), milestone-ul F1 (balanță verificabilă la leu contra 1C),
@@ -194,9 +195,23 @@ avantajul lui e invizibil în contabilitate: nu se însumează milioane de rotun
 sute de linii pe care cineva le verifică manual; iar prețul lui e că 2,5 se rotunjește la 2 și 3,5 la
 4, ceea ce arată ca o eroare pentru oricine nu cunoaște regula. Argument de conformitate: unde
 legislația fiscală prescrie explicit o metodă, e aproape întotdeauna `half_up`; actul tace aici, iar
-tăcerea nu e motiv să alegi convenția neobișnuită. Statutul rămâne provizoriu, cu același motiv ca
-celelalte două: formularul tace. Rând în `fiscal_logic_version` (`accounting.money_rounding`, v1,
-`half_up`, de la 28.10.2017), încărcat din `platform_conventions.toml` și activat de proprietar.
+tăcerea nu e motiv să alegi convenția neobișnuită. Rând în `fiscal_logic_version`
+(`accounting.money_rounding`, v1, `half_up`, de la 28.10.2017), încărcat din
+`platform_conventions.toml` și activat de proprietar.
+
+**Motivul provizoratului, rescris 2026-08-30 (instrucțiunea proprietarului, după corpusul F1.10).**
+Statutul rămâne provizoriu, dar motivul **nu mai e** cel al celorlalte două convenții. Formularul
+tace — asta n-a schimbat nimic. Ce s-a schimbat e că **actul o demonstrează fără s-o prescrie**:
+SNC „Stocuri", Anexa 1 — exemplul numeric al standardului — calculează pentru produsul „C"
+`42 352,94 × 6000/8000 = 31 764,705`, exact la echidistanță, și scrie în tabel **31 764,71**; cu
+`half_even` rândul ar însuma 59 999,99 în loc de 60 000,00. O demonstrație într-un exemplu nu e o
+prescripție — de aceea rămâne provizoriu — dar nu e nici tăcere, și cele două se citesc altfel peste
+un an: „formularul tace" înseamnă *am ales noi*; „actul o demonstrează" înseamnă *actul rotunjește
+așa când rotunjește*. Transcris în
+[`f1-10-corpus-citari.md`](../_input/cercetare/f1-10-corpus-citari.md) §„SNC Stocuri Anexa 1";
+ancorat în corpus prin `corpus/accounting.money_rounding/1`
+(`tests/corpus/test_c5_absorption.py::test_anexa_1_product_c_rounds_the_half_ban_up`), care
+distinge mecanic cele două direcții.
 
 ### 3.4 Granularitatea postării
 

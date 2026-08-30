@@ -305,11 +305,20 @@ redeschide. Unde o sarcină pare să ceară altceva, ADR-ul câștigă și sarci
      formula de subabsorbție e scrisă în standard (pct. 30), fără ambiguitate; baza de repartizare
      vine din nomenclator, listă deschisă (pct. 31). Validează că o regulă cu calcul propriu
      funcționează cu date deschise.
-  3. **C2, amortizarea** — per obiect, lunar, strat 3 pe metodă (pct. 19, 22). Validează strategia
-     de calcul al valorii, separată de formă. **Fără partea fiscală** (HG 704/2019).
-  4. **C1 ultimul** — cel mai mare: două handlere de moment (permanent / periodic), plus costul
-     standard, plus prețul cu amănuntul; și singurul care depinde de un modul de stocuri care nu
-     există încă.
+  3. **C2, amortizarea — REPORTATĂ, nu făcută** (consemnat 2026-08-30, instrucțiunea
+     proprietarului, la închiderea F1): per obiect, lunar, strat 3 pe metodă (pct. 19, 22).
+     Validează strategia de calcul al valorii, separată de formă. **Fără partea fiscală**
+     (HG 704/2019). Merge cu modulul de active fixe, `F2.A8` (`09-f2-backlog.md`).
+  4. **C1 — REPORTATĂ, nu făcută** (același moment): cel mai mare: două handlere de moment
+     (permanent / periodic), plus costul standard, plus prețul cu amănuntul; și singurul care
+     depinde de un modul de stocuri care nu există încă — **F4**.
+  5. **C4, reevaluarea la data raportării — REPORTATĂ** (același moment): livrată e doar
+     decontarea (punctul 1); reevaluarea (pct. 11–15, Anexa 1 a standardului, extrasă integral
+     2026-08-30 prin `F2.X2 (f)`) merge cu `F2.A9`.
+
+  **F1 se închide cu aceste trei reportări consemnate**, ca închiderea să nu arate mai completă
+  decât e: din cele cinci cazuri ale ADR-036 §11, F1 livrează **C5** și **C4 la decontare**; corpusul
+  F1.10 le acoperă pe acestea două plus nota, soldurile inițiale, stornoul și închiderea.
 
   *Textul blocajului, păstrat:* cazurile `C1`–`C5` cereau lista permisă de SNC, **citată**, nu
   dedusă — citarea există de la `3c3fccc` (2026-08-26) în
@@ -621,8 +630,12 @@ extrasul 1C a ieșit din criteriu — cele trei puncte care îl numeau validau d
 - [x] Corpusul de regresie rulează în CI (`C14`) — cu suita întreagă (`uv run pytest -q`), selectabil
       cu `-m fiscal_regression`
 
-**Criteriul e îndeplinit (2026-08-30).** Ce nu prinde el — divergența dintre înțelegerea noastră și
-practică — e a primului client real (F3, ADR-054 §3). `CLAUDE.md` §4 nu mai blochează codul de modul.
+**Criteriul e îndeplinit (2026-08-30), cu reportările consemnate:** `C1` (F4, modulul de stocuri),
+`C2` (F2.A8), reevaluarea `C4` (F2.A9) — reportate, nu făcute (F1.4.4, punctele 3–5). Ce nu prinde
+criteriul — divergența dintre înțelegerea noastră și practică — e a primului client real (F3,
+ADR-054 §3). `CLAUDE.md` §4 nu mai blochează codul de modul; **codul de modul F2 nu începe** până
+proprietarul răspunde la `OD-71` și `DN-18` (instrucțiunea din 2026-08-30) — aprobatorul atinge
+fiecare activare de parametru.
 
 **Niciun punct nu mai depinde de ceva din afară.** Rămâne `V1` — un document public, o oră — pe F1.6.
 
@@ -636,7 +649,7 @@ zero la reconciliere; […] **Trei dintre cele cinci depind de un extras 1C real
 | Sarcină | Decizie | Natura |
 |---|---|---|
 | ~~F1.4.2~~ | ~~`OD-55`; ADR-036 `Propus`~~ | Închise 2026-08-29: [ADR-051](../decisions/051-chei-de-context-enumerate.md); ADR-036 `Acceptat` |
-| ~~F1.4.4~~ | ~~`C1`–`C5` din ADR-036 §11~~ | Închis 2026-08-29: clasificarea aprobată, ADR-036 §11. Rămân în afara sarcinii: HG 704/2019, Anexa 1 SNC „Diferențe de curs" |
+| ~~F1.4.4~~ | ~~`C1`–`C5` din ADR-036 §11~~ | Închis 2026-08-29: clasificarea aprobată, ADR-036 §11. Livrate: `C5`, `C4` la decontare. **Reportate, consemnate 2026-08-30:** `C2` → F2.A8, `C1` → F4 (modulul de stocuri), reevaluarea `C4` → F2.A9; HG 704/2019 rămâne în afară |
 | ~~F1.5.4~~ | ~~`OD-22`~~ | Dizolvat 2026-08-29: [ADR-050](../decisions/050-lantul-de-inchidere-ca-roluri.md) — conturile lanțului sunt roluri din Planul general de conturi, nu parametri fiscali |
 | ~~F1.6~~ | ~~direcția la echidistanță~~ | Decisă `half_up` 2026-08-29; toate cele trei convenții active. F1.6 livrată; corpusul e F1.10 |
 | ~~F1.8~~ | ~~`OD-29`~~ | Închisă 2026-08-29: [ADR-053](../decisions/053-tinta-de-performanta.md) |

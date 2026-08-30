@@ -9,8 +9,11 @@ on the other pair of accounts). The rest of the cases take the points that
 say when no difference arises at all (pct. 21, 23) and the bank spread the
 nomenclature names (6127 / 7147).
 
-Exemplul 2's figure is two terms; the corpus reproduces the settlement term
-and reports the advance term (README, "Divergențe raportate").
+Exemplul 2's figure is two terms. The corpus reproduces the settlement term;
+the advance term is the 2013 text, written when advances were monetary items
+-- pct. 11 and 12 as rewritten by OMF 48/2019 make them non-monetary, kept at
+the rate of initial recognition -- so the handler's silence on an advance is
+the wording in force, not a gap (README, "Explicate, nu divergențe").
 """
 
 from __future__ import annotations
@@ -120,6 +123,7 @@ def test_exemplul_1_a_payable_in_dollars_settled_at_a_lower_rate_is_favourable(
     cites=(
         "SNC Diferenţe de curs pct. 8",
         "SNC Diferenţe de curs pct. 10",
+        "SNC Diferenţe de curs pct. 12",
         "Plan 221",
         "Plan 722",
         "Plan nomenclator 2211/2212",
@@ -131,8 +135,14 @@ def test_exemplul_2_a_receivable_in_euro_settled_at_a_lower_rate_is_unfavourable
 ) -> None:
     """Exemplul 2, the settlement term: 30 000 EUR delivered at 15,3845, collected at
     15,3136 -- 30 000 x (15,3136 - 15,3845) = -2 127 lei, "ca majorare a cheltuielilor
-    curente şi diminuare a creanţelor curente" (pct. 10 (1)): Dt 7224 / Ct 2212. The
-    act's 2 910 also carries 783 lei on the advance offset; see the README."""
+    curente şi diminuare a creanţelor curente" (pct. 10 (1)): Dt 7224 / Ct 2212.
+
+    The act's 2 910 also carries 783 lei on the advance offset. That term is the
+    2013 wording: the example has no modification note, while pct. 12 (OMF 48/2019,
+    in force 01.01.2020) makes advances received non-monetary, recorded at the rate
+    of their initial recognition and not recalculated -- so no difference arises on
+    the advanced part today, which is what the handler does (`settles_advance`).
+    Repealed wording, not a gap to implement."""
     with tenant_context(book.context):
         result = settle(
             book,
@@ -278,11 +288,12 @@ def test_at_the_delivery_date_rate_or_a_fixed_rate_no_sum_difference_arises(
         agree(book)
 
 
-@case(SETTLEMENT, cites=("SNC Diferenţe de curs pct. 23",))
+@case(SETTLEMENT, cites=("SNC Diferenţe de curs pct. 23", "SNC Diferenţe de curs pct. 12"))
 def test_an_advance_between_residents_keeps_the_rate_of_the_day_it_was_paid(book: Book) -> None:
     """pct. 23: the lei equivalent of an advance "se determină prin aplicarea cursului de
-    schimb la data plăţii acestuia şi ulterior nu se recalculează" -- settling against
-    the advance produces no difference, whatever the rates."""
+    schimb la data plăţii acestuia şi ulterior nu se recalculează" -- and, for exchange
+    differences, pct. 12 in the 2020 wording says the same of advances as non-monetary
+    items. Settling against the advance produces no difference, whatever the rates."""
     with tenant_context(book.context):
         result = settle(
             book,

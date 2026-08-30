@@ -228,6 +228,26 @@ cod de modul … ~20 de cazuri, fiecare cu citarea lui … un caz care nu poate 
   singura atingere a lui. `accounting-reviewer` — niciun CRITICAL; Exemplul 5 e „exprimată în euro",
   deci `FOREIGN_CURRENCY` între rezidenți, nu unități convenționale (corectat; perechea de conturi
   o alege rezidența, pct. 17); ecartul băncii testat acum pe ambele părți; și întrebarea 27.
+- **A doua instrucțiune (2026-08-30), consemnările corpusului înainte de orice cod nou:**
+  (1) [ADR-037](decisions/037-conventii-de-platforma.md) §3.3 — statutul lui `half_up` rămâne
+  provizoriu, dar motivul nu mai e „formularul tace": **actul o demonstrează fără s-o prescrie**
+  (Anexa 1 din SNC „Stocuri", 31 764,705 → 31 764,71); același motiv în antetul
+  `platform_conventions.toml`. (2) Banul pe cota cea mai mare e **abatere cunoscută și motivată**, nu
+  eșec tolerat — `tests/corpus/README.md` §„Abateri cunoscute", docstring-ul cazului, transcrierea;
+  întrebarea 26 de mai jos e închisă. (3) **Exemplul 2, datat:** textul din 2013, fără notă de
+  modificare, pe când pct. 11 și 12 sunt „în redacţia OMF 48/2019" (01.01.2020) și mută avansurile
+  pe partea nemonetară — handlerul care nu postează nimic pe avans e redacția în vigoare; cazul e
+  marcat ca ilustrând o redacție abrogată (README §„Explicate", docstring, transcriere cu pct. 11 și
+  12 adăugate); întrebarea 25 **dizolvată**. (4) `C1`, `C2` și reevaluarea `C4` consemnate în
+  `08-f1-backlog.md` ca **reportate, nu făcute** (C2 → F2.A8, C1 → F4, reevaluarea → F2.A9), în
+  rândul F1.4.4, în tabel și în criteriul de ieșire. (5) Două decizii **deschise**, neaplicate:
+  `OD-77` — capacitatea normală e a producției, `AllocationFact` ar purta-o per produs (Anexa 1 ca
+  dovadă, 102 000 / 18 000 ca demonstrație; ADR peste ADR-058), și `OD-78` — stornoul parțial iese
+  din `R14`, de închis înainte de F2.A1. (6) Cele opt întrebări din `09` §„Întrebările pentru
+  proprietar" trimise grupat, cu recomandări, `OD-71` prima. **Codul de modul F2 nu începe** până la
+  răspunsul pe `OD-71` și `DN-18`. `evidenta-87` nu mai apare în `ListAgents` după commitul lor
+  `c65b79f`; rândul de blocaje „F1.10 vine după C5 → C2 → C1" din `09` e depășit și rămâne al cui
+  reia `09`.
 - Suita: **1.072 trec, 1 sărit** (+41 față de sesiunea anterioară: 34 de teste ale corpusului — 33
   de cazuri, unul parametrizat — și 7 ale gardianului); `mypy` și `ruff` curate pe tot backend-ul;
   corpusul singur, cu încărcătorul în subproces la fiecare caz, ~25 s. **Un eșec de rulare, al
@@ -2553,22 +2573,28 @@ fiecare are un refuz sau o absență explicită în locul ei.
 
 **Din corpusul F1.10 (2026-08-30; `backend/tests/corpus/README.md`, „Divergențe raportate").**
 
-24. **C5 — la ce nivel se aplică cota din SNC „Stocuri" pct. 30.** Anexa 1 a actului aplică
+24. **C5 — la ce nivel se aplică cota din SNC „Stocuri" pct. 30 → `OD-77`** (deschisă
+    2026-08-30, prin instrucțiune). Anexa 1 a actului aplică
     raportul *efectiv / normal* pe **fiecare produs**, cu capacitatea normală a produsului, și abia
     apoi însumează (103 764,71 în cost, 16 235,29 la cheltuieli). `AllocationFact` poartă **o**
     capacitate normală și **un** volum efectiv; cu cele trei produse într-un singur fapt ar da
     102 000 / 18 000. Corpusul reproduce actul cu un fapt per produs. Dacă faptul trebuie să poarte
     capacitatea per produs e o întrebare de model pe ADR-058, nu a corpusului.
-25. **C4 — partea achitată în avans, la diferențe de *curs*.** Exemplul 2 recunoaște creanța
+25. ~~**C4 — partea achitată în avans, la diferențe de *curs*.**~~ **Dizolvată 2026-08-30, prin
+    datare:** Exemplul 2 e textul din 2013; pct. 11 și 12 în redacția OMF 48/2019 fac avansurile
+    nemonetare, neînregistrate la alt curs decât cel inițial — handlerul e redacția în vigoare.
+    Textul întrebării, păstrat: Exemplul 2 recunoaște creanța
     integral la cursul livrării și, la trecerea în cont a avansului primit la alt curs, înregistrează
     **783 lei** diferență de curs nefavorabilă pe partea avansată. Handlerul, cu
     `settles_advance = True`, nu postează nimic — pe pct. 23, care stă la *diferențe de sumă*.
     Răspunsul depinde de cum va recunoaște modulul de vânzări (F2) creanța pe partea avansată
     (ADR-039 §3.2, art. 97 și 108 CF); până atunci corpusul reproduce doar termenul decontării.
-26. **C5 — banul rămas, confirmare.** Tabelul Anexei 1 lasă banul din împărțire pe „B"
+26. ~~**C5 — banul rămas, confirmare.**~~ **Închisă 2026-08-30:** abatere cunoscută și motivată,
+    consemnată în corpus. Textul, păstrat: Tabelul Anexei 1 lasă banul din împărțire pe „B"
     (28 235,30); ADR-058 §2.5 îl pune pe cota cea mai mare, prin instrucțiunea ta. Actul tace despre
     rest, totalurile ies exact, două celule diferă cu un ban. Rămâne cum e, dacă nu spui altfel.
-27. **Stornoul parțial n-are legătură navigabilă** (revizorul contabil, pe corpus). SNC „Politici
+27. **Stornoul parțial n-are legătură navigabilă → `OD-78`** (deschisă 2026-08-30, prin
+    instrucțiune; revizorul contabil, pe corpus). SNC „Politici
     contabile" pct. 33 (2) și SNC „Venituri" pct. 17 corectează o *parte* a unei înregistrări; în
     motor asta e o notă manuală cu corespondența inversă, care nu poartă nicio legătură spre
     înregistrarea corectată — cele două legături `R14` există doar la stornoul integral

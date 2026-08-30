@@ -393,7 +393,9 @@ spune ce se înregistrează în el.
 cu capacitatea normală a produsului, nu o cotă unică pe total (`17000:20000` ar da 102000, nu
 103764,71); (b) pentru “C”, `42352,94 × 6000/8000 = 31764,705` — tabelul scrie **31764,71**, deci
 rotunjirea din act la echidistanță e în sus; (c) coloana 4 însumează 120000 exact, cu banul
-rămas din împărțire pus pe “B” (28235,2941 → 28235,30), nu pe “A”, cota cea mai mare.
+rămas din împărțire pus pe “B” (28235,2941 → 28235,30), nu pe “A”, cota cea mai mare — actul nu
+prescrie regula restului; motorul îl pune pe cota cea mai mare (ADR-058 §2.5, decizia
+proprietarului, confirmată 2026-08-30): **abatere cunoscută și motivată**, nu eșec tolerat.
 
 ---
 
@@ -453,10 +455,31 @@ rămas din împărțire pus pe “B” (28235,2941 → 28235,30), nu pe “A”,
 > [30000 euro × (15,3584 lei/euro – 15,3845 lei/euro) + 30000 euro × (15,3136 lei/euro – 15,3845
 > lei/euro)] – ca majorare a cheltuielilor curente şi diminuare a creanţelor curente.
 
-*Observație a transcrierii:* cei 2910 lei sunt doi termeni — 783 lei pe partea achitată în avans
-(creanţa recunoscută integral la cursul livrării, avansul trecut în cont la cursul plăţii lui) şi
-2127 lei pe partea achitată la 10.04. Corpusul reproduce al doilea termen; primul e raportat, nu
-decis — vezi `backend/tests/corpus/README.md`.
+*Observație a transcrierii, cu datarea verificată (2026-08-30):* cei 2910 lei sunt doi termeni —
+783 lei pe partea achitată în avans (creanţa recunoscută integral la cursul livrării, avansul trecut
+în cont la cursul plăţii lui) şi 2127 lei pe partea achitată la 10.04. **Exemplul 2 e textul din
+2013, nemodificat** — în textul consolidat nu poartă nicio notă de modificare, spre deosebire de
+pct. 11 şi 12, rescrise prin OMF nr. 48 din 12.03.2019 (în vigoare 01.01.2020), care mută avansurile
+acordate/primite pe partea **nemonetară**: nu se recalculează şi se înregistrează la cursul de la
+recunoaşterea iniţială. Primul termen ilustrează deci redacţia abrogată; al doilea rămâne valabil.
+Corpusul reproduce al doilea termen, iar handlerul, care nu postează nimic pe partea avansată, e
+redacţia în vigoare — vezi `backend/tests/corpus/README.md`.
+
+### SNC Diferenţe de curs pct. 11
+
+> 11. La întocmirea situaţiilor financiare elementele monetare în valută străină (numerarul,
+> creanţele şi datoriile, cu excepţia avansurilor acordate şi primite pentru procurări/livrări de
+> active şi servicii, investiţiile financiare, cu excepţia acţiunilor şi cotelor părţi etc.) se
+> recalculează prin aplicarea cursului oficial al leului moldovenesc la data raportării.
+> [Pct.11 în redacţia Ordinului Min.Fin. nr.48 din 12.03.2019, în vigoare 01.01.2020]
+
+### SNC Diferenţe de curs pct. 12
+
+> 12. Elementele nemonetare în valută străină (imobilizările necorporale şi corporale, goodwill-ul,
+> stocurile, avansurile acordate/primite pentru procurări/livrări de active şi servicii, elementele de
+> capital propriu, etc.) nu se supun recalculării la data raportării şi se înregistrează în situaţiile
+> financiare conform cursului oficial al leului moldovenesc la data recunoaşterii iniţiale a acestora.
+> [Pct.12 în redacţia Ordinului Min.Fin. nr.48 din 12.03.2019, în vigoare 01.01.2020]
 
 ### SNC Diferenţe de curs pct. 17
 

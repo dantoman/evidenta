@@ -7,12 +7,15 @@ makes. The cases below put that example through the handler and assert the
 act's figures. What the corpus tests is whether the implementation matches
 the cited text -- not whether our reading matches practice (ADR-054).
 
-Two things the example shows that the corpus does not decide, only records
-(README, "Divergențe raportate"): the table applies pct. 30's ratio **per
+Two things the example shows. The table applies pct. 30's ratio **per
 product**, with each product's own normal capacity, so the corpus posts one
-fact per product; and the table leaves the ban a proportional split drops on
-"B", where ADR-058 §2.5 puts it on the largest share -- the act's two totals
-are reproduced exactly, two cells differ by one ban.
+fact per product -- whether the fact should carry per-product capacity is
+`OD-77`, not the corpus's to decide. And the table leaves the ban a
+proportional split drops on "B", where ADR-058 §2.5 puts it on the largest
+share: a **known, motivated deviation** (the act does not prescribe the
+residual; the owner chose determinism against the data) -- the act's two
+totals are reproduced exactly, two cells differ by one ban (README, "Abateri
+cunoscute, motivate").
 """
 
 from __future__ import annotations
@@ -198,7 +201,8 @@ def test_anexa_1_in_full_reproduces_the_two_postings_the_act_writes(book: Book) 
     Column 4 of the table sums to 120 000 with the ban from the split on "B"
     (28 235,30); `distribute` puts it on the largest share (ADR-058 §2.5), so "A"
     carries 49 411,77 and "B" 28 235,29 here. The totals are unaffected; the two cells
-    are the reported difference, not a hidden one.
+    are a known, motivated deviation -- the act does not prescribe the residual, the
+    owner chose determinism against the data (2026-08-30) -- asserted, not tolerated.
     """
     with tenant_context(book.context):
         book.note(
@@ -212,8 +216,8 @@ def test_anexa_1_in_full_reproduces_the_two_postings_the_act_writes(book: Book) 
         constants = distribute(CONSTANT_TOTAL, volumes, keys=codes, rule=rule, scale=scale)
         variables = distribute(VARIABLE_TOTAL, volumes, keys=codes, rule=rule, scale=scale)
         assert constants == [Decimal("49411.77"), Decimal("28235.29"), Decimal("42352.94")], (
-            "coloana 4 a tabelului: 49 411,76 / 28 235,30 / 42 352,94 -- banul rămas stă pe "
-            "cota cea mai mare aici (ADR-058 §2.5), pe B în tabel"
+            "coloana 4 a tabelului: 49 411,76 / 28 235,30 / 42 352,94 -- abatere cunoscută: "
+            "banul rămas stă pe cota cea mai mare (ADR-058 §2.5), pe B în tabel"
         )
         assert variables == [Decimal("32941.18"), Decimal("18823.53"), Decimal("28235.29")]
 
