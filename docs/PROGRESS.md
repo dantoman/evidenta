@@ -156,11 +156,15 @@ apoi C1, apoi F1.10.
 Descompunerea completă: `_bootstrap/08-f1-backlog.md` — patru fire care pot merge în paralel, cu
 `F1.2.1` ca singur punct de sincronizare timpuriu, și tabelul de blocaje la final.
 
-**F2 — descompusă, neîncepută** (2026-08-30): `_bootstrap/09-f2-backlog.md` — două fluxuri paralele
-(Commercial/Tax, Payroll) care converg în raportarea statutară, 29 de sarcini, verificarea a ce a fost
-„modelat" făcută pe `HEAD`, tabelul de blocaje cu patru instituții și șase decizii ale proprietarului.
-**Niciun cod de modul**: `CLAUDE.md` §4 îl interzice până la criteriul de ieșire din F1, care stă pe
-F1.10. Ce poate merge înainte: lectura actelor (`F2.X2`), parametrii ca `draft` (`F2.X1`), deciziile.
+**F2 — descompusă, cu lectura și datele făcute; cod de modul: niciunul** (2026-08-30):
+`_bootstrap/09-f2-backlog.md` — două fluxuri paralele (Commercial/Tax, Payroll) care converg în raportarea
+statutară, 29 de sarcini, verificarea a ce a fost „modelat" făcută pe `HEAD`, tabelul de blocaje cu patru
+instituții și șase decizii ale proprietarului. **A doua instrucțiune, aceeași zi:** `F2.X2` — nouă acte
+cercetate (șase fișiere în `_input/cercetare/`, 17 din 21 de identități MO), `F2.X1` — 22 de parametri
+`draft` pe baza de dezvoltare, neactivați, criteriul de ieșire raportat punct cu punct, întrebările pentru
+proprietar grupate (`OD-71` primul). **F1.10 e livrată (`f8773ea`) și cele cinci puncte ale criteriului F1
+sunt bifate în `08`** — închiderea F1 e declarația proprietarului, ca la F0; până la ea, `CLAUDE.md` §4
+ține modulele F2 pe loc.
 
 ## Ultima sesiune
 
@@ -300,6 +304,75 @@ sesiunea `evidenta-87`):**
   externe — pilot, instituții, un trimestru. Ce s-a adăugat e ce F1 a primit abia prin ADR-054:
   lista a ce se poate verifica intern înainte de pilot, ca eroarea de motor să nu se afle de la client.
 - Suita: **neschimbată** — nimic de cod în această sesiune.
+
+**A doua instrucțiune a zilei (2026-08-30, sesiunea `evidenta-87`, cinci puncte și o interdicție):**
+
+- **`F2.X2` — cele nouă acte, în paralel, prioritate mare.** Șase agenți de cercetare, un fișier fiecare
+  în `_input/cercetare/`: `f2-x2-formularele-sfs.md`, `f2-x2-numerar-si-ordinul-de-plata.md`,
+  `f2-x2-concedii-indemnizatii-fluturas.md`, `f2-x2-snc-situatii-financiare-si-diferente-de-curs.md`,
+  `f2-x2-prorata-tva-si-amortizarea-fiscala.md`, plus **`f2-x1-identitatile-actelor.md`** — numerele
+  MO ale actelor deja citate, golul care ținea orice parametru la `provisional`. Fiecare cu statutul
+  sursei, proveniența pe cifră, filtrul România aplicat, tăcerea datată, „ce nu s-a putut verifica" cu
+  ce s-a încercat. Rezultatul pe act e în `09-f2-backlog.md`, `F2.X2`, tabel. **Ce a mers și ce nu, ca
+  metodă:** cuprinsurile edițiilor `monitorul.gov.md` (`/ro/monitor/<id>`) sunt publice — de acolo vin
+  **17 din 21 de identități MO**; `legis.md` întoarce 403 **și nu e arhivat de Wayback** (cochilii JS,
+  zero capturi), deci textul consolidat curent al niciunei legi nu s-a citit — codurile s-au citit în
+  consolidări până în 2019, marcate; textele primare integrale sunt cele publicate de autor: PDF-ul MF al
+  SNC, regulamentul BNM, textele `.doc` ale MF, proiectele `gov.md`.
+- **Cinci lucruri de greutate din cercetare, raportate, nu decise:** (1) **`OD-73` — actul NU tace:**
+  SNC „Prezentarea situațiilor financiare" pct. 18 pune reformarea bilanțului ca etapa 5, *după*
+  aprobare, semnare și prezentare, iar pct. 228 o spune verbatim; tace doar asupra datei contabile —
+  premisa rândului din registru e corectată, decizia rămâne a proprietarului. (2) **Formularele
+  situațiilor financiare sunt transcrise integral** (bilanț 116 rânduri, prescurtat 23, profit și
+  pierdere 44/14, capital propriu 19, fluxuri 26, cu formulele de control) — `F2.C1` nu mai așteaptă
+  actul. (3) **Anexa 1 „Diferențe de curs" e integrală**, cu un caz `R17`/`R18`: avansurile au trecut
+  din monetare în nemonetare la 01.01.2020 (OMF 48/2019). (4) **Codul fiscal are clauza de intrare în
+  vigoare citată** — Titlurile I–II 01.01.1998, Titlul III 01.07.1998 — deci TVA are ancoră. (5) O
+  **corecție** în cercetarea CNAS: „HG 966/2024" era poziția în MO; actul e HG 845/2024.
+- **Ce rămâne neobținut, numit:** normele operațiunilor de casă (HG 764/1992 — text și statut incert),
+  art. 11 alin. (7) din Legea 287/2017, structura adoptată a declarației TVA (boxele — reconstituire
+  contradictorie, nu se folosește), Catalogul duratelor HG 941/2020, modificările post-2019 ale
+  Codului muncii și ale legilor indemnizațiilor, textul adoptat al Legii 34/2024 (plafoanele de
+  numerar — valorile sunt din comunicatul MF). **Tăceri datate:** nicio formă prescrisă pentru
+  fluturaș (art. 142 alin. (3) cere trei elemente în scris); niciun ordin SFS nu numește canalul de
+  depunere (toate trimit la art. 187 alin. (2¹)) — `OD-75` rămâne externă; ordinul de plată e set de
+  date, nu formular (BNM HCE 108/2023, 13 elemente).
+- **`F2.X1` — parametrii ca `draft`, neactivați.** Trei fișiere noi în `fiscal/parameters/data/`:
+  `cnas_cnam.toml`, `impozit_pe_venit.toml`, `tva.toml` — **22 de rânduri, toate `draft`,
+  `provisional` cu motivul pe rând**, măsurat pe baza vie; rânduri `P-4` în jurnal; a treia rulare a
+  fiecărui fișier: 0 noi, 0 actualizați. TVA a intrat la a doua încărcare, când identitățile au adus
+  ancora Codului. **Ancorarea e spusă în fișier, nu ascunsă:** cotele CAS/CNAM stau în anexele la
+  L. 489/1999 și L. 1593/2002, ale căror pagini de ediție nu s-au găsit; rândurile sunt ancorate în legea
+  anuală care le aplică, cu inferența marcată, și se re-ancorează la reîncărcare (un rând `draft` se
+  actualizează, unul `active` nu). Ferestrele `valid_from` ale cotelor TVA încep la 2024, fereastra
+  cercetată — nu la 1998. Un rând cu valoarea **0** pentru scutirea de soț/soție (art. 34 alin. (1), care
+  nu se acordă) și unul pentru contribuția individuală CAS (anulată din 2021) există tocmai ca să nu fie
+  inventate. Vocabularul cheilor e propus și se confirmă în `F2.B0`. **Măsurat înainte de a scrie:**
+  `resolve_parameter` întoarce doar `status = active`, deci `draft` chiar înseamnă „nu se folosește".
+- **Criteriul de ieșire, reformulat pe fiecare punct — raport, nu decizie** (`09`, §„Întrebarea
+  reformulată"): niciunul nu blochează construcția; 1 și 3 au echivalent intern în CI (trei luni închise
+  pe o companie sintetică; raportul de diferențe cu o diferență plantată), 2 se despică în „generat și
+  validat contra formularului" (intern) și „depus și acceptat" (extern). Două observații: trimestrul nu
+  se comprimă — dacă punctul 1 rămâne, F2 nu se închide mai devreme de trei luni după pilot; iar
+  „diferență zero contra 1C" presupune că 1C are dreptate — raportul cere o stare „diferență explicată".
+- **Întrebările pentru proprietar, într-un singur loc** (`09`, §„Întrebările"): opt, `OD-71` primul —
+  utilizatorii de sistem se construiesc după Spec A §3.4 fără decizie; aprobatorul e o persoană cu rol
+  de nivel platformă, care nu există, de decis împreună cu `DN-18`. Apoi `OD-04` (vocabularul
+  cumulativelor = coloanele per angajat ale IALS21; metoda cumulativă e HG 697/2014 pct. 38), `DN-10`
+  (varianta B), `DNB-05` ((C): linii agregate, formule per angajat — ADR-048/053), `DNB-11` (refuz pentru
+  cheile pe care le garantăm noi, „suspectat duplicat" pentru cele din afară), VEN12 (în F2, ultimul),
+  returul (V1 tace — `F2.X2 (j)`), criteriul.
+- **Coordonare:** evidenta-04/2d a pornit F1.10 și și-a fixat convenția corpusului — preluată în
+  `F2.C5`; fișierele mele de date n-au rânduri `[[logic]]`, deci gardianul lor de integritate nu le
+  atinge. Rularea corpusului lor pe o bază de test privată a picat pe `accounting.money_rounding` fără
+  implementare activă — **identic cu fișierele mele scoase din arbore**, deci nu e de la ele; raportat
+  lor, și confirmat: era starea lor în lucru — însămânțarea prin calea livrată, apelată în proces pe
+  aliasul `refdata`, rămânea în tranzacția per-alias a pytest-django, invizibilă conexiunii aplicației;
+  reparat de ei prin subproces contra bazei de test. Pe drum, un experiment prost făcut: am mutat cele trei fișiere din arbore ca să izolez
+  cauza, iar restaurarea din `trap` a picat pe o cale relativă după `cd` — prinsă și reparată în
+  același minut, dar regula e: nu se scot fișiere din arborele partajat pentru un experiment.
+- **Punctul 6, respectat:** niciun cod de modul F2; nicio sarcină n-a cerut vreunul.
+
 
 ## Sesiuni mai vechi
 

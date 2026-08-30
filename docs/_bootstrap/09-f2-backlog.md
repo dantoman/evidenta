@@ -105,7 +105,7 @@ schema și codul din `HEAD` la 2026-08-30 — `f797799`, după commiturile C5 ș
 | Decontarea (diferențele realizate) | `posting/services/settlement.py` — `settlement.differences.v1` pe `receivables.settlement_created` / `payables.settlement_created`, `SOURCE_MODULE = "banking"` | ✓ handlerul; **nu există entitate de decontare**, nici jurnal de solduri deschise → `F2.A3` |
 | Rezidența partenerului și denominarea contractului — discriminatorul din ADR-057, *refuzat, nu presupus* | `Partner` are `kind` (legal_entity/individual), `idno`, `idnp`, **nimic despre rezidență**; `Document` n-are denominarea (valută / unități convenționale) | **gol → `F2.A3`** (migrare aditivă; forma o decide `F2.A0`) |
 | Contul de creanță/datorie per partener și companie | `company_partner.receivable_account_code` / `payable_account_code` — **fără serviciu, fără rută** (`partners/services/directory.py`: nimic la F1 nu-l citește) | ✓ coloane; serviciul → `F2.A3` |
-| Parametrii TVA | rezolvatorul `fiscal/parameters/services/vat.py` (`vat_rate`, `vat_regimes`, `assert_regime`) există; **niciun rând `vat.*` în niciun fișier de date** — `Item.vat_rate_key` și `DocumentLine.vat_regime_code` arată spre un vocabular fără rânduri | **gol → `F2.X1`** |
+| Parametrii TVA | rezolvatorul `fiscal/parameters/services/vat.py` (`vat_rate`, `vat_regimes`, `assert_regime`) există; la scrierea acestui tabel **niciun rând `vat.*`** — din 2026-08-30 (`F2.X1`, a doua încărcare) `tva.toml` are cinci rânduri **`draft`**, pe care rezolvatorul nu le întoarce până la activare (`status = active`, actul proprietarului) | ✓ structura; valorile `draft` → activarea e `OD-22` |
 | Perioada fiscală TVA, distinctă de cea contabilă (ADR-039 §7) | `accounting/periods` — `VatPeriod`, `open_vat_periods`, `periods.vat_registration_already_closed` | ✓ |
 | Cursul BNM ca tabelă globală | `accounting/currency` — `exchange_rate` (în `exceptions.toml`), `rate_on`, `latest_before`, `history` | ✓ tabela; **niciun conector** (`integrations/bnm` e F1 pe hartă și nu există) → `F2.A9` |
 | Cele șase seturi de solduri inițiale (Spec B §8.1) | `accounting/opening` — GL, creanțe, datorii, stocuri, active, **`opening_balance_payroll_cumulative`** | ✓ toate; setul de salarii poartă **forma** lui `OD-04` și refuză conținutul (`code` neinterpretat, fără CHECK — docstring-ul spune de ce) |
@@ -309,7 +309,8 @@ pe date reale la primul pilot.
 - **Review:** `tenancy-guard`, `schema-reviewer`, `fiscal-reviewer`.
 - **Terminat:** rularea de două ori a aceleiași zile → un rând; rândul din `privileged_access_log`;
   `rate_on` întoarce cursul zilei.
-- **Blocat de:** `OD-76` (stratul), `OD-26` (contractul sursei); reevaluarea — Anexa 1.
+- **Blocat de:** `OD-76` (stratul), `OD-26` (contractul sursei). ~~Reevaluarea — Anexa 1~~: obținută
+  integral 2026-08-30 (`F2.X2 (f)`); ce mai lipsește reevaluării e ADR-ul familiei, nu actul.
 
 ---
 
@@ -487,7 +488,17 @@ pe date reale la primul pilot.
 - **Review:** `fiscal-reviewer`.
 - **Terminat:** fiecare `regression_case_set` din `fiscal_logic_version` arată spre cazuri care
   există; o modificare de cotă într-un fișier de date declanșează rularea.
-- **Blocat de:** F1.10.
+- **Blocat de:** F1.10 — **convenția, fixată de F1.10 (evidenta-04, 2026-08-30) și moștenită aici:**
+  pachetul `backend/tests/corpus/` (README acolo); markerul `pytest.mark.fiscal_regression` se aplică
+  **doar** prin `tests.corpus.citations.case(*sets, cites=(...))` — un test din pachet care n-a trecut
+  prin `case()` cade la gardianul de integritate, deci „un caz care nu poate cita nu intră" e
+  mecanic; numele seturilor `corpus/<logic_key>/<versiune>` când cazul fixează o regulă versionată,
+  `corpus/<familie>/<versiune>` altfel; `test_corpus_integrity.py` citește fiecare `regression_case_set`
+  din `fiscal/parameters/data/*.toml` și cade dacă un set n-are caz — deci un rând `[[logic]]` nou
+  vine cu cazul lui în același commit; citările rezolvă la titlurile `###` din
+  `_input/cercetare/f1-10-corpus-citari.md` sau la „ADR-NNN §x"; `-m fiscal_regression` selectează
+  exact corpusul; convențiile se însămânțează din fișierele TOML livrate (`book.py`), deci o schimbare
+  de `valid_from`/valoare/implementare ajunge în corpus (`C14`).
 
 ---
 
@@ -569,6 +580,36 @@ pe date reale la primul pilot.
   `activate_fiscal_parameters --approver`, `vat_rate(<cheie>, 2026-01-01)` întoarce rândul cu
   `confidence = provisional`, iar un document de vânzare primește TVA pe linie.
 - **Blocat de:** — *(activarea: `OD-22`)*.
+- **Făcut 2026-08-30, la instrucțiunea proprietarului („se încarcă, nu se activează"):** două fișiere
+  în `fiscal/parameters/data/` — `cnas_cnam.toml` (4 acte, 7 parametri) și `impozit_pe_venit.toml`
+  (3 acte, 8 parametri) — încărcate pe baza de dezvoltare prin `P-4`, **15 rânduri `draft`,
+  `provisional` cu motivul pe fiecare**; a doua rulare: 0 noi, 15 neschimbate. Chei: `cnas.employer_rate`
+  (24), `cnas.employer_rate_budgetary` (29), `cnas.late_payment_rate_daily` (0,1/zi), `cnam.employee_rate`
+  (9), `cnam.employer_rate` (0 — inferență din clasificatorul bugetar, marcată), `cnam.fixed_premium_annual`
+  (12 636), `labour.average_monthly_salary_forecast` (17 400, 2026), `income_tax.rate_individual` (12),
+  cele cinci scutiri din 2025 (P, M, Sm, N, H) plus **`income_tax.exemption_spouse_ordinary = 0`** — rândul
+  există ca scutirea care nu se acordă să nu fie inventată (capcana din cercetare; ADR-045), și
+  `income_tax.exemption_income_cap` (360 000). **Ancorarea, spusă în fișier:** cotele CAS/CNAM stau în
+  anexele la L. 489/1999 și L. 1593/2002, ale căror identități MO și date de intrare în vigoare nu s-au
+  obținut; rândurile sunt ancorate în legea anuală care le aplică (2024, respectiv 2026), cu inferența
+  marcată, și se re-ancorează la reîncărcare când `f2-x1-identitatile-actelor.md` le aduce — un rând
+  `draft` se actualizează, unul `active` nu (R15). **Amânat, cu motivul:** TVA (`vat.regimes`,
+  `vat.standard`, `vat.reduced`, pragul, termenul) și termenele din Cod — ancora e Codul fiscal, a cărui
+  dată de intrare în vigoare nu e în nicio cercetare; contribuția individuală CAS = 0 din 2021 (data
+  Legii 60/2020 lipsește); CNAM 2024–2025 și salariul mediu 2025 (datele HG/legilor lipsesc); scutirile
+  2024 (actul neidentificat). Vocabularul cheilor e propus în fișiere și se confirmă în `F2.B0`.
+  **A doua încărcare, aceeași zi, după `f2-x1-identitatile-actelor.md`:** `tva.toml` (Codul fiscal,
+  Titlul III, ancorat pe clauza citită — 01.07.1998; L. 12/2026 cu publicarea) — `vat.regimes` (tabelul
+  celor patru coduri peste art. 96 a/b, 103, 104), `vat.standard` (20), `vat.reduced` (8),
+  `vat.registration_threshold` (1 700 000 din 01.03.2026), `vat.return_deadline_day` (25, din 2018);
+  în `cnas_cnam.toml`: `cnas.employee_rate = 0` din 01.01.2021 (L. 60/2020, cu publicarea) și salariul
+  mediu 2025 (16 100, **HG 845/2024** — nu „966", care era poziția), plus publicarea pe HG 773/2025.
+  **Total: 22 de rânduri, toate `draft`, 0 în alt statut** — măsurat pe baza vie; a treia rulare a
+  fiecărui fișier: 0 noi, 0 actualizați. Ferestrele `valid_from` ale cotelor TVA încep la 2024 — fereastra
+  cercetată — nu la 1998: un `valid_from` mai vechi ar fi o afirmație necitită. **Rămân neîncărcate,
+  cu motivul în fișiere:** pragurile anterioare ale art. 112 (actele neidentificate cu certitudine),
+  lista art. 103 (structură din 2020, `DNB-06` deschisă), CNAM 2024–2025 (datele legilor), scutirile
+  2024, cota persoanelor juridice (VEN12 e întrebare de scop).
 
 ### F2.X2 — Actele neobținute, citite înainte de cod
 
@@ -580,14 +621,66 @@ pe date reale la primul pilot.
   situațiilor financiare" — formularele, din PDF-ul MF deja descărcat (`F2.C1`); (f) Anexa 1 din SNC
   „Diferențe de curs valutar și de sumă" (`F2.A9`, reevaluarea); (g) ordinul de plată — forma
   reglementată (`F2.A4`); (h) conținutul minim al fluturașului, dacă e prescris (`F2.B4`); (i) HG
-  704/2019 — amortizarea fiscală, dacă VEN12 intră în F2 (§„Întrebări"). Fiecare intră în registrul de
-  acte (`register_act`) cu publicarea.
+  704/2019 — amortizarea fiscală, dacă VEN12 intră în F2 (§„Întrebări"); **(j)** returul și corectarea
+  facturii — recitirea țintită a Instrucțiunii OMF 118/2017, anexa nr. 2 (`F2.A0`; `V1` tace).
+  Fiecare intră în registrul de acte (`register_act`) cu publicarea.
 - **Depinde de:** — *(poate merge oricând; nu e modul)*.
 - **Review:** `fiscal-reviewer` (pe fișier).
 - **Terminat:** fiecare sarcină de mai sus care cita `F2.X2` are actul în repo sau „nu s-a putut
   obține", cu ce s-a încercat (ca la `V1`: Wayback după 403).
 - **Blocat de:** accesul la `legis.md` (403) și Monitorul Oficial (cu plată) — **același blocaj ca la
   `OD-22`**; calea care a mers: publicațiile proprii ale MF/SFS/CNAS, arhiva Wayback.
+
+**Făcut 2026-08-30, la instrucțiunea proprietarului („în paralel, prioritate mare; tăcerea se
+consemnează ca fapt datat"):** cinci fișiere `_input/cercetare/f2-x2-*.md` plus
+`f2-x1-identitatile-actelor.md`, scrise în paralel, fiecare cu statutul sursei, proveniența pe cifră,
+filtrul România aplicat și „ce nu s-a putut verifica" cu ce s-a încercat. **Ce a mers și ce nu, ca
+metodă:** cuprinsurile edițiilor de pe `monitorul.gov.md` (`/ro/monitor/<id>`) sunt publice — de acolo
+vin identitățile MO, inclusiv pentru ediții vechi, găsite prin sondarea id-urilor; `legis.md` întoarce
+403 **și nu e arhivat de Wayback** (paginile sunt cochilii JS care încarcă `/cautare/rezultate/{id}`,
+zero capturi, niciun PDF) — deci textul consolidat curent al niciunei legi n-a fost citit; textele
+primare obținute integral sunt cele publicate de instituția autoare (PDF-ul MF al SNC, regulamentul
+BNM, textele `.doc` ale MF pentru legile de punere în aplicare a Codului fiscal — nr. 1164/1997 și
+nr. 1417/1997 —, proiectele de pe `gov.md`); codurile și legile s-au citit doar în consolidări
+**până în 2019**, din copii care nu sunt ale emitentului (`lex.justice.md` prin Wayback, `usmf.md`,
+NATLEX), marcate ca atare. Rezultatul pe act:
+
+| Act | Identitatea (MO, intrare în vigoare) | Ce prescrie — obținut | Ce tace / ce lipsește | Fișier |
+|---|---|---|---|---|
+| (a) Normele operațiunilor de casă, **HG 764/1992** | doar numărul/data, din indexul `legis.md`; MO, intrarea în vigoare, modificările — **neobținute** | dintr-un răspuns SFS **arhivat**: un registru de casă per entitate, înscriere per dispoziție, **închidere zilnică** cu sold reportat, al doilea exemplar detașabil la contabilitate; dispozițiile de încasare/plată ca documente de bază | forma/coloanele, semnatarii, numerotarea, plafonul de casă; **statut incert** — răspunsurile SFS din 2022 nu-l mai citează, act de abrogare negăsit | `f2-x2-numerar-si-ordinul-de-plata.md` |
+| (a) Plafoanele de numerar, **Legea 34/2024** | MO 86-88 din 01.03.2024, poz. 129; în vigoare **01.04.2025** (comunicat MF) | din comunicatul MF: 100 000 lei/lună cumulativ între persoane juridice și către persoane fizice; 100 000 lei per încasare de la persoane fizice; sancțiuni 3–10% / 10–18% / 0,1%/zi; numerarul eliberat spre decontare 30 de zile, restituire în 5 zile lucrătoare | textul adoptat necitit; **numerele articolelor neconfirmate**; proiectul din 2023 diferă de lege (15 → 30 zile) | idem |
+| (a) Documentele primare, **Legea 287/2017 art. 11** | MO 1-6 din 05.01.2018, poz. 22 (`f2-x1`) | alin. (1), (4) în parafrază SFS | **alin. (7) — lista elementelor obligatorii — neobținută**; nicio formă MF în vigoare pentru dispoziții sau registrul de casă (BNS: formularele din 1995/1997 nu mai sunt valabile) | idem |
+| (b) **Codul muncii 154/2003** | MO 159-162 din 29.07.2003, art. 648; în vigoare 01.10.2003 (art. 391) | art. 113 (min. 28 de zile calendaristice), 114, 114¹ (proporțional, 2022 — din proiect guvernamental), 117 (indemnizația ≥ salariul mediu, plătită cu ≥ 3 zile înainte), 165 | consolidare **martie 2019**; modificările LP 47/2024 (MO 111/22.03.2024, poz. 171), LP 193/2025 (MO 441-444/21.08.2025, poz. 602), LP 194/2025 — identificate, necitite | `f2-x2-concedii-indemnizatii-fluturas.md` |
+| (b) Salariul mediu, **HG 426/2004** | MO 73-76 din 07.05.2004, art. 570; ultima modificare HG 685/2019 | pct. 3–5, 6–8, 10–12, 14: perioada de 3 luni (12 pentru categoriile listate), incluziuni/excluderi, normativele 29,4 / 21,1, formula pe zi calendaristică, 1/12 din premiile anuale, zilele de boală ale angajatorului la 75% | nicio modificare după 31.12.2019 găsită pe `gov.md`/MF — absență, nu dovadă | idem |
+| (b) Indemnizațiile, **Legea 289/2004** | MO 168-170 din 10.09.2004, art. 773; în vigoare 01.01.2005 (art. 34) | art. 4 alin. (2¹): angajatorul plătește **primele 5 zile** (max. 15/an), BASS de la a 6-a; art. 5 alin. (4): CNAS plătește direct; art. 13: 60/70/90/100% după stagiu, angajatorul 75%; art. 7: venitul asigurat pe 12 luni, plafon 5 salarii medii prognozate; art. 6: stagiul 3 ani / 9 din 24 de luni; din 01.01.2024 partea angajatorului nu depinde de stagiu (Legea 241/2023, MO 318-321/18.08.2023, poz. 564) | consolidare **iulie 2019**; Legea 241/2023 necitită; actul certificatului medical | idem |
+| (b) **HG 108/2005** (aplicarea Legii 289) | MO 24-25 din 11.02.2005, art. 162 | pct. 22, 67, 70, 90–91, 96–97 | consolidare până în 12.2018, copie pe `usmf.md` (nu emitentul) | idem |
+| (h) Fluturașul | — | **Codul muncii art. 142 alin. (3):** la fiecare plată, în scris, trei elemente — componentele salariului, reținerile cu temeiul lor, suma netă | **nicio formă prescrisă** — tăcere datată 30.08.2026, după verificare la MF, SFS, ISM. Consecință: forma fluturașului e convenție de platformă cu minimul din art. 142 alin. (3) | idem |
+| (c) **Declarația TVA** — Ordinul IFPS 1164/25.10.2012 | MO 234-236 din 09.11.2012, poz. 1375; aplicare din perioada 01/2013 (fragment) | șase modificări cu MO (OSFS 01/2020, 209/2021, 428/2021, 20/2023, **482/01.10.2025**, **529/04.11.2025**) | clauza de intrare în vigoare; conținutul modificărilor din 2025; **structura boxelor 1–24 e reconstituită din fragmente, contradictorie** — nu se folosește ca formă | `f2-x2-formularele-sfs.md` |
+| (c) **IPC21** — OMF 94/30.07.2020 | MO 199-204 din 07.08.2020, art. 687; prima perioadă ianuarie 2021 | structura (tab. 1 col. 3–6, tab. 2 părțile I/II, anexa 3 clasificator, anexa 4 validări) din proiectele MF 2020/2022; zece modificări, nouă cu MO (OMF 14/2024 fără), ultima OMF 56/27.04.2026 | textul adoptat; OMF 14/2024 fără MO; **canalul: „metode automatizate de raportare electronică", niciun serviciu numit** | idem |
+| (c) **IALS21** — OMF 95/30.07.2020; **INR14** — OMF 140/20.11.2017 | IALS21: MO 199-204 din 07.08.2020, art. 688; în vigoare 01.01.2021. INR14: **MO negăsit** | IALS21: cele 16 coloane + anexa (din proiect); modificare OMF 103/17.09.2024 (MO 400-401) | IALS21 tace asupra canalului (verificat pe proiect); INR14 există doar ca fragmente indexate | idem |
+| (c) **VEN12** — OMF 153/22.12.2017 | MO 451-463 din 29.12.2017, poz. 2303 | structura rândurilor și anexelor din proiectul 2023; modificări 99/2023 (MO 426-429/14.11.2023, din anul 2023), 10/2024, 145/2024 | clauza de intrare în vigoare; canalul — tace | idem |
+| (d) **Proratarea — art. 102 alin. (4)** Cod fiscal | alin. (3) până la 31.12.2019, renumerotat prin Legea 171/2019 (MO 393-399, poz. 319, 27.12.2019 — inferență din notele SFS) | **formula, verbatim din reproducerea SFS** (BGPF 28.21.1, Ordin SFS 384/13.08.2024): prorata lunară = livrări impozabile (fără TVA, fără avansuri) / (impozabile + scutite fără drept de deducere), rotunjită matematic la **două zecimale**; prorata definitivă pe indicatorii anuali, în declarația ultimei perioade, cu diferența acolo; rotunjirea 1 → 2 zecimale prin Legea 60/2020 | textul legii; alineatul regulii de minimis 0,05 | `f2-x2-prorata-tva-si-amortizarea-fiscala.md` |
+| (e) **SNC „Prezentarea situațiilor financiare"** (OMF 118/2013, rescris integral prin OMF 48/2019) | ca la `snc_stocuri.toml`; PDF MF re-descărcat, md5 verificat, extras cu `pdftotext`, comparat cu copia MF din 2016 | **formularele transcrise integral, cod de rând + denumire + formule de control:** bilanț 116, bilanț prescurtat 23, profit și pierdere 44 / prescurtată 14, capital propriu 19, fluxuri de numerar 26; verificări încrucișate (rd. 180 SPP = rd. 570 bilanț etc.); **niciun tabel cont → rând** — fiecare rând are punctul lui de conținut; **`OD-73`: actul NU tace** — pct. 18 pune reformarea ca etapa 5, *după* aprobare, semnare și prezentare; **pct. 228:** *„După aprobarea şi prezentarea situaţiilor financiare entitatea reformează bilanţul/bilanţul prescurtat prin decontarea: (…)"* | data contabilă a înregistrării de reformare și legătura cu depunerea — tac; categoriile de entități din Legea 287/2017 (art. 4, 5, 21) citate doar din tabelele comparative ale proiectului guvernamental din feb. 2026 | `f2-x2-snc-situatii-financiare-si-diferente-de-curs.md` |
+| (f) **SNC „Diferențe de curs valutar și de sumă", Anexa 1** | idem | **Anexa 1 integral**, cu Tabelul 1; pct. 6–15 (momentele), 17–26 (diferențele de sumă), 28; **caz `R17`/`R18` găsit:** pct. 11–12 rescrise prin OMF 48/2019 — avansurile au trecut din monetare în nemonetare la 01.01.2020 | — | idem |
+| (g) **Ordinul de plată** — Regulamentul BNM, HCE 108/08.06.2023 | MO 220-222 din 29.06.2023, art. 632; în vigoare **05.08.2023**; modificat HCE 229/2025 (MO 523-525/132, în vigoare 09.04.2026); **text primar integral** | cap. II pct. 6–15 și Anexa 1: **13 elemente obligatorii** (numărul ≤ 12 caractere, IBAN 24, destinația ≤ 420, limba română, fără corectări); **set de date, nu formular tipărit** | predecesorul HCA 157/2013 (MO 191-197/1370): abrogarea necitită | `f2-x2-numerar-si-ordinul-de-plata.md` |
+| (i) **HG 704/2019** (amortizarea fiscală) | nr. 704 din 27.12.2019; MO 400-406, poz. 1041 (31.12.2019, per SFS); în vigoare **01.01.2020** (pct. 3, citat); abrogă HG 289/2007; modificată prin HG 939/2020 (MO 372-382, poz. 1139) și HG 311/2023 (MO 182-185, poz. 411) | text din **proiectul ședinței Guvernului din 27.12.2019** (`gov.md`, prin Wayback), coincide cu fiecare punct citat de SFS: metoda liniară, calcul **anual** proporțional cu lunile — A = [(V · Na) / 12] · D (pct. 14), norma = 100% / durata (pct. 17), **per obiect**, în registru statutar (pct. 8–9, anexa 1), pragul delegat la art. 26¹ alin. (2) (12 000 lei per SFS, Legea 356/2022), reparațiile după SNC, cu plafonul de 15% la bunurile în locațiune, arendă, leasing operațional sau redevență; HG 311/2023 adaugă pct. 16⁴ | rotunjirea, valoarea reziduală, categoriile, legătura cu VEN12 — tac; **duratele de funcționare utilă stau în alt act — HG 941/2020, Catalogul (MO 372-382, poz. 1141) — neobținut**; HG 939/2020 necitită | `f2-x2-prorata-tva-si-amortizarea-fiscala.md` |
+| (j) Returul / corectarea facturii | — | — | **neînceput** — recitirea Instrucțiunii OMF 118/2017 | — |
+| **Identitățile actelor citate de parametri** (`OD-22`, `F2.X1`) | **17 din 21 confirmate pe pagina ediției MO** (număr, dată, poziție): L. 178/2018, 60/2020, 212/2023, 214/2024, 311/2024, 139/2025, 187/2025, 228/2025, 318/320/321 din 2025 (659-661, poz. 792/796/798), **L. 12/2026** (96-99, 26.02.2026, poz. 60 — titlul confirmă art. 112), **HG 773/2025** (620-622, 18.12.2025, poz. 785), HG 845/2024 (533-535, 19.12.2024, poz. 966), HG 697/2014, Ordinul CNAS 31-A (100-103, 27.02.2026, Partea III, 157), L. 287/2017 (1-6, 05.01.2018, poz. 22). **Parțial 4:** L. 489/1999 (MO 2000 nr. 1-4, art. 2), L. 1593/2002 (MO 2003 nr. 18-19, art. 57), Codul muncii — citate oficial în proiecte `gov.md`, fără pagina ediției; publicarea originară a Codului fiscal (MO 62 din 18.09.1997) **neconfirmată oficial** — oficial citată e republicarea din MO ediție specială, 08.02.2007. **Niciunul neidentificat.** | **Clauza de intrare în vigoare, citată verbatim, doar la Codul fiscal:** Titlurile I–II **01.01.1998** (L. 1164/1997), Titlul III **01.07.1998** (L. 1417/1997), din textele `.doc` ale MF. Pentru restul, data e afirmată de MF/SFS, nu citită din clauză | **corecție:** „HG 966/2024" din `od-22-cnas-cnam.md` e o confuzie — 966 e **poziția** în MO 533-535 din 19.12.2024; actul e **HG 845 din 18.12.2024** | `f2-x1-identitatile-actelor.md` |
+
+**Consecințe pentru sarcini, fără să decidă nimic:** `F2.C1` nu mai așteaptă formularele — le are;
+rămân `OD-73` (cu premisa corectată: actul numește momentul) și categoriile de entități necitite din
+publicația proprie a Legii 287/2017. `F2.A9` nu mai așteaptă Anexa 1 — o are, cu un caz `R17`/`R18`
+în plus. `F2.A4` are elementele ordinului de plată din text primar. `F2.B3` are regulile, în consolidări
+din 2019 — modificările de după se citesc înainte de cod. `F2.B4` are minimul fluturașului (art. 142
+alin. (3)) și tăcerea asupra formei. `F2.A6` are formula proratei (din reproducerea SFS) și identitatea
+declarației, dar **nu structura ei** — boxele se citesc din formularul adoptat, care nu s-a obținut.
+`F2.A5` rămâne cel mai descoperit: nicio formă în vigoare pentru registrul de casă și dispoziții,
+art. 11 alin. (7) necitit, HG 764/1992 cu statut incert. `OD-75` rămâne externă: niciunul dintre ordinele SFS nu numește un serviciu electronic — declarația TVA
+trimite la art. 187 alin. (2¹) din Cod, IPC21 la „metode automatizate (…) în modul reglementat de SFS",
+IALS21 și VEN12 tac.
+**`F2.X1` poate face a doua încărcare:** Codul fiscal are ancoră (01.07.1998 pentru TVA, 01.01.1998
+pentru impozitul pe venit), L. 12/2026 și HG 773/2025 au publicarea, L. 60/2020 are MO — ce mai
+lipsește e data de adoptare a unor legi, care se citește din fișier act cu act.
 
 ### F2.G — Ecranele
 
@@ -636,7 +729,11 @@ de criteriul de ieșire, iar criteriul stă pe F1.10 (trei puncte din cinci), ca
 C1 în ordinea proprietarului. Fără cod de modul, pot merge: acest document; `F2.X2` (lectură);
 `F2.X1` (date, prin calea `P-4` care e a F1); și deciziile de mai jos, care sunt ale proprietarului.
 **Nu pot merge:** `F2.A*`, `F2.B*`, `F2.C*`, `F2.P*`, `F2.G` — sunt module. Dacă proprietarul vrea
-altfel, e schimbarea unei reguli din `CLAUDE.md` §4, deci ADR, nu excepție tăcută.
+altfel, e schimbarea unei reguli din `CLAUDE.md` §4, deci ADR, nu excepție tăcută. **2026-08-30, seara:** F1.10 e livrată
+(`f8773ea`, evidenta-04) și cele cinci puncte ale criteriului de ieșire din F1 sunt bifate în
+`08-f1-backlog.md`. Ce mai desparte F2 de cod e o declarație, nu o sarcină: F0 a fost închisă printr-o
+propoziție a proprietarului în `PROGRESS.md` („F0 este închisă, criteriul de ieșire îndeplinit"); F1
+așteaptă aceeași propoziție. Nimic din `F2.A`–`F2.G` nu s-a început.
 
 ---
 
@@ -663,23 +760,116 @@ să existe pilotul**, ca să nu se descopere la pilot că motorul era greșit:
 Ce nu prinde verificarea internă — divergența dintre înțelegerea noastră și practica instituției — se
 prinde la pilot; e același loc unde ADR-054 a lăsat divergența pentru F1.
 
+### Întrebarea reformulată, pe fiecare punct — raport, nu decizie
+
+*Instrucțiunea proprietarului, 2026-08-30: „pentru fiecare: blochează construcția sau doar
+validarea? Dacă structura se poate construi pe date interne și externul doar confirmă, punctul iese
+de pe drumul critic și rămâne bifa finală. Raportează pe fiecare; nu decide."* Așa a plecat
+importatorul 1C la F3 (ADR-054). Decizia de a rescrie criteriul e a lui.
+
+| Punct | Ce validează de fapt | Blochează construcția? | Ce se construiește și se verifică intern | Ce rămâne extern — bifa |
+|---|---|---|---|---|
+| **1.** O companie reală de servicii, exclusiv pe Evidenta, un trimestru | Completitudinea produsului în uz zilnic și corectitudinea lui în practică — e **milestone-ul** („primul release comercial"), nu validarea unui modul | **Nu.** Nicio sarcină din `F2.A`–`F2.C` nu așteaptă pilotul ca să fie scrisă | **Trei luni consecutive închise pe o companie sintetică de servicii**, cu toate ieșirile lunare generate: facturi, decontări, extras, casă, trei rulări de salarii, trei închideri de lună, trei declarații TVA și trei IPC21, situațiile la trimestru — lanțul complet, pe corpus, în CI | Compania reală și trimestrul de calendar. **Consecință de calendar, de spus:** trimestrul nu se comprimă — dacă punctul rămâne în criteriu, F2 nu se poate închide mai devreme de trei luni după începutul pilotului, oricât de gata ar fi codul; ce se face în acele trei luni (F3?) e decizia lui |
+| **2.** Toate rapoartele lunare și trimestriale **depuse din Evidenta, acceptate** de instituții | Două lucruri, cu naturi diferite: **generarea** corectă a formularelor (structura din act) și **depunerea + acceptarea** (canalul instituției și validatorul ei) | **Generarea: nu** — formularele sunt acte publice (`F2.X2 (c)`), se citesc și se validează contra formularului citit. **Depunerea: parțial** — transportul nu se poate construi fără contractul canalului (`OD-24`, `OD-25`, `OD-75`); modelul și fișierul, da | Fiecare raport generat sub contextul românesc din aceleași date ca înregistrările, cu diferență zero contra registrului (IPC21 ↔ rulări, TVA ↔ fișa conturilor de TVA, situații ↔ balanță); structura contra formularului; **exportul fișierului în formatul pe care portalul îl primește** — dacă portalul acceptă fișier, e aceeași structură publică | Canalul (API sau portal) și **acceptarea** — validatorul instituției e testul de acceptanță, ca `V2` pentru rotunjire (ADR-037). Se poate despica în două puncte: *generate și validate contra formularului* (intern) și *depuse și acceptate* (extern, bifa) |
+| **3.** Rulare payroll în paralel, diferență zero, ≥ 3 companii-pilot | **Înțelegerea noastră contra practicii** — exact ce corpusul intern nu poate prinde (ADR-054 §2, „ce nu prind") | **Nu.** `F2.B5` e funcție de produs (Amd §C.3): modelul intern al rezultatelor celuilalt sistem, raportul de diferențe la ban, ecranul — toate pe date interne; **cititorul** exportului 1C e adaptor (familia `OD-28`, F3) | Raportul arată zero pe cazurile interne și găsește o diferență plantată la angajatul și componenta corecte. **Observație de construcție, ridicată aici:** „diferență zero contra 1C" presupune că 1C are dreptate — un Evidenta corect contra unui 1C greșit n-ar atinge niciodată zero; raportul are nevoie de o stare **„diferență explicată"** (cu motiv, ca `unassigned` din Cartea Mare), altfel punctul e imposibil de bifat cinstit | Cele trei companii-pilot și rezultatele lor reale — și, pentru fiecare, fie zero, fie diferențe explicate una câte una |
+
+**Ce iese din raport, fără să decidă:** niciunul dintre cele trei puncte nu blochează construcția;
+toate trei blochează câte o bifă; două (1 și 3) au un echivalent intern verificabil în CI, iar al
+doilea se despică natural în „generat și validat" (intern) și „depus și acceptat" (extern). Tiparul e
+identic cu ADR-054 — și, ca acolo, rescrierea criteriului e un ADR al proprietarului, nu o notă în
+backlog. Până atunci, criteriul rămâne cum e, iar lista de mai sus e ce se poate bifa înaintea lui.
+
 ---
 
-## Întrebări pentru proprietar, ridicate de descompunere
+## Întrebările pentru proprietar, într-un singur loc
 
-Nu sunt decizii deschise de registru (nu blochează schema); sunt întrebări de **scop** la care
-backlogul nu poate răspunde singur:
+*Instrucțiunea din 2026-08-30: cele cinci de scop, cele trei „înainte de F2", `DNB-05` și `DNB-11` —
+cu ce blochează fiecare și cu recomandarea sesiunii unde există una. `OD-71` primul.* Recomandarea e
+a sesiunii, cu sursele ei; decizia e a proprietarului și se consemnează în ADR, nu aici.
 
-1. **VEN12 intră în F2?** O companie de servicii datorează impozit pe venit (12%, art. 15 lit. b),
-   deci declarația anuală e „raport statutar". Dar calculul ei cere ajustările fiscale ale
-   rezultatului contabil — inclusiv amortizarea fiscală (HG 704/2019, neobținută) — un calcul de
-   sine stătător, cât un modul. Dacă intră, `F2.X2 (i)` devine obligatorie și `F2.C2` crește.
-2. **Nota de credit și returul** — ce document se emite, în practica RM, la retur de servicii
-   (`F2.A0` întrebarea 1)? Dacă proprietarul știe, e o propoziție; dacă nu, e cercetare.
-3. **`DNB-05`** — granularitatea postării de salarii: decizie contabilă, cu volumul din modelul F0.11.
-4. **`DNB-11`** — pentru extras bancar și e-Factura, coliziunea e **refuz** sau **suspectat duplicat
-   cu decizie umană**? Spec B §10.2 înclină spre a doua; cere o stare pe document.
-5. **`OD-04`, `OD-71`, `DN-10`** — marcate „înainte de F2" de la Amendament încoace; sunt ale lui.
+1. **`OD-71` — aprobatorul din producție.** *Ce e:* fiecare activare de parametru și de versiune de
+   logică pune `--approver` pe rând și pe rândul `P-4` din jurnal; azi identitatea e `dev@example.md`,
+   contul creat de `make create-tenant`, deci în producție ar semna un cont de probă. *Ce blochează:*
+   orice activare în producție (deci `F2.X1` la trecerea în `active`), `F2.C4` (Compliance Admin),
+   jumătatea „aprobator" din `F2.P2`. *Recomandarea sesiunii:* **două lucruri, despărțite.**
+   (a) Utilizatorii de sistem pentru rulările automate (`P-2`, `P-3`) sunt **specificați** în Spec A
+   §3.4 — `is_active = false`, e-mail nefolosibil, fără `membership`, doar căi privilegiate — se
+   construiesc fără decizie. (b) Aprobatorul e o **persoană**: un `user` real, cu MFA (ADR-021),
+   angajat al platformei, nu al unui tenant — și aici e golul: **nu există niciun rol de nivel
+   platformă** (măsurat: `platform/identity`, `platform/tenancy` n-au nimic asemănător), iar decizia
+   vecină e `DN-18` (accesul de suport al platformei, `P-7`). Recomandare: se decid împreună, ca
+   „identitățile personalului platformei" — aprobatorul atinge doar tabele globale, deci nu atinge
+   nici RLS, nici `R27`; un rol `platform_operator` pe `user`, fără `membership`, cu MFA, e forma cea
+   mai mică. Rândurile deja aprobate cu `dev@example.md` (cele trei convenții) nu se editează —
+   jurnalul e append-only — ci primesc, la prima identitate reală, un eveniment nou de aprobare.
+2. **`OD-04` — cumulativele de salarii la activarea în cursul anului.** *Ce e:* setul
+   `opening_balance_payroll_cumulative` există ca formă și refuză conținutul — `code` e text
+   neinterpretat, `from_date` e purtat. *Ce blochează:* `F2.B6`, activarea `payroll` la mijloc de an
+   (`R25`), corectitudinea impozitului din prima lună. *Recomandarea sesiunii:* vocabularul lui `code`
+   nu se inventează — **vine din metoda cumulativă a reținerii**: HG 697/2014 pct. 38 — calculul se face prin metoda cumulativă, de la începutul anului
+   fiscal sau de la data angajării (parafraza din `od-22-impozitul-pe-venit.md` §3, nu citat verbatim). Ce trebuie purtat de la 1 ianuarie, per angajat, e deci ce
+   intră în acel calcul: venitul impozabil cumulat, scutirile acordate cumulat, impozitul reținut
+   cumulat — plus ce cer rapoartele anuale per angajat (IALS21), a căror listă de coloane o aduce
+   `F2.X2 (c)`. CAS și CNAM **nu** au nevoie de cumulative: nu au plafon anual (cercetare §4 —
+   plafonul a dispărut odată cu contribuția individuală, 2021). Fereastra: **anul fiscal, nu
+   exercițiul companiei** — de aceea `from_date` e coloană, nu presupunere. Recomandare concretă:
+   `code` = coloanele per angajat ale IALS21, semnul = cum le raportează formularul; decizia se ia
+   **după** ce `F2.X2 (c)` aduce formularul, ca vocabularul să fie al actului.
+3. **`DN-10` — vocabularul capabilităților.** *Ce e:* `capability_key` e text liber; singurele nume
+   declarate sunt cele trei de conformitate. *Ce blochează:* `F2.P3` — `payroll` ca prima capabilitate
+   cu inițializare — și, prin ea, `F2.B6`. *Recomandarea sesiunii:* **varianta B** din Spec A §11.10
+   — listă curatoriată, scurtă, definită de *ce cere inițializare*: `payroll` (cumulativele),
+   `inventory` (F4: solduri cantitate + cost, metodă, cutover), `multi_company`; ierarhia (C) se
+   amână până când grila comercială o cere efectiv — azi n-o cere niciun cod. **Tensiunea de numit în
+   ADR:** Spec A §1.8 pune „payroll în măsura obligațiilor declarative" la conformitate (`R24`), iar
+   master planul §13 îl vinde pe planuri („de bază" / „complet"). Linia recomandată: *capabilitatea*
+   `payroll` se activează (are inițializare), dar **odată activată, ieșirile ei declarative nu se pot
+   dezactiva sau plăti separat** — obligația declarativă apare când există angajați, nu când există
+   plan.
+4. **`DNB-05` — granularitatea postării de salarii.** *Ce e:* o linie per angajat și tip de sumă
+   (A), agregat pe tip cu detaliul în `payroll` (B), sau agregat plus read model (C) — Spec B §4.2.
+   *Ce blochează:* `F2.B0`, `F2.B4`, volumul lui `journal_line`. *Recomandarea sesiunii:* **(C), în
+   forma pe care ADR-048 și ADR-053 o dau deja:** liniile agregate pe rol (cheltuială salarială,
+   datorii salariale, CAS, CNAM, impozit reținut) per rulare, iar **formulele** (`journal_formula`,
+   ADR-048 — rândul pe care îl citește contabilul) per angajat, cu `employee_id` într-un slot de
+   dimensiune. Drill-down-ul `R13` rămâne în contabilitate: rulare → formulă → angajat, fără să
+   treacă prin alt modul — exact cum fișa contului agregă pe document și coboară la formule
+   (ADR-053 §3.1). Volum, din `11-volume-model.md`: media IMM e 6 salariați — o rulare = ~10 linii și
+   ~36 de formule; la 200 de angajați, tot ~10 linii și ~1 200 de formule. Liniile nu cresc cu
+   angajații; formulele da, și sunt tabela făcută pentru asta.
+5. **`DNB-11` — cheile naturale de deduplicare: refuz sau „suspectat duplicat".** *Ce e:* Spec B
+   §10.2 propune cinci chei și întreabă ce face sistemul la coliziune. *Ce blochează:* `F2.A4`
+   (linia de extras), `F2.A7` (importul e-Factura), `F2.B4` (rularea), `F2.A2` (deja răspuns pentru
+   un tip: `purchase_document` **refuză** prin `UNIQUE`). *Recomandarea sesiunii:* **după cine
+   garantează cheia.** Chei pe care le garantăm noi — factura emisă (numerotarea, ADR-022), rularea
+   de salarii `(company, period, run_type)` — **refuz**, fiindcă o coliziune e un defect al nostru.
+   Chei care vin din afară — documentul furnizorului, `bank_reference`, `sfs_document_uid` —
+   **„suspectat duplicat", cu decizie umană**, fiindcă un furnizor care reia seria la an nou sau o
+   bancă cu referință goală produc coliziuni legitime. Consecință: o stare pe document (`suspected_duplicate`)
+   și un flux de rezolvare — iar `purchase_document`, care azi refuză, ar trece la semnalare.
+6. **VEN12 în F2?** *Ce e:* o companie de servicii datorează impozit pe venit (12%, art. 15 lit. b),
+   deci declarația anuală e „raport statutar" (master plan: „pachet complet"). Dar calculul ei cere
+   ajustările fiscale ale rezultatului contabil — inclusiv amortizarea fiscală (HG 704/2019,
+   `F2.X2 (i)`, în lucru) — un calcul de sine stătător, cât un modul. *Ce blochează:* scopul lui
+   `F2.C2` și `F2.X2 (i)`. *Recomandarea sesiunii:* **în F2, dar ultimul** — e anual (25 martie), un
+   trimestru de pilot nu-l cere decât dacă traversează sfârșitul anului; se construiește după ce
+   ieșirile lunare merg, cu HG 704/2019 citită. Dacă proprietarul îl scoate din F2, criteriul de
+   ieșire (punctul 2, „rapoartele lunare și trimestriale") nu-l numește oricum.
+7. **Documentul de retur / nota de credit** (`F2.A0`, întrebarea 1). *Ce e:* ce document se emite,
+   în practica RM, la returul unei prestări; `ReversalDocument` există. *Ce blochează:* forma
+   postării pentru vânzări. *Fapt datat, fără recomandare:* `v1-factura-fiscala-omf-118-2017.md`
+   **tace** pe retur și corecție — verificat 2026-08-30 (niciun „retur", „corect", „anul" în fișier).
+   Instrucțiunea OMF 118/2017 (anexa nr. 2) ar putea trata corectarea facturii; e o **recitire
+   țintită**, adăugată la `F2.X2` ca punctul (j). Dacă proprietarul știe răspunsul din practică, e o
+   propoziție.
+8. **Criteriul de ieșire** — raportul pe fiecare punct e mai sus (§„Întrebarea reformulată"); ce
+   rămâne a lui e dacă rescrie criteriul, cum a făcut cu F1, și ce se întâmplă cu F3 în trimestrul de
+   pilot.
+
+**Nu blochează nimic azi, dar se ating în F2 și merită știute:** `OD-73` (reformarea bilanțului — la
+prima închidere reală de exercițiu), `OD-72` (încrederea pe versiunile de logică — la a doua versiune
+a aceleiași chei, probabil la TVA sau salarii), ADR-007 `Propus` (perioada stornoului — la prima
+declarație rectificativă).
 
 ---
 
@@ -691,18 +881,20 @@ backlogul nu poate răspunde singur:
 | F2.A0, F2.B0 | decizia proprietarului unde SNC lasă opțiuni | ca la ADR-036 §11; actele sunt în repo |
 | F2.A1, F2.A2, F2.B2 (bifa `active`) | `OD-22` — numerele MO | extern (acte normative); construcția merge pe `provisional` |
 | F2.A4 (cititorii) | `OD-27` | extern (bănci); modelul intern nu așteaptă |
-| F2.A5, F2.A6, F2.B3, F2.B4, F2.C1, F2.C2 | `F2.X2` — actele neobținute | lectură; blocat de acces (`legis.md` 403, MO cu plată), aceeași cale ca `V1` |
+| F2.A5 | `F2.X2 (a)` — art. 11 alin. (7) din Legea 287/2017 necitit; HG 764/1992 neobținută, statut incert; nicio formă în vigoare a registrului de casă | lectură; `legis.md` nici prin Wayback |
+| F2.A6 (structura declarației TVA), F2.C2 (textele ordinelor) | `F2.X2 (c)` — identitățile MO obținute, textele adoptate nu; boxele declarației nesigure | lectură; formularele adoptate |
+| F2.B3 (modificările post-2019), F2.C1 (categoriile din L. 287/2017) | `F2.X2 (b), (e)` — consolidări doar până în 2019; L. 287/2017 necitită din publicația proprie | lectură |
 | F2.A6 (rectificativa) | ADR-007 `Propus` | a proprietarului (contabil) |
 | F2.A7 (transportul) | `OD-24` | extern (SFS) |
-| F2.A8 | `C2` din F1.4.4 | în lucru la evidenta-77, după C5 |
-| F2.A9 | `OD-76` (stratul `integrations`), `OD-26` (sursa BNM); reevaluarea — Anexa 1 SNC | ADR; extern; lectură |
+| F2.A8 | `C2` din F1.4.4; amortizarea fiscală — HG 704/2019 **obținută** (`F2.X2 (i)`), Catalogul HG 941/2020 nu | în lucru la evidenta-77, după C5; lectură |
+| F2.A9 | `OD-76` (stratul `integrations`), `OD-26` (sursa BNM); ~~reevaluarea — Anexa 1 SNC~~ obținută integral 2026-08-30 (`F2.X2 (f)`) | ADR; extern |
 | F2.B0 | `DNB-05`, `DN-10` | a proprietarului |
 | F2.B6 | `OD-04` | a proprietarului, „înainte de F2" |
-| F2.C1 (capitalul propriu) | `OD-73` | a proprietarului; declanșatorul e prima închidere reală de exercițiu |
+| F2.C1 (capitalul propriu) | `OD-73` — **premisa corectată 2026-08-30:** SNC „Prezentarea" pct. 18 și 228 numesc momentul (după aprobare și prezentare); tac asupra datei contabile | a proprietarului; declanșatorul e prima închidere reală de exercițiu |
 | F2.C2 (depunerea) | `OD-75` — canalul SFS | extern (SFS); **nou** |
 | F2.C3 | `OD-25` | extern (CNAS, CNAM, BNS) |
 | F2.C4, F2.P2 (aprobatorul) | `OD-71` | a proprietarului, „înainte de F2" |
-| F2.C5 | F1.10 | al F1 |
+| F2.C5 | F1.10 — **convenția e fixată** (evidenta-04, 2026-08-30): `tests/corpus/`, `case(*sets, cites=...)` ca unică ușă, `corpus/<logic_key>/<versiune>`, gardian peste fiecare `regression_case_set` din `fiscal/parameters/data/*.toml`, `-m fiscal_regression` | al F1; F2 moștenește |
 | F2.P1 | `OD-74` (biblioteca, pipeline-ul — se închide în sarcină, cu ADR); `OD-52` (arhivarea) | ADR; providerul de stocare nu blochează generarea |
 | F2.P3 | `DN-10` | a proprietarului |
 | F2.X1 (activarea) | `OD-22` | extern; încărcarea ca `draft` nu așteaptă |

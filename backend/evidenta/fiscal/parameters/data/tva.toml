@@ -1,0 +1,109 @@
+# TVA — vocabularul regimurilor, cotele, pragul de înregistrare, termenul declarației — ca `draft`.
+#
+#     manage.py load_fiscal_parameters tva.toml
+#
+# `F2.X1`, instrucțiunea proprietarului din 2026-08-30: **se încarcă, nu se activează.** Amânat la
+# prima încărcare fiindcă ancora — Codul fiscal — n-avea dată de intrare în vigoare în nicio
+# cercetare; `f2-x1-identitatile-actelor.md` (30.08.2026) a adus clauza, citită verbatim din textul
+# MF al Legii nr. 1417-XIII din 17.12.1997, art. 1: „Titlul III al Codului fiscal intră în vigoare la
+# 1 iulie 1998."
+#
+# SURSA valorilor: `_input/cercetare/od-22-tva.md` (26.08.2026) — reproducerea Codului de către SFS
+# (BGPF, ordine SFS datate), nu textul din MO; de aceea `provisional`, cu motivul pe rând. Ferestrele
+# `valid_from` NU pretind istoric dinainte de perioada cercetată (2024–2026): cota de 20% e
+# „neschimbată în perioada cercetată", nu „din 1998" — un `valid_from` mai vechi ar fi o afirmație pe
+# care nimeni n-a citit-o.
+#
+# CE NU E AICI, cu motivul: pragul de 1 500 000 lei (01.01–28.02.2026) și cel de 1 200 000 lei (până
+# la 31.12.2025) — actele lor nu sunt identificate cu certitudine (od-22-tva.md, „Ce nu s-a putut
+# verifica", pct. 6); lista scutirilor art. 103 — structura e din 2020 cu delte, nu textul curent
+# (pct. 5), și e listă, nu parametru scalar (DNB-06 deschisă); proratarea (art. 102 alin. (4)) e
+# logică versionată (`F2.A6`), cu rotunjirea ei ca parametru când Legea 60/2020 primește clauza de
+# intrare în vigoare; perioada fiscală „luna" — neverificată verbatim (pct. 3), iar `VatPeriod` o
+# poartă deja structural (ADR-039 §7).
+#
+# VOCABULARUL REGIMURILOR e convenție de platformă peste categoriile Codului — codurile sunt ale
+# noastre, categoriile ale actului: art. 96 lit. a) și b), art. 103 (scutite fără drept de deducere),
+# art. 104 (scutite cu drept de deducere — fosta „cotă zero", eliminată ca literă a art. 96 la o dată
+# neconfirmată). `vat.py` citește cheia `vat.regimes` ca tabel de coduri; `F2.A0`/`F2.A6` pot lărgi
+# lista (livrări care nu sunt obiect impozabil, taxare inversă) cu articolul citit.
+
+schema_version = 1
+
+[[act]]
+ref = "cod-fiscal-titlul-iii"
+act_type = "lege"
+act_number = "1163-XIII"
+act_date = 1997-04-24
+title = "Codul fiscal nr. 1163-XIII din 24.04.1997, Titlul III — Taxa pe valoarea adăugată"
+effective_from = 1998-07-01
+notes = "Intrarea în vigoare a Titlului III: Legea nr. 1417-XIII din 17.12.1997, art. 1 — „Titlul III al Codului fiscal intră în vigoare la 1 iulie 1998.” (antet: MO nr. 40-41/290 din 07.05.1998), citită din textul .doc al MF (f2-x1-identitatile-actelor.md). Codul: publicare inițială MO nr. 62 din 18.09.1997 (neconfirmată oficial), republicat în MO ediție specială din 08.02.2007 (citat oficial). Textul consolidat curent nu s-a citit (legis.md 403, nearhivat)."
+
+[[act]]
+ref = "l-12-2026"
+act_type = "lege"
+act_number = "12"
+act_date = 2026-02-19
+title = "Legea nr. 12 din 19.02.2026 pentru modificarea articolului 112 din Codul fiscal nr. 1163/1997"
+effective_from = 2026-03-01
+notes = "MO nr. 96-99 din 26.02.2026, poz. 60 — confirmat pe cuprinsul ediției (f2-x1-identitatile-actelor.md); titlul confirmă obiectul. Intrarea în vigoare 01.03.2026 e AFIRMATĂ de SFS (comunicat, od-22-tva.md §7.3); clauza nu s-a citit."
+
+[[act.publications]]
+gazette_year = 2026
+gazette_number = "96-99"
+article = "60"
+published_at = 2026-02-26
+
+# --- vocabularul regimurilor ---------------------------------------------------------------------
+
+[[parameter]]
+key = "vat.regimes"
+act = "cod-fiscal-titlul-iii"
+value_type = "table"
+value = { codes = ["taxable_standard", "taxable_reduced", "exempt_without_deduction", "exempt_with_deduction"] }
+valid_from = 2024-01-01
+confidence = "provisional"
+provisional_reason = "Convenție de platformă peste categoriile Codului fiscal: art. 96 lit. a) (cota standard), art. 96 lit. b) (cota redusă), art. 103 (scutite fără drept de deducere), art. 104 (scutite cu drept de deducere) — od-22-tva.md §1–§4. Codurile sunt ale platformei; categoriile, ale actului, citite din reproducerea SFS. Fereastra începe la perioada cercetată (2024), nu pretinde istoric."
+
+# --- cotele, art. 96 -----------------------------------------------------------------------------
+
+[[parameter]]
+key = "vat.standard"
+act = "cod-fiscal-titlul-iii"
+value_type = "percentage"
+value = 20
+valid_from = 2024-01-01
+confidence = "provisional"
+provisional_reason = "Art. 96 lit. a) — 20%, „neschimbată în perioada cercetată” (od-22-tva.md §1; BGPF, Ordin SFS nr. 66 din 05.02.2026). Citat din reproducerea SFS, nu din MO. valid_from e începutul ferestrei cercetate, nu data reală a cotei."
+
+[[parameter]]
+key = "vat.reduced"
+act = "cod-fiscal-titlul-iii"
+value_type = "percentage"
+value = 8
+valid_from = 2024-01-01
+confidence = "provisional"
+provisional_reason = "Art. 96 lit. b) — 8%, cota redusă unică (od-22-tva.md §1–§2). Sfera ei s-a lărgit în fereastră (HoReCa de la 31.12.2023, igiena feminină 01.01.2025, dispozitive medicale 2026), dar valoarea nu s-a schimbat; sfera nu e parametru scalar și nu e aici."
+
+# --- pragul de înregistrare, art. 112 ------------------------------------------------------------
+
+[[parameter]]
+key = "vat.registration_threshold"
+act = "l-12-2026"
+value_type = "money"
+value = 1700000
+unit = "MDL"
+valid_from = 2026-03-01
+confidence = "provisional"
+provisional_reason = "Art. 112 alin. (1) — 1 700 000 lei în oricare 12 luni consecutive, din 01.03.2026 prin Legea nr. 12/2026 (od-22-tva.md §5, BGPF 28.1, Ordin SFS nr. 118 din 03.03.2026). Valorile anterioare (1 500 000 din 01.01.2026; 1 200 000 până la 31.12.2025) nu sunt încărcate: actele lor nu sunt identificate cu certitudine."
+
+# --- termenul declarației, art. 115 --------------------------------------------------------------
+
+[[parameter]]
+key = "vat.return_deadline_day"
+act = "cod-fiscal-titlul-iii"
+value_type = "integer"
+value = 25
+valid_from = 2018-01-01
+confidence = "provisional"
+provisional_reason = "Art. 115 alin. (1) — declarația se prezintă „nu mai tîrziu de data de 25 a lunii care urmează după încheierea perioadei fiscale”, din 01.01.2018 (anterior: ultima zi a lunii) — od-22-tva.md §6, BGPF. Actul modificator din 2018 nu e identificat; ADR-039 §7.1 cere termenul ca parametru versionat, de aceea data e cea afirmată de SFS."

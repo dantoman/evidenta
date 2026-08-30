@@ -1,0 +1,204 @@
+# CNAS și CNAM — cotele, majorarea de întârziere, prima fixă, salariul mediu prognozat — ca `draft`.
+#
+#     manage.py load_fiscal_parameters cnas_cnam.toml
+#
+# `F2.X1` (09-f2-backlog.md), instrucțiunea proprietarului din 2026-08-30: **se încarcă, nu se
+# activează.** Activarea rămâne actul lui (`activate_fiscal_parameters cnas_cnam.toml --approver`).
+#
+# SURSA fiecărei cifre: `_input/cercetare/od-22-cnas-cnam.md` (26.08.2026) — reproducerea actelor de
+# către CNAS și SFS, nu textul din Monitorul Oficial; de aceea fiecare rând e `provisional`, cu motivul
+# pe rând. Ce lipsește ca un rând să poată deveni `confirmed` e identitatea MO a actelor de bază —
+# adusă parțial de `f2-x1-identitatile-actelor.md` (30.08.2026): legile de bază au MO doar din citări oficiale, fără pagina ediției.
+#
+# ANCORAREA, spusă deschis: cotele CAS stau permanent în anexa nr. 1 la Legea nr. 489/1999, iar CNAM
+# în anexa nr. 1 la Legea nr. 1593/2002 — legea anuală a bugetului doar le aplică (cercetare, §0).
+# Identitatea celor două legi de bază (data, MO, intrarea în vigoare a formei curente a anexei) NU
+# s-a obținut, iar încărcătorul cere `effective_from` pe act. Rândurile de mai jos sunt deci ancorate
+# în legea anuală care le aplică pentru primul an din fereastra cercetată (2024), cu inferența
+# marcată; când identitatea legii de bază sosește, rândul se re-ancorează (rândurile `draft` se
+# actualizează la reîncărcare; cele `active` nu — R15).
+#
+# CE NU E AICI, deliberat: categoriile de plătitori pe care o companie de servicii nu le are —
+# aviația (pct. 1.2), agricultura (1.5, cu compensarea de 6%), parcurile IT (1.4), antreprenorii
+# independenți (1.10), zilierii (1.9), taxele fixe ale fondatorilor ÎI și ale liber-profesioniștilor
+# (1.6–1.8), primele CNAM reduse pentru asigurații individuali. Intră când un client le cere, cu
+# aceeași citare. Contribuția individuală CAS (0% din 01.01.2021, Legea nr. 60/2020, MO 108-109 din
+# 25.04.2020, poz. 186) are rând de la a doua încărcare (30.08.2026), când `f2-x1-identitatile-actelor.md`
+# a adus data legii (23.04.2020). CNAM pentru 2024 și 2025 (L. 420/2023, L. 304/2024) — aceleași
+# valori, datele actelor lipsesc încă.
+#
+# VOCABULARUL CHEILOR e propus aici și se confirmă în `F2.B0` (ADR-ul schemei de salarizare).
+# Asimetria structurală din cercetare e păstrată în chei: CAS e obligație a angajatorului
+# (cheltuială), CNAM e reținere din salariat — nu „cotă angajator + cotă angajat" pe același tipar.
+
+schema_version = 1
+
+[[act]]
+ref = "l-419-2023"
+act_type = "lege"
+act_number = "419"
+act_date = 2023-12-22
+title = "Legea bugetului asigurărilor sociale de stat pe anul 2024, nr. 419 din 22.12.2023"
+effective_from = 2024-01-01
+notes = "MO nr. 502-504 din 28.12.2023 (od-22-cnas-cnam.md §6; poziția/articolul nu s-a citit). Intrarea în vigoare 01.01.2024 e INFERENȚĂ — legea bugetului pe 2024; clauza nu s-a citit. Aplică anexa nr. 1 la Legea nr. 489/1999, unde stau cotele."
+
+[[act]]
+ref = "l-320-2025"
+act_type = "lege"
+act_number = "320"
+act_date = 2025-12-29
+title = "Legea bugetului asigurărilor sociale de stat pe anul 2026, nr. 320 din 29.12.2025"
+effective_from = 2026-01-01
+notes = "od-22-cnas-cnam.md §1: „publicată în Monitorul Oficial nr. 659-661 din 31.12.2025, poziția 796”; art. 4 (majorarea de întârziere) în vigoare 01.01.2026."
+
+[[act.publications]]
+gazette_year = 2025
+gazette_number = "659-661"
+article = "796"
+published_at = 2025-12-31
+
+[[act]]
+ref = "l-321-2025"
+act_type = "lege"
+act_number = "321"
+act_date = 2025-12-29
+title = "Legea fondurilor asigurării obligatorii de asistență medicală pe anul 2026, nr. 321 din 29.12.2025"
+effective_from = 2026-01-01
+notes = "od-22-cnas-cnam.md §2: art. 4 alin. (1)–(3), în vigoare 01.01.2026. Numărul MO nu s-a citit (probabil aceeași ediție 659-661 din 31.12.2025 ca L. 318 și L. 320 — INFERENȚĂ, neînscrisă ca publicare)."
+
+[[act]]
+ref = "l-60-2020"
+act_type = "lege"
+act_number = "60"
+act_date = 2020-04-23
+title = "Legea nr. 60 din 23.04.2020 privind instituirea unor măsuri de susținere a activității de întreprinzător și modificarea unor acte normative"
+effective_from = 2021-01-01
+notes = "MO nr. 108-109 din 25.04.2020, poz. 186 — confirmat pe cuprinsul ediției (f2-x1-identitatile-actelor.md). 01.01.2021 pentru anularea contribuției individuale de 6% e AFIRMAT în od-22-cnas-cnam.md; clauza nu s-a citit. Restul legii intră în vigoare la alte date — effective_from de aici e al normei CAS, nu al legii întregi."
+
+[[act.publications]]
+gazette_year = 2020
+gazette_number = "108-109"
+article = "186"
+published_at = 2020-04-25
+
+[[act]]
+ref = "hg-845-2024"
+act_type = "hotarare_guvern"
+act_number = "845"
+act_date = 2024-12-18
+title = "Hotărârea Guvernului nr. 845 din 18.12.2024 privind aprobarea cuantumului salariului mediu lunar pe economie, prognozat pentru anul 2025"
+effective_from = 2024-12-19
+notes = "MO nr. 533-535 din 19.12.2024, poz. 966 — confirmat pe cuprins (f2-x1-identitatile-actelor.md); od-22-cnas-cnam.md o cita greșit ca „HG 966/2024” — 966 e poziția. Fără clauză de intrare în vigoare citită: data publicării, INFERENȚĂ din regula generală; valoarea se aplică anului 2025."
+
+[[act.publications]]
+gazette_year = 2024
+gazette_number = "533-535"
+article = "966"
+published_at = 2024-12-19
+
+[[act]]
+ref = "hg-773-2025"
+act_type = "hotarare_guvern"
+act_number = "773"
+act_date = 2025-12-17
+title = "Hotărârea Guvernului nr. 773 din 17.12.2025 privind aprobarea cuantumului salariului mediu lunar pe economie, prognozat pentru anul 2026"
+effective_from = 2026-01-01
+notes = "od-22-cnas-cnam.md §3: 17 400 lei pentru 2026. MO nr. 620-622 din 18.12.2025, poz. 785 — confirmat pe cuprins (f2-x1-identitatile-actelor.md); proiectul aprobat de Guvern are un singur punct și nicio clauză de intrare în vigoare, deci data publicării — INFERENȚĂ; valoarea se aplică anului 2026."
+
+[[act.publications]]
+gazette_year = 2025
+gazette_number = "620-622"
+article = "785"
+published_at = 2025-12-18
+
+# --- CAS: obligația angajatorului; contribuția individuală nu mai există -----------------------
+
+[[parameter]]
+key = "cnas.employee_rate"
+act = "l-60-2020"
+value_type = "percentage"
+value = 0
+valid_from = 2021-01-01
+confidence = "provisional"
+provisional_reason = "Contribuția individuală de asigurări sociale (6%) reținută din salariu a fost anulată prin Legea nr. 60/2020; din 01.01.2021 „plătitori de contribuţii (…) sunt doar angajatorii” (od-22-cnas-cnam.md, Reforma structurală). Rândul cu 0 există ca un motor să nu păstreze o reținere istorică; odată cu ea a dispărut și plafonul de 5 salarii medii. Data 01.01.2021 e afirmată, clauza necitită."
+
+[[parameter]]
+key = "cnas.employer_rate"
+act = "l-419-2023"
+value_type = "percentage"
+value = 24
+valid_from = 2024-01-01
+confidence = "provisional"
+provisional_reason = "Anexa nr. 1 la Legea nr. 489/1999, pct. 1.1 — angajatori din sectorul privat, ÎS, ÎM, organizații comerciale (od-22-cnas-cnam.md §1; Ordinul CNAS 31-A/2026 pct. 9 citat). Neschimbată 2024–2026 (L. 419/2023, L. 303/2024, L. 320/2025). Ancorată în legea bugetului pe 2024 fiindcă identitatea L. 489/1999 nu s-a obținut; valoarea vine din reproducerea CNAS/SFS, nu din MO."
+
+[[parameter]]
+key = "cnas.employer_rate_budgetary"
+act = "l-419-2023"
+value_type = "percentage"
+value = 29
+valid_from = 2024-01-01
+confidence = "provisional"
+provisional_reason = "Anexa nr. 1 la Legea nr. 489/1999, pct. 1.1 — autorități și instituții bugetare, instituții publice la autogestiune (od-22-cnas-cnam.md §1). Aceeași ancorare și același motiv ca `cnas.employer_rate`."
+
+[[parameter]]
+key = "cnas.late_payment_rate_daily"
+act = "l-320-2025"
+value_type = "percentage"
+value = "0.1"
+valid_from = 2026-01-01
+confidence = "provisional"
+provisional_reason = "Legea nr. 320/2025 art. 4 — majorarea de întârziere 0,1% pe zi, în temeiul art. 28 din Legea nr. 489/1999 (od-22-cnas-cnam.md §1). Citat din reproducerea CNAS, nu din MO."
+
+# --- CNAM: reținere din salariat; angajatorul nu datorează primă -------------------------------
+
+[[parameter]]
+key = "cnam.employee_rate"
+act = "l-321-2025"
+value_type = "percentage"
+value = 9
+valid_from = 2026-01-01
+confidence = "provisional"
+provisional_reason = "Legea nr. 321/2025 art. 4 alin. (1) — 9,0% la salariu și la alte recompense, reținută de angajator (od-22-cnas-cnam.md §2). Identică în 2024 și 2025 (L. 420/2023, L. 304/2024), dar datele acelor legi nu sunt în cercetare, deci rândul începe la 2026-01-01."
+
+[[parameter]]
+key = "cnam.employer_rate"
+act = "l-321-2025"
+value_type = "percentage"
+value = 0
+valid_from = 2026-01-01
+confidence = "provisional"
+provisional_reason = "Angajatorul nu datorează primă CNAM procentuală: art. 4 alin. (1) o pune pe salariat, iar clasificatorul codurilor economice (OMF nr. 149 din 29.12.2025, anexa nr. 5) nu are cod pentru o primă achitată de angajator (od-22-cnas-cnam.md §2). Zero derivat din absență, coroborat cu clasificatorul — INFERENȚĂ documentată, nu citat."
+
+[[parameter]]
+key = "cnam.fixed_premium_annual"
+act = "l-321-2025"
+value_type = "money"
+value = 12636
+unit = "MDL"
+valid_from = 2026-01-01
+confidence = "provisional"
+provisional_reason = "Legea nr. 321/2025 art. 4 alin. (2) — prima în sumă fixă pentru persoanele care se asigură individual (od-22-cnas-cnam.md §2). Nu se aplică salariaților; încărcată fiindcă termenul ei (31 martie) și reducerile intră în calendarul de conformitate."
+
+# --- salariul mediu lunar pe economie, prognozat -----------------------------------------------
+
+[[parameter]]
+key = "labour.average_monthly_salary_forecast"
+act = "hg-845-2024"
+value_type = "money"
+value = 16100
+unit = "MDL"
+valid_from = 2025-01-01
+valid_to = 2025-12-31
+confidence = "provisional"
+provisional_reason = "HG nr. 845 din 18.12.2024 — 16 100 lei pentru 2025 (od-22-cnas-cnam.md §3, corectată: nu „HG 966/2024”). Aceeași folosire ca rândul pentru 2026."
+
+[[parameter]]
+key = "labour.average_monthly_salary_forecast"
+act = "hg-773-2025"
+value_type = "money"
+value = 17400
+unit = "MDL"
+valid_from = 2026-01-01
+valid_to = 2026-12-31
+confidence = "provisional"
+provisional_reason = "HG nr. 773 din 17.12.2025 — 17 400 lei pentru 2026 (od-22-cnas-cnam.md §3). Se folosește la plafonul bazei indemnizațiilor și la venitul asigurat al rezidenților parcurilor IT; NU e plafon al bazei CAS (cercetare §4). Rândul pentru 2025 (16 100) e ancorat în HG 845/2024 — nu „966”, care era poziția în MO."

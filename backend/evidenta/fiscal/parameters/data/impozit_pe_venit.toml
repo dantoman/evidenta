@@ -1,0 +1,153 @@
+# Impozitul pe venit reținut din salariu — cota, scutirile, plafonul — ca `draft`.
+#
+#     manage.py load_fiscal_parameters impozit_pe_venit.toml
+#
+# `F2.X1`, instrucțiunea proprietarului din 2026-08-30: **se încarcă, nu se activează.**
+#
+# SURSA: `_input/cercetare/od-22-impozitul-pe-venit.md` (26.08.2026) — Baza generalizată a practicii
+# fiscale a SFS, care reproduce Codul fiscal; nu textul din MO. De aceea `provisional`, cu motivul pe
+# rând. Regula din ADR-045 e respectată în chei: cuantumurile vin din Codul fiscal (art. 15, 33–35),
+# niciodată din HG 697/2014, care e procedură — și care încă trimite la o scutire ce nu se acordă.
+#
+# Actele modificatoare au aici identitatea MO completă (cercetarea le-a citit): Legea nr. 178/2018
+# (cota unică), Legea nr. 214/2024 (scutirile 2025), Legea nr. 318/2025 (modificările 2026). Codul
+# fiscal însuși (Legea nr. 1163/1997) nu e ancoră aici, fiindcă data intrării lui în vigoare nu e în
+# cercetare; vine cu `f2-x1-identitatile-actelor.md`.
+#
+# CE NU E AICI: scutirile pe 2024 (actul care le-a stabilit nu e identificat); cota persoanelor
+# juridice (VEN12 e întrebare de scop pentru proprietar — 09-f2-backlog.md §„Întrebări"); regimurile
+# speciale (zilieri, parcuri IT, taxi, antreprenori independenți).
+#
+# VOCABULARUL CHEILOR e propus și se confirmă în `F2.B0`. Codurile scutirilor din cercetare (P, M,
+# Sm, N, H) stau în nume; `S` — scutirea ordinară de soț/soție — are rând cu valoarea 0 tocmai ca să
+# nu fie inventată: art. 34 alin. (1) nu se acordă (capcana din cercetare §2).
+
+schema_version = 1
+
+[[act]]
+ref = "l-178-2018"
+act_type = "lege"
+act_number = "178"
+act_date = 2018-07-26
+title = "Legea nr. 178 din 26.07.2018 pentru modificarea unor acte legislative (cota unică a impozitului pe venit)"
+effective_from = 2018-10-01
+notes = "od-22-impozitul-pe-venit.md §1: „Cota unică de 12% e în vigoare din 01.10.2018, introdusă prin Legea nr. 178 din 26.07.2018 (MO nr. 309-320 art. 496 din 17.08.2018)”. Titlul e reconstituit după obiect (INFERENȚĂ)."
+
+[[act.publications]]
+gazette_year = 2018
+gazette_number = "309-320"
+article = "496"
+published_at = 2018-08-17
+
+[[act]]
+ref = "l-214-2024"
+act_type = "lege"
+act_number = "214"
+act_date = 2024-07-31
+title = "Legea nr. 214 din 31.07.2024 pentru modificarea unor acte normative (politica fiscală și vamală pentru 2025)"
+effective_from = 2025-01-01
+notes = "od-22-impozitul-pe-venit.md §2.2: majorarea scutirilor cu 10% pentru 2025, MO nr. 355-357 din 15.08.2024, art. 545. Intrarea în vigoare 01.01.2025 e INFERENȚĂ din aplicarea valorilor anului 2025 (tabelul comparativ SFS); clauza nu s-a citit. Titlul reconstituit după obiect."
+
+[[act.publications]]
+gazette_year = 2024
+gazette_number = "355-357"
+article = "545"
+published_at = 2024-08-15
+
+[[act]]
+ref = "l-318-2025"
+act_type = "lege"
+act_number = "318"
+act_date = 2025-12-29
+title = "Legea nr. 318 din 29.12.2025 pentru modificarea unor acte normative (politica fiscală pentru 2026)"
+effective_from = 2026-01-01
+notes = "od-22-impozitul-pe-venit.md §7: MO nr. 659-661 din 31.12.2025, art. 792; în vigoare 01.01.2026. Nu modifică art. 15 și art. 33–35; modifică modul de calcul al plafonului de 360 000 lei. Titlul reconstituit după obiect."
+
+[[act.publications]]
+gazette_year = 2025
+gazette_number = "659-661"
+article = "792"
+published_at = 2025-12-31
+
+# --- cota ---------------------------------------------------------------------------------------
+
+[[parameter]]
+key = "income_tax.rate_individual"
+act = "l-178-2018"
+value_type = "percentage"
+value = 12
+valid_from = 2018-10-01
+confidence = "provisional"
+provisional_reason = "Codul fiscal art. 15 lit. a) — 12%, cotă unică, fără tranșe, persoane fizice (od-22-impozitul-pe-venit.md §1). Citat din BGPF (SFS), nu din textul MO al Codului."
+
+# --- scutirile anuale, art. 33–35, valorile din 2025 (continuă în 2026: L. 318/2025 nu le atinge) --
+
+[[parameter]]
+key = "income_tax.exemption_personal"
+act = "l-214-2024"
+value_type = "money"
+value = 29700
+unit = "MDL"
+valid_from = 2025-01-01
+confidence = "provisional"
+provisional_reason = "Art. 33 alin. (1), cod P — 29 700 lei/an din 2025 (od-22-impozitul-pe-venit.md §2; 2025 confirmat verbatim de SFS). Pentru 2026 valoarea e DEDUSĂ din absența oricărei modificări în listele exhaustive SFS/MF — comunicatul SFS pentru 2026 nu există încă."
+
+[[parameter]]
+key = "income_tax.exemption_personal_increased"
+act = "l-214-2024"
+value_type = "money"
+value = 34620
+unit = "MDL"
+valid_from = 2025-01-01
+confidence = "provisional"
+provisional_reason = "Art. 33 alin. (2), cod M — 34 620 lei/an din 2025 (od-22-impozitul-pe-venit.md §2). Aceeași bază și aceeași deducere pentru 2026 ca `income_tax.exemption_personal`."
+
+[[parameter]]
+key = "income_tax.exemption_spouse_ordinary"
+act = "l-214-2024"
+value_type = "money"
+value = 0
+unit = "MDL"
+valid_from = 2025-01-01
+confidence = "provisional"
+provisional_reason = "Art. 34 alin. (1), cod S — NU SE ACORDĂ (SFS o codifică `x`, od-22-impozitul-pe-venit.md §2). Rândul există cu valoarea 0 ca un motor să nu implementeze o scutire generală de soț/soție; HG 697/2014 pct. 11 încă trimite la alin. (1) — regulamentul a rămas în urma Codului (ADR-045). Actul care a eliminat-o nu e identificat; ancorat în L. 214/2024 ca restul scutirilor."
+
+[[parameter]]
+key = "income_tax.exemption_spouse_increased"
+act = "l-214-2024"
+value_type = "money"
+value = 21780
+unit = "MDL"
+valid_from = 2025-01-01
+confidence = "provisional"
+provisional_reason = "Art. 34 alin. (2), cod Sm — 21 780 lei/an din 2025, condiționată de calitatea soțului/soției de persoană din categoriile art. 33 alin. (2) (od-22-impozitul-pe-venit.md §2)."
+
+[[parameter]]
+key = "income_tax.exemption_dependant"
+act = "l-214-2024"
+value_type = "money"
+value = 9900
+unit = "MDL"
+valid_from = 2025-01-01
+confidence = "provisional"
+provisional_reason = "Art. 35 alin. (1), cod N — 9 900 lei/an per persoană întreținută din 2025 (od-22-impozitul-pe-venit.md §2). Definiția persoanei întreținute și plafonul ei de venit — art. 35 alin. (2), procedură, nu cuantum."
+
+[[parameter]]
+key = "income_tax.exemption_dependant_disabled"
+act = "l-214-2024"
+value_type = "money"
+value = 21780
+unit = "MDL"
+valid_from = 2025-01-01
+confidence = "provisional"
+provisional_reason = "Art. 35 alin. (1), cod H — 21 780 lei/an per persoană întreținută cu dizabilități congenitale/din copilărie, severe sau accentuate, din 2025 (od-22-impozitul-pe-venit.md §2)."
+
+[[parameter]]
+key = "income_tax.exemption_income_cap"
+act = "l-318-2025"
+value_type = "money"
+value = 360000
+unit = "MDL"
+valid_from = 2026-01-01
+confidence = "provisional"
+provisional_reason = "Plafonul de acces la scutirea personală și la cea majorată: venit anual impozabil sub 360 000 lei (od-22-impozitul-pe-venit.md §2). Plafonul PREEXISTĂ lui L. 318/2025, care doar îi schimbă modul de calcul din 2026 (§7); actul care l-a introdus nu e identificat, deci rândul e ancorat în ultimul act care îl atinge — INFERENȚĂ marcată."
