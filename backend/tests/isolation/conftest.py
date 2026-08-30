@@ -232,17 +232,30 @@ def seed(django_db_setup: None) -> Iterator[Callable[..., None]]:
         # runs after SIGKILL. One transaction around the whole block is not an
         # option either -- PostgreSQL refuses ALTER TABLE while the DELETEs have
         # trigger events pending.
+        clean_seeded_tables(admin)
+        yield run
+
+
+def clean_seeded_tables(
+    admin: psycopg.Connection[Any], tables: Sequence[str] = SEEDED_TABLES
+) -> None:
+    """Delete ``tables`` on the admin connection, past the append-only triggers.
+
+    Shared with ``tests/corpus``, whose fixture commits reference rows from a
+    subprocess (the shipped loader) and has to take them back **after** the
+    test's transaction is rolled back -- a delete during fixture teardown would
+    wait on the FK locks that transaction still holds.
+    """
+    for statement in _TRIGGER_STATE:
+        admin.execute(statement.format(action="ENABLE"))
+    for statement in _TRIGGER_STATE:
+        admin.execute(statement.format(action="DISABLE"))
+    try:
+        for table in tables:
+            admin.execute(f"DELETE FROM {table}")
+    finally:
         for statement in _TRIGGER_STATE:
             admin.execute(statement.format(action="ENABLE"))
-        for statement in _TRIGGER_STATE:
-            admin.execute(statement.format(action="DISABLE"))
-        try:
-            for table in SEEDED_TABLES:
-                admin.execute(f"DELETE FROM {table}")
-        finally:
-            for statement in _TRIGGER_STATE:
-                admin.execute(statement.format(action="ENABLE"))
-        yield run
 
 
 @pytest.fixture

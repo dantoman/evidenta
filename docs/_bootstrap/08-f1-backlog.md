@@ -523,6 +523,18 @@ unde spec-ul le pusese de la început.*
 - **Review:** `fiscal-reviewer`, `accounting-reviewer`
 - **Terminat:** rulează în CI la fiecare modificare de parametru sau algoritm (`C14`); balanța,
   Cartea Mare și fișa contului dau același răspuns pe fiecare caz (criteriul de ieșire, punctele 1–2).
+  **Livrată 2026-08-30** (sesiunea `evidenta-04`): `backend/tests/corpus/` — 33 de cazuri în șase
+  module (C5 pe SNC „Stocuri" Anexa 1, C4 pe Exemplele 1, 2, 5 din SNC „Diferenţe de curs", închiderea
+  pe Exemplul 7 din SNC „Capital propriu", nota manuală și stornoul pe Exemplul 8 din SNC „Venituri",
+  soldurile inițiale pe normele de sold ale Planului), fiecare cu citarea sa transcrisă în
+  [`f1-10-corpus-citari.md`](../_input/cercetare/f1-10-corpus-citari.md) și verificată mecanic de
+  `test_corpus_integrity.py`; `agree(book)` la sfârșitul fiecărui caz reconciliază balanța, fișa
+  contului, Cartea Mare și șahul; convențiile se citesc din fișierele de parametri livrate; cele două
+  valori `regression_case_set` arată acum spre seturi cu cazuri; convențiile intră prin
+  `load_fiscal_parameters` și `activate_fiscal_parameters`, nu prin SQL de fixture. Review:
+  `fiscal-reviewer` (un CRITICAL, reparat — golul 2014–2017 n-avea caz pe datele livrate) și
+  `accounting-reviewer` (niciun CRITICAL). Cinci lucruri **raportate, nu decise** — în
+  `tests/corpus/README.md` și `PROGRESS.md` (întrebările 24–27).
 - **Blocat de:** — *(reclasificată 2026-08-29 prin
   [ADR-054](../decisions/054-importul-e-distributie-corpusul-e-intern.md): nu mai e blocată pe un
   contabil extern; e o sarcină de construit cazuri, a sesiunii de implementare. Ce nu prinde corpusul
@@ -597,13 +609,20 @@ rezolvă scriind cod. Patru dintre ele s-au închis într-o zi, prin instrucțiu
 extrasul 1C a ieșit din criteriu — cele trei puncte care îl numeau validau de fapt registrul, iar
 „balanță pe date importate" testa motorul și cititorul de format deodată.*
 
-- [ ] Balanță de verificare corectă **pe corpusul intern** (F1.10)
-- [ ] Diferență zero la reconciliere **între balanță, Cartea Mare și fișa contului**, pe același corpus
+- [x] Balanță de verificare corectă **pe corpusul intern** (F1.10) — `backend/tests/corpus/`,
+      33 de cazuri citate, 2026-08-30
+- [x] Diferență zero la reconciliere **între balanță, Cartea Mare și fișa contului**, pe același corpus —
+      `tests/corpus/book.py::agree`, apelat la sfârșitul fiecărui caz și cerut de gardianul corpusului
 - [x] Storno și reînregistrare funcționează, cu lineage coerent — `tests/integration/test_vertical_slice.py`:
-      ambele legături `R14`, al doilea storno refuzat, balanța la zero
+      ambele legături `R14`, al doilea storno refuzat, balanța la zero; și în corpus,
+      `tests/corpus/test_storno.py` pe SNC „Politici contabile" pct. 33
 - [x] Postarea într-o perioadă închisă este refuzată — `test_posting_invariants.py`
       (`closed`, `locked` cu cod propriu), `test_periods.py::test_posting_into_a_closed_period_is_refused`
-- [ ] Corpusul de regresie rulează în CI (`C14`)
+- [x] Corpusul de regresie rulează în CI (`C14`) — cu suita întreagă (`uv run pytest -q`), selectabil
+      cu `-m fiscal_regression`
+
+**Criteriul e îndeplinit (2026-08-30).** Ce nu prinde el — divergența dintre înțelegerea noastră și
+practică — e a primului client real (F3, ADR-054 §3). `CLAUDE.md` §4 nu mai blochează codul de modul.
 
 **Niciun punct nu mai depinde de ceva din afară.** Rămâne `V1` — un document public, o oră — pe F1.6.
 

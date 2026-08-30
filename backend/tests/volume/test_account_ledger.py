@@ -31,7 +31,7 @@ from datetime import date
 import pytest
 from django.db import connection
 
-from evidenta.accounting.ledger.services.account_ledger import account_ledger
+from evidenta.accounting.ledger.services.account_ledger import AccountLedger, account_ledger
 from evidenta.platform.rls.context import TenantContext, tenant_context
 from tests.isolation.test_ledger import seed_period
 
@@ -150,17 +150,14 @@ def generate_ledger(
     return busy, credits
 
 
-def test_the_account_ledger_reads_a_month_through_its_index(
+def _read_a_month(
     seed: Callable[..., None],
-    world: dict[str, uuid.UUID],
-    company_of: Callable[..., uuid.UUID],
-    grant_company: Callable[..., uuid.UUID],
-) -> None:
-    tenant, user = world["tenant_a"], world["user_a"]
-    company = company_of(tenant, "1002600009901", "Volum SRL")
-    grant_company(tenant, company, user, user)
-    context = TenantContext(tenant_id=tenant, user_id=user, request_id="volume")
-
+    tenant: uuid.UUID,
+    company: uuid.UUID,
+    user: uuid.UUID,
+    context: TenantContext,
+) -> tuple[uuid.UUID, AccountLedger, str, float]:
+    """Seed the year, read March of the busy account, explain the query behind it."""
     with tenant_context(context):
         busy, _ = generate_ledger(seed, tenant, company, user, DOCUMENTS)
 
@@ -181,6 +178,34 @@ def test_the_account_ledger_reads_a_month_through_its_index(
                 [company, busy, date(2026, 3, 1), date(2026, 3, 31)],
             )
             plan = "\n".join(row[0] for row in cursor.fetchall())
+    return busy, ledger, plan, elapsed
+
+
+def test_the_account_ledger_reads_a_month_through_its_index(
+    seed: Callable[..., None],
+    world: dict[str, uuid.UUID],
+    company_of: Callable[..., uuid.UUID],
+    grant_company: Callable[..., uuid.UUID],
+) -> None:
+    tenant, user = world["tenant_a"], world["user_a"]
+    company = company_of(tenant, "1002600009901", "Volum SRL")
+    grant_company(tenant, company, user, user)
+    context = TenantContext(tenant_id=tenant, user_id=user, request_id="volume")
+
+    # The seeded lines live in this test's transaction and roll back at the end.
+    # Autovacuum's own ANALYZE sees none of them -- committed, the table is empty
+    # -- and if it lands between the ANALYZE in `generate_ledger` and the EXPLAIN,
+    # the planner costs the query for an empty table and opens whichever index is
+    # cheapest. Seen once in a full run after the corpus arrived (its rolled-back
+    # postings make autovacuum visit `journal_line` more often). Off for the
+    # window, back on after: the measurement is of the index, not of the race.
+    seed("ALTER TABLE journal_line SET (autovacuum_enabled = false)")
+    seed("ALTER TABLE journal_formula SET (autovacuum_enabled = false)")
+    try:
+        _, ledger, plan, elapsed = _read_a_month(seed, tenant, company, user, context)
+    finally:
+        seed("ALTER TABLE journal_line RESET (autovacuum_enabled)")
+        seed("ALTER TABLE journal_formula RESET (autovacuum_enabled)")
 
     assert ledger.rows, "the busiest account has a month with no documents?"
     assert all(row.has_formulas for row in ledger.rows)

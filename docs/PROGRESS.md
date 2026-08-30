@@ -9,7 +9,7 @@
 
 **Felia verticală merge cap-coadă: companie → plan de conturi → notă manuală → balanță echilibrată.**
 Un test de integrare o parcurge prin HTTP, sub rolul aplicației
-(`backend/tests/integration/test_vertical_slice.py`). Suita: **1.031 trec, 1 sărit** (2026-08-30).
+(`backend/tests/integration/test_vertical_slice.py`). Suita: **1.072 trec, 1 sărit** (2026-08-30).
 
 - **A1** — planul SNC ca date: `accounting/coa/data/snc_2020.csv`, 476 de conturi (156 gradul I,
   320 gradul II), transcrise din extragerea proprie a actului; încărcător idempotent
@@ -163,6 +163,77 @@ Descompunerea completă: `_bootstrap/08-f1-backlog.md` — patru fire care pot m
 F1.10. Ce poate merge înainte: lectura actelor (`F2.X2`), parametrii ca `draft` (`F2.X1`), deciziile.
 
 ## Ultima sesiune
+
+**2026-08-30, F1.10 — corpusul de regresie (instrucțiune scrisă: „singura sarcină care deblochează
+cod de modul … ~20 de cazuri, fiecare cu citarea lui … un caz care nu poate cita nu intră"; sesiunea
+`evidenta-04`):**
+
+- **Ce s-a livrat:** `backend/tests/corpus/` — **33 de cazuri** în șase module, fiecare intrat prin
+  `case(*seturi, cites=(…))`, singura ușă; markerul `fiscal_regression`, declarat și nefolosit până
+  azi, selectează exact corpusul. Cazurile stau pe **exemplele numerice ale actelor**, nu pe cifre
+  inventate: SNC „Stocuri" **Anexa 1** (120 000 constante, 80 000 variabile, trei produse — cele
+  două postări ale actului, 183 764,71 și 16 235,29, ies exact), SNC „Diferenţe de curs" **Exemplele
+  1, 2, 5** (2 147 favorabil pe 5212/6226; 2 127 nefavorabil pe 7224/2212; 1 016 diferență de sumă
+  pe 2211/6227 și 7225/5211), SNC „Capital propriu" **Exemplul 7** (190 000 / 110 000 → 351 fără
+  sold, 80 000 pe 333, în ordinea ADR-050 §3.2, cu 731 separat), SNC „Venituri" **Exemplul 8**
+  (vânzarea de 36 000 / 25 000 și returul de 10 800 / 7 500 în aceeași perioadă), normele de sold ale
+  Planului pentru soldurile inițiale, SNC „Politici contabile" pct. 33 pentru storno. Citările —
+  numai SNC, Planul general de conturi și secțiuni de ADR — sunt transcrise verbatim în
+  `_input/cercetare/f1-10-corpus-citari.md`, iar `test_corpus_integrity.py` verifică mecanic că
+  fiecare citare are un pasaj, că fiecare `regression_case_set` din fișierele de parametri livrate
+  numește un set cu cazuri (cele două valori arătau spre nimic) și că fiecare caz se termină cu
+  `agree(book)`.
+- **`agree` e criteriul de ieșire, executat:** pe aceleași linii, balanța, fișa contului, Cartea
+  Mare și șahul dau un răspuns — rând cu rând, sold inițial, rulaje, sold final, plus lunile Cărții
+  Mari contra propriilor totaluri. Rulat la sfârșitul fiecărui caz, nu o dată pe suită.
+- **Corpusul stă pe fișierele livrate, prin calea livrată:** `book.py::load_shipped_conventions`
+  rulează `load_fiscal_parameters` și `activate_fiscal_parameters --approver` pe
+  `platform_conventions.toml` și `snc_stocuri.toml`, sub rolul de date de referință, la fiecare caz
+  — o schimbare de `valid_from`, `value`, `implementation_ref`, a încărcătorului sau a porții de
+  activare ajunge în corpus (`C14`); `snc_stocuri.toml` trece astfel prin încărcătorul real pentru
+  prima dată (revizorul fiscal a găsit că nu trecea nicăieri). Prima versiune însămânța rândurile cu
+  SQL propriu, cu `act_id` gol și a doua publicare a OMF 118/2013 pierdută — corectat la review.
+  Codurile Planului apar în fixture-uri **doar aici**, fiindcă aici sunt obiectul; planul produsului
+  (`OD-23`) nu e atins.
+- **O ancoră primară pentru `half_up`:** în Anexa 1, `42 352,94 × 6000/8000 = 31 764,705` — exact
+  la echidistanță — și tabelul scrie **31 764,71**. `corpus/accounting.money_rounding/1` stă pe
+  acest rând; `half_even` ar da 59 999,99 pe „C" în loc de 60 000,00. ADR-037 §3.3 rămâne
+  convenție provizorie; are acum un exemplu al actului care o confirmă.
+- **Cinci lucruri raportate, nu decise** (`tests/corpus/README.md`, întrebările 24–27 de mai
+  jos): Anexa 1 aplică cota din pct. 30 **pe produs**, handlerul pe fapt — corpusul postează un fapt
+  per produs; banul rămas din coloana 4 stă pe „B" în tabel și pe cota cea mai mare la noi
+  (ADR-058 §2.5, decizia proprietarului — totalurile ies exact); Exemplul 2 înregistrează 783 lei
+  diferență de curs pe partea achitată în avans, unde handlerul nu postează nimic; golul 2014–2017
+  rămâne refuz — și are acum un caz datat 30.06.2016 pe datele livrate, nu pe date de fixture
+  (revizorul fiscal: cazul din `test_overhead_allocation.py` folosea o direcție din 2020, deci o
+  mutare a lui `valid_from` înapoi n-ar fi fost văzută de nimeni).
+- **Ce nu e în corpus, spus:** reevaluarea la data raportării (handler neconstruit), reformarea
+  bilanțului (`OD-73`), orice sumă calculată dintr-o cotă (TVA și impozitul pe venit intră ca sume
+  ale documentului, `R15`).
+- **F1 iese.** Criteriul din `08-f1-backlog.md` are toate cele cinci puncte bifate; `CLAUDE.md` §4
+  nu mai blochează codul de modul. Ce nu prinde corpusul — divergența dintre înțelegerea noastră și
+  practică — e a primului client real (F3, ADR-054 §3).
+- **Review, ambii revizori, cu urmări:** `fiscal-reviewer` — un CRITICAL: cazul „înainte de act"
+  era datat 2013, deci golul 2014–2017 nu avea niciun caz pe datele livrate (cel din
+  `test_overhead_allocation.py` folosește o direcție de fixture din 2020); adăugat cazul din
+  30.06.2016, care afirmă refuzul cu cheia și data în mesaj (ADR-058 §6). Două MAJOR, ambele
+  despre însămânțarea convențiilor cu SQL propriu în locul încărcătorului — rezolvate prin calea
+  livrată, în subproces (pytest-django înfășoară aliasul `refdata` într-o tranzacție invizibilă
+  conexiunii aplicației), cu rândurile luate înapoi după rollback printr-un wrapper de
+  `pytest_runtest_teardown`; `clean_seeded_tables()` extras din `seed()` în harness-ul de izolare,
+  singura atingere a lui. `accounting-reviewer` — niciun CRITICAL; Exemplul 5 e „exprimată în euro",
+  deci `FOREIGN_CURRENCY` între rezidenți, nu unități convenționale (corectat; perechea de conturi
+  o alege rezidența, pct. 17); ecartul băncii testat acum pe ambele părți; și întrebarea 27.
+- Suita: **1.072 trec, 1 sărit** (+41 față de sesiunea anterioară: 34 de teste ale corpusului — 33
+  de cazuri, unul parametrizat — și 7 ale gardianului); `mypy` și `ruff` curate pe tot backend-ul;
+  corpusul singur, cu încărcătorul în subproces la fiecare caz, ~25 s. **Un eșec de rulare, al
+  meu din F1.8:** `tests/volume/test_account_ledger.py` a picat o dată în suita întreagă — planul
+  nu mai trecea prin `journal_line_account_idx` fiindcă `ANALYZE`-ul autovacuum-ului, care vede o
+  tabelă goală (liniile testului se derulează înapoi), a căzut între `ANALYZE`-ul testului și
+  `EXPLAIN`; corpusul, cu postările lui derulate înapoi, îl face să viziteze tabela mai des.
+  Autovacuum oprit pe cele două tabele pe durata măsurătorii, repornit după. Trecut singur, cu
+  corpusul și în suita întreagă. Aceeași expunere există în `test_volume_model.py` (`audit_event`),
+  neatinsă.
 
 **2026-08-30, F2 — descompunerea (instrucțiune: „start F2 după ce termină celelalte sesiuni";
 sesiunea `evidenta-87`):**
@@ -2406,6 +2477,31 @@ fiecare are un refuz sau o absență explicită în locul ei.
     documente. Rămân propuse; măsurătoarea la scara „Mare" se rulează cu `EVIDENTA_VOLUME_ROWS`.
 23. **`ROUND_HALF_UP` la două zecimale în export** — convenție de afișare, aliniată cu `Intl` din
     client, nu regulă fiscală. Dacă vrei exportul la patru zecimale (scara stocată), e un parametru.
+
+**Din corpusul F1.10 (2026-08-30; `backend/tests/corpus/README.md`, „Divergențe raportate").**
+
+24. **C5 — la ce nivel se aplică cota din SNC „Stocuri" pct. 30.** Anexa 1 a actului aplică
+    raportul *efectiv / normal* pe **fiecare produs**, cu capacitatea normală a produsului, și abia
+    apoi însumează (103 764,71 în cost, 16 235,29 la cheltuieli). `AllocationFact` poartă **o**
+    capacitate normală și **un** volum efectiv; cu cele trei produse într-un singur fapt ar da
+    102 000 / 18 000. Corpusul reproduce actul cu un fapt per produs. Dacă faptul trebuie să poarte
+    capacitatea per produs e o întrebare de model pe ADR-058, nu a corpusului.
+25. **C4 — partea achitată în avans, la diferențe de *curs*.** Exemplul 2 recunoaște creanța
+    integral la cursul livrării și, la trecerea în cont a avansului primit la alt curs, înregistrează
+    **783 lei** diferență de curs nefavorabilă pe partea avansată. Handlerul, cu
+    `settles_advance = True`, nu postează nimic — pe pct. 23, care stă la *diferențe de sumă*.
+    Răspunsul depinde de cum va recunoaște modulul de vânzări (F2) creanța pe partea avansată
+    (ADR-039 §3.2, art. 97 și 108 CF); până atunci corpusul reproduce doar termenul decontării.
+26. **C5 — banul rămas, confirmare.** Tabelul Anexei 1 lasă banul din împărțire pe „B"
+    (28 235,30); ADR-058 §2.5 îl pune pe cota cea mai mare, prin instrucțiunea ta. Actul tace despre
+    rest, totalurile ies exact, două celule diferă cu un ban. Rămâne cum e, dacă nu spui altfel.
+27. **Stornoul parțial n-are legătură navigabilă** (revizorul contabil, pe corpus). SNC „Politici
+    contabile" pct. 33 (2) și SNC „Venituri" pct. 17 corectează o *parte* a unei înregistrări; în
+    motor asta e o notă manuală cu corespondența inversă, care nu poartă nicio legătură spre
+    înregistrarea corectată — cele două legături `R14` există doar la stornoul integral
+    (`post_reversal`). Dacă o corecție parțială trebuie să poarte un `corrects_entry_id` pentru
+    drill-down din fișa contului, sau descrierea ajunge, e decizia ta; până atunci corpusul afirmă
+    rezultatul actului, nu lineage-ul.
 
 Peste acestea, punctele „DECIZIE NECESARĂ" rămase din Spec A §11 și Spec B §11. Dintre cele care
 cereau contabilul practicant, `DNB-05`, `DNB-07` și `DNB-09` sunt deblocate de `ADR-010`. `DNB-08`
