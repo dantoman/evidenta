@@ -52,6 +52,8 @@ def provision_company(
     functional_currency: str = "MDL",
     accounting_start: date | None = None,
     fiscal_year_start_month: int = 1,
+    cuatm_code: str | None = None,
+    caem_code: str | None = None,
 ) -> Company:
     """Create one company in the tenant in context, and return it.
 
@@ -99,6 +101,17 @@ def provision_company(
 
     company_id = uuid.UUID(str(row[0]))
     company = Company.objects.get(id=company_id)
+
+    # The two classifier codes, written as a second statement rather than as
+    # parameters of `rls.provision_company`. The function's signature is applied
+    # SQL and append-only (`C31`), so widening it for two optional columns would
+    # cost a new file and a new migration -- while the row is already here, under
+    # the policy that just created it. Written only when given: a company card
+    # with no CAEM code is the ordinary state until somebody has the classifier.
+    if cuatm_code or caem_code:
+        company.cuatm_code = (cuatm_code or "").strip() or None
+        company.caem_code = (caem_code or "").strip() or None
+        company.save(update_fields=["cuatm_code", "caem_code"])
 
     # A general numbering template, chosen here rather than invented later.
     # `numbering.resolve_template` refuses a document type with no template and

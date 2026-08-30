@@ -82,11 +82,19 @@ export function CompaniesScreen() {
   const companies = useQuery({ queryKey: ['companies'], queryFn: listCompanies })
 
   const create = useMutation({
-    mutationFn: async (form: { idno: string; legal_name: string; currency: string }) => {
+    mutationFn: async (form: {
+      idno: string
+      legal_name: string
+      currency: string
+      cuatm_code: string | null
+      caem_code: string | null
+    }) => {
       const company = await createCompany({
         idno: form.idno,
         legal_name: form.legal_name,
         functional_currency: form.currency,
+        cuatm_code: form.cuatm_code,
+        caem_code: form.caem_code,
       })
       // The exercise, as a second call. Opening one belongs to `accounting` and
       // creating a company to `platform`, which does not import it -- so the
@@ -151,11 +159,22 @@ function NewCompanyForm({
   onSubmit,
 }: {
   pending: boolean
-  onSubmit: (form: { idno: string; legal_name: string; currency: string }) => void
+  onSubmit: (form: {
+    idno: string
+    legal_name: string
+    currency: string
+    cuatm_code: string | null
+    caem_code: string | null
+  }) => void
 }) {
   const [legalName, setLegalName] = useState('')
   const [idno, setIdno] = useState('')
   const [currency, setCurrency] = useState('MDL')
+  // The two codes a statutory return's header carries. Optional here because
+  // neither classifier is in the product yet -- a company recorded without them
+  // is ordinary, and the return says which one is missing rather than inventing.
+  const [cuatm, setCuatm] = useState('')
+  const [caem, setCaem] = useState('')
 
   const complete = /^\d{13}$/.test(idno) && legalName.trim() !== ''
 
@@ -164,7 +183,13 @@ function NewCompanyForm({
       className="flex flex-wrap items-end gap-4 rounded border border-border bg-surface p-4"
       onSubmit={(event: FormEvent) => {
         event.preventDefault()
-        onSubmit({ idno, legal_name: legalName.trim(), currency })
+        onSubmit({
+          idno,
+          legal_name: legalName.trim(),
+          currency,
+          cuatm_code: cuatm.trim() || null,
+          caem_code: caem.trim() || null,
+        })
       }}
     >
       <label className="flex flex-col gap-1 text-sm">
@@ -194,6 +219,24 @@ function NewCompanyForm({
           onChange={(event) => setCurrency(event.target.value.toUpperCase().slice(0, 3))}
           className={`${FIELD} w-24 font-mono`}
           title={t.companies.currencyHint}
+        />
+      </label>
+      <label className="flex flex-col gap-1 text-sm">
+        <span className="text-ink-muted">{t.payroll.cuatm}</span>
+        <input
+          value={cuatm}
+          onChange={(event) => setCuatm(event.target.value)}
+          maxLength={16}
+          className={`${FIELD} w-28 font-mono`}
+        />
+      </label>
+      <label className="flex flex-col gap-1 text-sm">
+        <span className="text-ink-muted">{t.payroll.caem}</span>
+        <input
+          value={caem}
+          onChange={(event) => setCaem(event.target.value)}
+          maxLength={16}
+          className={`${FIELD} w-28 font-mono`}
         />
       </label>
       <button type="submit" disabled={!complete || pending} className={BUTTON}>

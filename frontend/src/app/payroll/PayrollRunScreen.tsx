@@ -65,6 +65,9 @@ export function PayrollRunScreen() {
           <Link to={`/companii/${companyId}/pontaj`} className="text-sm text-accent">
             {t.payroll.timesheets}
           </Link>
+          <Link to={`/companii/${companyId}/darea-de-seama`} className="text-sm text-accent">
+            {t.payroll.ipc}
+          </Link>
         </div>
       </header>
 

@@ -424,3 +424,102 @@ export function approveRun(runId: string): Promise<PayrollRun> {
 export function getPayslip(runId: string, employeeId: string): Promise<Payslip> {
   return request<Payslip>(`/api/v1/payroll/runs/${runId}/payslips/${employeeId}`)
 }
+
+/**
+ * The unified monthly return -- IPC.
+ *
+ * **One entity, three sections** (art. 5 para (1) of Law 489/1999): the nominal
+ * record and the contribution calculation are parts of the return, not reports
+ * of their own.
+ *
+ * **Versions, never overwrites** (art. 188): a correction is a new version that
+ * names the one it replaces. Both stay readable.
+ *
+ * **The form itself is not rendered here.** Annex 1 of Ordinul MF nr. 94/2020 is
+ * not in the repository, so what the screen shows is the register the form reads
+ * from: the header, the totals and the nominal rows, as stored.
+ */
+
+export interface IpcTotal {
+  income_source_code: string
+  cas_tariff_code: string
+  income_paid: string
+  income_tax_withheld: string
+  health_insurance_withheld: string
+  social_contribution: string
+}
+
+export interface IpcNominal {
+  line_number: number
+  person_id: string
+  name: string
+  idnp: string | null
+  personal_insurance_code: string | null
+  work_period_start: string
+  work_period_end: string
+  insured_category_code: string | null
+  tariff_rate: string | null
+  insured_income: string
+  contribution: string
+}
+
+export interface IpcDeclaration {
+  id: string
+  year: number
+  month: number
+  version_number: number
+  corrects_id: string | null
+  status: 'draft' | 'submitted'
+  due_on: string
+  submitted_on: string | null
+  header?: { fiscal_code: string; cuatm_code: string | null; caem_code: string | null }
+  totals?: IpcTotal[]
+  nominal?: IpcNominal[]
+}
+
+/** `T1`, both directions: charged and not declared, declared without a charge. */
+export interface IpcReconciliation {
+  agrees: boolean
+  charged_count: number
+  declared_count: number
+  missing: string[]
+  extra: string[]
+}
+
+export function listIpcDeclarations(companyId: string): Promise<IpcDeclaration[]> {
+  return request<IpcDeclaration[]>(`/api/v1/tax/ipc/companies/${companyId}`)
+}
+
+export function generateIpc(
+  companyId: string,
+  body: { year: number; month: number },
+): Promise<IpcDeclaration> {
+  return request<IpcDeclaration>(`/api/v1/tax/ipc/companies/${companyId}`, {
+    method: 'POST',
+    body,
+  })
+}
+
+export function getIpcDeclaration(declarationId: string): Promise<IpcDeclaration> {
+  return request<IpcDeclaration>(`/api/v1/tax/ipc/${declarationId}`)
+}
+
+export function correctIpc(declarationId: string): Promise<IpcDeclaration> {
+  return request<IpcDeclaration>(`/api/v1/tax/ipc/${declarationId}/correction`, {
+    method: 'POST',
+  })
+}
+
+export function submitIpc(
+  declarationId: string,
+  submittedOn: string,
+): Promise<IpcDeclaration> {
+  return request<IpcDeclaration>(`/api/v1/tax/ipc/${declarationId}/submission`, {
+    method: 'POST',
+    body: { submitted_on: submittedOn },
+  })
+}
+
+export function reconcileIpc(declarationId: string): Promise<IpcReconciliation> {
+  return request<IpcReconciliation>(`/api/v1/tax/ipc/${declarationId}/reconciliation`)
+}

@@ -149,6 +149,11 @@ def rounding_direction(seed: Callable[..., None], alpha: dict[str, uuid.UUID]) -
         " ON CONFLICT (id) DO NOTHING",
         [SOURCE_ID],
     )
+    # Cleared first, not inserted over: `fiscal_logic_version` is not one of
+    # the tables the seeding fixture wipes, so a row left by the corpus -- which
+    # loads the shipped conventions through the real loader -- collides with the
+    # overlap EXCLUDE. `test_line_rounding.py` does the same, for the same reason.
+    seed("DELETE FROM fiscal_logic_version WHERE logic_key = 'accounting.money_rounding'")
     seed(
         "INSERT INTO fiscal_logic_version (id, logic_key, implementation_ref, version,"
         " valid_from, source_id, regression_case_set, status, approved_by_user_id,"

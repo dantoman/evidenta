@@ -28,9 +28,11 @@ import { OperationTemplatesScreen } from '@/app/accounting/OperationTemplatesScr
 import { RegisterScreen } from '@/app/accounting/RegisterScreen'
 import { TrialBalanceScreen } from '@/app/accounting/TrialBalanceScreen'
 import { CompaniesScreen } from '@/app/companies/CompaniesScreen'
+import { CompanyNav } from '@/app/layout/CompanyNav'
 import { PartnersScreen } from '@/app/partners/PartnersScreen'
 import { ContractsScreen } from '@/app/payroll/ContractsScreen'
 import { ExemptionsScreen } from '@/app/payroll/ExemptionsScreen'
+import { IpcScreen } from '@/app/payroll/IpcScreen'
 import { PayrollRunScreen } from '@/app/payroll/PayrollRunScreen'
 import { PeopleScreen } from '@/app/payroll/PeopleScreen'
 import { TimesheetScreen } from '@/app/payroll/TimesheetScreen'
@@ -668,6 +670,115 @@ describe('ecranele', () => {
     ).toBeInTheDocument()
     // And approval is out of reach while it is open.
     expect(screen.getByRole('button', { name: 'Aprobă' })).toBeDisabled()
+  })
+
+  it('banda companiei duce în orice secțiune a ei și lipsește în afara uneia', async () => {
+    stubFetch({ '/api/v1/companies': COMPANIES })
+    const mounted = renderScreen(<CompanyNav />, {
+      path: '*',
+      route: `/companii/${COMPANY}/balanta`,
+    })
+
+    // Denumirea legală, nu identificatorul: acela e deja în bara de adrese.
+    expect(await screen.findByText('Test Vertical SRL')).toBeInTheDocument()
+    // Dintr-un ecran de contabilitate se ajunge direct în salarizare: exact
+    // drumul care înainte trecea înapoi prin lista de companii.
+    expect(screen.getByRole('link', { name: 'Pontaj' })).toHaveAttribute(
+      'href',
+      `/companii/${COMPANY}/pontaj`,
+    )
+    expect(screen.getByRole('link', { name: 'Registrul înregistrărilor' })).toHaveAttribute(
+      'href',
+      `/companii/${COMPANY}/registru`,
+    )
+    // Și secțiunea deschisă e marcată, nu doar prezentă.
+    expect(screen.getByRole('link', { name: 'Balanța de verificare' })).toHaveAttribute(
+      'aria-current',
+      'page',
+    )
+
+    mounted.unmount()
+    // Fără companie în adresă nu are ce arăta: antetul rămâne singurul nivel.
+    renderScreen(<CompanyNav />, { path: '*', route: '/parteneri' })
+    expect(screen.queryByRole('link', { name: 'Pontaj' })).not.toBeInTheDocument()
+  })
+
+  it('darea de seamă arată antetul, ambele secțiuni și reconcilierea în ambele sensuri', async () => {
+    stubFetch({
+      [`/api/v1/tax/ipc/companies/${COMPANY}`]: [
+        {
+          id: 'd1',
+          year: 2026,
+          month: 3,
+          version_number: 2,
+          corrects_id: 'd0',
+          status: 'draft',
+          due_on: '2026-04-25',
+          submitted_on: null,
+        },
+      ],
+      '/api/v1/tax/ipc/d1/reconciliation': {
+        agrees: false,
+        charged_count: 2,
+        declared_count: 1,
+        missing: ['11111111-1111-1111-1111-111111111112'],
+        extra: [],
+      },
+      '/api/v1/tax/ipc/d1': {
+        id: 'd1',
+        year: 2026,
+        month: 3,
+        version_number: 2,
+        corrects_id: 'd0',
+        status: 'draft',
+        due_on: '2026-04-25',
+        submitted_on: null,
+        header: { fiscal_code: '1013600012345', cuatm_code: null, caem_code: '62.01' },
+        totals: [
+          {
+            income_source_code: 'SAL',
+            cas_tariff_code: '1.1b',
+            income_paid: '20000.00',
+            income_tax_withheld: '5840.00',
+            health_insurance_withheld: '5000.00',
+            social_contribution: '10000.00',
+          },
+        ],
+        nominal: [
+          {
+            line_number: 1,
+            person_id: 'p1',
+            name: 'Rusu Ion',
+            idnp: '2001234567890',
+            personal_insurance_code: null,
+            work_period_start: '2026-03-01',
+            work_period_end: '2026-03-31',
+            insured_category_code: null,
+            tariff_rate: '50.0000',
+            insured_income: '10000.00',
+            contribution: '5000.00',
+          },
+        ],
+      },
+    })
+    renderScreen(<IpcScreen />, {
+      path: '/companii/:companyId/darea-de-seama',
+      route: `/companii/${COMPANY}/darea-de-seama`,
+    })
+
+    fireEvent.click(await screen.findByRole('button', { name: /2026-03/ }))
+    // The header, with the code that is missing said rather than blank.
+    expect(await screen.findByText('1013600012345')).toBeInTheDocument()
+    expect(screen.getByText('lipsește')).toBeInTheDocument()
+    // Both sections, from one document.
+    expect(screen.getByText('SAL')).toBeInTheDocument()
+    expect(screen.getByText('Rusu Ion')).toBeInTheDocument()
+    // The category column is empty because Annex 3 is not obtained.
+    expect(screen.getByText('Clasificatorul categoriilor nu e disponibil.')).toBeInTheDocument()
+    // And `T1` reported, in the direction it failed.
+    expect(
+      screen.getByText(/Cu sarcină CAS, fără rând nominal/),
+    ).toBeInTheDocument()
   })
 
   it('fără sesiune, aplicația arată ecranul de autentificare', async () => {

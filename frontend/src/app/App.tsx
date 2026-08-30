@@ -19,6 +19,7 @@ import { CompaniesScreen } from './companies/CompaniesScreen'
 import { PartnersScreen } from './partners/PartnersScreen'
 import { ContractsScreen } from './payroll/ContractsScreen'
 import { ExemptionsScreen } from './payroll/ExemptionsScreen'
+import { IpcScreen } from './payroll/IpcScreen'
 import { PayrollRunScreen } from './payroll/PayrollRunScreen'
 import { PeopleScreen } from './payroll/PeopleScreen'
 import { TimesheetScreen } from './payroll/TimesheetScreen'
@@ -125,6 +126,8 @@ export function App() {
           <Route path="companii/:companyId/contracte" element={<ContractsScreen />} />
           <Route path="companii/:companyId/pontaj" element={<TimesheetScreen />} />
           <Route path="companii/:companyId/salarii" element={<PayrollRunScreen />} />
+          {/* Darea de seamă lunară: un document, nu trei rapoarte (art. 5 alin. (1)). */}
+          <Route path="companii/:companyId/darea-de-seama" element={<IpcScreen />} />
           {/* Scutirile atârnă de persoană: cererea e a ei, iar pct. 18 o datează. */}
           <Route
             path="companii/:companyId/angajati/:employeeId/scutiri"

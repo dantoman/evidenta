@@ -103,6 +103,15 @@ class Company(models.Model):
     # Posting before this date is refused by the engine. Not a display preference.
     accounting_start_date = models.DateField()
 
+    #: The two classifier codes every statutory return carries in its header:
+    #: the administrative-territorial unit and the economic activity. Nullable
+    #: because neither classifier is in this repository -- the row exists, the
+    #: value arrives when somebody enters it, and a declaration generated
+    #: meanwhile says so rather than inventing one. Codes, so `COLLATE "C"` in
+    #: the accompanying SQL (`C34`).
+    cuatm_code = models.TextField(null=True, blank=True)
+    caem_code = models.TextField(null=True, blank=True)
+
     status = models.TextField(choices=CompanyStatus.choices, default=CompanyStatus.ACTIVE)
     registered_address = models.JSONField(null=True, blank=True)
 

@@ -38,6 +38,13 @@ export const ro = {
     add: 'Adaugă',
     none: '—',
   },
+  // Numele celor doua grupe din banda de navigare a companiei. Doua cuvinte, si
+  // niciunul din vocabularul de model (C37): grupele sunt cele pe care le
+  // recunoaste un contabil, nu module ale codului.
+  nav: {
+    accounting: 'Contabilitate',
+    payroll: 'Salarizare',
+  },
   companies: {
     // „Companii", nu „companiile mele": pagina o citesc si proprietarul, si
     // contabilul care tine evidenta altcuiva, iar ADR-017 le da acelorasi randuri
@@ -569,6 +576,52 @@ export const ro = {
     parameter: 'Parametru',
     budgetFunded: 'Angajator bugetar',
     budgetFundedHint: 'Anexa nr. 1 pct. 1.1: 29% bugetar, 24% privat. Alege cota, deci se cere.',
+
+    // Darea de seama unificata. Art. 5 alin. (1) din Legea nr. 489/1999: evidenta
+    // nominala si calcularea CAS sunt PARTE COMPONENTA a dării de seamă — un
+    // singur document, nu trei rapoarte.
+    ipc: 'Darea de seamă lunară',
+    ipcGenerate: 'Generează darea de seamă',
+    ipcVersion: 'Versiunea',
+    ipcPrimary: 'Primară',
+    ipcCorrected: 'Corectată',
+    ipcCorrects: 'corectează versiunea',
+    // Art. 188: corectarea se face prin dare de seama corectata, nu prin editare.
+    ipcCorrect: 'Dare de seamă corectată',
+    ipcDueOn: 'Termen',
+    ipcSubmit: 'Marchează depusă',
+    ipcSubmittedOn: 'Depusă la',
+    ipcSubmitted: 'Depusă',
+    ipcHeader: 'Antet',
+    fiscalCode: 'Cod fiscal',
+    cuatm: 'CUATM',
+    caem: 'CAEM',
+    ipcMissingCode: 'lipsește',
+    ipcTotals: 'Totaluri',
+    ipcNominal: 'Evidența nominală',
+    incomeSource: 'Codul sursei de venit',
+    tariffRow: 'Rândul de tarif',
+    incomePaid: 'Venit îndreptat spre achitare',
+    taxWithheld: 'Impozit reținut',
+    healthWithheld: 'Prime AOAM reținute',
+    contribution: 'Contribuții CAS',
+    insuredIncome: 'Baza de calcul',
+    insuredCategory: 'Categoria persoanei asigurate',
+    // Anexa nr. 3 (clasificatorul categoriilor) nu e obtinuta: coloana ramane
+    // goala, nu se ghiceste un cod.
+    insuredCategoryMissing: 'Clasificatorul categoriilor nu e disponibil.',
+    cpas: 'CPAS',
+    workedPeriod: 'Perioada',
+    // Reconcilierea, ambele sensuri.
+    reconciliation: 'Reconcilierea populației',
+    reconciliationOk: 'Fiecare persoană cu sarcină CAS are rând nominal, și invers.',
+    reconciliationMissing: 'Cu sarcină CAS, fără rând nominal',
+    reconciliationExtra: 'Cu rând nominal, fără sarcină CAS',
+    reconciliationCounts: 'persoane comparate',
+    noDeclarations: 'Nicio dare de seamă.',
+    // Formularul propriu-zis nu se randeaza: Anexa nr. 1 nu e in repo.
+    ipcFormMissing:
+      'Formularul tipizat nu se generează încă: textul Anexei nr. 1 la Ordinul MF nr. 94/2020 nu este disponibil. Ce se vede aici este registrul din care se completează.',
   },
   errors: {
     // Keyed by the stable code from C10, never by the server's message. A client
@@ -710,6 +763,13 @@ export const ro = {
     'payroll.run_not_draft': 'Rularea este aprobată; liniile ei nu se mai schimbă.',
     'payroll.run_incomplete':
       'Rularea are sume necalculate. Se aprobă doar când e completă.',
+    'tax.ipc_malformed': 'Datele dării de seamă nu au forma cerută.',
+    'tax.ipc_exists':
+      'Luna are deja o dare de seamă primară. O schimbare se face prin dare de seamă corectată.',
+    'tax.ipc_not_found': 'Darea de seamă nu a fost găsită.',
+    'tax.ipc_nothing_to_declare':
+      'Luna nu are o rulare de salarii aprobată. O dare de seamă goală ar declara că nimeni nu a fost asigurat.',
+    'tax.ipc_submitted': 'Darea de seamă este deja marcată ca depusă.',
     'ledger.entry_already_reversed': 'Înregistrarea a fost deja stornată.',
     'ledger.entry_not_posted': 'Înregistrarea nu este postată, deci nu are ce anula.',
     'posting.reversal_payload_invalid': 'Stornarea are nevoie de un motiv.',

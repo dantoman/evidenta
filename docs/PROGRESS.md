@@ -320,10 +320,47 @@ motorul, documentul, ecranul.
   sectorul nu e categoria. Fără implicit — un boolean căzut pe `false` ar fi aplicat cota privată
   oricărui angajator bugetar, echilibrat.
 
-**Unde s-a oprit.** Trei pași livrați, patru ecrane, poarta verde la fiecare. Urmează **pasul 4** —
-IPC lunar: registrul de sume raportabile există deja ca `payroll_line` (per persoană, per tip, cu cele
-două date), iar ce lipsește e structura declarației, care e `C4` din lista de deblocare — parțial, deci
-se construiește registrul și se așteaptă textul pentru formular.
+**Pasul 4 livrat: darea de seamă unificată (IPC).** Modul nou `operations/tax` — `D4` merge într-un
+singur sens, iar o declarație care ar fi locuit în `payroll` ar fi tras acolo și pe toate cele
+viitoare, inclusiv cele fără salariu în ele.
+
+- **Un document, nu trei rapoarte.** Art. 5 alin. (1) din Legea nr. 489/1999 face evidența nominală și
+  calcularea CAS **parte componentă** a dării de seamă. Deci: `ipc_declaration` (antet) +
+  `ipc_total_line` + `ipc_nominal_line`, o entitate cu două secțiuni.
+- **Cele două lucruri care sunt formă, făcute acum.** *(a)* **Versionare** (art. 188): a doua dare de
+  seamă primară e refuzată, corectarea e versiunea următoare și numește versiunea pe care o
+  înlocuiește; ambele rămân citibile. *(b)* **Rândurile se stochează, nu se recalculează** — dovedit
+  din partea observabilă: cu declarația în lucru, o contribuție stocată se schimbă la o valoare pe care
+  calculul n-a produs-o niciodată, iar citirea o întoarce pe cea stocată. Dacă ar recalcula, editarea
+  n-ar fi avut niciun efect — exact ce s-ar întâmpla unei declarații depuse în ziua în care se schimbă
+  o cotă.
+- **Antetul e înghețat.** Codul fiscal, CUATM și CAEM se copiază de pe companie la generare; un CAEM
+  corectat la anul nu rescrie o dare de seamă depusă anul acesta. CUATM și CAEM sunt coloane noi pe
+  `company`, **nullable** — niciun clasificator nu e în repo —, iar declarația spune **care lipsește**
+  în loc să inventeze.
+- **Populația e „persoane asigurate", nu „angajați"** (ADR-069), de la numele funcției încolo:
+  `payroll.services.insured.insured_charges`. Azi coincid; când apar contractele civile nu se schimbă
+  nimic. `tax` o citește prin serviciu public — `D4` interzice sensul invers.
+- **`T1`, ambele sensuri, și arătat CĂZÂND.** Fixture-ul cu doi oameni: se șterge un rând nominal
+  dintr-o declarație în lucru → reconcilierea numește **exact** persoana căzută (`missing`, 2 contra 1);
+  se adaugă un rând nominal fără sarcină → o numește pe cealaltă direcție (`extra`). **Cele două laturi
+  se citesc din locuri diferite** — `charged_person_ids` citește liniile de salariu, nu funcția care a
+  generat declarația: o comparație cu ambele laturi din aceeași sursă e ecou, nu verificare (`P1`).
+  **Și vacuitatea e închisă prin construcție:** o lună fără rulare aprobată e **refuzată** la generare,
+  deci nu există declarație a cărei reconciliere să fie goală; numărătorile stau pe rezultat ca să se
+  vadă cât s-a comparat.
+- **A treia apariție a `OD-105`, de data asta prevăzută:** `REVOKE DELETE` scris explicit pe antet — o
+  dare de seamă depusă e artefact. După două apariții consemnate, a treia s-a scris singură.
+
+**Ce a rămas în așteptarea textului** (`OD-108`): formularul tipizat (Anexa nr. 1) nu se randează, iar
+ecranul **spune asta**; coloana categoriei asigurate rămâne goală, fiindcă Anexa nr. 3 nu e obținută;
+codul sursei de venit e `SAL`, singurul citabil. Nimic din registrul care alimentează formularul nu
+așteaptă.
+
+**Unde s-a oprit.** Patru pași livrați, cinci ecrane, poarta verde la fiecare. Urmează **pasul 5** —
+documente comerciale: factură emisă, factură primită, încasări, plăți, cu contarea lor; fără TVA, care
+e pasul 6. Ce nu s-a atins deliberat, în continuare: **postarea salariilor** — cere rolurile de cont
+din ADR-065 §7 și trece prin evenimente contabile (`R9`).
 
 **Ce nu s-a atins deliberat:** **postarea**. Rularea produce sume; transformarea lor în linii de jurnal
 trece prin evenimente contabile (`R9`) și cere rolurile de cont din ADR-065 §7. E livrabil propriu, nu

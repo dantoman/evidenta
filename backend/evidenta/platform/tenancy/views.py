@@ -38,6 +38,10 @@ def _rendered(company: Company) -> dict[str, Any]:
         "idno": company.idno,
         "functional_currency": company.functional_currency,
         "accounting_start_date": str(company.accounting_start_date),
+        # Nullable on the way out too: a screen that showed an empty string could
+        # not tell "no classifier code recorded" from "recorded as blank".
+        "cuatm_code": company.cuatm_code,
+        "caem_code": company.caem_code,
     }
 
 
@@ -52,6 +56,11 @@ class CreateCompanySerializer(serializers.Serializer[dict[str, Any]]):
     legal_name = serializers.CharField(max_length=255)
     functional_currency = serializers.RegexField(r"^[A-Z]{3}$", default="MDL")
     accounting_start_date = serializers.DateField(required=False)
+    #: The two codes a statutory return's header carries. Optional, because
+    #: neither classifier is in this repository -- a company recorded without them
+    #: is ordinary, and a return generated meanwhile says which one is missing.
+    cuatm_code = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    caem_code = serializers.CharField(required=False, allow_blank=True, allow_null=True)
 
 
 class CompanyListView(APIView):
@@ -77,5 +86,7 @@ class CompanyListView(APIView):
             legal_name=data["legal_name"],
             functional_currency=data["functional_currency"],
             accounting_start=data.get("accounting_start_date"),
+            cuatm_code=data.get("cuatm_code"),
+            caem_code=data.get("caem_code"),
         )
         return Response(_rendered(company), status=201)

@@ -85,6 +85,10 @@ INSTALLED_APPS: list[str] = [
     # here: the payroll run is a later task, and a column anticipating it would be
     # that decision taken in the wrong place.
     "evidenta.operations.payroll.apps.PayrollConfig",
+    # The statutory returns. Separate from payroll because `D4` runs one way:
+    # payroll must not import tax, and a return that lived inside payroll would
+    # drag every later one -- including those with no salary in them -- in with it.
+    "evidenta.operations.tax.apps.TaxConfig",
 ]
 
 MIDDLEWARE: list[str] = [

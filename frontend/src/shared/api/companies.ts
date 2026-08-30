@@ -16,6 +16,9 @@ export interface Company {
   legal_name: string
   idno: string
   functional_currency: string
+  /** The two codes a statutory return's header carries. Null until entered. */
+  cuatm_code: string | null
+  caem_code: string | null
 }
 
 export function listCompanies(): Promise<Company[]> {
@@ -35,6 +38,8 @@ export interface NewCompany {
   legal_name: string
   functional_currency?: string
   accounting_start_date?: string
+  cuatm_code?: string | null
+  caem_code?: string | null
 }
 
 export function createCompany(company: NewCompany): Promise<Company> {
