@@ -34,6 +34,16 @@ from evidenta.operations.payroll.services.contracts import (
     create_contract,
     end_contract,
 )
+from evidenta.operations.payroll.services.exemptions import (
+    GrantRequest,
+    add_dependent,
+    dependents_of,
+    exemptions_in_force_on,
+    exemptions_of,
+    file_application,
+    month_after,
+    withdraw,
+)
 from evidenta.operations.payroll.services.people import (
     create_employee,
     employee_in_context,
@@ -122,6 +132,43 @@ class DaySerializer(serializers.Serializer[dict[str, Any]]):
 
 class DaysSerializer(serializers.Serializer[dict[str, Any]]):
     days = DaySerializer(many=True)
+
+
+class DependentSerializer(serializers.Serializer[dict[str, Any]]):
+    last_name = serializers.CharField()
+    first_name = serializers.CharField()
+    idnp = serializers.CharField(required=False, allow_null=True, allow_blank=True)
+    identity_document_type = serializers.CharField(
+        required=False, allow_null=True, allow_blank=True
+    )
+    identity_document_number = serializers.CharField(
+        required=False, allow_null=True, allow_blank=True
+    )
+
+
+class GrantSerializer(serializers.Serializer[dict[str, Any]]):
+    code = serializers.CharField()
+    dependent_id = serializers.UUIDField(required=False, allow_null=True)
+
+
+class ApplicationSerializer(serializers.Serializer[dict[str, Any]]):
+    """The application. **`effective_from` is not a field, and that is the rule.**
+
+    Point 18 fixes it at the first day of the month after filing; a date the
+    caller could send is a rule the caller could break, and the database refuses
+    the pair anyway.
+    """
+
+    filed_on = serializers.DateField()
+    declared_sole_workplace = serializers.BooleanField()
+    note = serializers.CharField(required=False, allow_blank=True, default="")
+    grants = GrantSerializer(many=True)
+
+
+class WithdrawalSerializer(serializers.Serializer[dict[str, Any]]):
+    filed_on = serializers.DateField()
+    entitlement_ids = serializers.ListField(child=serializers.UUIDField())
+    note = serializers.CharField(required=False, allow_blank=True, default="")
 
 
 class EmployeeListView(APIView):
@@ -302,6 +349,109 @@ class TimesheetDaysView(APIView):
 class TimesheetClosingView(APIView):
     def post(self, request: Request, timesheet_id: uuid.UUID) -> Response:
         return Response(close_month(timesheet_id=timesheet_id))
+
+
+class DependentListView(APIView):
+    def get(self, request: Request, employee_id: uuid.UUID) -> Response:
+        return Response(dependents_of(employee_id))
+
+    def post(self, request: Request, employee_id: uuid.UUID) -> Response:
+        context = _context()
+        payload = DependentSerializer(data=request.data)
+        payload.is_valid(raise_exception=True)
+        data = dict(payload.validated_data)
+        employee = employee_in_context(employee_id)
+        dependent = add_dependent(
+            tenant_id=context.tenant_id,
+            company_id=uuid.UUID(employee["company_id"]),
+            employee_id=employee_id,
+            last_name=data["last_name"],
+            first_name=data["first_name"],
+            idnp=data.get("idnp"),
+            identity_document_type=data.get("identity_document_type"),
+            identity_document_number=data.get("identity_document_number"),
+        )
+        return Response({"id": str(dependent.id)}, status=201)
+
+
+class ExemptionListView(APIView):
+    """The history, and the answer for one date.
+
+    `on` is optional: without it the whole history comes back, closed rows
+    included. With it, what was in force that day -- which is the question point
+    18 creates and `R18` asks of every recalculation of a past month.
+    """
+
+    def get(self, request: Request, employee_id: uuid.UUID) -> Response:
+        raw = request.query_params.get("on")
+        if not raw:
+            return Response(exemptions_of(employee_id))
+        try:
+            on = date.fromisoformat(raw)
+        except ValueError as exc:
+            raise ClauseDateRequiredError(f"{raw!r} is not a date") from exc
+        return Response(exemptions_in_force_on(employee_id, on))
+
+    def post(self, request: Request, employee_id: uuid.UUID) -> Response:
+        context = _context()
+        payload = ApplicationSerializer(data=request.data)
+        payload.is_valid(raise_exception=True)
+        data = dict(payload.validated_data)
+        employee = employee_in_context(employee_id)
+        return Response(
+            file_application(
+                tenant_id=context.tenant_id,
+                company_id=uuid.UUID(employee["company_id"]),
+                employee_id=employee_id,
+                filed_on=data["filed_on"],
+                declared_sole_workplace=data["declared_sole_workplace"],
+                grants=[
+                    GrantRequest(code=grant["code"], dependent_id=grant.get("dependent_id"))
+                    for grant in data["grants"]
+                ],
+                note=data.get("note", ""),
+            ),
+            status=201,
+        )
+
+
+class ExemptionWithdrawalView(APIView):
+    def post(self, request: Request, employee_id: uuid.UUID) -> Response:
+        context = _context()
+        payload = WithdrawalSerializer(data=request.data)
+        payload.is_valid(raise_exception=True)
+        data = dict(payload.validated_data)
+        employee = employee_in_context(employee_id)
+        return Response(
+            withdraw(
+                tenant_id=context.tenant_id,
+                company_id=uuid.UUID(employee["company_id"]),
+                employee_id=employee_id,
+                filed_on=data["filed_on"],
+                entitlement_ids=list(data["entitlement_ids"]),
+                note=data.get("note", ""),
+            ),
+            status=201,
+        )
+
+
+class ExemptionEffectiveDateView(APIView):
+    """What date an application filed today would take effect from.
+
+    A read, not a calculation the screen performs: point 18 is the server's rule,
+    and a client that computed it would be a second implementation of it -- one
+    that drifts the first time somebody edits only the other.
+    """
+
+    def get(self, request: Request) -> Response:
+        raw = request.query_params.get("filed_on")
+        if not raw:
+            raise ClauseDateRequiredError("the filing date is required")
+        try:
+            filed_on = date.fromisoformat(raw)
+        except ValueError as exc:
+            raise ClauseDateRequiredError(f"{raw!r} is not a date") from exc
+        return Response({"filed_on": str(filed_on), "effective_from": str(month_after(filed_on))})
 
 
 class RelationshipTypeListView(APIView):

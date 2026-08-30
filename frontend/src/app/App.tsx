@@ -18,6 +18,7 @@ import { TrialBalanceScreen } from './accounting/TrialBalanceScreen'
 import { CompaniesScreen } from './companies/CompaniesScreen'
 import { PartnersScreen } from './partners/PartnersScreen'
 import { ContractsScreen } from './payroll/ContractsScreen'
+import { ExemptionsScreen } from './payroll/ExemptionsScreen'
 import { PeopleScreen } from './payroll/PeopleScreen'
 import { TimesheetScreen } from './payroll/TimesheetScreen'
 import { AppLayout } from './layout/AppLayout'
@@ -122,6 +123,11 @@ export function App() {
           <Route path="companii/:companyId/angajati" element={<PeopleScreen />} />
           <Route path="companii/:companyId/contracte" element={<ContractsScreen />} />
           <Route path="companii/:companyId/pontaj" element={<TimesheetScreen />} />
+          {/* Scutirile atârnă de persoană: cererea e a ei, iar pct. 18 o datează. */}
+          <Route
+            path="companii/:companyId/angajati/:employeeId/scutiri"
+            element={<ExemptionsScreen />}
+          />
         </Route>
       </Routes>
     </BrowserRouter>

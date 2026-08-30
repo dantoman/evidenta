@@ -504,6 +504,41 @@ export const ro = {
     addDay: 'Adaugă zi',
     saveDays: 'Salvează zilele',
     pickContract: 'Alege contractul',
+
+    // Scutirile: cerere cu data efectiva, nu bifa. Pct. 18 din Regulamentul
+    // aprobat prin HG nr. 697/2014 le acorda si le anuleaza „incepand cu luna
+    // urmatoare" celei in care s-a depus cererea — deci ecranul cere data
+    // depunerii si arata data de la care se aplica, calculata de server.
+    exemptions: 'Scutiri',
+    exemptionHistory: 'Istoricul scutirilor',
+    fileApplication: 'Cerere nouă',
+    filedOn: 'Data depunerii',
+    // Distinct de `effectiveFrom` al contractului: acolo e data de la care
+    // contractul isi produce efectele (art. 49 lit. d), aici e luna urmatoare
+    // depunerii cererii (pct. 18). Doua reguli, doua date, doua etichete.
+    exemptionAppliesFrom: 'Se aplică din',
+    effectiveHint: 'Din luna următoare celei în care s-a depus cererea.',
+    soleWorkplace: 'Declar că este unicul loc de muncă',
+    soleWorkplaceHint: 'Scutirile se acordă la un singur loc de muncă. Este declarația angajatului.',
+    exemptionCode: 'Scutirea',
+    // Vocabularul are cinci coduri. Scutirea ordinara pentru sot/sotie NU exista
+    // — art. 34 alin. (2) acorda doar pe cea majorata.
+    codeP: 'P — personală',
+    codeM: 'M — personală majoră',
+    codeSm: 'Sm — majoră pentru soț/soție',
+    codeN: 'N — persoană întreținută',
+    codeH: 'H — persoană întreținută cu dizabilitate',
+    dependents: 'Persoane întreținute',
+    addDependent: 'Persoană întreținută nouă',
+    dependentHint: 'Are nevoie de identificator propriu, altfel aceeași persoană se poate revendica de două ori.',
+    pickDependent: 'Alege persoana întreținută',
+    addGrant: 'Adaugă o scutire',
+    submitApplication: 'Înregistrează cererea',
+    withdraw: 'Retrage',
+    withdrawn: 'Retrasă din',
+    grantedBy: 'cerere din',
+    noExemptions: 'Nicio scutire.',
+    inForceAt: 'În vigoare la data',
   },
   errors: {
     // Keyed by the stable code from C10, never by the server's message. A client
@@ -636,6 +671,9 @@ export const ro = {
     'payroll.timesheet_exists': 'Luna este deja deschisă.',
     'payroll.timesheet_not_found': 'Pontajul nu a fost găsit.',
     'payroll.timesheet_closed': 'Luna este închisă; zilele ei nu se mai schimbă.',
+    'payroll.exemption_malformed': 'Datele cererii de scutire nu au forma cerută.',
+    'payroll.exemption_overlap': 'Scutirea este deja în vigoare pentru această perioadă.',
+    'payroll.exemption_not_found': 'Scutirea nu a fost găsită.',
     'ledger.entry_already_reversed': 'Înregistrarea a fost deja stornată.',
     'ledger.entry_not_posted': 'Înregistrarea nu este postată, deci nu are ce anula.',
     'posting.reversal_payload_invalid': 'Stornarea are nevoie de un motiv.',

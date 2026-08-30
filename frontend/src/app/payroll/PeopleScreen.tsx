@@ -71,6 +71,21 @@ export function PeopleScreen() {
       cell: (person) => <span className="font-mono">{person.social_insurance_code ?? ''}</span>,
       width: '12rem',
     },
+    {
+      // A door, not only a route. An endpoint reachable by typing its address is
+      // an endpoint nobody reaches -- the class that produced four cases in a day.
+      key: 'exemptions',
+      header: t.payroll.exemptions,
+      cell: (person) => (
+        <Link
+          to={`/companii/${companyId}/angajati/${person.id}/scutiri`}
+          className="text-accent"
+        >
+          {t.payroll.exemptions}
+        </Link>
+      ),
+      width: '9rem',
+    },
   ]
 
   return (

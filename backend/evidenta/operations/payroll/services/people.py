@@ -168,6 +168,10 @@ def employee_in_context(employee_id: uuid.UUID) -> dict[str, Any]:
 def _as_dict(employee: Employee) -> dict[str, Any]:
     return {
         "id": str(employee.id),
+        # The company, because the caller frequently has only the person's id --
+        # the exemption routes hang off the person, and every write below them
+        # still has to name the company the employer is.
+        "company_id": str(employee.company_id),
         "last_name": employee.last_name,
         "first_name": employee.first_name,
         "idnp": employee.idnp,

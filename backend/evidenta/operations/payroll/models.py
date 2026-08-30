@@ -447,3 +447,234 @@ class TimesheetDay(models.Model):
 
     def __str__(self) -> str:
         return f"{self.contract_id} {self.work_date}"
+
+
+class ExemptionCode(models.TextChoices):
+    """The codes an exemption application can carry -- ADR-065 section 5.
+
+    **Five, and the absence of a sixth is the point.** There is no ordinary
+    spouse exemption: art. 34 para (2) grants only the increased one, so `S` does
+    not exist and a vocabulary that offered it would let somebody claim an
+    exemption the Fiscal Code does not give. The parameter
+    `income_tax.exemption_spouse_ordinary = 0` is already loaded for the same
+    reason -- the exemption that is not granted has to be visibly zero rather
+    than absent.
+
+    HG 697/2014 point 11 still refers to *"art. 34 para (1) or (2)"*: the
+    regulation lagged behind the Code. ADR-045 is the rule that stops anyone
+    "correcting" the engine towards the regulation -- amounts come from the Code,
+    the regulation gives the procedure.
+
+    No amounts here. What an exemption is worth is a fiscal parameter (`R15`),
+    resolved by the effective date of the period being calculated.
+    """
+
+    PERSONAL = "P"
+    PERSONAL_MAJOR = "M"
+    SPOUSE_MAJOR = "Sm"
+    DEPENDENT = "N"
+    DEPENDENT_DISABLED = "H"
+
+
+#: The codes that name somebody other than the employee, and therefore require a
+#: dependent to point at. Enumerated rather than inferred from the letter: `Sm`
+#: is about a spouse and still is not one of these, because the increased spouse
+#: exemption is granted on the spouse's status, not on a dependent's identity.
+DEPENDENT_CODES = (ExemptionCode.DEPENDENT, ExemptionCode.DEPENDENT_DISABLED)
+
+
+class Dependent(models.Model):
+    """A person an employee's exemption is claimed for.
+
+    **With an identifier of their own**, and ADR-065 section 5 says why: without
+    one there is no legitimate uniqueness constraint either, so the same child
+    entered twice on one employee is indistinguishable from two children.
+
+    **And no uniqueness across employees.** The number of taxpayers who may claim
+    the exemption for the same person is not limited by law -- both parents may
+    claim for the same child -- so a `UNIQUE` there would be our invention,
+    refusing a case the law allows, with no way for the person to find out why.
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    tenant = models.ForeignKey(Tenant, on_delete=models.PROTECT, db_column="tenant_id")
+    company = models.ForeignKey(Company, on_delete=models.PROTECT, db_column="company_id")
+    employee = models.ForeignKey(
+        Employee, on_delete=models.PROTECT, db_column="employee_id", related_name="dependents"
+    )
+
+    last_name = models.TextField()
+    first_name = models.TextField()
+    idnp = models.TextField(null=True, blank=True)
+    identity_document_type = models.TextField(null=True, blank=True)
+    identity_document_number = models.TextField(null=True, blank=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "exemption_dependent"
+        constraints = [
+            models.CheckConstraint(
+                condition=(
+                    models.Q(idnp__isnull=False)
+                    & models.Q(identity_document_type__isnull=True)
+                    & models.Q(identity_document_number__isnull=True)
+                )
+                | (
+                    models.Q(idnp__isnull=True)
+                    & models.Q(identity_document_type__isnull=False)
+                    & models.Q(identity_document_number__isnull=False)
+                ),
+                name="dependent_exactly_one_identity",
+            ),
+            models.UniqueConstraint(
+                fields=["employee", "idnp"],
+                condition=models.Q(idnp__isnull=False),
+                name="dependent_idnp_unique",
+            ),
+        ]
+        indexes = [
+            models.Index(fields=["tenant", "company", "employee"], name="dependent_idx"),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.last_name} {self.first_name}"
+
+
+class ExemptionApplication(models.Model):
+    """The employee's application -- annex 6 to HG 697/2014.
+
+    **`filed_on` is stored, not only used.** Point 18 grants and cancels
+    exemptions *from the month following* the one the application was filed or
+    withdrawn in. With only the effective date, that rule lives in the
+    application: a bulk import or a correction written straight into the table
+    walks past it, and recalculating a past month (`R18`) has no stored fact to
+    show the date was derived correctly. With `filed_on`, it is a CHECK.
+
+    **`declared_sole_workplace` is the employee's declaration, and it is stored
+    as one.** Point 9 grants exemptions at one place of work only -- a fact about
+    the person across employers, which no employer can verify and this system
+    cannot see across tenants. What the employer relies on is the declaration on
+    the form, so that is what the row carries: not a check we cannot perform,
+    but the evidence the employer acted on.
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    tenant = models.ForeignKey(Tenant, on_delete=models.PROTECT, db_column="tenant_id")
+    company = models.ForeignKey(Company, on_delete=models.PROTECT, db_column="company_id")
+    employee = models.ForeignKey(
+        Employee,
+        on_delete=models.PROTECT,
+        db_column="employee_id",
+        related_name="exemption_applications",
+    )
+
+    filed_on = models.DateField()
+
+    #: The first day of the month after `filed_on`. Derived by the service and
+    #: **checked by the database**, which is the difference between a rule and a
+    #: habit.
+    effective_from = models.DateField()
+
+    declared_sole_workplace = models.BooleanField()
+    note = models.TextField(blank=True, default="")
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "exemption_application"
+        indexes = [
+            models.Index(
+                fields=["tenant", "company", "employee", "effective_from"],
+                name="exemption_application_idx",
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.employee_id} {self.filed_on}"
+
+
+class ExemptionEntitlement(models.Model):
+    """One exemption, for one period. The history point 18 makes necessary.
+
+    Granted by an application and withdrawn by another, so the row can always say
+    *which document* opened and closed it. "What exemptions did this person have
+    in March" is a query by date, which is what `R18` asks of every recalculation
+    of a past month -- and what a boolean on the employee could never answer.
+
+    The overlap constraint is in SQL (an `EXCLUDE`), because the pair it has to
+    refuse is *the same dependent, the same code, overlapping periods* -- the
+    same child entered twice -- while leaving the case the law allows: two
+    employees claiming for the same person.
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    tenant = models.ForeignKey(Tenant, on_delete=models.PROTECT, db_column="tenant_id")
+    company = models.ForeignKey(Company, on_delete=models.PROTECT, db_column="company_id")
+    employee = models.ForeignKey(
+        Employee,
+        on_delete=models.PROTECT,
+        db_column="employee_id",
+        related_name="exemptions",
+    )
+
+    code = models.TextField(choices=ExemptionCode.choices)
+    dependent = models.ForeignKey(
+        Dependent,
+        on_delete=models.PROTECT,
+        db_column="dependent_id",
+        null=True,
+        blank=True,
+        related_name="entitlements",
+    )
+
+    valid_from = models.DateField()
+    valid_to = models.DateField(null=True, blank=True)
+
+    granted_by = models.ForeignKey(
+        ExemptionApplication,
+        on_delete=models.PROTECT,
+        db_column="granted_by_id",
+        related_name="granted",
+    )
+    withdrawn_by = models.ForeignKey(
+        ExemptionApplication,
+        on_delete=models.PROTECT,
+        db_column="withdrawn_by_id",
+        null=True,
+        blank=True,
+        related_name="withdrawn",
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "exemption_entitlement"
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(code__in=ExemptionCode.values),
+                name="exemption_code_valid",
+            ),
+            # `N` and `H` name somebody; `P`, `M` and `Sm` do not. Both halves
+            # are enforced: a dependent on a personal exemption is as wrong as a
+            # missing one on `N`, and it would silently double a claim.
+            models.CheckConstraint(
+                condition=(models.Q(code__in=DEPENDENT_CODES) & models.Q(dependent__isnull=False))
+                | (~models.Q(code__in=DEPENDENT_CODES) & models.Q(dependent__isnull=True)),
+                name="exemption_dependent_matches_code",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(valid_to__isnull=True)
+                | models.Q(valid_to__gt=models.F("valid_from")),
+                name="exemption_period_valid",
+            ),
+        ]
+        indexes = [
+            models.Index(
+                fields=["tenant", "company", "employee", "valid_from"],
+                name="exemption_entitlement_idx",
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.employee_id} {self.code} {self.valid_from}"

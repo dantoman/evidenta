@@ -226,3 +226,101 @@ export function closeTimesheet(timesheetId: string): Promise<TimesheetMonth> {
     method: 'POST',
   })
 }
+
+/**
+ * Exemptions -- an application with an effective date, never a checkbox.
+ *
+ * Point 18 of the regulation approved by HG 697/2014 grants and cancels them
+ * from the month *following* the one the application was filed in, so what the
+ * client posts is a filing date and the server derives the rest. The effective
+ * date is asked for (`exemptionEffectiveDate`) rather than computed here: a
+ * second implementation of the rule drifts the first time only one is edited.
+ */
+
+export interface Dependent {
+  id: string
+  last_name: string
+  first_name: string
+  idnp: string | null
+  identity_document_type: string | null
+  identity_document_number: string | null
+}
+
+export interface Entitlement {
+  id: string
+  code: string
+  dependent_id: string | null
+  dependent_name: string | null
+  valid_from: string
+  valid_to: string | null
+  granted_by_filed_on: string | null
+}
+
+export interface Application {
+  id: string
+  employee_id: string
+  filed_on: string
+  effective_from: string
+  declared_sole_workplace: boolean
+  note: string
+  granted: Entitlement[]
+}
+
+export function listDependents(employeeId: string): Promise<Dependent[]> {
+  return request<Dependent[]>(`/api/v1/payroll/employees/${employeeId}/dependents`)
+}
+
+export function addDependent(
+  employeeId: string,
+  body: {
+    last_name: string
+    first_name: string
+    idnp?: string | null
+    identity_document_type?: string | null
+    identity_document_number?: string | null
+  },
+): Promise<{ id: string }> {
+  return request<{ id: string }>(`/api/v1/payroll/employees/${employeeId}/dependents`, {
+    method: 'POST',
+    body,
+  })
+}
+
+/** Without `on`, the whole history. With it, what was in force that day. */
+export function listExemptions(employeeId: string, on?: string): Promise<Entitlement[]> {
+  const query = on ? `?on=${on}` : ''
+  return request<Entitlement[]>(`/api/v1/payroll/employees/${employeeId}/exemptions${query}`)
+}
+
+export function fileExemptionApplication(
+  employeeId: string,
+  body: {
+    filed_on: string
+    declared_sole_workplace: boolean
+    note?: string
+    grants: { code: string; dependent_id?: string | null }[]
+  },
+): Promise<Application> {
+  return request<Application>(`/api/v1/payroll/employees/${employeeId}/exemptions`, {
+    method: 'POST',
+    body,
+  })
+}
+
+export function withdrawExemptions(
+  employeeId: string,
+  body: { filed_on: string; entitlement_ids: string[]; note?: string },
+): Promise<Application> {
+  return request<Application>(
+    `/api/v1/payroll/employees/${employeeId}/exemptions/withdrawal`,
+    { method: 'POST', body },
+  )
+}
+
+export function exemptionEffectiveDate(
+  filedOn: string,
+): Promise<{ filed_on: string; effective_from: string }> {
+  return request<{ filed_on: string; effective_from: string }>(
+    `/api/v1/payroll/exemption-effective-date?filed_on=${filedOn}`,
+  )
+}

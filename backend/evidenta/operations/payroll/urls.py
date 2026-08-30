@@ -62,6 +62,31 @@ urlpatterns = [
         views.TimesheetClosingView.as_view(),
         name="timesheet-closing",
     ),
+    # Exemptions hang off the person, not off a company: the application is
+    # theirs, and point 18 dates it. `on` is a query because "what was in force
+    # in March" is a question asked each time, not a property of the row.
+    path(
+        "employees/<uuid:employee_id>/dependents",
+        views.DependentListView.as_view(),
+        name="dependents",
+    ),
+    path(
+        "employees/<uuid:employee_id>/exemptions",
+        views.ExemptionListView.as_view(),
+        name="exemptions",
+    ),
+    path(
+        "employees/<uuid:employee_id>/exemptions/withdrawal",
+        views.ExemptionWithdrawalView.as_view(),
+        name="exemption-withdrawal",
+    ),
+    # Point 18 computed on the server. A client that derived it would be a second
+    # implementation of the rule, drifting the first time only one is edited.
+    path(
+        "exemption-effective-date",
+        views.ExemptionEffectiveDateView.as_view(),
+        name="exemption-effective-date",
+    ),
     # The vocabulary the contract form needs. Read-only, and it is the fiscal
     # table rather than a copy: a second list in the interface is a second list
     # that drifts.

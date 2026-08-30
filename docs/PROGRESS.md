@@ -269,9 +269,33 @@ a produs patru cazuri într-o zi.
 civile — de decis la pasul 8), `OD-103` (testul de plan de execuție care cade doar în suita întreagă),
 `OD-104` (`R21` și contractul de dependențe au aceeași formă ca `R1` și n-au fost atinse).
 
-**Unde s-a oprit.** Pasul 1 e livrat și utilizabil. Urmează **pasul 2** — scutirile: cerere cu
-valabilitate, persoane întreținute `N` și `H`, vocabularul `P`, `M`, `Sm`, `N`, `H` **fără `S`**
-(ADR-065 §5). Ce nu s-a atins deliberat: niciun calcul, nicio sumă — pasul 3 le aduce.
+**Pasul 2 livrat în aceeași sesiune: scutirile.** Trei tabele — `exemption_dependent`,
+`exemption_application`, `exemption_entitlement` — plus ecranul per persoană.
+
+- **Pct. 18 e `CHECK`, nu obicei:** `effective_from = prima zi a lunii următoare lui `filed_on``,
+  impus în bază. De asta se stochează `filed_on`, nu doar data efectivă: cu numai una, regula ar trăi
+  în aplicație, iar un import în masă o ocolește. **Verificat în ambele feluri** — serviciul o derivă,
+  baza refuză o pereche construită de mână.
+- **Nu e stare, e istorie.** Cererea deschide o îndreptățire datată; retragerea o **închide** cu
+  `valid_to` din luna următoare, nu o șterge — și `evidenta_app` **nu are `DELETE`** pe îndreptățiri.
+  Interval semideschis: în vigoare până în iunie, dispărută din iulie.
+- **Nu există `S`.** Art. 34 alin. (2) dă doar scutirea majorată pentru soț/soție. Vocabularul e
+  `P`, `M`, `Sm`, `N`, `H`, închis în model, în bază și în lista din ecran.
+- **`EXCLUDE` peste `(angajat, cod, persoană întreținută, perioadă)`** — același copil de două ori la
+  același angajat e refuzat; **doi angajați pentru aceeași persoană rămâne permis**, fiindcă legea îl
+  permite și un `UNIQUE` acolo ar fi invenția noastră. `COALESCE(dependent_id, uuid_nil)` fiindcă
+  altfel exact scutirile personale ar scăpa de constrângere.
+- **Pct. 9 e declarație, nu verificare:** `declared_sole_workplace` e ce a semnat angajatul. Sistemul
+  nu poate vedea celălalt angajator; ce se păstrează e dovada pe care angajatorul a acționat.
+
+**Al doilea `REVOKE` uitat, aceeași cauză ca `OD-47`, prins de test:** `GRANT SELECT, INSERT, UPDATE`
+**nu retrage** `DELETE` — privilegiile implicite din `0001_roles.sql` îl acordaseră deja. Testul care
+cerea refuzul ștergerii a trecut prin el fără să clipească. A doua oară în aceeași sesiune când un
+`GRANT` incomplet arată ca o interdicție.
+
+**Unde s-a oprit.** Pașii 1 și 2 sunt livrați și utilizabili, fiecare cu ecranul lui. Urmează
+**pasul 3** — calculul lunar, statul de plată, fluturașul. Ce nu s-a atins deliberat: **nicio sumă
+calculată** — pasul 3 le aduce, iar structurile lui sunt cele pe care le consumă IPC-ul de la pasul 4.
 
 
 **2026-08-30 — răspunsul proprietarului la cele opt întrebări ale F2; F2 pornită. Nicio linie de cod

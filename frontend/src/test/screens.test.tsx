@@ -30,6 +30,7 @@ import { TrialBalanceScreen } from '@/app/accounting/TrialBalanceScreen'
 import { CompaniesScreen } from '@/app/companies/CompaniesScreen'
 import { PartnersScreen } from '@/app/partners/PartnersScreen'
 import { ContractsScreen } from '@/app/payroll/ContractsScreen'
+import { ExemptionsScreen } from '@/app/payroll/ExemptionsScreen'
 import { PeopleScreen } from '@/app/payroll/PeopleScreen'
 import { TimesheetScreen } from '@/app/payroll/TimesheetScreen'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
@@ -573,6 +574,36 @@ describe('ecranele', () => {
     expect(await screen.findByText('Rusu Ion')).toBeInTheDocument()
     // Exactly the string the server sent: nothing on the screen adds a column up.
     expect(screen.getByText('22.50')).toBeInTheDocument()
+  })
+
+  it('scutirile arată istoricul cu perioadele lui, nu o bifă', async () => {
+    stubFetch({
+      '/api/v1/payroll/employees/e1/exemptions': [
+        {
+          id: 'x1',
+          code: 'P',
+          dependent_id: null,
+          dependent_name: null,
+          valid_from: '2026-04-01',
+          valid_to: '2026-07-01',
+          granted_by_filed_on: '2026-03-17',
+        },
+      ],
+      '/api/v1/payroll/employees/e1/dependents': [],
+    })
+    renderScreen(<ExemptionsScreen />, {
+      path: '/companii/:companyId/angajati/:employeeId/scutiri',
+      route: `/companii/${COMPANY}/angajati/e1/scutiri`,
+    })
+
+    // The period, both ends of it: a withdrawn exemption stays visible, because
+    // recalculating the months it covered has to reach the same answer (`R18`).
+    expect(await screen.findByText('2026-04-01')).toBeInTheDocument()
+    expect(screen.getByText('2026-07-01')).toBeInTheDocument()
+    // Twice on the screen: once in the form's dropdown, once in the row. The
+    // count is asserted, not worked around -- the dropdown offering exactly the
+    // five real codes is half of why there is no `S`.
+    expect(screen.getAllByText('P — personală')).toHaveLength(2)
   })
 
   it('fără sesiune, aplicația arată ecranul de autentificare', async () => {
