@@ -75,9 +75,59 @@ policy_shape = "global_read_only"
 writer_role = "evidenta_owner"
 ```
 
-**De ce nu se putea evita:** un `tenant_id` pe această tabelă ar însemna că un tenant poate avea alte
-tipuri de raport decât altul, ceea ce e fals — distincţia e a legii. Iar fără tabelă, domeniul redevine
-şir, adică §3.
+**De ce nu se putea evita, formulat cu grijă:** un `tenant_id` aici ar însemna că un tenant poate avea
+alte tipuri de raport decât altul, ceea ce e fals **în interiorul unei jurisdicţii**. Şi atât spune —
+nici mai mult.
+
+> **Tabela e globală fiindcă produsul deserveşte o singură jurisdicţie. A doua jurisdicţie redeschide
+> decizia.** Tipurile nu sunt universale: sunt cele pe care le distinge dreptul Republicii Moldova azi.
+>
+> **Şi dimensiunea care apare atunci nu e tenantul, e jurisdicţia.** Merită spus acum, fiindcă o
+> formulare de tipul *„distincţia e a legii"* pare să excludă subiectul, iar cine îl deschide peste doi
+> ani ar găsi o afirmaţie care îi spune că nu e nimic de discutat. **Amânare cu condiţia de siguranţă
+> numită** — altfel e indistinctă de neglijenţă.
+
+Iar fără tabelă, domeniul redevine şir, adică §3.
+
+### 4.1 Rândul din `exceptions.toml` îşi poartă justificarea, mărginit
+
+`OD-95` numeşte tocmai riscul unei excepţii nemărginite. Deci intrarea nu se adaugă tăcut: câmpul
+`reason` spune **ce anume** e exceptat şi **până unde** — *vocabular de două valori impus de lege,
+acelaşi pentru toţi tenanţii unei jurisdicţii, însămânţat din migrare ca `permission`; nu se extinde la
+alte tabele ale modulului*. Iar `source` trimite la acest ADR, ca excepţia să nu poată fi citită fără
+decizia care a sancţionat-o.
+
+## 4bis. Cheia străină e `NOT NULL` — altfel exerciţiul se pierde
+
+**Decizie, nu detaliu de schemă.** Dacă domeniul unui invariant e nullable, *„fără domeniu"* redevine
+exprimabil — iar `NULL` s-ar citi, inevitabil, ca *„se aplică oriunde"*. Adică exact `orice_bază_CAS`,
+sub alt nume, obţinut prin omisiune în loc de alegere.
+
+Un invariant fără domeniu nu e o stare validă: **art. 22 se aplică raporturilor de muncă, şi asta e o
+proprietate a lui, nu o configurare.** Deci coloana e `NOT NULL`, **fără implicit** — pe acelaşi tipar
+ca `source_confidence`: *un implicit ar lăsa rândul să ajungă fără ca nimeni să fi decis*.
+
+## 4ter. Tabela **nu** poartă margini, şi iată de ce
+
+`OD-89` face din starea datată implicitul, deci absenţa marginilor e o **excepţie care se
+argumentează**, nu una care se tace.
+
+Tipurile sunt derivate din lege, iar legea se schimbă — pct. 1.8 a fost abrogat, deci un tip *poate*
+dispărea. Şi totuşi:
+
+> **Nimic nu rezolvă un tip după dată.** Ce se rezolvă după dată e **ce referă un tip** — domeniul unui
+> invariant, care e versionat în registrul de logică, cu `valid_from`-ul lui. Întrebarea *„ce spunea
+> domeniul invariantului în martie"* e a invariantului; întrebarea *„ce tipuri existau în martie"* nu e
+> pusă de nimic.
+
+Consecinţele, ca decizia să fie completă:
+
+- **rândurile nu se şterg niciodată** — un tip abrogat rămâne, cu cheia străină `PROTECT`, ca
+  referinţele istorice să rezolve;
+- **apariţia unui al treilea tip e un rând nou**, plus decizia din §2, nu o modificare de margine.
+
+**Ce ar infirma decizia, scris ca să fie recunoscut:** primul consumator care are nevoie de *„ce tipuri
+existau la data D"*. Dacă apare, tabela primeşte margini şi acest paragraf se retrage.
 
 **`writer_role = "evidenta_owner"`, nu `evidenta_refdata`:** vocabularul e **cod**, nu date de
 referinţă încărcabile — se însămânţează din migrarea care creează tabela şi ajunge în bază odată cu

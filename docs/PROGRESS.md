@@ -459,6 +459,42 @@ decizia proprietarului, nu pe ambiguitate. `C2` şi restul `F2.B1` sunt neîncep
 **Regula (c) din `OD-94`** — scrierea şi constrângerea în aceeaşi migrare — **rămâne neimpusă**: e
 disciplină de ordonare, iar un gardian peste ea ar fi euristic.
 
+**Uşa unică, regula (c), starea nedovedită — şi C1(b) oprit la ADR.**
+
+- **`P0` era întrebarea corectă, şi răspunsul e da: helper-ul se putea ocoli.** *(a)* şi *(b)* erau
+  impuse **în** helper, dar nimic nu obliga o migrare să treacă prin el — iar **un helper opţional e
+  sfat cu paşi în plus**, aceeaşi formă cu memoria scrisă ca sfat care n-a oprit nimic de trei ori.
+  Acum scrierile brute de date în migrări sunt respinse, cu detecţie prin **`ast`, nu prin grep**:
+  numai şirurile date efectiv lui `RunSQL` se citesc ca SQL, deci docstring-urile lungi ale acestui
+  repo rămân proză.
+- **Uşa a găsit imediat o a doua migrare pre-regulă** — `platform/identity/0003_roles`, pe care
+  scanarea mea manuală o ratase pe un regex. Categoria are **doi membri de la început**.
+- **Regula (c) nu mai e euristică**, şi motivul merită numit: **estimarea care spunea că e euristică
+  expirase înainte de a fi scrisă** — era adevărată despre lumea de dinaintea helper-ului, iar
+  helper-ul a intrat în **acelaşi commit** cu estimarea. După uşa unică, *„migrarea scrie date"* e
+  fapt despre graful de apeluri.
+- **`OD-98` — „stare nedovedită", nu „migrări care preced regula".** Numele decide ce se face: prima
+  formulare creşte cu fiecare migrare şi invită retrofitul; a doua **se micşorează pe măsură ce
+  adaugi aserţiuni**. Decizia: **nicio migrare aplicată nu se rescrie**; în schimb o aserţiune
+  permanentă asupra **stării**, care e lucrul care contează, şi care se verifică la fiecare rulare —
+  pe când o migrare rescrisă se verifică o dată, în ziua rescrierii.
+- **ADR-071 amendat cât e `Propus`.** Motivarea globalităţii era **prea largă**: tabela e globală
+  fiindcă **produsul deserveşte o singură jurisdicţie**, nu fiindcă distincţia ar fi transcendentă —
+  iar dimensiunea care apare la a doua jurisdicţie **nu e tenantul, e jurisdicţia**. Plus: FK-ul e
+  `NOT NULL` (altfel *„fără domeniu"* redevine exprimabil şi s-ar citi ca *„oriunde"*); tabela **nu**
+  poartă margini, cu motivul scris şi cu falsificatorul lui; rândul din `exceptions.toml` îşi poartă
+  justificarea mărginită (`OD-95`).
+- **`T2`** — sonda de rol validată din partea cealaltă: pe aceeaşi tabelă, **owner-ul e orb şi rolul
+  aplicaţiei nu e**. Fără jumătatea asta, o sondă care ar răspunde mereu „orb" ar trece.
+
+**Unde s-a oprit.** **`C1(b)` NU s-a construit: ADR-071 e `Propus`.** `R1` face din confirmare o
+condiţie, nu o preferinţă. `C2` şi restul `F2.B1` rămân blocate în consecinţă; `T1`, `T3` şi `T4`
+depind de entităţi care nu există.
+
+**Predicţia de cost are primul punct, şi e confirmare parţială:** `P1`+`P2` au intrat într-un commit,
+o încercare — dar nu e aceeaşi formă cu `C1(a)`, care atingea date existente. Notat ca atare, nu ca
+validare.
+
 ## Sesiuni mai vechi
 
 **2026-08-30, F1.10 — corpusul de regresie (instrucțiune scrisă: „singura sarcină care deblochează
