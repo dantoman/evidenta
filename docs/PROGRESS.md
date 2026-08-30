@@ -9,8 +9,18 @@
 
 > **F2 — Primul produs vandabil, pornită 2026-08-30** prin declarația proprietarului.
 > Descompunerea: `_bootstrap/09-f2-backlog.md`. Cele opt întrebări ale fazei sunt răspunse (ADR-060 …
-> ADR-064 plus `DNB-05` varianta C); prima sarcină e `F2.B0` și **nu a început**. Ce urmează dedesubt
-> e starea F1, păstrată.
+> ADR-064 plus `DNB-05` varianta C). Ce urmează dedesubt e starea F1, păstrată.
+>
+> **Ordinea F2 s-a schimbat prin instrucțiune (2026-08-30), și numai ordinea:** scopul rămâne un sistem
+> contabil **complet** pentru Moldova, toate regimurile intră. Secvența urmează **calendarul
+> clientului**, nu structura legii — lunarul înaintea anualului: (1) salarizare regim general,
+> (2) scutiri, (3) calcul lunar și fluturaș, (4) IPC, (5) documente comerciale, (6) TVA,
+> (7) concedii, (8) celelalte regimuri, (9) mijloace fixe, (10) IALS21 și anualul, (11) import 1C și
+> e-Factura. **Ecranele merg în paralel cu fiecare pas: un pas fără ecran nu e livrat.** Deblocările
+> stau în `_bootstrap/13-lista-de-deblocare.md`, fiecare cu implicitul ei.
+>
+> **Livrate din secvență:** `F2.B0` (ADR-065), `C1(b)` (ADR-071, ADR-072) și **pasul 1** — persoană,
+> contract, act adițional, ordin, pontaj, cu cele trei ecrane. **Urmează pasul 2 (scutirile).**
 
 **Felia verticală merge cap-coadă: companie → plan de conturi → notă manuală → balanță echilibrată.**
 Un test de integrare o parcurge prin HTTP, sub rolul aplicației
@@ -172,6 +182,97 @@ sunt bifate în `08`** — închiderea F1 e declarația proprietarului, ca la F0
 ține modulele F2 pe loc.
 
 ## Ultima sesiune
+
+**2026-08-30 — instrucțiune nouă: scop și metodă schimbate. Lista de deblocare, `R1` îngustată,
+ADR-071 acceptat și construit, și pasul 1 al secvenței livrat cap-coadă.**
+
+**Ce s-a schimbat ca metodă, verbatim din instrucțiune:** *nimic nu așteaptă o sursă juridică*
+(structura se construiește, valorile intră ca date, o sursă lipsă e **un rând**, nu un blocaj);
+*reversibil implicit* (proprietarul decide doar ce nu se poate desface); *fiecare bucată aterizează
+utilizabilă*; *ordinea urmează calendarul clientului*. Se opresc: reguli noi de proces, gardieni noi,
+extinderea disciplinei de margini.
+
+**Livrabilul zero — [`13-lista-de-deblocare.md`](_bootstrap/13-lista-de-deblocare.md).** Patru
+categorii, **35 de intrări, fiecare cu implicitul ei**: §A șapte decizii ireversibile (compania-pilot,
+IDNP-ul stocat, fluturașul ca document legal, ADR-007, `OD-84`, numerotarea, `DN-18`); §B opt reguli
+care blochează, fiecare cu îngustarea propusă; §C unsprezece surse neobținute, cu răspunsul la
+*„rândul gol cu motiv ajunge?"* pe fiecare; §D zece alegeri de produs care se scriu în schemă, cu
+costul schimbării de după. **Regula fișierului:** o intrare fără implicit e incompletă — altfel lista
+devine chiar blocajul pe care îl elimină.
+
+**`R1` s-a îngustat — [ADR-072](decisions/072-exceptia-care-nu-largeste.md), `Acceptat`, decizia
+proprietarului.** Confirmarea se cere doar pentru excepțiile care **lărgesc accesul la date**. Un
+catalog global doar-citire, cu `writer_role = "evidenta_owner"`, însămânțat din migrarea care îl
+definește, e commit obișnuit — `permission` era precedentul, în același fișier. **Costul măsurat al
+formei largi:** `C1(b)` s-a oprit **trei sesiuni la rând**, fiecare raportând *„singura oprire
+legitimă"*, pentru un catalog de trei valori impuse de lege.
+
+**[ADR-071](decisions/071-tipurile-de-raport-ca-tabela.md) `Acceptat` cu cele trei corecții cerute, și
+una contează:** pct. 1.1 prima liniuță numește **trei** forme, nu două. `service_relationship` —
+raporturi de serviciu în baza actului administrativ — lipsea. **Nu e caz marginal:** funcționarul numit
+prin act administrativ *este* salariat pentru art. 22, deci un model cu două valori l-ar fi împins în
+`civil_contract`, unde invariantul nu se aplică — contribuție sub minim, perfect echilibrată, `R11`
+trece, niciun test de sold n-o vede. **Simetricul exact al defectului măsurat de ADR-069.** Cum s-a
+pierdut, scris în §1.1: ADR-ul a fost redactat din **întrebarea** care îl produsese (*unde se oprește
+art. 22*), iar acea întrebare opune „salariat" lui „prestator civil" — raportul de serviciu nu apare în
+opoziție, deci n-a apărut în tabel. **Nu e operand lipsă: operandul era în repo, în aceeași propoziție.**
+
+**`C1(b)` construit.** `employment_relationship_type` în `fiscal/registry`, trei rânduri, fiecare cu
+ancora lui în coloană; însămânțare prin `backfill()` cu `expected=0` și `CHECK`-ul de vocabular închis
+în **aceeași migrare** (regula (c) din `OD-94`). **O corecție găsită de un gardian, nu de citire:**
+SQL-ul a plecat fără politică permanentă de scriere pentru owner — argumentul fiind că ușa suspendă
+`FORCE` oricum — iar `test_reference_load_policy` a răspuns cu un fapt: sub `FORCE`, un **privilegiu
+fără politică nu vede nimic**, deci `writer_role` ar fi declarat o cale de scriere inexistentă.
+`permission` poartă aceeași politică, din același motiv.
+
+**Pasul 1 al secvenței, livrat cap-coadă: `operations/payroll`.** Cinci tabele company-scoped —
+`employee`, `employment_contract`, `employment_contract_amendment`, `timesheet`, `timesheet_day` —, cu
+politicile în aceeași tranzacție cu tabelele (`C30`) și colațiile după `C34`. Ce poartă fiecare și de
+ce, pe scurt:
+
+- **`employee` e al companiei, nu al tenantului** (ADR-065 §4), cu identitatea impusă ca
+  **constrângere**: IDNP sau act de identitate, exact una, fiindcă rândul pentru care se face excepția
+  e chiar cel care altfel n-ar avea nicio cheie naturală.
+- **Contractul e cap de serie** (ADR-067): ecranul nu oferă niciodată *„editează salariul"*, oferă act
+  adițional. *„Ce era în vigoare la data D"* se citește parcurgând seria, iar răspunsul spune **prin ce
+  document** s-a stabilit fiecare câmp — *„9000 în martie"* nu se apără fără asta.
+- **Ordinul angajatorului e câmp, nu entitate** — exact linia trasă de ADR-067 §2. Angajarea și actul
+  adițional poartă numărul și data ordinului; încetarea fără ordin e refuzată **de bază**, nu doar de
+  serviciu, fiindcă termenul IRM19 curge din data ordinului.
+- **`relationship_type` e `NOT NULL`**, cheia străină pe care ADR-071 o argumentează. **Verificat în
+  ambele feluri:** serviciul refuză cu cod stabil, iar tabela refuză structural — testul forțează
+  `SET CONSTRAINTS ALL IMMEDIATE`, altfel cheia deferată a lui Django n-ar cădea niciodată într-un test
+  care nu comite.
+- **Pontajul e pe ore, nu pe zile**, fiindcă art. 22 alin. (1) cere proporția timpului lucrat: zilele se
+  deduc din ore, invers nu. Orele de noapte și de sărbătoare sunt **parte din** ziua lucrată, impus prin
+  `CHECK`. Luna închisă e înghețată **printr-un trigger**, nu de serviciu.
+
+**Trei ecrane**, în același commit cu serverul: angajați, contracte (cu seria de acte adiționale și
+întrebarea „la data D"), pontaj cu totalurile **de la server** (`C19`). Legate din lista de companii,
+fiindcă un ecran la care se ajunge doar tastând adresa e un ecran la care nu ajunge nimeni — clasa care
+a produs patru cazuri într-o zi.
+
+**Măsurători și eșecuri consemnate:**
+
+- **Un `GRANT` lipsă găsit de suită, nu de citire:** triggerul de îngheț e `SECURITY DEFINER`, deci
+  rulează ca `evidenta_rls` — rol care n-avea nimic pe tabelele noi. Fără `GRANT SELECT ON timesheet TO
+  evidenta_rls`, orice scriere de zi murea cu *„permission denied for table timesheet"* **din interiorul
+  triggerului**, adică cu un mesaj care arată a defect de permisiuni al aplicației.
+- **Cheile străine ale lui Django sunt `DEFERRABLE INITIALLY DEFERRED`**, deci un tip inexistent n-ar fi
+  căzut la `INSERT`, ci la commit — la capătul cererii, departe de apelant, fără cod stabil (`C10`).
+  Verificarea din serviciu nu e cosmetică: transformă un 500 la commit într-un 422 la locul faptei.
+- **`OD-100` s-a manifestat din nou, în invocarea mea:** `make gate | tail` a întors 0 peste un lint
+  căzut. Reţeta e corectă; conducta era a mea. A doua oară aceeaşi cauză, acelaşi loc.
+
+**Patru rânduri noi în registru:** `OD-101` (categoria CAS n-are de unde să-și ia implicitul; vocabularul
+îngustat la punctele angajatorului), `OD-102` (numele `employment_contract` nu acoperă contractele
+civile — de decis la pasul 8), `OD-103` (testul de plan de execuție care cade doar în suita întreagă),
+`OD-104` (`R21` și contractul de dependențe au aceeași formă ca `R1` și n-au fost atinse).
+
+**Unde s-a oprit.** Pasul 1 e livrat și utilizabil. Urmează **pasul 2** — scutirile: cerere cu
+valabilitate, persoane întreținute `N` și `H`, vocabularul `P`, `M`, `Sm`, `N`, `H` **fără `S`**
+(ADR-065 §5). Ce nu s-a atins deliberat: niciun calcul, nicio sumă — pasul 3 le aduce.
+
 
 **2026-08-30 — răspunsul proprietarului la cele opt întrebări ale F2; F2 pornită. Nicio linie de cod
 de modul.**

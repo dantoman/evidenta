@@ -29,6 +29,9 @@ import { RegisterScreen } from '@/app/accounting/RegisterScreen'
 import { TrialBalanceScreen } from '@/app/accounting/TrialBalanceScreen'
 import { CompaniesScreen } from '@/app/companies/CompaniesScreen'
 import { PartnersScreen } from '@/app/partners/PartnersScreen'
+import { ContractsScreen } from '@/app/payroll/ContractsScreen'
+import { PeopleScreen } from '@/app/payroll/PeopleScreen'
+import { TimesheetScreen } from '@/app/payroll/TimesheetScreen'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { renderScreen } from './render'
 
@@ -468,6 +471,108 @@ describe('ecranele', () => {
     expect(await screen.findByText('Balanța este echilibrată.')).toBeInTheDocument()
     // Formatted ro-MD, from the string the server sent -- never parsed to a float.
     expect(screen.getAllByText('5.000,00').length).toBeGreaterThan(0)
+  })
+
+  it('lista de angajați cere persoanele companiei din cale', async () => {
+    const fetcher = stubFetch({
+      [`/api/v1/payroll/companies/${COMPANY}/employees`]: [
+        {
+          id: 'e1',
+          last_name: 'Rusu',
+          first_name: 'Ion',
+          idnp: '2001234567890',
+          identity_document_type: null,
+          identity_document_number: null,
+          tax_residency: 'resident',
+          social_insurance_code: null,
+        },
+      ],
+    })
+    renderScreen(<PeopleScreen />, {
+      path: '/companii/:companyId/angajati',
+      route: `/companii/${COMPANY}/angajati`,
+    })
+
+    expect(await screen.findByText('Rusu Ion')).toBeInTheDocument()
+    expect(screen.getByText('2001234567890')).toBeInTheDocument()
+    // The company from the path, never from state.
+    await waitFor(() =>
+      expect(
+        fetcher.mock.calls.some(([url]) => String(url).includes(`companies/${COMPANY}/employees`)),
+      ).toBe(true),
+    )
+  })
+
+  it('contractele arată forma raportului cu eticheta ei, nu cu codul', async () => {
+    stubFetch({
+      [`/api/v1/payroll/companies/${COMPANY}/contracts`]: [
+        {
+          id: 'c1',
+          employee_id: 'e1',
+          employee_name: 'Rusu Ion',
+          relationship_type: 'service_relationship',
+          contract_number: 'RS-001',
+          signed_on: '2026-01-05',
+          effective_from: '2026-01-08',
+          effective_to: null,
+          ended_on: null,
+          hire_order_number: '12-p',
+          hire_order_date: '2026-01-06',
+          termination_order_number: null,
+          termination_order_date: null,
+          position_title: 'Contabil',
+          base_salary: '9000.0000',
+          weekly_hours: '40.00',
+          cas_payer_point: '1.1',
+        },
+      ],
+    })
+    renderScreen(<ContractsScreen />, {
+      path: '/companii/:companyId/contracte',
+      route: `/companii/${COMPANY}/contracte`,
+    })
+
+    expect(await screen.findByText('RS-001')).toBeInTheDocument()
+    // The third value of ADR-071, shown as what it is rather than as its code.
+    expect(
+      screen.getByText('Raporturi de serviciu (act administrativ)'),
+    ).toBeInTheDocument()
+  })
+
+  it('pontajul arată totalurile serverului, nu unele calculate aici', async () => {
+    stubFetch({
+      [`/api/v1/payroll/companies/${COMPANY}/timesheets`]: [
+        { id: 'ts1', year: 2026, month: 3, norm_hours: '168.00', status: 'open' },
+      ],
+      '/api/v1/payroll/timesheets/ts1': {
+        id: 'ts1',
+        year: 2026,
+        month: 3,
+        norm_hours: '168.00',
+        status: 'open',
+        lines: [
+          {
+            contract_id: 'c1',
+            contract_number: 'CIM-001',
+            employee_name: 'Rusu Ion',
+            hours_worked: '22.50',
+            night_hours: '2.00',
+            holiday_hours: '0.00',
+            days_present: 3,
+          },
+        ],
+      },
+      [`/api/v1/payroll/companies/${COMPANY}/contracts`]: [],
+    })
+    renderScreen(<TimesheetScreen />, {
+      path: '/companii/:companyId/pontaj',
+      route: `/companii/${COMPANY}/pontaj`,
+    })
+
+    fireEvent.click(await screen.findByRole('button', { name: /2026-03/ }))
+    expect(await screen.findByText('Rusu Ion')).toBeInTheDocument()
+    // Exactly the string the server sent: nothing on the screen adds a column up.
+    expect(screen.getByText('22.50')).toBeInTheDocument()
   })
 
   it('fără sesiune, aplicația arată ecranul de autentificare', async () => {

@@ -17,6 +17,9 @@ import { RegisterScreen } from './accounting/RegisterScreen'
 import { TrialBalanceScreen } from './accounting/TrialBalanceScreen'
 import { CompaniesScreen } from './companies/CompaniesScreen'
 import { PartnersScreen } from './partners/PartnersScreen'
+import { ContractsScreen } from './payroll/ContractsScreen'
+import { PeopleScreen } from './payroll/PeopleScreen'
+import { TimesheetScreen } from './payroll/TimesheetScreen'
 import { AppLayout } from './layout/AppLayout'
 
 /**
@@ -114,6 +117,11 @@ export function App() {
             path="companii/:companyId/solduri-initiale/:batchId"
             element={<OpeningBalancesScreen />}
           />
+          {/* Salarizarea stă SUB companie, spre deosebire de parteneri:
+              angajatorul legal e compania — ea reține, ea depune, ea răspunde. */}
+          <Route path="companii/:companyId/angajati" element={<PeopleScreen />} />
+          <Route path="companii/:companyId/contracte" element={<ContractsScreen />} />
+          <Route path="companii/:companyId/pontaj" element={<TimesheetScreen />} />
         </Route>
       </Routes>
     </BrowserRouter>

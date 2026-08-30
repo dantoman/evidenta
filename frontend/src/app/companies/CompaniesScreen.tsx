@@ -59,6 +59,20 @@ const columns: Column<Company>[] = [
     cell: (company) => company.functional_currency,
     width: '12rem',
   },
+  {
+    // Payroll hangs off the company because the legal employer is the company.
+    // A link here rather than a header entry for the same reason the chart has
+    // one: the header does not know which company, and a screen reachable only
+    // by typing its address is a screen nobody reaches.
+    key: 'payroll',
+    header: t.payroll.people,
+    cell: (company) => (
+      <Link to={`/companii/${company.id}/angajati`} className="text-accent">
+        {t.payroll.people}
+      </Link>
+    ),
+    width: '10rem',
+  },
 ]
 
 export function CompaniesScreen() {

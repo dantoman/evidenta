@@ -362,6 +362,15 @@ pe date reale la primul pilot.
 
 ### F2.B1 — Angajați și contracte
 
+> **Livrată pe jumătate, 2026-08-30, și jumătatea e numită.** Pasul 1 al secvenței noi a construit
+> `operations/payroll`: `employee`, `employment_contract` cu `relationship_type` `NOT NULL`,
+> `employment_contract_amendment`, `timesheet`, `timesheet_day`, plus rutele și cele trei ecrane.
+> **Ce a rămas aici:** `payroll_line` cu cheie `UUID` și înghețarea la `approved` — e al **pasului 3**,
+> fiindcă linia de salariu nu există înaintea calculului; și **reconcilierea populației**, care e al
+> **pasului 4**, fiindcă are nevoie de declarația nominală ca să aibă ce compara. Cerințele (1), (2) și
+> (4) sunt livrate; (3) și (5) sunt mutate, nu abandonate.
+
+
 - **Obiectiv:** `operations/payroll/employees`, `contracts`: CRUD, rute, ecran; datele personale sunt
   sensibile — accesul se auditează (`platform/audit`), iar `C37` rămâne: niciun termen de model în
   interfață. Dimensiunea `employee_id` se leagă de aici.
