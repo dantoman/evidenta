@@ -140,6 +140,7 @@ Acte normative, secțiuni din documentele de intrare, benchmark-uri, discuții.
 | [067](067-contractul-e-cap-de-serie.md) | Amendament la ADR-065: contractul de muncă e cap de serie, nu stare — orice clauză schimbată cere act adițional; o sarcină adaugă câmpuri, nu entități | Acceptat — domeniu, proprietar | 2026-08-30 | — |
 | [068](068-anexa-citita-categoria-e-a-raportului.md) | Amendament la ADR-065: anexa citită mută categoria CAS de pe companie pe raportul de muncă; cota împărţită de la pct. 1.5; art. 22 ca invariant | Acceptat — domeniu, proprietar | 2026-08-30 | — *(restrânge `OD-85`, `OD-81`; deschide `OD-91`)* |
 | [069](069-persoana-asigurata-nu-e-angajatul.md) | Populația declarației nominale nu e mulțimea angajaților; invariantul art. 22 e al raportului de muncă, nu al oricărei baze CAS | Acceptat — domeniu, proprietar | 2026-08-30 | — |
+| [070](070-trei-feluri-nu-o-familie.md) | Trei feluri, nu o familie: operand lipsă → coloană obligatorie, întrebare nepusă → reconciliere, comparaţie nefăcută → `OD-86`. Plafonul: structura mută decizia din tăcere într-un diff, nu o ia | Acceptat — proces, proprietar | 2026-08-30 | — *(restrânge `OD-86`)* |
 
 *Indexul se actualizează la fiecare ADR nou. Un ADR care nu apare aici este invizibil.*
 

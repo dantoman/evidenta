@@ -332,9 +332,45 @@ LP318/29.12.2025, **în vigoare azi**. Nouă puncte, dintre care două ating sar
   rând**, iar antetul n-are categorie de plătitor. **Declaraţia n-a fost proiectată nici pe companie,
   nici pe angajat** — ceea ce mută reformularea din *corecţie juridică* în **constrângere a ieşirii**.
 
+**Addendum §10 — gruparea sesiunii era greşită, şi greşeala e instructivă.**
+[ADR-070](decisions/070-trei-feluri-nu-o-familie.md): cele patru defecte numite „aceeaşi familie" erau
+grupate după **cum au fost găsite** (toate la revizie), nu după ce sunt. Testul care le desparte:
+**unde e al doilea operand?**
+
+- **marginea `valid_from`** şi **domeniul invariantului art. 22** — operandul **nu există în sistem**;
+- **declaraţia construită din angajaţi** — amândoi operanzii există, **întrebarea** a lipsit;
+- **ADR ↔ date** — amândoi există, întrebarea e pusă, **comparaţia** nu se face. Doar aceasta e `OD-86`.
+
+**Trei feluri, trei răspunsuri.** Operand lipsă **nu se prinde, se face imposibil de scris** — coloană
+obligatorie, fără implicit, fiindcă *un gardian care poate fi construit poate fi dezactivat, o coloană
+obligatorie nu*. Argumentul e deja în cod, la `source_confidence`: *„A default would let the row arrive
+without anyone deciding."* **Golul e mai precis decât părea, măsurat:** `fiscal_parameter.act` e actul
+din care vine **valoarea**; marginea poate veni din **alt act** — un singur slot de citare acolo unde
+sunt necesare două.
+
+**Plafonul, scris ca atare:** structura **nu** ia decizia. Un `domeniu = orice_bază_CAS` pune defectul
+înapoi. Ce face structura e că mută decizia **din tăcere într-un diff** — un domeniu greşit se citeşte
+şi apare la revizie, unul inexistent nu apare nicăieri. Reziduul rămâne al reviziei, dar e *„a ales
+greşit"*, nu *„n-a ales"*. Şi: **„mecanizabil" are două înţelesuri** — detectabil automat (3 din 4) şi
+imposibil de greşit (niciunul); sesiunea le confundase.
+
+**Reconcilierea, scrisă acum ca al patrulea test al lui `F2.B1`:** *orice persoană cu sarcină CAS în
+perioada `P` apare ca rând nominal în `P` — şi invers.* Reciproca contează la fel. **Singurul dintre
+cele patru defecte care se prinde fără să se construiască nimic**, şi n-a fost scris fiindcă populaţia
+se numea „angajaţi" şi părea evident completă — **forma a zecea** pentru taxonomia din
+`CONTEXT-evidenta.md` §6: *un gardian care n-a fost pus fiindcă domeniul lui părea trivial*, distinctă
+de „un verificator care nu poate cădea".
+
+**Predicţie datată, ca să poată fi infirmată:** a cincea instanţă trebuie să se descompună la fel —
+operand lipsă, întrebare nepusă, sau comparaţie nefăcută. **Dacă apare una care nu intră în niciuna,
+reformularea e greşită, nu incompletă.**
+
+> **Nereconciliat:** `CONTEXT-evidenta.md` **nu există în acest repository**, deci §4, §6 şi §6.5 din
+> instrucţiune n-au putut fi atinse direct; conţinutul lor e în ADR-070 §4 şi §6.
+
 **Unde s-a oprit.** Niciun cod de modul. `F2.B1` poate începe: are entitatea, câmpurile, clasificarea,
-categoria pe raport, populaţia largă a declaraţiei şi testele — inclusiv cel pe domeniul invariantului
-art. 22. Ce îi trebuie, în ordine: rolurile de
+categoria pe raport, populaţia largă a declaraţiei şi **patru** teste numite — reconcilierea în ambele
+sensuri, izolarea, lista negativă de excepţii la suspendare, şi domeniul invariantului art. 22. Ce îi trebuie, în ordine: rolurile de
 cont pentru salarii din Planul general de conturi (`od-22-planul-de-conturi.md`,
 `od-23-nomenclatorul-planului-de-conturi.md`), asimetria CAS/CNAM din `od-22-cnas-cnam.md`, linia cu
 două date (ADR-039 §9, ADR-044 §6), și ADR-ul care fixează toate acestea **înaintea** codului.

@@ -387,7 +387,13 @@ pe date reale la primul pilot.
   extindere, e rescrierea fiecărui apelant.
 - **Depinde de:** F2.B0.
 - **Review:** `tenancy-guard`, `schema-reviewer`.
-- **Terminat:** izolarea (angajații companiei B invizibili din A, sub rolul aplicației — `T1`);
+- **Terminat:** **reconcilierea populaţiei** — *orice persoană cu sarcină CAS în perioada `P` apare ca
+  rând nominal în declaraţia `P`, **şi invers*** ([ADR-070](../decisions/070-trei-feluri-nu-o-familie.md)
+  §5). **Reciproca contează la fel de mult:** un rând nominal fără sarcină e tot un defect. Se scrie pe
+  date reale, **fără nicio structură nouă** — e singurul dintre cele patru defecte ale familiei care se
+  prinde fără să se construiască ceva, şi n-a fost scris fiindcă populaţia se numea „angajaţi" şi părea
+  evident completă. Apoi: izolarea (angajații companiei B invizibili din A, sub rolul aplicației —
+  `T1`);
   contractul cu dată de încetare nu mai intră în rulare după ea; o clauză schimbată produce act
   adițional și lasă contractul inițial citibil; **test explicit pe lista negativă de excepții la
   suspendare** — suspendările din circumstanțe independente de voința părților, concediul pentru
