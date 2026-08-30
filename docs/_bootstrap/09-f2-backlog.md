@@ -351,7 +351,13 @@ pe date reale la primul pilot.
   `payroll` ca **capabilitate cu inițializare** (`R25`, `F2.P3`); cumulativele (`OD-04`, `F2.B6`).
 - **Depinde de:** ADR-039 §9, ADR-044, cercetarea `od-22-cnas-cnam.md`, `od-22-impozitul-pe-venit.md`.
 - **Review:** `fiscal-reviewer`, `accounting-reviewer`, `schema-reviewer`.
-- **Terminat:** ADR `Acceptat`; `DNB-05` închisă (sau despicată explicit, cu ce rămâne).
+- **Terminat 2026-08-30:** [ADR-065](../decisions/065-schema-salarizarii.md) `Acceptat`; `DNB-05`
+  **închisă** — detaliul per angajat în registru, o formulă per angajat şi tip de sumă. Trei revizori,
+  **cinci CRITICAL**, toate confirmate pe sursă şi corectate înainte de semnare; unul a redeschis
+  `DNB-05`, fiindcă argumentul de volum pe care se luase decizia era fals (§8.1) — decizia a rămas,
+  motivele sunt altele. Deschise pe drum: `OD-81` (închisă prin refuz: parcurile IT nu intră în F2),
+  `OD-83` (motorul ramifică doar pe capabilităţi), `OD-84` (accesul pe rapoartele cu dimensiune de
+  angajat), `OD-85`, `OD-86`.
 - **Blocat de:** — *(`DNB-05` **decisă 2026-08-30, varianta C**, și `DN-10` închisă prin [ADR-060](../decisions/060-vocabularul-capabilitatilor.md); ADR-ul acestei sarcini le poartă pe amândouă. **Prima sarcină a F2.**)*
 
 ### F2.B1 — Angajați și contracte
@@ -647,7 +653,7 @@ pe date reale la primul pilot.
   704/2019 — amortizarea fiscală, dacă VEN12 intră în F2 (§„Întrebări"); **(j)** returul și corectarea
   facturii — recitirea țintită a Instrucțiunii OMF 118/2017, anexa nr. 2 (`F2.A0`; `V1` tace —
   re-verificat 2026-08-30, zero potriviri pe „retur", „corectare", „notă de credit", „anulare",
-  „storno" în fișier). **Prioritar: se face înaintea lui `F2.A0`** — e cel mai ieftin punct deschis al
+  „storno" în fișier). **(k)** **IRM19** — informaţia de angajare/modificare/încetare (10 zile lucrătoare, toţi angajatorii) — şi **Codul muncii art. 49**, clauzele obligatorii ale contractului individual: câmpurile lui `employment_contract` sunt azi derivate din ce consumă calculul, nu transcrise dintr-un act ([ADR-065](../decisions/065-schema-salarizarii.md) §11); **se citesc înaintea lui `F2.B1`**. **Prioritar: (j) se face înaintea lui `F2.A0`** — e cel mai ieftin punct deschis al
   fazei, un document deja în repo, și singurul unde răspunsul poate fi deja acolo.
   Fiecare intră în registrul de acte (`register_act`) cu publicarea.
 - **Depinde de:** — *(poate merge oricând; nu e modul)*.
@@ -948,7 +954,7 @@ declarație rectificativă).
 | F2.A7 (transportul) | `OD-24` | extern (SFS) |
 | F2.A8 | `C2` din F1.4.4; amortizarea fiscală — HG 704/2019 **obținută** (`F2.X2 (i)`), Catalogul HG 941/2020 nu | în lucru la evidenta-77, după C5; lectură |
 | F2.A9 | `OD-76` (stratul `integrations`), `OD-26` (sursa BNM); ~~reevaluarea — Anexa 1 SNC~~ obținută integral 2026-08-30 (`F2.X2 (f)`) | ADR; extern |
-| ~~F2.B0~~ | ~~`DNB-05`, `DN-10`~~ | **deblocată 2026-08-30** — varianta C și [ADR-060](../decisions/060-vocabularul-capabilitatilor.md) |
+| ~~F2.B0~~ | ~~`DNB-05`, `DN-10`~~ | **LIVRATĂ 2026-08-30** — [ADR-065](../decisions/065-schema-salarizarii.md) `Acceptat` |
 | ~~F2.B6~~ | ~~`OD-04`~~ | **deblocată 2026-08-30** — [ADR-061](../decisions/061-cumulativele-de-salarii.md) |
 | F2.C1 (capitalul propriu) | `OD-73` — **premisa corectată 2026-08-30:** SNC „Prezentarea" pct. 18 și 228 numesc momentul (după aprobare și prezentare); tac asupra datei contabile | a proprietarului; declanșatorul e prima închidere reală de exercițiu |
 | F2.C2 (depunerea) | `OD-75` — canalul SFS | extern (SFS); **nou** |

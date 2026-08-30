@@ -135,6 +135,8 @@ Acte normative, secțiuni din documentele de intrare, benchmark-uri, discuții.
 | [062](062-aprobatorul-din-productie.md) | Aprobatorul din producție e o persoană cu MFA, nu un nivel de rol; nivelul de platformă rămâne la `DN-18` | Acceptat — decizie tehnică | 2026-08-30 | `OD-71` (jumătatea „cine semnează") |
 | [063](063-coliziunea-se-decide-dupa-cine-garanteaza.md) | Coliziunea se decide după cine garantează cheia; UID-ul SFS e idempotență, nu deduplicare | Acceptat — decizie tehnică | 2026-08-30 | `DNB-11` |
 | [064](064-diferenta-explicata-nu-diferenta-zero.md) | Punctul 3 al criteriului de ieșire din F2: diferență explicată, nu diferență zero | Acceptat — scop, proprietar | 2026-08-30 | — |
+| [065](065-schema-salarizarii.md) | Schema salarizării: sarcina angajatorului și reținerea din salariat sunt două structuri, nu una parametrizată; detaliul per angajat în registru; două date pe linia de salariu | Acceptat — domeniu, proprietar | 2026-08-30 | `DNB-05`, `OD-81` *(deschide `OD-83`, `OD-84`)* |
+| [066](066-rezerva-e-decizie-deschisa.md) | O rezervă cu declanșator este o decizie deschisă și are rând în registru; marcaj auto-declarat plus gardian | Acceptat — decizie de proces | 2026-08-30 | `OD-82` *(deschide `OD-85`)* |
 
 *Indexul se actualizează la fiecare ADR nou. Un ADR care nu apare aici este invizibil.*
 

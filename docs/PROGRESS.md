@@ -217,7 +217,36 @@ tabelul de blocaje al `09-f2-backlog.md` sunt tăiate pentru `F2.B0`, `F2.B6`, `
 `F2.P3`; secțiunea de întrebări are răspunsurile în capul ei, cu textul întrebărilor păstrat;
 Spec A §11.10 și Spec B §4.2, §8.1, §10.2, §11 poartă deciziile.
 
-**Unde s-a oprit.** `F2.B0` **nu a început** — e prima sarcină. Ce îi trebuie, în ordine: rolurile de
+**`F2.B0` scris, `Propus`, nu bifat** — [ADR-065](decisions/065-schema-salarizarii.md). Cei trei
+revizori pe care sarcina îi cere au dat **cinci CRITICAL**, toate confirmate pe sursă şi corectate:
+29% e la pct. 1.1 nu 1.2 (fişierul de parametri o avea corect, ADR-ul nu — nimic nu le compara);
+rezerva de provenienţă pe anexa nr. 1 la L. 489/1999, restaurată; parcurile IT (pct. 1.4) omise, şi
+sunt a doua **formă** de calcul, nu a şaptea categorie; `COSTURI_INDIRECTE_PRODUCTIE` exista deja în
+catalog, iar un al doilea rând ar fi rupt provizionarea **oricărei** companii; `employee` fără nicio
+cheie naturală pentru nerezidenţi.
+
+**Şi `DNB-05` e redeschisă** (ADR-065 §8): argumentul pe care s-a luat decizia — *„liniile nu cresc cu
+angajaţii, formulele da"* — nu se susţine în motorul care există. `merge()` pliază formulele doar pe
+tuplul complet de sloturi, iar `lines_to_write()` scrie **exact două** linii per formulă; raportul e
+fix 1:2, aşa cum `append_only.toml` îl declară deja. „10 linii şi 1 200 de formule" nu poate exista.
+Alegerea reală, cu cifrele din modelul de volum, e în §8.1; `R13` nu cere ce se presupunea (§8.2).
+
+**`F2.B0` livrată** — [ADR-065](decisions/065-schema-salarizarii.md) `Acceptat`, cu toate cele cinci
+CRITICAL corectate şi cele şase puncte ale proprietarului aplicate. `DNB-05` închisă: **detaliul per
+angajat stă în registru**, o formulă per angajat şi tip de sumă — pe motivele măsurate (volum
+proporţional, fişa contului navigabilă direct, direcţia reversibilă), **nu pe cel fals**, care e
+consemnat în §8.1 ca să nu fie recitit peste un an ca fapt.
+
+**[ADR-066](decisions/066-rezerva-e-decizie-deschisa.md) `Acceptat`** — o rezervă cu declanşator e o
+decizie deschisă şi are rând în registru, cu marcaj auto-declarat şi gardian
+(`tests/architecture/test_reservations_are_tracked.py`, al patrulea din tiparul `REVERSIBILITY` /
+`decizie de domeniu` / `case(cites=…)`). **Verificat în ambele direcţii:** cu marcajul pus, 108 trec;
+scos, gardianul raportează exact cazul real — *065 leans on ADR-044 and drops OD-85*. Domeniul lui e
+îngustat la ADR-urile scrise după regulă, fiindcă aplicat retroactiv acuza patru ADR-uri fără legătură
+cu tarifele, iar un gardian care sâcâie ajunge oprit.
+
+**Unde s-a oprit.** Niciun cod de modul încă — `F2.B0` e ADR, iar următoarea e `F2.B1`, care aşteaptă
+`F2.X2 (k)` (IRM19 şi Codul muncii art. 49) şi clasificarea append-only a tabelelor salarizării. Ce îi trebuie, în ordine: rolurile de
 cont pentru salarii din Planul general de conturi (`od-22-planul-de-conturi.md`,
 `od-23-nomenclatorul-planului-de-conturi.md`), asimetria CAS/CNAM din `od-22-cnas-cnam.md`, linia cu
 două date (ADR-039 §9, ADR-044 §6), și ADR-ul care fixează toate acestea **înaintea** codului.
@@ -241,6 +270,11 @@ două date (ADR-039 §9, ADR-044 §6), și ADR-ul care fixează toate acestea **
   adăugată azi e pe un set pe care niciun apelant HTTP nu-l atinge, deci nu extinde golul.
 - Punctele 1 și 2 ale criteriului de ieșire din F2 — amânate, declanșator: alegerea companiei-pilot.
 - `DN-18` — nivelul de rol de platformă, cu accesul de suport. Nu s-a strecurat în `OD-71`.
+- **`OD-81` nouă** — forma substitutivă (parcuri IT): (i) intră în F2? — măsurătoarea costului e în
+  ADR-065 §3.2.1 şi e asimetrică; (ii) decis oricum — o companie rezidentă nu rulează salarii tăcut.
+- **`OD-82` nouă** — o rezervă declarată într-un ADR nu se propagă în cel care se sprijină pe el, şi
+  pierderea n-are semnal. Cauza verificabilă: rezerva trăia doar în proză, fără rând în registru.
+  Propunerea sesiunii: marcaj auto-declarat plus gardian, în tiparul lui `REVERSIBILITY`.
 
 **Ce nu s-a atins deliberat:** nicio linie de cod. `F2.B0` e ADR înaintea codului, iar consemnarea
 trebuia să fie completă întâi — o decizie a proprietarului care rămâne doar în transcript e exact ce

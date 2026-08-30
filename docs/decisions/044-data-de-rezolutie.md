@@ -82,6 +82,12 @@ implicită într-un apelant — altfel invariantul rămâne scris și nu mai e a
 **Prima lectură a acestui ADR spunea că întrebarea „se mută" spre textul Legii nr. 489/1999, necitit.
 Textul a fost între timp citit de proprietar, și rezultatul e mai bun: nu e nevoie de nicio excepție.**
 
+> **REZERVĂ (`OD-85`):** textul anexei nr. 1 la Legea nr. 489/1999 **nu e citit**; tarifele de mai jos
+> vin din Ordinul CNAS nr. 31-A, act care aplică anexa. *Declanşator: înainte de handlerul de salarii,
+> unde distincţia devine cod.* — marcaj adăugat retroactiv 2026-08-30 prin
+> [ADR-066](066-rezerva-e-decizie-deschisa.md); rezerva exista din prima redactare, dar fără rând în
+> registru, şi s-a pierdut exact la handler.
+
 **Tarifele sunt în lege, nu în ordin.** Anexa nr. 1 la Legea nr. 489/1999 reglementează categoriile de
 plătitori, **tarifele**, baza de calcul și termenele de virare. Ordinul CNAS nu inventează un cuantum —
 repetă o regulă care are deja rang de lege. Iar legea ancorează explicit **în momentul acumulării**, în
