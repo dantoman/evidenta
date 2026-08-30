@@ -9,7 +9,8 @@
 - **Regula de dimensionare:** aceeași ca la F1 — o sarcină care atinge mai mult de un modul, sau care
   nu poate fi verificată printr-un criteriu clar, este prea mare. Fiecare sarcină încape într-o
   sesiune; unde nu încape, spune că e mai multe sesiuni și în ce ordine.
-- **Statut:** scris **înaintea** închiderii criteriului de ieșire din F1 (trei din cinci puncte
+- **Statut, 2026-08-30:** **F2 pornită** prin declarația proprietarului; cele opt întrebări răspunse,
+  cinci ADR-uri (060–064). Scris inițial **înaintea** închiderii criteriului de ieșire din F1 (trei din cinci puncte
   stau pe F1.10, corpusul — vezi `08-f1-backlog.md`). `CLAUDE.md` §4: *nu se scriu module din F2+
   înainte de criteriul de ieșire din faza curentă.* Acest document nu e modul: e descompunerea.
   Ce poate începe înainte de F1.10 și ce nu — §„Ce poate începe", explicit.
@@ -141,7 +142,12 @@ pe date reale la primul pilot.
   **date**; ce SNC lasă la alegere e clasificarea proprietarului, ca la ADR-036 §11.
 - **Întrebări pe care ADR-ul trebuie să le răspundă, nu să le ocolească:** (1) nota de credit / returul
   e `ReversalDocument` (există, `create_reversal`) sau un document de vânzare cu semn? — OMF 118/2017 e
-  citit (`V1`), dar întrebarea *ce document se emite la retur* nu s-a pus; (2) avansul: `sales.document`
+  citit (`V1`), dar întrebarea *ce document se emite la retur* nu s-a pus. **Înclinația proprietarului,
+  2026-08-30, ca ADR-ul să nu pornească orb: document de vânzare cu natură retur, nu `ReversalDocument`
+  — returul unei prestări are aceeași structură de linii și același ciclu de viață ca o livrare, doar
+  semnul diferă; `ReversalDocument` e pentru anularea unei erori, nu pentru un eveniment economic nou.
+  Nu e decizia finală: dacă schema e-Factura (`V2`, `OD-24`) permite o singură formă, alegerea e făcută
+  în afara noastră. `F2.X2 (j)` se face ÎNAINTEA acestei sarcini;** (2) avansul: `sales.document`
   cu `nature = advance` există — postarea lui (rolurile `AVANS_*` există) și legătura cu factura
   finală; (3) ce cheie de idempotență poartă evenimentul (`R19`: pe eveniment, nu pe endpoint) —
   propunere: identitatea documentului plus tranziția.
@@ -284,8 +290,13 @@ pe date reale la primul pilot.
   cele trei metode de la pct. 22; `c2-amortizarea.md`); modulul emite evenimentul lunar per obiect și
   nu recalculează nimic din ce handlerul decide; transferul, casarea, vânzarea; setul
   `opening_balance_asset` există. Rolurile pentru imobilizări **corporale** lipsesc din catalog —
-  date din Planul general de conturi, în ADR-ul familiei. **Amortizarea fiscală nu intră** (HG
-  704/2019 neobținută — `08-f1-backlog.md` F1.4.4); consecința pentru VEN12 e în §„Întrebări".
+  date din Planul general de conturi, în ADR-ul familiei. **Calculul** amortizării fiscale nu intră (VEN12 e amânat — `OD-79`), dar
+  **registrul de active poartă dimensiunea fiscală de la primul obiect înregistrat**: categoria, data
+  intrării sub regulile fiscale, pragul la intrare (art. 26¹ alin. (2)). Decis 2026-08-30, se
+  consemnează în ADR-ul acestei familii chiar dacă VEN12 rămâne afară — HG 704/2019 (obținută,
+  `F2.X2 (i)`) pct. 8–9 și anexa 1 cer registru statutar **per obiect**, iar un activ înregistrat fără
+  categorie fiscală nu se poate reclasifica retroactiv fără să știi ce era la data intrării. Costul
+  reconstrucției crește per obiect, deci partea structurală nu așteaptă răspunsul la scop.
 - **Depinde de:** F1.4.4 `C2` (sesiunea care a livrat C4 și C5, `evidenta-77`; C2 urmează în ordinea proprietarului), F2.A0.
 - **Review:** `accounting-reviewer`, `fiscal-reviewer`.
 - **Terminat:** `C12` pe intrare, amortizare (12 luni, suma egală cu costul minus valoarea reziduală
@@ -326,15 +337,22 @@ pe date reale la primul pilot.
   dizolvat conflictul aparent cu `R18` din Ordinul CNAS 31-A/2026 pct. 8), **asimetria structurală**
   din cercetare: CAS e obligația angajatorului, deci cheltuială; CNAM e reținere din salariat; *nu se
   modelează cu aceeași structură „cotă angajator + cotă angajat"*, iar contribuția individuală CAS e
-  istorică (`valid_to = 2020-12-31`, Legea 60/2020); granularitatea postării (`DNB-05`: o linie per
-  angajat și tip, agregat, sau agregat plus read model — decizie contabilă, cu volumul din
-  `11-volume-model.md`); rolurile de cont (datorii salariale, CAS, CNAM, impozit reținut — Planul
+  istorică (`valid_to = 2020-12-31`, Legea 60/2020); **granularitatea postării — decisă
+  2026-08-30, varianta C** (`DNB-05`): linii **agregate pe rol** per rulare (cheltuială salarială,
+  datorii salariale, CAS, CNAM, impozit reținut) și **formule per angajat** (`journal_formula`,
+  ADR-048) cu `employee_id` într-un slot de dimensiune — `employee` e dimensiune numită din F1.2,
+  coloana pe linie și sloturile pe formulă există. Drill-down-ul `R13` rămâne în contabilitate:
+  rulare → formulă → angajat, fără să traverseze `D2` sau `D3`. Volumul, din `11-volume-model.md`:
+  6 salariați ≈ 10 linii și 36 de formule; 200 de salariați, tot ~10 linii și ~1 200 de formule —
+  liniile nu cresc cu angajații, formulele da, și sunt tabela făcută pentru asta. **ADR-ul
+  consemnează că granularitatea nu e configurabilă, și că motivul e `R10`:** schimbarea ei după prima
+  rulare postată nu e migrare, e campanie de storno și repostare; rolurile de cont (datorii salariale, CAS, CNAM, impozit reținut — Planul
   general de conturi); nivelul: angajatul e al **companiei** (angajatorul legal), nu al tenantului;
   `payroll` ca **capabilitate cu inițializare** (`R25`, `F2.P3`); cumulativele (`OD-04`, `F2.B6`).
 - **Depinde de:** ADR-039 §9, ADR-044, cercetarea `od-22-cnas-cnam.md`, `od-22-impozitul-pe-venit.md`.
 - **Review:** `fiscal-reviewer`, `accounting-reviewer`, `schema-reviewer`.
 - **Terminat:** ADR `Acceptat`; `DNB-05` închisă (sau despicată explicit, cu ce rămâne).
-- **Blocat de:** `DNB-05` (a proprietarului), `DN-10` (vocabularul capabilităților).
+- **Blocat de:** — *(`DNB-05` **decisă 2026-08-30, varianta C**, și `DN-10` închisă prin [ADR-060](../decisions/060-vocabularul-capabilitatilor.md); ADR-ul acestei sarcini le poartă pe amândouă. **Prima sarcină a F2.**)*
 
 ### F2.B1 — Angajați și contracte
 
@@ -397,7 +415,10 @@ pe date reale la primul pilot.
 - **Depinde de:** F2.B4.
 - **Review:** `fiscal-reviewer`.
 - **Terminat:** pe cazurile interne, raportul arată zero; pe un caz cu o diferență introdusă
-  deliberat, o arată la ban și la angajatul corect.
+  deliberat, o arată la ban și la angajatul corect — **și o poate purta ca „diferență explicată", cu
+  motiv**. Starea e cerută de criteriul rescris ([ADR-064](../decisions/064-diferenta-explicata-nu-diferenta-zero.md));
+  forma ei — model, ecran, export — se decide aici, în tiparul lui `unassigned` din Cartea Mare: o
+  diferență cinstită între două citiri, purtată vizibil, nu tolerată.
 - **Blocat de:** — *(cititorul formatului real: `OD-28`, bifa finală pe pilot)*.
 
 ### F2.B6 — Cumulativele la activarea în cursul anului (`OD-04`)
@@ -411,7 +432,7 @@ pe date reale la primul pilot.
 - **Review:** `fiscal-reviewer`, `accounting-reviewer`.
 - **Terminat:** un angajat cu cumulative de la alt sistem primește, în luna activării, același
   impozit ca și cum tot anul ar fi fost calculat aici (caz de corpus).
-- **Blocat de:** `OD-04` — **a proprietarului, „înainte de F2"**, deschisă din Amendamentul 1.
+- **Blocat de:** — *(`OD-04` închisă prin [ADR-061](../decisions/061-cumulativele-de-salarii.md): trei chei, toate valorile pozitive, fereastra anului fiscal. **Adaugă aici `CHECK amount >= 0` pe `opening_balance_payroll_cumulative`** — migrare aditivă pe o tabelă goală, cu `schema-reviewer`.)*
 
 ---
 
@@ -439,8 +460,10 @@ pe date reale la primul pilot.
 
 - **Obiectiv:** `operations/statutory/sfs`: IPC21 (darea de seamă lunară a angajatorului și
   impozitul reținut, art. 92, până pe 25 — `od-22-impozitul-pe-venit.md` §5), IALS21/INR14 (anual),
-  declarația TVA (`F2.A6`), VEN12 (impozitul pe venit al entității — vezi §„Întrebări": calculul lui
-  cere ajustările fiscale, un calcul propriu). Formularele sunt acte publice (ordine SFS/MF) —
+  declarația TVA (`F2.A6`), VEN12 — **amânat din F2, `OD-79`**, cu declanșator: *trimestrul de pilot
+  traversează 31 decembrie*. Termenul e 25 martie, punctul 2 al criteriului numește doar rapoartele
+  lunare și trimestriale, iar duratele de funcționare utilă (HG 941/2020, Catalogul) nu s-au obținut —
+  „da" n-ar fi cumpărat o dată mai devreme. Formularele sunt acte publice (ordine SFS/MF) —
   cercetare, nu blocaj extern; **canalul de depunere** e `OD-75`. Termenele: parametri (ADR-039 §7.1).
 - **Depinde de:** F2.B4, F2.A6, F2.X2.
 - **Review:** `fiscal-reviewer`.
@@ -473,7 +496,7 @@ pe date reale la primul pilot.
 - **Review:** `tenancy-guard`, `fiscal-reviewer`.
 - **Terminat:** un parametru încărcat azi cu `valid_from` mâine devine `active` mâine fără
   intervenție și e refuzat de rezolvator azi; rândul de jurnal poartă aprobatorul.
-- **Blocat de:** `OD-71` (identitatea aprobatorului — „înainte de F2", a proprietarului).
+- **Blocat de:** — *(`OD-71` închisă pe jumătatea „cine semnează", [ADR-062](../decisions/062-aprobatorul-din-productie.md): o persoană reală cu MFA, fără nivel nou de rol. Termenul e **înainte de prima activare în producție**, nu înainte de F2.)*
 
 ### F2.C5 — Corpusul, extins la TVA și salarii
 
@@ -533,7 +556,7 @@ pe date reale la primul pilot.
 - **Review:** `tenancy-guard`, `schema-reviewer`.
 - **Terminat:** `IZ`-uri noi: utilizatorul de sistem nu citește nimic pe calea normală (sub rolul
   aplicației, `T1`); `P-3` (BNM) scrie cu identitatea lui în jurnal.
-- **Blocat de:** `OD-71` — **doar aprobatorul**.
+- **Blocat de:** — *([ADR-062](../decisions/062-aprobatorul-din-productie.md); utilizatorii de sistem erau oricum specificați în Spec A §3.4.)*
 
 ### F2.P3 — Capabilitatea `payroll` și vocabularul (`DN-10`)
 
@@ -549,7 +572,7 @@ pe date reale la primul pilot.
 - **Terminat:** `capability_key` cu vocabular închis (CHECK sau enumerare în cod); testul că o
   capabilitate de conformitate cu `effective_to` e refuzată rămâne verde; profilul intră în
   `capability_snapshot` al evenimentelor de salarii.
-- **Blocat de:** `DN-10` (a proprietarului).
+- **Blocat de:** — *([ADR-060](../decisions/060-vocabularul-capabilitatilor.md): `payroll`, `inventory`, `multi_company`, tuplu în cod materializat ca CHECK; `payroll` **nu** e capabilitate de conformitate, dar ieșirile lui declarative nu se dezactivează.)*
 
 ### F2.P4 — Căutare globală, import/export
 
@@ -622,7 +645,10 @@ pe date reale la primul pilot.
   „Diferențe de curs valutar și de sumă" (`F2.A9`, reevaluarea); (g) ordinul de plată — forma
   reglementată (`F2.A4`); (h) conținutul minim al fluturașului, dacă e prescris (`F2.B4`); (i) HG
   704/2019 — amortizarea fiscală, dacă VEN12 intră în F2 (§„Întrebări"); **(j)** returul și corectarea
-  facturii — recitirea țintită a Instrucțiunii OMF 118/2017, anexa nr. 2 (`F2.A0`; `V1` tace).
+  facturii — recitirea țintită a Instrucțiunii OMF 118/2017, anexa nr. 2 (`F2.A0`; `V1` tace —
+  re-verificat 2026-08-30, zero potriviri pe „retur", „corectare", „notă de credit", „anulare",
+  „storno" în fișier). **Prioritar: se face înaintea lui `F2.A0`** — e cel mai ieftin punct deschis al
+  fazei, un document deja în repo, și singurul unde răspunsul poate fi deja acolo.
   Fiecare intră în registrul de acte (`register_act`) cu publicarea.
 - **Depinde de:** — *(poate merge oricând; nu e modul)*.
 - **Review:** `fiscal-reviewer` (pe fișier).
@@ -697,19 +723,20 @@ diferențe al rulării în paralel, activele. Fiecare ecran are testul de fum Vi
 ## Ordinea și paralelismul
 
 ```
-înainte de F1.10 (fără cod de modul):
+făcut (2026-08-30):
   F2.X2 cercetare ─┐
-  F2.X1 parametri  ├─ oricând; decizii: OD-04, OD-71, DN-10, DNB-05, DNB-11, OD-75, OD-76
-  09 (acest doc)  ─┘
+  F2.X1 parametri  ├─ deciziile proprietarului: OD-04, OD-71, DN-10, DNB-05, DNB-11 — TOATE ÎNCHISE
+  09 (acest doc)  ─┘  rămân externe: OD-75, OD-76, OD-22, OD-24…OD-27
 
-după criteriul de ieșire din F1:
+F2 pornită; ordinea:
   F2.P2 utilizatori de sistem ──┐
   F2.P1 tipărire ───────────────┼──────────────────────────────┐
   F2.P3 capabilitatea payroll ──┘                              │
                                                                │
   Flux A:  A0 ─→ A1 ∥ A2 ─→ A3 ─→ A4 ∥ A5 ─→ A6 ─→ A7          │   A8 după C2 (F1.4.4)
+           ↑ F2.X2 (j) înaintea lui A0                         │
                                                                │   A9 după P2 și OD-76
-  Flux B:  B0 ─→ B1 ─→ B2 ∥ B3 ─→ B4 ─→ B5          B6 la OD-04 │
+  Flux B:  B0 ─→ B1 ─→ B2 ∥ B3 ─→ B4 ─→ B5          B6 după B2  │   ← B0 e PRIMA sarcină a F2
                                                                │
   Flux C:  C4, C5 cresc pe tot parcursul; C1 după A6 + B4 + P1; C2 după B4 + A6; C3 după B4 + OD-25
 ```
@@ -731,9 +758,13 @@ C1 în ordinea proprietarului. Fără cod de modul, pot merge: acest document; `
 **Nu pot merge:** `F2.A*`, `F2.B*`, `F2.C*`, `F2.P*`, `F2.G` — sunt module. Dacă proprietarul vrea
 altfel, e schimbarea unei reguli din `CLAUDE.md` §4, deci ADR, nu excepție tăcută. **2026-08-30, seara:** F1.10 e livrată
 (`f8773ea`, evidenta-04) și cele cinci puncte ale criteriului de ieșire din F1 sunt bifate în
-`08-f1-backlog.md`. Ce mai desparte F2 de cod e o declarație, nu o sarcină: F0 a fost închisă printr-o
-propoziție a proprietarului în `PROGRESS.md` („F0 este închisă, criteriul de ieșire îndeplinit"); F1
-așteaptă aceeași propoziție. Nimic din `F2.A`–`F2.G` nu s-a început.
+`08-f1-backlog.md`.
+
+**Declarația a venit — 2026-08-30: „F2 pornește. Prima sarcină e `F2.B0`, cu `DNB-05` varianta C."**
+Aceeași formă ca la F0, o propoziție a proprietarului. Cele opt întrebări ale fazei sunt răspunse
+(§ de mai sus), cinci decizii au ADR și rândurile lor sunt tăiate din tabelul de blocaje în același
+commit. **Ordinea de pornire, cu ce trebuie făcut înainte:** `F2.B0` (prima); `F2.X2 (j)` înaintea lui
+`F2.A0`; `F2.P2` și `F2.P3` nu mai așteaptă nimic.
 
 ---
 
@@ -743,7 +774,11 @@ Din spec §6, neschimbat — e al proprietarului:
 
 - [ ] O companie reală de servicii funcționează exclusiv pe Evidenta timp de un trimestru
 - [ ] Toate rapoartele lunare și trimestriale depuse din Evidenta, acceptate de instituții
-- [ ] Rulare payroll în paralel cu diferență zero pe cel puțin trei companii-pilot
+- [ ] Rulare payroll în paralel pe cel puțin trei companii-pilot, cu, pentru fiecare, **fie diferență
+      zero, fie fiecare diferență explicată una câte una**, cu motiv — **rescris 2026-08-30**,
+      [ADR-064](../decisions/064-diferenta-explicata-nu-diferenta-zero.md): „diferență zero contra 1C"
+      presupunea că 1C are dreptate, deci obliga produsul să fie la fel de greșit ca incumbentul ca să
+      poată fi declarat gata
 
 **Toate trei sunt externe** — cer un pilot real, canale de depunere reale, un trimestru de calendar.
 Nu se rescriu. Ce se adaugă e ce a lipsit la F1 până la ADR-054: **ce se poate verifica intern, înainte
@@ -781,7 +816,32 @@ backlog. Până atunci, criteriul rămâne cum e, iar lista de mai sus e ce se p
 
 ---
 
-## Întrebările pentru proprietar, într-un singur loc
+## Întrebările pentru proprietar — **toate opt, răspunse 2026-08-30**
+
+**Răspunsurile, cu vehiculul fiecăruia.** Textul întrebărilor rămâne dedesubt, nemodificat: e
+înregistrarea felului în care au fost puse, iar recomandarea sesiunii se citește lângă decizia care a
+urmat-o.
+
+| # | Decizie | Unde stă |
+|---|---|---|
+| 1. `OD-71` | **Varianta A** — aprobatorul e o **persoană reală cu MFA**, fără `membership` și fără nivel nou de rol; semnătura e identitate, nu permisiune. `B` vine cu `DN-18`, separat. Termenul devine **înainte de prima activare în producție**. Cele trei convenții semnate `dev@example.md` **rămân semnate** — append-only, nu se „repară" | [ADR-062](../decisions/062-aprobatorul-din-productie.md) |
+| 2. `OD-04` | **Varianta B** — vocabularul metodei cumulative (`income_tax.taxable_income`, `.exemptions_granted`, `.withheld`), extins la IALS21 când actul adoptat e obținut; **nu se ancorează pe proiectul din 2020**. **Toate valorile pozitive**, `CHECK amount >= 0`: un cumulativ e o mărime, nu o mișcare | [ADR-061](../decisions/061-cumulativele-de-salarii.md) |
+| 3. `DN-10` | **Varianta B** — `payroll`, `inventory`, `multi_company`. `payroll` **nu** e capabilitate de conformitate, dar ieșirile lui declarative nu se dezactivează. Ierarhia se amână, **ieftin doar fiindcă `SNAPSHOT_VERSION` există** | [ADR-060](../decisions/060-vocabularul-capabilitatilor.md) |
+| 4. `DNB-05` | **Varianta C** — linii agregate pe rol, formule per angajat. **Nu e configurabilă**, iar motivul e `R10` | ADR-ul lui `F2.B0` |
+| 5. `DNB-11` | **După cine garantează cheia** — refuz unde garantăm noi, „suspectat duplicat" unde garantează un terț; UID-ul SFS iese la `R19`. **Refuzul e implicitul reversibil** până când fiecare sarcină ajunge la cheia ei | [ADR-063](../decisions/063-coliziunea-se-decide-dupa-cine-garanteaza.md) |
+| 6. VEN12 | **(i) Amânat**, declanșator: *pilotul traversează 31 decembrie*. **(ii) Nu se amână:** registrul de active poartă dimensiunea fiscală de la primul obiect | `OD-79`; partea (ii) în ADR-ul lui `F2.A8` |
+| 7. Returul | **Proces:** `F2.X2 (j)` **înaintea** lui `F2.A0`. **Înclinația proprietarului:** document de vânzare cu natură retur, nu `ReversalDocument` — aceeași structură de linii și același ciclu de viață ca o livrare. Nefinal: schema e-Factura poate decide în locul nostru | `F2.A0`, după `F2.X2 (j)` |
+| 8. Criteriul | **Punctul 3 rescris acum** — *diferență explicată*. Punctele 1 și 2 amânate, declanșator: alegerea companiei-pilot. Starea de produs e a lui `F2.B5` | [ADR-064](../decisions/064-diferenta-explicata-nu-diferenta-zero.md) |
+
+**Ce a schimbat sesiunea în propria recomandare, consemnat fiindcă e prima dată:** recomandarea
+inițială era ca `OD-71` să se decidă *împreună* cu `DN-18`. A fost **retrasă de sesiune**, cu motivul
+verificabil — raze de acțiune diferite: aprobatorul atinge doar tabele globale, `DN-18` atinge datele
+tenantului, RLS și `R27` — și cu precedentul `OD-22`, care a blocat două sarcini luni de zile lipind
+un parametru fiscal de o structură de plan de conturi.
+
+---
+
+### Textul întrebărilor, păstrat
 
 *Instrucțiunea din 2026-08-30: cele cinci de scop, cele trei „înainte de F2", `DNB-05` și `DNB-11` —
 cu ce blochează fiecare și cu recomandarea sesiunii unde există una. `OD-71` primul.* Recomandarea e
@@ -880,7 +940,7 @@ declarație rectificativă).
 | toate `F2.A*`, `F2.B*`, `F2.C*`, `F2.P*`, `F2.G` | criteriul de ieșire din F1 (F1.10) | `CLAUDE.md` §4; F1.10 vine după C5 → C2 → C1 (evidenta-77) |
 | F2.A0, F2.B0 | decizia proprietarului unde SNC lasă opțiuni | ca la ADR-036 §11; actele sunt în repo |
 | F2.A1, F2.A2, F2.B2 (bifa `active`) | `OD-22` — numerele MO | extern (acte normative); construcția merge pe `provisional` |
-| F2.A4 (cititorii) | `OD-27` | extern (bănci); modelul intern nu așteaptă |
+| F2.A4 (cititorii) | `OD-27` | extern (bănci); modelul intern nu așteaptă. `DNB-11` **nu mai blochează** ([ADR-063](../decisions/063-coliziunea-se-decide-dupa-cine-garanteaza.md)): refuzul e implicitul reversibil |
 | F2.A5 | `F2.X2 (a)` — art. 11 alin. (7) din Legea 287/2017 necitit; HG 764/1992 neobținută, statut incert; nicio formă în vigoare a registrului de casă | lectură; `legis.md` nici prin Wayback |
 | F2.A6 (structura declarației TVA), F2.C2 (textele ordinelor) | `F2.X2 (c)` — identitățile MO obținute, textele adoptate nu; boxele declarației nesigure | lectură; formularele adoptate |
 | F2.B3 (modificările post-2019), F2.C1 (categoriile din L. 287/2017) | `F2.X2 (b), (e)` — consolidări doar până în 2019; L. 287/2017 necitită din publicația proprie | lectură |
@@ -888,18 +948,23 @@ declarație rectificativă).
 | F2.A7 (transportul) | `OD-24` | extern (SFS) |
 | F2.A8 | `C2` din F1.4.4; amortizarea fiscală — HG 704/2019 **obținută** (`F2.X2 (i)`), Catalogul HG 941/2020 nu | în lucru la evidenta-77, după C5; lectură |
 | F2.A9 | `OD-76` (stratul `integrations`), `OD-26` (sursa BNM); ~~reevaluarea — Anexa 1 SNC~~ obținută integral 2026-08-30 (`F2.X2 (f)`) | ADR; extern |
-| F2.B0 | `DNB-05`, `DN-10` | a proprietarului |
-| F2.B6 | `OD-04` | a proprietarului, „înainte de F2" |
+| ~~F2.B0~~ | ~~`DNB-05`, `DN-10`~~ | **deblocată 2026-08-30** — varianta C și [ADR-060](../decisions/060-vocabularul-capabilitatilor.md) |
+| ~~F2.B6~~ | ~~`OD-04`~~ | **deblocată 2026-08-30** — [ADR-061](../decisions/061-cumulativele-de-salarii.md) |
 | F2.C1 (capitalul propriu) | `OD-73` — **premisa corectată 2026-08-30:** SNC „Prezentarea" pct. 18 și 228 numesc momentul (după aprobare și prezentare); tac asupra datei contabile | a proprietarului; declanșatorul e prima închidere reală de exercițiu |
 | F2.C2 (depunerea) | `OD-75` — canalul SFS | extern (SFS); **nou** |
 | F2.C3 | `OD-25` | extern (CNAS, CNAM, BNS) |
-| F2.C4, F2.P2 (aprobatorul) | `OD-71` | a proprietarului, „înainte de F2" |
+| ~~F2.C4, F2.P2~~ | ~~`OD-71`~~ | **deblocate 2026-08-30** — [ADR-062](../decisions/062-aprobatorul-din-productie.md); termenul devine *înainte de prima activare în producție* |
 | F2.C5 | F1.10 — **convenția e fixată** (evidenta-04, 2026-08-30): `tests/corpus/`, `case(*sets, cites=...)` ca unică ușă, `corpus/<logic_key>/<versiune>`, gardian peste fiecare `regression_case_set` din `fiscal/parameters/data/*.toml`, `-m fiscal_regression` | al F1; F2 moștenește |
 | F2.P1 | `OD-74` (biblioteca, pipeline-ul — se închide în sarcină, cu ADR); `OD-52` (arhivarea) | ADR; providerul de stocare nu blochează generarea |
-| F2.P3 | `DN-10` | a proprietarului |
+| ~~F2.P3~~ | ~~`DN-10`~~ | **deblocată 2026-08-30** — [ADR-060](../decisions/060-vocabularul-capabilitatilor.md) |
 | F2.X1 (activarea) | `OD-22` | extern; încărcarea ca `draft` nu așteaptă |
 
 **Externe reale: patru instituții** — SFS (`OD-24`, `OD-75`), CNAS/CNAM/BNS (`OD-25`), băncile
-(`OD-27`), BNM (`OD-26`) — plus accesul la textul legii (`OD-22`, `F2.X2`). **Ale proprietarului:
-șase** — `OD-04`, `OD-71`, `DN-10`, `DNB-05`, `DNB-11`, ADR-007, plus clasificările din `F2.A0`/`F2.B0`.
-Niciuna dintre cele externe nu blochează construcția; toate blochează câte o bifă.
+(`OD-27`), BNM (`OD-26`) — plus accesul la textul legii (`OD-22`, `F2.X2`). Niciuna nu blochează
+construcția; toate blochează câte o bifă.
+
+**Ale proprietarului: erau șase, au rămas două.** `OD-04`, `OD-71`, `DN-10`, `DNB-05` și `DNB-11`
+s-au închis la 2026-08-30, într-o singură instrucțiune. Rămân **ADR-007** (`Propus` — perioada
+stornoului, declanșator: prima declarație rectificativă) și **clasificările din `F2.A0`/`F2.B0`**,
+care se iau în ADR-urile lor, cu Planul general de conturi citat. Plus `OD-79`, deschisă atunci și
+amânată cu declanșator.

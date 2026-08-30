@@ -7,6 +7,11 @@
 
 ## Faza curentă
 
+> **F2 — Primul produs vandabil, pornită 2026-08-30** prin declarația proprietarului.
+> Descompunerea: `_bootstrap/09-f2-backlog.md`. Cele opt întrebări ale fazei sunt răspunse (ADR-060 …
+> ADR-064 plus `DNB-05` varianta C); prima sarcină e `F2.B0` și **nu a început**. Ce urmează dedesubt
+> e starea F1, păstrată.
+
 **Felia verticală merge cap-coadă: companie → plan de conturi → notă manuală → balanță echilibrată.**
 Un test de integrare o parcurge prin HTTP, sub rolul aplicației
 (`backend/tests/integration/test_vertical_slice.py`). Suita: **1.072 trec, 1 sărit** (2026-08-30).
@@ -167,6 +172,72 @@ sunt bifate în `08`** — închiderea F1 e declarația proprietarului, ca la F0
 ține modulele F2 pe loc.
 
 ## Ultima sesiune
+
+**2026-08-30 — răspunsul proprietarului la cele opt întrebări ale F2; F2 pornită. Nicio linie de cod
+de modul.**
+
+**Declarația, verbatim:** *„F2 pornește. Prima sarcină e `F2.B0`, cu `DNB-05` varianta C."* E
+echivalentul propoziției care a închis F0. F1.10 era livrată (`f8773ea`) și cele cinci puncte ale
+criteriului de ieșire din F1 bifate; ce lipsea era declarația, nu o sarcină.
+
+**Ce s-a livrat — consemnarea, nu construcția.** Cinci ADR-uri, `Acceptat`, toate din decizia
+proprietarului:
+
+- [ADR-060](decisions/060-vocabularul-capabilitatilor.md) — `DN-10`, varianta B: `payroll`,
+  `inventory`, `multi_company`, criteriul de apartenență fiind *ce cere inițializare*. `payroll` **nu**
+  intră în `COMPLIANCE_CAPABILITIES`, dar ieșirile lui declarative nu se dezactivează — `R24` se ține
+  pe ieșiri. **Ierarhia se amână, și ADR-ul își numește condiția de siguranță:** `SNAPSHOT_VERSION`
+  există, deci despicarea unei chei nu cere rescrierea evenimentelor. Proprietarul a spus explicit că
+  fără acea propoziție ar fi ales altfel.
+- [ADR-061](decisions/061-cumulativele-de-salarii.md) — `OD-04`: vocabularul **metodei cumulative**
+  (Hotărârea Guvernului nr. 697/2014 pct. 38), nu al unui proiect de formular. **Semnul era jumătatea
+  care conta**: toate valorile pozitive, `CHECK amount >= 0`, fiindcă `amount` n-avea constrângere și
+  două convenții ar fi coexistat tăcut.
+- [ADR-062](decisions/062-aprobatorul-din-productie.md) — `OD-71`, jumătatea „cine semnează": o
+  persoană reală cu MFA, fără nivel nou de rol. `DN-18` rămâne **separată**, cu motivul verificabil
+  (raze de acțiune diferite). Termenul se reformulează: **înainte de prima activare în producție**.
+- [ADR-063](decisions/063-coliziunea-se-decide-dupa-cine-garanteaza.md) — `DNB-11`: după cine
+  garantează cheia. Plus o **corecție la Spec B §10.2**: `(company_id, sfs_document_uid)` e
+  idempotență (`R19`), nu deduplicare (`R20`) — tabelul amesteca doi invarianți.
+- [ADR-064](decisions/064-diferenta-explicata-nu-diferenta-zero.md) — punctul 3 al criteriului de
+  ieșire din F2, rescris: **diferență explicată**, nu diferență zero. „Zero contra 1C" presupunea că
+  1C are dreptate, deci obliga produsul să fie la fel de greșit ca incumbentul.
+
+**`DNB-05` — decisă, varianta C, fără ADR încă.** Linii agregate pe rol, formule per angajat, cu
+`employee_id` în slot de dimensiune. ADR-ul e al lui `F2.B0` și **nu s-a scris**. Argumentul măsurat:
+liniile nu cresc cu numărul de angajați, formulele da (6 salariați ≈ 10 linii și 36 de formule; 200
+de salariați, tot ~10 linii și ~1 200 de formule).
+
+**`OD-79` nouă** — VEN12 și amortizarea fiscală, amânate cu declanșator (*pilotul traversează 31
+decembrie*); dar **dimensiunea fiscală a registrului de active nu se amână** și intră în ADR-ul lui
+`F2.A8`.
+
+**Curățenia făcută în același commit, ca regula documentului să nu fie doar scrisă:** rândurile din
+tabelul de blocaje al `09-f2-backlog.md` sunt tăiate pentru `F2.B0`, `F2.B6`, `F2.C4`, `F2.P2`,
+`F2.P3`; secțiunea de întrebări are răspunsurile în capul ei, cu textul întrebărilor păstrat;
+Spec A §11.10 și Spec B §4.2, §8.1, §10.2, §11 poartă deciziile.
+
+**Unde s-a oprit.** `F2.B0` **nu a început** — e prima sarcină. Ce îi trebuie, în ordine: rolurile de
+cont pentru salarii din Planul general de conturi (`od-22-planul-de-conturi.md`,
+`od-23-nomenclatorul-planului-de-conturi.md`), asimetria CAS/CNAM din `od-22-cnas-cnam.md`, linia cu
+două date (ADR-039 §9, ADR-044 §6), și ADR-ul care fixează toate acestea **înaintea** codului.
+
+**Ce rămâne deschis, cu locul lui:**
+
+- `CHECK amount >= 0` pe `opening_balance_payroll_cumulative` — migrare aditivă pe o tabelă goală, în
+  `F2.B6`, cu `schema-reviewer`.
+- `F2.X2 (j)` — recitirea Instrucțiunii OMF 118/2017 anexa nr. 2, **înaintea** lui `F2.A0`. `V1` tace
+  pe retur și corectare, re-verificat 2026-08-30 (zero potriviri în fișier). Înclinația
+  proprietarului e consemnată în `F2.A0`: document de vânzare cu natură retur, nu `ReversalDocument`
+  — nefinală, fiindcă schema e-Factura poate decide în locul nostru.
+- Punctele 1 și 2 ale criteriului de ieșire din F2 — amânate, declanșator: alegerea companiei-pilot.
+- `DN-18` — nivelul de rol de platformă, cu accesul de suport. Nu s-a strecurat în `OD-71`.
+
+**Ce nu s-a atins deliberat:** nicio linie de cod. `F2.B0` e ADR înaintea codului, iar consemnarea
+trebuia să fie completă întâi — o decizie a proprietarului care rămâne doar în transcript e exact ce
+putrezește.
+
+## Sesiuni mai vechi
 
 **2026-08-30, F1.10 — corpusul de regresie (instrucțiune scrisă: „singura sarcină care deblochează
 cod de modul … ~20 de cazuri, fiecare cu citarea lui … un caz care nu poate cita nu intră"; sesiunea

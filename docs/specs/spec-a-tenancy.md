@@ -312,7 +312,7 @@ Activarea unei capabilități este entitate, nu boolean (R25).
 | `id` | uuid | PK |
 | `tenant_id` | uuid | NOT NULL, REFERENCES `tenant` |
 | `company_id` | uuid | NULL, REFERENCES `company` | `NULL` = capabilitate la nivel de tenant |
-| `capability_key` | text | NOT NULL — vocabular în `DN-10` |
+| `capability_key` | text | NOT NULL, CHECK pe vocabularul închis din [ADR-060](../decisions/060-vocabularul-capabilitatilor.md) |
 | `effective_from` | date | NOT NULL |
 | `effective_to` | date | NULL |
 | `initialization_state` | text | NOT NULL, CHECK în `('not_required','required','in_progress','complete')` |
@@ -1498,7 +1498,7 @@ e dezvoltat în text.
 | ~~DN-07~~ | **ÎNCHISĂ.** `module_key` = numele modulului de business din harta §4.1; drepturi `read`/`write`, `write` include `read`; lista impusă prin `CHECK` | — | [ADR-019](../decisions/019-vocabular-scope.md) |
 | DN-08 | Vocabularul de roluri pentru `Membership` și `CompanyAccess` | F0.3, RBAC | 11.8 |
 | DN-09 | MFA: obligatoriu, opțional, sau obligatoriu pentru anumite roluri? | F0.3 | 11.9 |
-| DN-10 | Vocabularul de `capability_key` | F0.5 | 11.10 |
+| ~~DN-10~~ | **DECIS** — listă curatoriată după ce cere inițializare; `payroll` se activează, ieșirile lui declarative nu | — | [ADR-060](../decisions/060-vocabularul-capabilitatilor.md) |
 | ~~DN-11~~ | **DECIS** — `app.company_id` opțional, îngustează; izolarea prin `has_company_access()` | — | [ADR-004](../decisions/004-company-context.md) |
 | ~~DN-12~~ | **DECIS** — predicate `SECURITY DEFINER` sub un rol dedicat cu `BYPASSRLS`; politici neîncrucișate pe tabelele de tenancy | — | [ADR-003](../decisions/003-rls-tenancy-tables.md) |
 | DN-13 | Expirarea invitațiilor de engagement și de membership | F0.3 | 11.13 |
@@ -1601,6 +1601,19 @@ Observație care nu e decizie: indiferent de variantă, contul care poate revoca
 poate redeschide o perioadă are nevoie de MFA.
 
 ### 11.10 DN-10 — vocabularul de capabilități
+
+> **DECISĂ 2026-08-30 — varianta B**, [ADR-060](../decisions/060-vocabularul-capabilitatilor.md).
+> Lista curatoriată e exact cea pe care documentele o numeau: `payroll`, `inventory`,
+> `multi_company`, peste cele trei de conformitate — criteriul de apartenență fiind *ce cere
+> inițializare cu stare*. Tuplu în cod, materializat ca CHECK.
+>
+> **Tensiunea dintre §1.8 și §13, tranșată:** `payroll` **nu** intră în `COMPLIANCE_CAPABILITIES`.
+> Se activează și are inițializare; dar odată activată, **ieșirile ei declarative nu se dezactivează
+> și nu se plătesc separat** — `R24` se ține pe ieșiri, în cod, nu pe rândul de capabilitate.
+>
+> **Ierarhia (C) se amână**, cu declanșator: prima cerință de produs care o cere efectiv. Amânarea e
+> ieftină **doar fiindcă `SNAPSHOT_VERSION` există** — despicarea unei chei se face cu o versiune
+> nouă de snapshot, nu prin rescrierea evenimentelor deja postate.
 
 Documentele numesc explicit: `inventory`, `payroll`, `multi_company`. Restul nu e enumerat.
 

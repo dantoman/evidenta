@@ -130,6 +130,11 @@ Acte normative, secțiuni din documentele de intrare, benchmark-uri, discuții.
 | [057](057-diferentele-realizate-la-decontare.md) | Diferențele realizate la decontare: termenul pe antet cu implicitul actului, discriminatorul fără implicit, trei perechi de conturi | Acceptat — decizie tehnică (C4) | 2026-08-30 | — |
 | [058](058-repartizarea-costurilor-indirecte.md) | Repartizarea costurilor indirecte: formula actului ca logică versionată, baza ca date deschise, restul la 714 | Acceptat — decizie tehnică (C5) | 2026-08-30 | — |
 | [059](059-linia-poarta-data-inregistrarii.md) | Linia poartă data înregistrării, nu una a ei; suma postată are două zecimale, impuse în bază | Acceptat — decizie tehnică | 2026-08-30 | — |
+| [060](060-vocabularul-capabilitatilor.md) | Vocabularul capabilităților: listă curatoriată după ce cere inițializare; `payroll` se activează, ieșirile lui declarative nu se dezactivează | Acceptat — decizie tehnică | 2026-08-30 | `DN-10` |
+| [061](061-cumulativele-de-salarii.md) | Cumulativele de salarii: vocabularul metodei cumulative, toate valorile pozitive, fereastra anului fiscal | Acceptat — domeniu, proprietar | 2026-08-30 | `OD-04` |
+| [062](062-aprobatorul-din-productie.md) | Aprobatorul din producție e o persoană cu MFA, nu un nivel de rol; nivelul de platformă rămâne la `DN-18` | Acceptat — decizie tehnică | 2026-08-30 | `OD-71` (jumătatea „cine semnează") |
+| [063](063-coliziunea-se-decide-dupa-cine-garanteaza.md) | Coliziunea se decide după cine garantează cheia; UID-ul SFS e idempotență, nu deduplicare | Acceptat — decizie tehnică | 2026-08-30 | `DNB-11` |
+| [064](064-diferenta-explicata-nu-diferenta-zero.md) | Punctul 3 al criteriului de ieșire din F2: diferență explicată, nu diferență zero | Acceptat — scop, proprietar | 2026-08-30 | — |
 
 *Indexul se actualizează la fiecare ADR nou. Un ADR care nu apare aici este invizibil.*
 

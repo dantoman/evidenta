@@ -626,7 +626,11 @@ angajator și angajat. Fiecare sumă vine din logica fiscală selectată pentru 
 pentru luna curentă. Dimensiunea `employee_id` pe liniile individuale — **decizie de granularitate
 în `DNB-05`**.
 
-**`DECIZIE NECESARĂ (DNB-05)` — granularitatea postării de payroll.**
+**`DNB-05` — DECISĂ 2026-08-30: varianta (C).** Linii **agregate pe rol** per rulare, **formule
+per angajat** (`journal_formula`, ADR-048) cu `employee_id` într-un slot de dimensiune; drill-down-ul
+rămâne în contabilitate — rulare → formulă → angajat. **Granularitatea nu e configurabilă**, iar
+motivul e `R10`: schimbarea ei după prima rulare postată nu e migrare, e campanie de storno și
+repostare. ADR-ul e al lui `F2.B0`. *Opțiunile, păstrate:*
 (A) O linie per angajat și per tip de sumă: fișa contului arată direct cine, dar o companie cu 200
 de angajați produce mii de linii pe lună. (B) Linii agregate pe tip de sumă, cu detaliul rămas în
 `payroll`: ledger compact, dar drill-down-ul din contabilitate către angajat trece printr-un alt
@@ -943,8 +947,11 @@ adaptorului.
 | Active | activ, cost de intrare, amortizare cumulată, dată punere în funcțiune, durată rămasă |
 | Angajați | angajat, cumulative anuale per tip de venit și contribuție, de la 1 ianuarie |
 
-Ultimul set este cel care face activarea payroll-ului la mijloc de an posibilă. Structura lui exactă
-depinde de OD-04 (modelul cumulativelor payroll), care este deschisă.
+Ultimul set este cel care face activarea payroll-ului la mijloc de an posibilă. Structura lui e
+fixată de [ADR-061](../decisions/061-cumulativele-de-salarii.md) (`OD-04`, închisă 2026-08-30): trei
+chei — `income_tax.taxable_income`, `income_tax.exemptions_granted`, `income_tax.withheld` —,
+**toate valorile pozitive** (`CHECK amount >= 0`; semnificația o poartă `code`, nu semnul), fereastra
+anului fiscal cu `from_date` purtat. CAS și CNAM nu au nevoie de cumulative: nu au plafon anual.
 
 ### 8.2 Validarea
 
@@ -1096,10 +1103,21 @@ Mecanismul: **chei naturale de business**, cu constrângeri unice pe documentul 
 | Document e-Factura | `(company_id, sfs_document_uid)` |
 | Rulare payroll | `(company_id, period_id, run_type)` |
 
-Fiecare este **propunere**, nu specificație închisă: cheia naturală corectă depinde de ce garantează
-efectiv sursa. `DNB-11`.
+Fiecare a fost **propunere**, nu specificație închisă: cheia naturală corectă depinde de ce
+garantează efectiv sursa.
 
-**`DECIZIE NECESARĂ (DNB-11)` — cheile naturale per tip de document.**
+> **`DNB-11` — DECISĂ 2026-08-30, [ADR-063](../decisions/063-coliziunea-se-decide-dupa-cine-garanteaza.md).**
+> Coliziunea se decide după **cine garantează cheia**: refuz unde garantăm noi (factura emisă,
+> rularea de salarii), **„suspectat duplicat" cu decizie umană** unde garantează un terț (documentul
+> furnizorului, `bank_reference`).
+>
+> **Corecție la tabelul de mai sus:** rândul `Document e-Factura → (company_id, sfs_document_uid)`
+> **nu aparține deduplicării.** Același UID de două ori înseamnă *același document* — `R19`
+> (idempotență, pe evenimentul contabil), nu `R20` (deduplicare, pe documentul sursă). Cazul real de
+> deduplicare al e-Facturii — aceeași factură prin e-Factura și introdusă manual — e prins de cheia
+> **documentului furnizorului**. Tabelul amesteca doi invarianți care se rezolvă în două locuri.
+
+**`DNB-11` — întrebarea, păstrată; răspunsul e în caseta de mai sus.**
 Pentru fiecare tip trebuie confirmat: ce combinație identifică unic documentul economic în practica
 din RM, ce se întâmplă când un furnizor reia seria la an nou, și ce face sistemul la coliziune —
 refuz, sau semnalare ca posibil duplicat cu decizie umană. A doua variantă e mai realistă, dar cere
@@ -1109,7 +1127,7 @@ o stare „suspectat duplicat" pe document și un flux de rezolvare.
 
 - aceeași operațiune de două ori cu aceeași cheie → exact un efect financiar
 - aceeași cheie cu payload diferit → eroare, zero efecte
-- același document economic pe două căi → un singur document, semnalat sau refuzat conform `DNB-11`
+- același document economic pe două căi → un singur document, semnalat sau refuzat după cine garantează cheia (ADR-063)
 - retry după eșec parțial → niciun efect duplicat, starea evenimentului reflectă realitatea
 
 ---
@@ -1122,13 +1140,13 @@ o stare „suspectat duplicat" pe document și un flux de rezolvare.
 | ~~DNB-02~~ | Dimensiuni definite de utilizator — **închisă** prin ADR-029: cinci sloturi generice per companie | — | — |
 | DNB-03 | Politica de propagare a template-ului planului de conturi *(= OD-03)* | F1.1 | contabil + produs |
 | DNB-04 | Reprezentarea regulilor de postare: date, cod, sau hibrid. **Închisă:** [ADR-036](../decisions/036-forma-postarii.md) `Acceptat` 2026-08-29 — hibrid în straturi, forma postării în cod (`R28`); `C1`–`C5` clasificate de proprietar peste SNC citat | F1.4 | — |
-| DNB-05 | Granularitatea postării de payroll | F2, volumul lui `journal_line` | contabil + arhitectură |
+| ~~DNB-05~~ | **DECISĂ** — varianta (C): linii agregate pe rol, formule per angajat; nu e configurabilă (`R10`) | — | ADR-ul familiei, în `F2.B0` |
 | DNB-06 | Forma parametrilor fiscali care nu sunt scalari (grile, tranșe) | F0.8 | arhitectură |
 | DNB-07 | Granularitatea perioadei și blocarea per modul | F1.5 | contabil |
 | DNB-08 | Precizia, regula de rotunjire, locul rotunjirii TVA. **Închisă** 2026-08-29 — [ADR-037](../decisions/037-conventii-de-platforma.md) `Acceptat`: linia e autoritativă **prin structura formularului** (OMF 118/2017, pct. 15–24, act citat); zecimalele — convenții de platformă aprobate (2 / 4 / `half_up`), `provisional` fiindcă formularul tace; cantitatea pe unitate (ADR-055). `V2` (SFS) e testul de acceptanță | F1 calcule | — |
 | ~~DNB-09~~ | Împărțită: structura în [ADR-006](../decisions/006-reversal-two-dates.md) (`Acceptat`), politica în [ADR-007](../decisions/007-reversal-period.md) (`Propus`) | — | **contabil**, pentru ADR-007 |
 | DNB-10 | Fereastra de reținere a cheilor de idempotență în API | F1.3 | arhitectură |
-| DNB-11 | Cheile naturale de deduplicare per tip de document | F2 | contabil + investigație |
+| ~~DNB-11~~ | **DECISĂ** — după cine garantează cheia; UID-ul SFS e `R19`, nu `R20` | — | [ADR-063](../decisions/063-coliziunea-se-decide-dupa-cine-garanteaza.md) |
 
 Decizii din registrul general care blochează această specificație și **nu** sunt reformulate aici:
 
@@ -1136,9 +1154,9 @@ Decizii din registrul general care blochează această specificație și **nu** 
 |---|---|---|
 | OD-22 | Valorile fiscale efective | Fără ele, `fiscal_parameter` are structură dar nu conținut; niciun calcul nu funcționează |
 | OD-23 | Conținutul planului de conturi SNC | `coa_template_account` are structură dar nu rânduri |
-| OD-04 | Modelul cumulativelor payroll | Setul „Angajați" din soldurile inițiale (8.1) rămâne nespecificat |
+| ~~OD-04~~ | **ÎNCHISĂ** prin [ADR-061](../decisions/061-cumulativele-de-salarii.md) | Setul „Angajați" din 8.1 e specificat |
 | OD-29 | Țintele de performanță | Indicii din 1.3 sunt propuși pe raționament, nu pe măsurători |
-| OD-30 | Modelul de volum | `DNB-05` nu poate fi decisă fără el |
+| ~~OD-30~~ | Modelul de volum | A servit exact la ce fusese cerut: `DNB-05` s-a decis pe cifrele lui (`11-volume-model.md`) |
 | DN-11 (Spec A) | Contextul de companie în sesiune | Politicile RLS ale tuturor tabelelor de aici |
 
 ---
