@@ -32,21 +32,9 @@ ORM_WRITE = re.compile(
     r"\.(save|create|bulk_create|update|delete|get_or_create|update_or_create)\b"
 )
 
-#: Migrations that wrote data before the door existed. **Not a list of migrations
-#: to fix** -- nothing applied and committed gets rewritten (`OD-98`). Each is a
-#: *state* whose correctness is asserted separately and permanently, which is why
-#: the list is expected to stay short rather than to empty.
-BEFORE_THE_DOOR = {
-    "0007_margin_is_sourced.py": "fiscal_parameters/0007 predates the helper: its backfill ran as "
-    "the owner with the row filter suspended and counted nothing. The state it was supposed to "
-    "leave -- no margin without a source, no absent margin without a reason, and the moved dates "
-    "kept rather than dropped -- is asserted in tests/isolation/test_pre_door_migration_state.py "
-    "(OD-98).",
-    "0003_roles.py": "platform/identity/0003_roles syncs the permission catalogue through "
-    "`update_or_create` and counts nothing. Found by this guard, not by the hand-written scan that "
-    "preceded it. The state -- the table equals PERMISSIONS, key for key and scope for scope -- is "
-    "asserted in tests/isolation/test_pre_door_migration_state.py (OD-98).",
-}
+#: Where the permanent assertions live. A member of the generated set below has
+#: to be named here, or the state it produced is claimed by nobody.
+STATE_ASSERTIONS = BACKEND / "tests" / "isolation" / "test_pre_door_migration_state.py"
 
 
 def _migrations() -> list[Path]:
@@ -83,32 +71,52 @@ def _writes_data(tree: ast.AST, source: str) -> bool:
     return False
 
 
-def test_a_migration_that_writes_data_goes_through_the_helper() -> None:
-    """The door is the point; enforcing rules behind an optional door is advice."""
-    offenders = []
+def unproven_state() -> dict[str, str]:
+    """Migrations that write data outside the door -- **generated, never listed**.
+
+    `OD-99`. Four times in two days a hand-written enumeration came back
+    incomplete and a mechanical one found the rest: annex 3's identifiers, the
+    citation inventory's three holes, HG 697/2014, and the second migration this
+    very guard found after a grep had missed it. So the set a rule applies to is
+    enumerated by the mechanism that enforces the rule.
+
+    A maintained list drifts. A generated one cannot -- and the difference is not
+    tidiness: every one of those four was a list somebody believed was complete.
+    """
+    found: dict[str, str] = {}
     for path in _migrations():
         source = path.read_text(encoding="utf-8")
-        if path.name in BEFORE_THE_DOOR:
-            continue
         if _writes_data(ast.parse(source), source) and "backfill(" not in source:
-            offenders.append(str(path.relative_to(BACKEND)))
+            found[path.name] = str(path.relative_to(BACKEND))
+    return found
 
-    assert offenders == [], (
-        "These migrations write data without going through "
-        "`evidenta.platform.rls.backfill.backfill`:\n  "
-        + "\n  ".join(offenders)
-        + "\n\nThe helper states the expected cardinality and measures what the role "
-        "can see. Behind an optional door it enforces neither (OD-94)."
+
+def test_whatever_writes_outside_the_door_has_a_permanent_state_assertion() -> None:
+    """The door's escape hatch costs a test, not a line in a list.
+
+    An allowlist entry is a name somebody typed; it silences the alarm and proves
+    nothing about the rows. An assertion about the resulting **state** runs on
+    every build, and the state is the fact -- the migration is only the means
+    (`OD-98`).
+
+    So membership is generated, and each member has to be claimed by name in the
+    assertions file. Adding a new direct write is still possible; it is just not
+    free, and what it costs is the thing that would have caught it.
+    """
+    assertions = STATE_ASSERTIONS.read_text(encoding="utf-8")
+    uncovered = sorted(
+        f"{name} ({where})"
+        for name, where in unproven_state().items()
+        if name.split("_", 1)[0] not in assertions and name.removesuffix(".py") not in assertions
     )
-
-
-def test_the_pre_door_list_names_a_real_migration_and_a_reason() -> None:
-    """An allowlist whose entries have drifted asserts the opposite of its purpose."""
-    names = {p.name for p in _migrations()}
-    stale = sorted(n for n in BEFORE_THE_DOOR if n not in names)
-    assert stale == [], f"BEFORE_THE_DOOR names migrations that no longer exist: {stale}"
-    silent = sorted(n for n, why in BEFORE_THE_DOOR.items() if not why.strip())
-    assert silent == [], f"these have no reason recorded: {silent}"
+    assert uncovered == [], (
+        "These write data outside `backfill()` and no permanent assertion claims "
+        "the state they produced:\n  "
+        + "\n  ".join(uncovered)
+        + f"\n\nEither route the write through the door, or assert the resulting state "
+        f"in {STATE_ASSERTIONS.name}. A name in a list silences the alarm; an "
+        f"assertion about the rows is what would have caught the failure."
+    )
 
 
 #: A migration that writes data and adds no constraint, with the reason it does
@@ -144,7 +152,7 @@ def test_a_migration_that_writes_data_also_constrains_it() -> None:
     offenders = []
     for path in _migrations():
         source = path.read_text(encoding="utf-8")
-        if path.name in BEFORE_THE_DOOR or path.name in WRITES_WITHOUT_A_CONSTRAINT:
+        if path.name in WRITES_WITHOUT_A_CONSTRAINT:
             continue
         tree = ast.parse(source)
         if "backfill(" in source and not _adds_a_constraint(tree):

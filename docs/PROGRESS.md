@@ -495,6 +495,32 @@ depind de entităţi care nu există.
 o încercare — dar nu e aceeaşi formă cu `C1(a)`, care atingea date existente. Notat ca atare, nu ca
 validare.
 
+**Poarta, lista generată, ancora estimărilor — şi `C1(b)` tot oprit.**
+
+- **`P0`: diagnosticul meu era greşit, şi remediul pe care mi-l propusesem era fals.** Raportasem că
+  „`make test` a rulat după ce typecheck a căzut" — imposibil, `&&` face scurtcircuit. **Măsurat:**
+  `make typecheck` singur, pe o eroare de tip, întoarce **2**; acelaşi prin `| tail`, **0**. Conducta
+  era în **invocarea mea**, nu în reţetă. Iar *„rulez poarta pe bucăţi"* **n-ar fi reparat nimic**:
+  `make typecheck | tail` întoarce 0 şi singur. Aş fi înlocuit un mecanism corect cu vigilenţă,
+  împotriva unei cauze pe care mecanismul n-o avea. → `OD-100`.
+- **Remediu impus, nu detectat:** `SHELL := bash` şi `.SHELLFLAGS := -eu -o pipefail -c` fac
+  înghiţirea **nescriabilă în reţete**; ţinta **`gate`** rulează cele patru verificări fără
+  înlănţuire de mână şi tipăreşte `GATE: PASS`, deci **absenţa marcajului din coadă e semnalul chiar
+  când statusul s-a pierdut**. Dovedit căzând: cu o eroare de tip, iese cu 2 şi nu tipăreşte nimic.
+- **`OD-99` — mulţimea se enumeră de mecanismul care impune regula, niciodată de mână.** A patra oară
+  în două zile când o enumerare manuală iese incompletă. Lista „stare nedovedită" e acum **generată**,
+  iar cerinţa nu mai e un nume într-o listă, ci **o aserţiune permanentă asupra stării**: allowlist-ul
+  tace alarma, aserţiunea rulează la fiecare build.
+- **`P3`: diferenţa e zero** — generatorul dă doi membri, exact cei acoperiţi. **Informaţie despre
+  generator, nu despre inventarul meu:** îl conţineam pe al doilea doar fiindcă gardianul îl găsise.
+- **`OD-92` extins, nu dublat.** Aceeaşi formă se aplică estimărilor: *„ar fi euristic" fără starea
+  contra căreia s-a evaluat* e **concluzie fabricată**, exact ca o margine fără citare. **Două verdicte
+  reale găsite şi ancorate** — regula (c) din `OD-94` şi comparatorul din raportul `OD-86`; restul
+  potrivirilor erau opţiuni sau descrieri.
+
+**Unde s-a oprit.** **`C1(b)` NU s-a construit: ADR-071 e `Propus`.** `T1`, `T3`, `T4` depind de
+entităţi inexistente şi nu s-au forţat.
+
 ## Sesiuni mai vechi
 
 **2026-08-30, F1.10 — corpusul de regresie (instrucțiune scrisă: „singura sarcină care deblochează

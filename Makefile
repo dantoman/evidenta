@@ -13,6 +13,21 @@
 # Țintele marcate „nedefinit încă" așteaptă decizii sau sarcini din F0 — eșuează cu mesaj explicit
 # în loc să facă ceva plauzibil dar greșit.
 
+# --- reţeta nu are voie să înghită un eşec ------------------------------------
+#
+# `make` rulează fiecare linie prin `/bin/sh -c`, iar statusul unei CONDUCTE e al
+# ULTIMEI comenzi din ea: `mypy . | tee log` raportează succesul lui `tee`.
+# `pipefail` face înghiţirea **nescriabilă** în loc de detectabilă -- coloană
+# obligatorie, nu gardian.
+#
+# Măsurat 2026-08-30, şi merită spus exact fiindcă diagnosticul iniţial al
+# sesiunii era greşit: ţintele de aici **nu** înghiţeau nimic (`make typecheck`
+# singur întoarce 2 pe o eroare de tip). Conducta era în invocarea din afară --
+# `make typecheck 2>&1 | tail -2` întoarce 0. Ce urmează închide varianta din
+# reţetă, care nu se manifestase încă; varianta din afară o închide `gate`.
+SHELL := bash
+.SHELLFLAGS := -eu -o pipefail -c
+
 -include .env
 
 # --- conexiune ---------------------------------------------------------------
@@ -265,6 +280,18 @@ lint: ## Lint + verificarea formatării (ruff)
 format: ## Formatează codul (ruff)
 	cd backend && uv run ruff format .
 	cd backend && uv run ruff check --fix .
+
+.PHONY: gate
+gate: ## Poarta completă, într-o singură comandă: lint + typecheck + deps + teste
+	@# Există ca să nu se mai înlănţuie de mână cu `|`. Marcajul final e citibil
+	@# din coada output-ului: o rulare care nu-l tipăreşte a eşuat, chiar dacă
+	@# statusul s-a pierdut într-o conductă pe care cineva a scris-o oricum.
+	$(MAKE) lint
+	$(MAKE) typecheck
+	$(MAKE) deps-check
+	$(MAKE) test
+	@echo ""
+	@echo "GATE: PASS — lint, typecheck, dependenţe, teste"
 
 .PHONY: typecheck
 typecheck: ## mypy — strict pe platform și accounting (ADR-011)
