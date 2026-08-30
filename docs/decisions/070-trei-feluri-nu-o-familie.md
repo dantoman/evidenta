@@ -55,6 +55,19 @@ dezactivat; **o coloană obligatorie nu.**
 - **Invariantul primeşte câmp de domeniu obligatoriu — tipul raportului.** Art. 22 e al raportului de
   muncă; „baza CAS" nu poartă tipul, deci nu există ce compara.
 
+**Două rafinări ale proprietarului, amândouă îngustând ce poate fi scris greşit:**
+
+1. **Nu ca fază separată — primul commit din `F2.B1`.** Două sloturi de citare proiectate în vid, cu
+   zero consumatori, sunt propria familie de defecte: **o schemă validată de nimic.** `F2.B1` are
+   consumatori reali imediat — clauzele art. 49, câmpurile ordinului, domeniul invariantului art. 22.
+   **Coloanele întâi, dar primul lucru scris după ele trebuie să le exercite pe amândouă.**
+2. **Domeniul invariantului e cheie străină, nu enumerare liberă.** Cu şir sau enum deschis, cineva
+   scrie `orice_bază_CAS` şi defectul e înapoi — vizibil, dar înapoi. Cu **referinţă spre tipurile de
+   raport care există deja în model** (contract de muncă, contract civil), un domeniu inexistent e
+   **violare de cheie străină**, nu o valoare acceptată. Nu elimină reziduul — cineva încă poate alege
+   greşit dintre două tipuri reale — dar îngustează de la *„orice şir"* la *„un tip care există"*, şi
+   **atât poate face structura** (§4).
+
 **De ce fără implicit, şi de ce nu e o preferinţă:** *implicitul rezonabil e cea mai bună deghizare a
 unei alegeri netăcute.* **Argumentul e deja scris în acest repo, măsurat**, pe
 `fiscal_parameter.source_confidence`:
@@ -119,6 +132,49 @@ mecanismul lui.
 **Dacă apare una care nu intră în niciuna, reformularea e greşită, nu incompletă** — şi se rescrie, nu
 se extinde cu o a patra categorie. Consemnată aici ca predicţie datată, 2026-08-30, exact ca să aibă
 ce infirma.
+
+## 8bis. Testul de enumerare, rulat — şi ce a găsit în loc
+
+Proprietarul a cerut, înainte de orice renumerotare: **enumeră membrii fiecărei familii; dacă
+extensiunile coincid, e o familie cu două nume, şi numerotarea din `PROGRESS.md` are prioritate.**
+
+**Testul nu se poate încheia, şi motivul e el însuşi constatarea: niciuna dintre familii nu are
+listă. Toate au numărător.**
+
+Ce s-a găsit căutând în repo:
+
+| Familie | Numărătoare atinsă | Membri identificabili prin căutare |
+|---|---|---|
+| „proprietate presupusă în amonte, neimpusă în schemă, consumator în aval care se sparge tăcut" | **a zecea** (scara sumei, ADR-059) | ~3: scara sumei; `default=0` pe `decimal_places`; semnul cumulativelor (ADR-061 §2) |
+| „legat şi nepornit" | **a şasea** (ADR-049) | 1 |
+| „trece fiindcă nimic nu strigă" | **a noua** — şi **nu e în repo**, e în memoria sesiunii | ~5: colaţia, fusul orar, starea divergentă de migrări, calea neatinsă, `git commit -- <căi>` |
+
+**Trei numărătoare, nu două** — a doua, „legat şi nepornit", nu fusese numită de niciunul dintre noi
+în discuţia asta. Şi una dintre aparităţii spune literal *„a opta apariţie a familiei, numită de
+proprietar"* **fără să numească familia**, deci nici măcar apartenenţa acelui membru nu se poate citi.
+
+> **E aceeaşi formă cu tot restul zilei, şi de asta merită scrisă aici:** un numărător afirmă *„aceasta
+> e a N-a de acest fel"*, iar **al doilea operand — primele N−1 — n-a fost niciodată scris.** Nimic nu
+> poate contrazice numărul. E §1, rândul întâi: operand lipsă.
+
+### 8bis.1 Relaţia, dedusă din definiţii — **marcată ca inferenţă**, fiindcă membrii lipsesc
+
+Nu se pot compara extensiunile. Se pot compara **definiţiile**:
+
+- „proprietate presupusă în amonte, **neimpusă în schemă**" cere ca proprietatea să fie una pe care
+  schema **ar putea** s-o impună;
+- „trece fiindcă **nimic nu strigă**" cere doar absenţa semnalului, oricare ar fi cauza.
+
+Fusul orar, starea divergentă de la migrări, calea neatinsă de teste şi semantica lui
+`git commit -- <căi>` sunt în a doua **şi nu sunt proprietăţi impozabile în schemă**. Deci:
+
+> **Probabil două familii, cu relaţie de incluziune — prima proprie în a doua —, nu una cu două
+> nume.** Dacă e aşa, **nu se unifică numerele**: se scrie relaţia. Iar dacă enumerarea infirmă
+> incluziunea, se rescrie relaţia, nu se fuzionează seriile.
+
+**Ce lipseşte ca testul să se încheie:** rosterul familiei „nimic nu strigă" din
+`CONTEXT-evidenta.md`, şi enumerarea retroactivă a celor zece apariţii ale primei. **Amândouă sunt
+muncă de scris, nu decizii** — nu primesc rând în registru.
 
 ## 9. Consecinţe
 

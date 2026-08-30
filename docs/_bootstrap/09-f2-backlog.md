@@ -385,6 +385,14 @@ pe date reale la primul pilot.
   doua), deci **„persoane asigurate" nu e submulţime a lui „angajaţi"**. Azi populaţia are un singur
   membru; **interfaţa e cea largă**, fiindcă lărgirea unei interogări scrise pe `employee` nu e
   extindere, e rescrierea fiecărui apelant.
+  **Ordinea în interiorul sarcinii, nu ca fază separată
+  ([ADR-070](../decisions/070-trei-feluri-nu-o-familie.md) §3):** cele două coloane obligatorii fără
+  implicit — citarea marginii pe `valid_from` şi domeniul invariantului — se scriu **în primul commit
+  al acestei sarcini**, iar **următorul lucru scris trebuie să le exercite pe amândouă**. Proiectate în
+  vid, cu zero consumatori, ar fi propria familie de defecte: o schemă validată de nimic.
+  **Domeniul e cheie străină spre tipurile de raport care există în model, nu enumerare liberă** — cu
+  un şir, cineva scrie `orice_bază_CAS` şi defectul e înapoi; cu FK, un domeniu inexistent e violare de
+  cheie străină.
 - **Depinde de:** F2.B0.
 - **Review:** `tenancy-guard`, `schema-reviewer`.
 - **Terminat:** **reconcilierea populaţiei** — *orice persoană cu sarcină CAS în perioada `P` apare ca

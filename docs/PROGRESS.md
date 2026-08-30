@@ -365,8 +365,33 @@ de „un verificator care nu poate cădea".
 operand lipsă, întrebare nepusă, sau comparaţie nefăcută. **Dacă apare una care nu intră în niciuna,
 reformularea e greşită, nu incompletă.**
 
-> **Nereconciliat:** `CONTEXT-evidenta.md` **nu există în acest repository**, deci §4, §6 şi §6.5 din
-> instrucţiune n-au putut fi atinse direct; conţinutul lor e în ADR-070 §4 şi §6.
+**Sursa unică e repo-ul, nu proiectul** — hotărât 2026-08-30. `CONTEXT-evidenta.md` trăieşte în
+proiectul Claude, e comoditate de predare între sesiuni, şi **e singurul dintre cele două care nu poate
+fi păzit**: repo-ul e versionat, diffabil, are CI. Documentul devine **pointer, nu copie**. *De notat
+că există şi o a treia copie: memoria sesiunii (`evidenta-machine-properties-pass-every-test`) poartă
+familia „nimic nu strigă" cu numărătoarea ei — deci şi ea devine pointer.*
+
+**Testul de enumerare, cerut înainte de orice renumerotare, a fost rulat şi nu se poate încheia —
+motivul fiind el însuşi constatarea** (ADR-070 §8bis): **niciuna dintre familii nu are listă, toate au
+numărător.** Şi sunt **trei**, nu două: „proprietate presupusă în amonte…" (a zecea), „legat şi
+nepornit" (a şasea, nenumită de niciunul dintre noi în discuţie), „trece fiindcă nimic nu strigă" (a
+noua, în memorie, nu în repo). Una dintre apariţii spune literal *„a opta apariţie a familiei, numită
+de proprietar"* **fără să numească familia**.
+
+> **Aceeaşi formă cu tot restul zilei:** un numărător afirmă *„a N-a de acest fel"*, iar **primele
+> N−1 n-au fost niciodată scrise.** Nimic nu poate contrazice numărul — operand lipsă, §1 rândul întâi.
+
+**Relaţia, dedusă din definiţii şi marcată ca inferenţă:** fusul orar, starea divergentă, calea
+neatinsă şi semantica lui `git commit -- <căi>` sunt în „nimic nu strigă" şi **nu sunt proprietăţi
+impozabile în schemă** — deci probabil **două familii cu incluziune, nu una cu două nume**. **Nu se
+unifică numerele; se scrie relaţia.** Enumerarea retroactivă rămâne muncă de scris, nu decizie — fără
+rând în registru.
+
+**Două rafinări pe ordine, ale proprietarului:** coloanele obligatorii se scriu **în primul commit al
+lui `F2.B1`**, nu ca fază separată — proiectate în vid ar fi o schemă validată de nimic —, iar
+următorul lucru scris le exercită pe amândouă; şi **domeniul invariantului e cheie străină** spre
+tipurile de raport existente, nu enumerare liberă, ca un domeniu inexistent să fie violare de cheie
+străină, nu o valoare acceptată.
 
 **Unde s-a oprit.** Niciun cod de modul. `F2.B1` poate începe: are entitatea, câmpurile, clasificarea,
 categoria pe raport, populaţia largă a declaraţiei şi **patru** teste numite — reconcilierea în ambele
