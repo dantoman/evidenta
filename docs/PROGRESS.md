@@ -224,12 +224,21 @@ două date (ADR-039 §9, ADR-044 §6), și ADR-ul care fixează toate acestea **
 
 **Ce rămâne deschis, cu locul lui:**
 
-- `CHECK amount >= 0` pe `opening_balance_payroll_cumulative` — migrare aditivă pe o tabelă goală, în
-  `F2.B6`, cu `schema-reviewer`.
+- ~~`CHECK amount >= 0` pe `opening_balance_payroll_cumulative`~~ — **făcut în aceeași sesiune**,
+  migrare proprie `opening/0002`, la instrucțiunea proprietarului: *o constrângere care așteaptă
+  sarcina care atinge tabela e o constrângere care poate să nu ajungă acolo.* Măsurat înainte ca
+  superuser, dincolo de `FORCE RLS`: 0 rânduri, 0 negative. Două teste noi sub rolul aplicației
+  (`T1`) — negativul refuzat **de bază**, zero permis fiindcă „categorie fără scutire acordată" e
+  alt fapt decât absența rândului.
 - `F2.X2 (j)` — recitirea Instrucțiunii OMF 118/2017 anexa nr. 2, **înaintea** lui `F2.A0`. `V1` tace
   pe retur și corectare, re-verificat 2026-08-30 (zero potriviri în fișier). Înclinația
   proprietarului e consemnată în `F2.A0`: document de vânzare cu natură retur, nu `ReversalDocument`
   — nefinală, fiindcă schema e-Factura poate decide în locul nostru.
+- **`OD-80` nouă**, din `schema-reviewer` pe migrarea de mai sus: o violare de CHECK pe soldurile
+  inițiale n-are cod stabil (`C10`) — `IntegrityError` nu e în `BUILTIN_CODES`, iar fall-through-ul e
+  documentat ca deliberat, deci întrebarea e unde trece linia. **Mai îngustă decât a raportat
+  revizorul, verificat:** endpointul expune doar `gl`, `receivables`, `payables`; constrângerea
+  adăugată azi e pe un set pe care niciun apelant HTTP nu-l atinge, deci nu extinde golul.
 - Punctele 1 și 2 ale criteriului de ieșire din F2 — amânate, declanșator: alegerea companiei-pilot.
 - `DN-18` — nivelul de rol de platformă, cu accesul de suport. Nu s-a strecurat în `OD-71`.
 

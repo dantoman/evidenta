@@ -465,18 +465,28 @@ class OpeningBalanceAsset(BatchLine):
 
 
 class OpeningBalancePayrollCumulative(BatchLine):
-    """Year-to-date payroll amounts per employee -- **the shape of `OD-04`**.
+    """Year-to-date payroll amounts per employee -- `OD-04`, closed by ADR-061.
 
     Spec B section 8.1: "cumulative anuale per tip de venit si contributie, de la
-    1 ianuarie", and then, in the same section, "Structura lui exacta depinde de
-    OD-04 ... care este deschisa".
+    1 ianuarie". The table carried the shape and refused the content while the
+    decision was open; ADR-061 (2026-08-30) answered it, and the two halves of
+    the answer landed in opposite places on purpose.
 
-    So this table carries the shape and refuses to carry the content. ``code`` is
-    uninterpreted text with **no CHECK and no enumeration** behind it: naming the
-    income types and the contributions would be answering the open decision, and
-    answering it from the module least able to argue about it. ``amount`` has no
-    sign constraint for the same reason -- whether a contribution is carried
-    positive or negative is part of what `OD-04` decides.
+    **The vocabulary stays out of the schema.** ``code`` is still uninterpreted
+    text with no CHECK: the three names ADR-061 fixes -- ``income_tax.taxable_income``,
+    ``income_tax.exemptions_granted``, ``income_tax.withheld`` -- come from the
+    cumulative method itself (HG 697/2014 pct. 38), and the list grows when the
+    adopted IALS21 is obtained. Growth is additive, so a CHECK here would buy a
+    migration per column and prevent nothing.
+
+    **The sign is in the schema, and that asymmetry is the decision.** A
+    cumulative is a magnitude, not a movement: "exemptions granted to date" is a
+    sum of exemptions, not a reduction of anything. Carrying the meaning in
+    ``code`` *and* in the sign would be two encodings of one fact, and two
+    encodings of one fact diverge. Unconstrained, one tenant could load
+    exemptions positive and the next negative, the set would hold both
+    conventions, and **nothing would report it** -- which is why this half was
+    the irreversible one and why it is a CHECK rather than a convention.
 
     **This set never posts.** Cumulatives are not balances: they are the base the
     IPC calculation continues from when payroll is activated mid-year. They are
@@ -486,10 +496,12 @@ class OpeningBalancePayrollCumulative(BatchLine):
 
     employee_id = models.UUIDField()
 
-    #: The source system's name for an income type or a contribution.
-    #: Uninterpreted -- see the class docstring.
+    #: The source system's name for an income type or a contribution. Still
+    #: uninterpreted by the schema; the vocabulary is ADR-061's -- see the class
+    #: docstring for why it is not a CHECK.
     code = models.TextField()
 
+    #: Never negative (ADR-061). The meaning is `code`'s job, not the sign's.
     amount = models.DecimalField(max_digits=20, decimal_places=4)
 
     #: "de la 1 ianuarie" -- carried rather than assumed, because an exercise need
@@ -503,6 +515,13 @@ class OpeningBalancePayrollCumulative(BatchLine):
             models.UniqueConstraint(
                 fields=["batch", "employee_id", "code"],
                 name="opening_balance_payroll_unique",
+            ),
+            # ADR-061. Zero is allowed and meaningful: an employee with an
+            # exemption category but no exemption granted yet carries 0, which is
+            # a different statement from carrying no row at all.
+            models.CheckConstraint(
+                condition=models.Q(amount__gte=0),
+                name="opening_balance_payroll_amount_not_negative",
             ),
         ]
         indexes = [

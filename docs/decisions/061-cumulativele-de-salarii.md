@@ -84,8 +84,14 @@ proprietarului: *un cumulativ e o mărime, nu o mișcare.* „Scutiri acordate c
 scutiri, nu o diminuare a ceva. Semnul ar fi o a doua dimensiune care spune ce spune deja numele, iar
 când două lucruri codifică aceeași informație, ele diverg.
 
-→ **`CHECK amount >= 0`**, cu nume, adăugat de prima migrare care atinge tabela (`F2.B6`). Tabela e
-goală, deci constrângerea nu are ce respinge retroactiv.
+→ **`CHECK amount >= 0`**, cu nume. **Aplicat în aceeași zi, prin migrare proprie**
+(`opening/0002_payroll_cumulative_amount_not_negative`), nu lăsat pe seama lui `F2.B6` — la
+instrucțiunea proprietarului, cu motivul: *o constrângere care așteaptă sarcina care atinge tabela e o
+constrângere care poate să nu ajungă acolo; dacă `F2.B6` alunecă, fereastra în care două convenții de
+semn pot coexista se deschide fără ca nimeni să observe.* **Măsurat înainte**, ca superuser, dincolo de
+`FORCE ROW LEVEL SECURITY` (proprietarul și rolul aplicației citesc 0 oricum): 0 rânduri, 0 negative —
+deci constrângerea nu are ce respinge retroactiv. Bornă `>= 0`, nu `> 0`: un angajat cu categorie de
+scutire dar fără scutire acordată poartă 0, ceea ce e alt fapt decât absența rândului.
 
 **Fereastra: anul fiscal, nu exercițiul companiei.** `from_date` rămâne coloană purtată, iar pct. 38
 e motivul pentru care nu putea fi presupusă: pentru un angajat încadrat în cursul anului fereastra

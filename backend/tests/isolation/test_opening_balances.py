@@ -37,7 +37,7 @@ from decimal import Decimal
 from typing import Any
 
 import pytest
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from django.db.utils import ProgrammingError
 
 from evidenta.accounting.events.models import AccountingEvent, EventStatus
@@ -715,6 +715,66 @@ def test_payroll_cumulatives_are_stored_and_never_posted(
         assert not JournalLine.objects.filter(
             journal_entry_id=result.journal_entry_id, employee_id=ids["employee"]
         ).exists()
+
+
+def test_a_negative_payroll_cumulative_is_refused_by_the_database(
+    context: TenantContext, scene: dict[str, uuid.UUID]
+) -> None:
+    """ADR-061: the sign is not a convention, it is a CHECK.
+
+    A cumulative is a magnitude, not a movement -- "exemptions granted to date"
+    is a sum of exemptions, not a reduction of anything. The meaning lives in
+    `code`; carrying it in the sign as well would be two encodings of one fact,
+    and the failure that follows is silent: one tenant loads exemptions positive,
+    the next negative, both loads succeed, and the first wrong income tax shows
+    up a month later in a figure nobody traces back to a sign.
+
+    So the refusal has to come from the database, not from a service that a
+    second caller could bypass -- which is what this asserts, under the
+    application role (`T1`).
+    """
+    with tenant_context(context):
+        batch = open_batch(scene)
+        with pytest.raises(IntegrityError) as refusal, transaction.atomic():
+            add_rows(
+                batch.id,
+                payroll=[
+                    PayrollRow(
+                        employee_id=uuid.uuid4(),
+                        code="income_tax.exemptions_granted",
+                        amount=money("-100.0000"),
+                        from_date=AS_OF,
+                    )
+                ],
+            )
+        assert "opening_balance_payroll_amount_not_negative" in str(refusal.value)
+
+
+def test_a_zero_payroll_cumulative_is_allowed(
+    context: TenantContext, scene: dict[str, uuid.UUID]
+) -> None:
+    """The bound is `>= 0`, and the difference from `> 0` is a statement.
+
+    An employee with an exemption category but nothing granted yet carries zero,
+    which is a different fact from carrying no row at all -- and `payroll` reads
+    the difference when it continues the cumulative calculation.
+    """
+    with tenant_context(context):
+        batch = open_batch(scene)
+        add_rows(
+            batch.id,
+            payroll=[
+                PayrollRow(
+                    employee_id=uuid.uuid4(),
+                    code="income_tax.exemptions_granted",
+                    amount=money("0.0000"),
+                    from_date=AS_OF,
+                )
+            ],
+        )
+        stored = list(OpeningBalancePayrollCumulative.objects.filter(batch_id=batch.id))
+        assert len(stored) == 1
+        assert stored[0].amount == money("0.0000")
 
 
 def test_the_lines_carry_the_functional_currency_at_rate_one(

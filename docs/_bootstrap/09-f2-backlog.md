@@ -432,7 +432,7 @@ pe date reale la primul pilot.
 - **Review:** `fiscal-reviewer`, `accounting-reviewer`.
 - **Terminat:** un angajat cu cumulative de la alt sistem primește, în luna activării, același
   impozit ca și cum tot anul ar fi fost calculat aici (caz de corpus).
-- **Blocat de:** — *(`OD-04` închisă prin [ADR-061](../decisions/061-cumulativele-de-salarii.md): trei chei, toate valorile pozitive, fereastra anului fiscal. **Adaugă aici `CHECK amount >= 0` pe `opening_balance_payroll_cumulative`** — migrare aditivă pe o tabelă goală, cu `schema-reviewer`.)*
+- **Blocat de:** — *(`OD-04` închisă prin [ADR-061](../decisions/061-cumulativele-de-salarii.md): trei chei, toate valorile pozitive, fereastra anului fiscal. `CHECK amount >= 0` e **deja aplicat**, prin migrarea proprie `opening/0002` din 2026-08-30 — nu mai e sarcină aici.)*
 
 ---
 
