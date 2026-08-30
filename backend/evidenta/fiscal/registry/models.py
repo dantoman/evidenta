@@ -97,3 +97,59 @@ class FiscalLogicVersion(models.Model):
 
     def __str__(self) -> str:
         return f"{self.logic_key}:{self.version}"
+
+
+class EmploymentRelationshipType(models.Model):
+    """The three forms of work relationship the acts distinguish -- ADR-071.
+
+    **A vocabulary, not a configuration.** Point 1.1 of annex 1 to Law 489/1999
+    names three in one clause: an individual employment contract, a *service
+    relationship under an administrative act*, and a civil contract for works or
+    services. Nothing else is a fourth form, and a catch-all value would be the
+    road by which "invariant applied blindly" comes back under another name --
+    which is why the CHECK below closes the set rather than documenting it.
+
+    **Why it lives in `fiscal` and not in `payroll`.** `D1`: fiscal imports from
+    no business module, so a fiscal invariant whose domain pointed at a table in
+    `operations/payroll` would be a forbidden dependency. The other direction is
+    allowed. And it is right on the merits -- the distinction is drawn by the
+    contributions law, not by labour law.
+
+    **The primary key is the code**, as in `Permission` and for the same reasons:
+    reference data whose identity *is* its name, neither externally exposed nor
+    high-volume, so `C6` does not apply. **No label column** either (`C32`): what
+    a type is called in the interface belongs in the frontend resource files, in
+    Romanian, not in a column that needs a migration to reword.
+
+    **No validity margins**, and that is argued rather than assumed (ADR-071
+    section 4ter): nothing resolves a *type* by date. What resolves by date is
+    what a type is *referenced by* -- the domain of an invariant, versioned in
+    the logic registry. A repealed type stays, with `PROTECT` on every key into
+    it, so historic references keep resolving.
+    """
+
+    #: `COLLATE "C"` in the SQL file -- a code column, not a name (`C34`).
+    code = models.TextField(primary_key=True)
+
+    #: The anchor, carried by the row rather than only by the ADR. A type whose
+    #: citation lives one document away is a value somebody typed; the project
+    #: has paid for that distinction often enough to write it into the table.
+    statutory_reference = models.TextField()
+
+    class Meta:
+        db_table = "employment_relationship_type"
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(
+                    code__in=[
+                        "employment_contract",
+                        "service_relationship",
+                        "civil_contract",
+                    ]
+                ),
+                name="employment_relationship_type_vocabulary_closed",
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return self.code

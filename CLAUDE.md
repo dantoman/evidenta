@@ -19,7 +19,13 @@ tenancy, Spec B — accounting), `docs/decisions/` (ADR-uri și decizii deschise
 
 - **R1** — Fiecare tabelă business are `tenant_id`. Excepțiile sunt enumerate limitativ în
   `infra/rls/exceptions.toml`, singurul loc unde lista trăiește. Nu o duplica în alt document și nu
-  adăuga o tabelă acolo ca să faci suita să treacă: modificarea fișierului este ADR.
+  adăuga o tabelă acolo ca să faci suita să treacă. **Confirmarea proprietarului se cere doar pentru
+  excepțiile care lărgesc accesul la date** — politică de altă formă decât `global_read_only`,
+  `writer_role` care scrie la runtime, sau slăbirea unei intrări existente. O intrare nouă cu
+  `tenant_column = false`, `policy_shape = "global_read_only"` și `writer_role = "evidenta_owner"` —
+  vocabular global doar-citire, însămânțat din migrarea care îl definește — este commit obișnuit, cu
+  `reason` mărginit și `source`
+  ([ADR-072](docs/decisions/072-exceptia-care-nu-largeste.md)).
 - **R2** — Fiecare tabelă business are politică RLS activă și `FORCE ROW LEVEL SECURITY`.
   Tabelele cu formă de politică diferită de șablon o declară în același fișier; gardianul de model
   verifică forma declarată, nu sare peste ele.

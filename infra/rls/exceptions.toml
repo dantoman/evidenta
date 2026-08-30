@@ -4,7 +4,21 @@
 #              docs/specs/spec-a-tenancy.md §5.4
 # Consumator:  backend/tests/schema_guard/
 #
-# Modificarea acestui fișier este ADR. Nu se duplică în documentație: documentele trimit aici.
+# Modificarea acestui fișier: DOUĂ feluri, și numai unul cere decizia proprietarului (ADR-072).
+#
+#   (a) LĂRGEȘTE ACCESUL  — ADR. Politică de altă formă decât `global_read_only` pe o tabelă de
+#                           business; `writer_role` care scrie la runtime (`evidenta_refdata` ș.a.,
+#                           adică o cale privilegiată); scoaterea sau slăbirea unei intrări
+#                           existente; schimbarea formei unei politici deja aplicate pe date.
+#   (b) NU LĂRGEȘTE       — commit obișnuit. O intrare NOUĂ, pentru o tabelă NOUĂ, cu toate trei
+#                           deodată: `tenant_column = false`, `policy_shape = "global_read_only"`,
+#                           `writer_role = "evidenta_owner"` — vocabular global doar-citire,
+#                           însămânțat din migrarea care îl definește. `permission` e precedentul.
+#
+# `reason` și `source` sunt obligatorii pe ORICE intrare, din ambele clase: motivul spune ce e
+# exceptat și PÂNĂ UNDE (OD-95), sursa spune cine a sancționat excepția.
+#
+# Nu se duplică în documentație: documentele trimit aici.
 #
 # Două lucruri distincte se declară mai jos, și confuzia dintre ele este exact greșeala pe care
 # fișierul o previne:
@@ -89,6 +103,14 @@ policy_shape = "global_read_only"
 writer_role = "evidenta_refdata"
 reason = "Istoricul încrederii în sursă: când o valoare a trecut de la dedusă la citită în act. Același fapt pentru toți tenanții — un istoric per tenant ar da răspunsuri diferite aceluiași control despre același act."
 source = "ADR-046"
+
+[[table]]
+name = "employment_relationship_type"
+tenant_column = false
+policy_shape = "global_read_only"
+writer_role = "evidenta_owner"
+reason = "Vocabular de trei valori impus de lege — contract individual de muncă, raporturi de serviciu în baza actului administrativ, contract civil (anexa nr. 1 la Legea nr. 489/1999, pct. 1.1 prima liniuță). Același pentru toți tenanții unei jurisdicții, însămânțat din migrarea care îl definește, ca `permission`. Excepția se oprește aici: nu se extinde la alte tabele ale modulului, iar tabelele care poartă raporturi de muncă ale unui tenant nu o moștenesc — ele au tenant_id."
+source = "ADR-071; regimul intrării — ADR-072 §2, clasa (b)"
 
 [[table]]
 name = "fiscal_logic_version"
