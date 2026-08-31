@@ -100,3 +100,30 @@ def get(signed_in: dict[str, Any]) -> Callable[..., Any]:
         return signed_in["client"].get(path, headers={"host": HOST_A})
 
     return call
+
+
+def seed_role_accounts(seed: Any, template_id: uuid.UUID) -> None:
+    """Add every account the role catalogue names to a fixture template.
+
+    Instantiating a chart now installs the role bindings (ADR-073 §10), and
+    `install_default_bindings` refuses on a missing account rather than binding
+    half a company. So a template a company can actually be set up from has to
+    carry them -- which is true of the shipped plan and was not true of these
+    fixtures.
+
+    Built from the catalogue rather than listed: a hand-written list drifts from
+    the shipped file the first time a role is added, and this session added two.
+    """
+    from evidenta.accounting.slots.catalogue import DEFAULTS
+
+    for default in DEFAULTS:
+        seed(
+            "INSERT INTO coa_template_account (id, template_id, account_code, name_ro,"
+            " account_class, normal_balance, is_system, allows_subaccounts,"
+            " currency_tracking, quantity_tracking, required_dimensions, valid_from,"
+            " created_at)"
+            " VALUES (%s, %s, %s, %s, 'asset', 'debit', true, false, false, false, '{}',"
+            " '2020-01-01', now())"
+            " ON CONFLICT DO NOTHING",
+            [uuid.uuid4(), template_id, default.account_code, f"Cont de rol {default.role}"],
+        )

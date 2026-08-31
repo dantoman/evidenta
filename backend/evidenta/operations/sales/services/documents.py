@@ -27,12 +27,19 @@ from django.db import transaction
 from evidenta.operations.sales.models import (
     CustomerOrder,
     ProformaDocument,
+    RevenueKind,
     SaleNature,
     SalesDocument,
 )
 from evidenta.operations.sales.types import CUSTOMER_ORDER, PROFORMA, SALES_DOCUMENT
+from evidenta.platform.api.errors import ApiError
 from evidenta.platform.documents.services.conversion import convert
 from evidenta.platform.documents.services.lifecycle import open_draft
+
+
+class SaleMalformedError(ApiError):
+    code = "sales.malformed"
+    status = 422
 
 
 @transaction.atomic
@@ -41,6 +48,8 @@ def open_sale(
     company_id: uuid.UUID,
     partner_id: uuid.UUID,
     document_date: date,
+    revenue_kind: str,
+    partner_resident: bool,
     nature: str = SaleNature.DELIVERY,
     accounting_date: date | None = None,
     currency: str | None = None,
@@ -49,7 +58,25 @@ def open_sale(
     notes: str | None = None,
     rate_term: str = "payment_date",
 ) -> uuid.UUID:
-    """Start a sale as a draft. Delivery or advance, one type either way."""
+    """Start a sale as a draft. Delivery or advance, one type either way.
+
+    `revenue_kind` and `partner_resident` are required and have no defaults
+    (ADR-073 sections 2 and 3). Both select an account at posting time, and
+    neither can be derived: `partner` carries no residence, and what is being sold
+    is not a property of the counterparty. A default would answer both questions
+    in the direction that looks harmless -- services, resident -- and be wrong
+    silently.
+    """
+    if revenue_kind not in RevenueKind.values:
+        raise SaleMalformedError(
+            f"{revenue_kind!r} is not what a sale can recognise; the three are "
+            f"{', '.join(RevenueKind.values)}"
+        )
+    if not isinstance(partner_resident, bool):
+        raise SaleMalformedError(
+            "a sale says whether the counterparty is a resident: the receivable "
+            "account differs, and nothing in the partner card answers it"
+        )
     document = open_draft(
         company_id=company_id,
         document_type=SALES_DOCUMENT,
@@ -67,6 +94,8 @@ def open_sale(
         tenant_id=document.tenant_id,
         company_id=document.company_id,
         nature=nature,
+        revenue_kind=revenue_kind,
+        partner_resident=partner_resident,
     )
     return document.id
 
@@ -138,11 +167,18 @@ def convert_to_sale(
     source_id: uuid.UUID,
     *,
     document_date: date,
+    revenue_kind: str,
+    partner_resident: bool,
     nature: str = SaleNature.DELIVERY,
     accounting_date: date | None = None,
     exchange_rate: Decimal | None = None,
 ) -> uuid.UUID:
     """Turn a proforma or a customer order into a sale, as a draft.
+
+    The two discriminators are asked for here as well, and a proforma cannot
+    supply them: an offer says what is offered and at what price, not which
+    revenue account recognises it or whether the customer is a resident. Carrying
+    them over from a source that does not have them would be inventing them.
 
     Which sources are allowed is declared by the type, not decided here -- the
     core refuses a route the registry does not list. The positions come across
@@ -161,5 +197,7 @@ def convert_to_sale(
         tenant_id=sale.tenant_id,
         company_id=sale.company_id,
         nature=nature,
+        revenue_kind=revenue_kind,
+        partner_resident=partner_resident,
     )
     return sale.id

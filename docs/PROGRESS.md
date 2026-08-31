@@ -357,10 +357,41 @@ ecranul **spune asta**; coloana categoriei asigurate rămâne goală, fiindcă A
 codul sursei de venit e `SAL`, singurul citabil. Nimic din registrul care alimentează formularul nu
 așteaptă.
 
-**Unde s-a oprit.** Patru pași livrați, cinci ecrane, poarta verde la fiecare. Urmează **pasul 5** —
-documente comerciale: factură emisă, factură primită, încasări, plăți, cu contarea lor; fără TVA, care
-e pasul 6. Ce nu s-a atins deliberat, în continuare: **postarea salariilor** — cere rolurile de cont
-din ADR-065 §7 și trece prin evenimente contabile (`R9`).
+**Pasul 5 început: `F2.A0` închis și factura emisă merge cap-coadă.**
+
+- **[ADR-073](decisions/073-forma-postarii-documentelor-comerciale.md) `Acceptat`** — forma postării
+  pentru cele patru familii comerciale. **§9 enumeră fiecare implicit luat**, cu declanșatorul care îl
+  redeschide, ca proprietarul să răstoarne oricare citind o singură secțiune. Ce e forțat de Planul
+  general de conturi nu e alegere; ce a fost alegere e în tabel.
+- **Discriminatorii se cer, nu se deduc** — tiparul lui ADR-057. `partner` **n-are** câmp de rezidență
+  (măsurat), iar un implicit „rezident" ar posta creanțele față de nerezidenți pe contul de țară:
+  echilibrat, `R11` trece, greșit în bilanț la fiecare raportare. Testul care le desparte: două facturi
+  identice, conturi de debit diferite — **2211** contra **2212**.
+- **Mărfurile și produsele sunt refuzate, cu cod.** Venitul se recunoaște la fel, dar înregistrarea are
+  a doua jumătate — descărcarea de gestiune — care e F4. Un handler care ar posta doar prima ar produce
+  o lună în care marja e egală cu cifra de afaceri: echilibrată, plauzibilă, falsă.
+- **Un gol găsit prin construcție, și e cel mai scump din sesiune:** `install_default_bindings`
+  **n-avea niciun apelant în afara testelor**. Nicio companie creată prin produs n-avea o singură
+  legare de rol — deci prima postare care ar fi cerut un rol ar fi căzut cu un refuz pe care nimeni
+  nu-l putea repara. Nimic n-a observat fiindcă singurul lucru care posta era nota manuală, care
+  numește conturi prin id și nu cere niciodată un rol. Reparat prin `set_up_chart`, care compune
+  instanțierea planului cu legările — **nu** înăuntrul primitivei, fiindcă asta ar fi făcut un șablon
+  parțial imposibil de instanțiat, ceea ce e altă regulă decât cea reparată.
+- **Consecința pe fixture-uri, plătită și nu ocolită:** șase fișiere de test își construiau planul din
+  trei conturi. Un plan din trei conturi nu e un plan cu care o companie poate ține contabilitate, iar
+  refuzul spune exact asta — deci fixture-urile primesc acum conturile catalogului, **generate din
+  catalog**, nu enumerate. Două aserțiuni pe mulțimi complete au devenit aserțiuni pe prezență: testele
+  acelea sunt despre ce e postabil la o dată, nu despre câte conturi are planul.
+- **Două nume de fixture care se ciocneau cu realitatea:** `sales.invoice_issued` era folosit ca nume
+  de probă în două suite. E o înregistrare reală acum, iar vocabularul e închis — deci proba își ia
+  numele ei, `fixture.sample_event`.
+
+**Ce a rămas din pasul 5:** factura primită, încasările și plățile (modulul `operations/treasury`),
+returul (`OD-110`) și avansul — toate cu forma deja fixată de ADR-073, deci fără decizie în calea lor.
+
+**Unde s-a oprit.** Cinci pași atinși, șase ecrane, poarta verde la fiecare. Ce nu s-a atins
+deliberat: **postarea salariilor** — cere rolurile de cont din ADR-065 §7, care nu sunt încă în
+catalog.
 
 **Ce nu s-a atins deliberat:** **postarea**. Rularea produce sume; transformarea lor în linii de jurnal
 trece prin evenimente contabile (`R9`) și cere rolurile de cont din ADR-065 §7. E livrabil propriu, nu

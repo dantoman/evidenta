@@ -147,7 +147,14 @@ def a_sale(company: uuid.UUID, partner_id: uuid.UUID, **kwargs: Any) -> Document
     the reason a module above the document core never has to import its models
     (`D6`). Reading the row back is the test's business, not the caller's.
     """
-    document_id = open_sale(company_id=company, partner_id=partner_id, document_date=ON, **kwargs)
+    document_id = open_sale(
+        company_id=company,
+        partner_id=partner_id,
+        document_date=ON,
+        revenue_kind="services",
+        partner_resident=True,
+        **kwargs,
+    )
     replace_lines(document_id, [line()])
     return get_document(document_id)
 
@@ -202,6 +209,8 @@ def test_the_second_date_defaults_to_the_first_and_is_not_the_same_column(
                 partner_id=partner,
                 document_date=date(2026, 2, 28),
                 accounting_date=date(2026, 3, 5),
+                revenue_kind="services",
+                partner_resident=True,
             )
         )
         assert late.document_date != late.accounting_date
@@ -243,7 +252,15 @@ def test_a_document_without_positions_is_not_validated(
     context: TenantContext, company: uuid.UUID, partner: uuid.UUID, series: None
 ) -> None:
     with tenant_context(context):
-        document = get_document(open_sale(company_id=company, partner_id=partner, document_date=ON))
+        document = get_document(
+            open_sale(
+                company_id=company,
+                partner_id=partner,
+                document_date=ON,
+                revenue_kind="services",
+                partner_resident=True,
+            )
+        )
         with pytest.raises(NoLinesError):
             validate(document.id)
 
@@ -478,7 +495,15 @@ def test_positions_are_renumbered_from_one_on_every_replace(
     context: TenantContext, company: uuid.UUID, partner: uuid.UUID, series: None
 ) -> None:
     with tenant_context(context):
-        document = get_document(open_sale(company_id=company, partner_id=partner, document_date=ON))
+        document = get_document(
+            open_sale(
+                company_id=company,
+                partner_id=partner,
+                document_date=ON,
+                revenue_kind="services",
+                partner_resident=True,
+            )
+        )
         replace_lines(document.id, [line(), line(net="50.0000", vat="10.0000")])
         replace_lines(document.id, [line(net="7.0000", vat="1.4000")])
         assert list(document.lines.values_list("line_no", flat=True)) == [1]
@@ -635,7 +660,14 @@ def test_a_proforma_becomes_a_sale_and_the_positions_carry_the_link_back(
         replace_lines(proforma.id, [line()])
         proforma = validate(proforma.id)
 
-        sale = get_document(convert_to_sale(proforma.id, document_date=date(2026, 3, 15)))
+        sale = get_document(
+            convert_to_sale(
+                proforma.id,
+                document_date=date(2026, 3, 15),
+                revenue_kind="services",
+                partner_resident=True,
+            )
+        )
         carried = sale.lines.get()
         offered = proforma.lines.get()
         nature = SalesDocument.objects.filter(document=sale).get().nature
@@ -655,7 +687,12 @@ def test_an_undeclared_conversion_is_refused(
         sale = a_sale(company, partner)
         sale = validate(sale.id)
         with pytest.raises(SourceNotConvertibleError):
-            convert_to_sale(sale.id, document_date=ON)
+            convert_to_sale(
+                sale.id,
+                document_date=ON,
+                revenue_kind="services",
+                partner_resident=True,
+            )
 
 
 def test_a_source_is_converted_once(
@@ -667,9 +704,19 @@ def test_a_source_is_converted_once(
         )
         replace_lines(proforma.id, [line()])
         proforma = validate(proforma.id)
-        convert_to_sale(proforma.id, document_date=ON)
+        convert_to_sale(
+            proforma.id,
+            document_date=ON,
+            revenue_kind="services",
+            partner_resident=True,
+        )
         with pytest.raises(AlreadyConvertedError):
-            convert_to_sale(proforma.id, document_date=ON)
+            convert_to_sale(
+                proforma.id,
+                document_date=ON,
+                revenue_kind="services",
+                partner_resident=True,
+            )
 
 
 def test_a_draft_proforma_is_not_a_commitment(
@@ -681,7 +728,12 @@ def test_a_draft_proforma_is_not_a_commitment(
         )
         replace_lines(proforma.id, [line()])
         with pytest.raises(SourceNotValidatedError):
-            convert_to_sale(proforma.id, document_date=ON)
+            convert_to_sale(
+                proforma.id,
+                document_date=ON,
+                revenue_kind="services",
+                partner_resident=True,
+            )
 
 
 # --- purchases: the supplier's number is the supplier's ----------------------
@@ -849,7 +901,13 @@ def test_a_units_precision_freezes_at_the_first_quantity_it_carries(
         spare = UnitOfMeasure.objects.create(
             tenant_id=world["tenant_a"], code="L", name="Litru", decimal_places=3
         )
-        document_id = open_sale(company_id=company, partner_id=partner, document_date=ON)
+        document_id = open_sale(
+            company_id=company,
+            partner_id=partner,
+            document_date=ON,
+            revenue_kind="services",
+            partner_resident=True,
+        )
         position = line(quantity="12.500")
         replace_lines(
             document_id,
@@ -892,14 +950,36 @@ def test_the_rate_term_defaults_to_the_acts_suppletive_rule_and_takes_a_stipulat
     from evidenta.platform.documents.models import RateTerm
 
     with tenant_context(context):
-        plain = get_document(open_sale(company_id=company, partner_id=partner, document_date=ON))
+        plain = get_document(
+            open_sale(
+                company_id=company,
+                partner_id=partner,
+                document_date=ON,
+                revenue_kind="services",
+                partner_resident=True,
+            )
+        )
         assert plain.rate_term == RateTerm.PAYMENT_DATE
         fixed = get_document(
-            open_sale(company_id=company, partner_id=partner, document_date=ON, rate_term="fixed")
+            open_sale(
+                company_id=company,
+                partner_id=partner,
+                document_date=ON,
+                revenue_kind="services",
+                partner_resident=True,
+                rate_term="fixed",
+            )
         )
         assert fixed.rate_term == RateTerm.FIXED
         with pytest.raises(RateTermUnknownError):
-            open_sale(company_id=company, partner_id=partner, document_date=ON, rate_term="spot")
+            open_sale(
+                company_id=company,
+                partner_id=partner,
+                document_date=ON,
+                revenue_kind="services",
+                partner_resident=True,
+                rate_term="spot",
+            )
 
 
 def test_the_rate_term_freezes_with_the_header(

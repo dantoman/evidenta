@@ -26,6 +26,8 @@ from typing import Any
 
 import pytest
 
+from tests.integration.conftest import seed_role_accounts
+
 #: Not ``transaction=True``, and the reason is worth keeping: a transactional
 #: test flushes the database at teardown **as the application role**, and
 #: `entry_parameter_stamp` has no DELETE for it by design (ADR-047). The first
@@ -75,6 +77,9 @@ def _template(seed: Callable[..., None]) -> uuid.UUID:
             " '2020-01-01', now())",
             [uuid.uuid4(), template_id, code, name, klass, balance],
         )
+    # The chart has to be one a company can be set up from: instantiating it
+    # installs the role bindings, and those refuse on a missing account.
+    seed_role_accounts(seed, template_id)
     return template_id
 
 

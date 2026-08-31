@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import uuid
 from dataclasses import dataclass
+from datetime import date
 
 from evidenta.platform.api.errors import ApiError
 from evidenta.platform.tenancy.models import Company
@@ -64,3 +65,21 @@ def statutory_identity(company_id: uuid.UUID) -> StatutoryIdentity:
         cuatm_code=row["cuatm_code"],
         caem_code=row["caem_code"],
     )
+
+
+def accounting_start_date(company_id: uuid.UUID) -> date:
+    """The day this company's books start.
+
+    Asked for by anything that has to date a company-wide default from the
+    beginning rather than from today -- the role bindings, for one: installed on
+    the day the chart happens to be created, they would not cover an entry dated
+    earlier in the same year.
+    """
+    start = (
+        Company.objects.filter(id=company_id)
+        .values_list("accounting_start_date", flat=True)
+        .first()
+    )
+    if start is None:
+        raise CompanyNotVisibleError(f"company {company_id} is not visible in this context")
+    return start

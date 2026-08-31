@@ -17,6 +17,7 @@ import { RegisterScreen } from './accounting/RegisterScreen'
 import { TrialBalanceScreen } from './accounting/TrialBalanceScreen'
 import { CompaniesScreen } from './companies/CompaniesScreen'
 import { PartnersScreen } from './partners/PartnersScreen'
+import { SalesScreen } from './sales/SalesScreen'
 import { ContractsScreen } from './payroll/ContractsScreen'
 import { ExemptionsScreen } from './payroll/ExemptionsScreen'
 import { IpcScreen } from './payroll/IpcScreen'
@@ -108,6 +109,8 @@ export function App() {
           <Route path="companii/:companyId/note" element={<ManualEntryScreen />} />
           <Route path="companii/:companyId/balanta" element={<TrialBalanceScreen />} />
           <Route path="companii/:companyId/registru" element={<RegisterScreen />} />
+          {/* Facturi emise: documentul și contarea lui, într-un singur pas. */}
+          <Route path="companii/:companyId/facturi" element={<SalesScreen />} />
           <Route path="companii/:companyId/sabloane" element={<OperationTemplatesScreen />} />
           {/* With and without a batch: the batch id is in the path so a draft
               survives a reload -- the server has no way to list a company's

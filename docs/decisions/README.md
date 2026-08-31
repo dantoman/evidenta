@@ -144,6 +144,8 @@ Acte normative, secțiuni din documentele de intrare, benchmark-uri, discuții.
 | [071](071-tipurile-de-raport-ca-tabela.md) | Tipurile de raport de muncă sunt tabelă de referință globală; domeniul invariantului e cheie străină spre ea, cu exact trei valori și fără valoare-coș | Acceptat — domeniu, proprietar; a treia valoare adăugată la acceptare | 2026-08-30 | `C1(b)` |
 | [072](072-exceptia-care-nu-largeste.md) | `R1` cere confirmarea proprietarului doar pentru excepțiile care lărgesc accesul la date; catalogul global doar-citire, însămânțat din migrare, e commit obișnuit | Acceptat — proces, proprietar | 2026-08-30 | blocajul repetat al lui `C1(b)` |
 
+| [073](073-forma-postarii-documentelor-comerciale.md) | Forma postării pentru documentele comerciale: patru familii, discriminatorii ceruți și nu deduși, destinația alege rolul; mărfurile refuzate până la stocuri | Acceptat — domeniu, proprietar; §9 enumeră fiecare implicit | 2026-08-31 | `F2.A0` |
+
 *Indexul se actualizează la fiecare ADR nou. Un ADR care nu apare aici este invizibil.*
 
 [ADR-010](010-contabilul-practicant.md) închide `OD-32`: rolul de contabil practicant este acoperit

@@ -37,6 +37,8 @@ export const ro = {
     save: 'Salvează',
     add: 'Adaugă',
     none: '—',
+    yes: 'Da',
+    no: 'Nu',
   },
   // Numele celor doua grupe din banda de navigare a companiei. Doua cuvinte, si
   // niciunul din vocabularul de model (C37): grupele sunt cele pe care le
@@ -623,6 +625,43 @@ export const ro = {
     ipcFormMissing:
       'Formularul tipizat nu se generează încă: textul Anexei nr. 1 la Ordinul MF nr. 94/2020 nu este disponibil. Ce se vede aici este registrul din care se completează.',
   },
+  sales: {
+    // Factura emisa. Fara TVA la pasul 5 — regimul e `fara_tva` pe fiecare linie,
+    // iar tratamentul cu TVA e al pasului 6.
+    title: 'Facturi emise',
+    add: 'Factură nouă',
+    number: 'Număr',
+    documentDate: 'Data facturii',
+    accountingDate: 'Data contabilă',
+    partner: 'Client',
+    state: 'Stare',
+    draft: 'În lucru',
+    confirmed: 'Validată',
+    posted: 'Contabilizată',
+    cancelled: 'Anulată',
+    // Cele doua discriminatoare care aleg conturile. Fara implicit, fiindca
+    // niciunul nu se poate deduce din fisa partenerului.
+    revenueKind: 'Ce se vinde',
+    services: 'Servicii',
+    goods: 'Mărfuri',
+    products: 'Produse',
+    goodsHint: 'Mărfurile și produsele cer descărcarea de gestiune, care vine cu stocurile.',
+    resident: 'Client rezident',
+    residentHint: 'Alege contul de creanțe: în țară sau peste hotare. Nu se deduce din fișa clientului.',
+    lineDescription: 'Descrierea',
+    quantity: 'Cantitate',
+    unitPrice: 'Preț unitar',
+    addLine: 'Adaugă linie',
+    net: 'Valoare',
+    total: 'Total',
+    create: 'Creează factura',
+    issue: 'Validează și contabilizează',
+    issued: 'Contabilizată',
+    entry: 'Înregistrarea contabilă',
+    empty: 'Nicio factură.',
+    // Serverul calculeaza randul si totalurile; ecranul nu aduna nimic (C19).
+    totalsFromServer: 'Totalurile vin de la server.',
+  },
   errors: {
     // Keyed by the stable code from C10, never by the server's message. A client
     // that branched on message text would break the first time a sentence is
@@ -770,6 +809,13 @@ export const ro = {
     'tax.ipc_nothing_to_declare':
       'Luna nu are o rulare de salarii aprobată. O dare de seamă goală ar declara că nimeni nu a fost asigurat.',
     'tax.ipc_submitted': 'Darea de seamă este deja marcată ca depusă.',
+    'sales.malformed': 'Datele facturii nu au forma cerută.',
+    'sales.not_issuable': 'Factura nu poate fi contabilizată în starea aceasta.',
+    'sales.discriminator_missing':
+      'Factura nu spune ce se vinde sau dacă clientul e rezident. Ambele aleg un cont.',
+    'sales.cost_side_requires_inventory':
+      'Vânzarea de mărfuri cere și descărcarea de gestiune, care vine cu stocurile.',
+    'sales.posting_payload_invalid': 'Factura nu se poate contabiliza în forma aceasta.',
     'ledger.entry_already_reversed': 'Înregistrarea a fost deja stornată.',
     'ledger.entry_not_posted': 'Înregistrarea nu este postată, deci nu are ce anula.',
     'posting.reversal_payload_invalid': 'Stornarea are nevoie de un motiv.',

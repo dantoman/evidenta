@@ -100,6 +100,14 @@ def template(seed: Callable[..., None]) -> uuid.UUID:
         name_ro="Subcont de fixture",
         allows_subaccounts=False,
     )
+    # Plus every account the role catalogue names: instantiating a chart through
+    # the endpoint sets the company up to keep books, which installs the bindings
+    # (ADR-073 section 10), and those refuse on a missing account rather than
+    # binding half a company.
+    from evidenta.accounting.slots.catalogue import DEFAULTS
+
+    for default in DEFAULTS:
+        seed_account(seed, template_id, account_code=default.account_code)
     return template_id
 
 
@@ -155,7 +163,10 @@ def test_instantiating_and_reading_back_the_chart(
     accounts = get(signed_in, f"{BASE}/companies/{company}/accounts")
     assert accounts.status_code == 200
     rows = {row["account_code"]: row for row in accounts.json()}
-    assert set(rows) == {"T1", "T11"}
+    # Presence, not the whole set: the chart now also carries the role accounts,
+    # because a chart a company can be set up from has to support the bindings.
+    # This test is about which accounts are postable on a date, not about size.
+    assert {"T1", "T11"} <= set(rows)
     assert rows["T11"]["parent_id"] == rows["T1"]["id"]
     assert rows["T1"]["origin"] == "system"
 
@@ -190,8 +201,14 @@ def test_postable_accounts_answer_for_the_date_the_caller_names(
     before = get(signed_in, f"{BASE}/companies/{company}/accounts?on=2025-12-31").json()
     after = get(signed_in, f"{BASE}/companies/{company}/accounts?on=2026-01-01").json()
 
-    assert {row["account_code"] for row in before} == {"T1", "T11"}
-    assert {row["account_code"] for row in after} == {"T1"}
+    # Presence again: the fixture chart carries the role accounts too now.
+    assert {"T1", "T11"} <= {row["account_code"] for row in before}
+    # T11 closed on that date and T1 did not. Asserted as the difference between
+    # the two readings, which is what the test is about -- the role accounts sit
+    # in both and say nothing either way.
+    codes_after = {row["account_code"] for row in after}
+    assert "T1" in codes_after
+    assert "T11" not in codes_after
 
 
 def test_a_malformed_date_is_a_stable_code_not_a_field_error(

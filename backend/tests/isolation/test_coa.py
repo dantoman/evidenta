@@ -152,6 +152,7 @@ def template(seed: Callable[..., None]) -> uuid.UUID:
         normal_balance=NormalBalance.CREDIT,
         allows_subaccounts=True,
     )
+
     return template_id
 
 
@@ -579,3 +580,53 @@ def test_instantiation_records_which_version_was_chosen(
             "template": "TEST/1",
             "accounts": 3,
         }
+
+
+def test_setting_up_the_chart_installs_the_role_bindings(
+    seed: Callable[..., None],
+    world: dict[str, uuid.UUID],
+    company: uuid.UUID,
+) -> None:
+    """The door that was missing -- ADR-073 section 10.
+
+    `install_default_bindings` had **no caller outside the tests**, so no company
+    created through the product had a single binding, and the first posting that
+    asked for a role would have failed with a refusal nobody could act on. A
+    manual note names accounts by id and never noticed.
+
+    Asserted on the count rather than on a name: the catalogue is a shipped file
+    that grows, and a test naming three roles would keep passing while the
+    fourth silently stopped being installed.
+    """
+    from evidenta.accounting.coa.services.setup import set_up_chart
+    from evidenta.accounting.slots.catalogue import DEFAULTS
+    from evidenta.accounting.slots.models import AccountRoleBinding
+
+    # A template that carries every account the catalogue names -- which is what a
+    # chart a company can keep books with looks like. Built from the catalogue
+    # rather than listed: a hand-written list drifts from the shipped file the
+    # first time a role is added, and this session added two.
+    template_id = seed_template(seed)
+    for default in DEFAULTS:
+        seed_account(
+            seed,
+            template_id,
+            account_code=default.account_code,
+            name_ro=f"Cont de rol {default.role}",
+            allows_subaccounts=False,
+        )
+
+    context = TenantContext(
+        tenant_id=world["tenant_a"], user_id=world["user_a"], request_id="bindings"
+    )
+    with tenant_context(context):
+        setup = set_up_chart(company, template_id)
+        installed = set(
+            AccountRoleBinding.objects.filter(company_id=company).values_list("role", flat=True)
+        )
+
+    # On the count and the whole set, not on three names: the catalogue grows, and
+    # a test naming a few roles keeps passing while a new one silently stops being
+    # installed.
+    assert installed == {default.role for default in DEFAULTS}
+    assert setup.bindings == len(DEFAULTS)

@@ -30,6 +30,7 @@ import { TrialBalanceScreen } from '@/app/accounting/TrialBalanceScreen'
 import { CompaniesScreen } from '@/app/companies/CompaniesScreen'
 import { CompanyNav } from '@/app/layout/CompanyNav'
 import { PartnersScreen } from '@/app/partners/PartnersScreen'
+import { SalesScreen } from '@/app/sales/SalesScreen'
 import { ContractsScreen } from '@/app/payroll/ContractsScreen'
 import { ExemptionsScreen } from '@/app/payroll/ExemptionsScreen'
 import { IpcScreen } from '@/app/payroll/IpcScreen'
@@ -779,6 +780,40 @@ describe('ecranele', () => {
     expect(
       screen.getByText(/Cu sarcină CAS, fără rând nominal/),
     ).toBeInTheDocument()
+  })
+
+  it('facturile emise arată totalul serverului și cei doi discriminatori', async () => {
+    stubFetch({
+      [`/api/v1/sales/companies/${COMPANY}/invoices`]: [
+        {
+          id: 'i1',
+          formatted_number: 'FV-0001-2026',
+          document_date: '2026-01-20',
+          accounting_date: '2026-01-20',
+          state: 'posted',
+          partner_id: 'p1',
+          currency: 'MDL',
+          nature: 'delivery',
+          revenue_kind: 'services',
+          partner_resident: false,
+          totals: { net: '5000.00', vat: '0', total: '5000.00' },
+        },
+      ],
+      '/api/v1/masterdata/partners/': [],
+    })
+    renderScreen(<SalesScreen />, {
+      path: '/companii/:companyId/facturi',
+      route: `/companii/${COMPANY}/facturi`,
+    })
+
+    expect(await screen.findByText('FV-0001-2026')).toBeInTheDocument()
+    // Formatted ro-MD from the string the server sent, never parsed to a float.
+    expect(screen.getByText('5.000,00')).toBeInTheDocument()
+    // The discriminator that chooses the receivable account, shown as such.
+    expect(screen.getByText('Servicii')).toBeInTheDocument()
+    expect(screen.getByText('Nu')).toBeInTheDocument()
+    // Already posted, so the row offers no second posting.
+    expect(screen.queryByRole('button', { name: /Validează/ })).not.toBeInTheDocument()
   })
 
   it('fără sesiune, aplicația arată ecranul de autentificare', async () => {

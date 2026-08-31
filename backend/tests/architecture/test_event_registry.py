@@ -67,7 +67,7 @@ def probe_handler(**_: object) -> list[object]:
 
 
 @pytest.mark.parametrize(
-    "name", ["sales.invoice_issued", "purchases.invoice_received", "payroll.run_approved"]
+    "name", ["fixture.sample_event", "purchases.invoice_received", "payroll.run_approved"]
 )
 def test_the_spec_b_form_is_accepted(name: str) -> None:
     register(EventType(name=name, payload_fields=("amount",)))
@@ -96,9 +96,9 @@ def test_a_duplicate_registration_is_refused() -> None:
     on import order -- the same defect as a contract file that accepts two rows
     for one table and silently keeps the last.
     """
-    register(EventType(name="sales.invoice_issued", payload_fields=()))
+    register(EventType(name="fixture.sample_event", payload_fields=()))
     with pytest.raises(DuplicateEventTypeError):
-        register(EventType(name="sales.invoice_issued", payload_fields=()))
+        register(EventType(name="fixture.sample_event", payload_fields=()))
 
 
 # --- Selection is by the period's date, never by "the newest" -----------------
@@ -114,7 +114,7 @@ def test_the_handler_of_the_period_is_selected_not_the_newest() -> None:
     HANDLERS["probe.v2"] = probe_handler
     register(
         EventType(
-            name="sales.invoice_issued",
+            name="fixture.sample_event",
             payload_fields=(),
             handlers=(
                 HandlerVersion("probe.v1", date(2020, 1, 1), date(2024, 1, 1)),
@@ -123,11 +123,11 @@ def test_the_handler_of_the_period_is_selected_not_the_newest() -> None:
         )
     )
     assert (
-        resolve_handler("sales.invoice_issued", date(2022, 6, 30), frozenset())
+        resolve_handler("fixture.sample_event", date(2022, 6, 30), frozenset())
         is HANDLERS["probe.v1"]
     )
     assert (
-        resolve_handler("sales.invoice_issued", date(2024, 1, 1), frozenset())
+        resolve_handler("fixture.sample_event", date(2024, 1, 1), frozenset())
         is HANDLERS["probe.v2"]
     )
 
@@ -142,7 +142,7 @@ def test_the_boundary_day_belongs_to_the_later_handler() -> None:
     HANDLERS["probe.v2"] = probe_handler
     register(
         EventType(
-            name="sales.invoice_issued",
+            name="fixture.sample_event",
             payload_fields=(),
             handlers=(
                 HandlerVersion("probe.v1", date(2020, 1, 1), date(2024, 1, 1)),
@@ -151,7 +151,7 @@ def test_the_boundary_day_belongs_to_the_later_handler() -> None:
         )
     )
     assert (
-        resolve_handler("sales.invoice_issued", date(2023, 12, 31), frozenset())
+        resolve_handler("fixture.sample_event", date(2023, 12, 31), frozenset())
         is HANDLERS["probe.v1"]
     )
 
@@ -165,13 +165,13 @@ def test_no_handler_for_the_period_is_an_error() -> None:
     HANDLERS["probe.v2"] = probe_handler
     register(
         EventType(
-            name="sales.invoice_issued",
+            name="fixture.sample_event",
             payload_fields=(),
             handlers=(HandlerVersion("probe.v2", date(2024, 1, 1)),),
         )
     )
     with pytest.raises(NoHandlerError):
-        resolve_handler("sales.invoice_issued", date(2020, 1, 1), frozenset())
+        resolve_handler("fixture.sample_event", date(2020, 1, 1), frozenset())
 
 
 def test_two_handlers_covering_one_date_is_an_error() -> None:
@@ -179,7 +179,7 @@ def test_two_handlers_covering_one_date_is_an_error() -> None:
     HANDLERS["probe.b"] = probe_handler
     register(
         EventType(
-            name="sales.invoice_issued",
+            name="fixture.sample_event",
             payload_fields=(),
             handlers=(
                 HandlerVersion("probe.a", date(2020, 1, 1)),
@@ -188,7 +188,7 @@ def test_two_handlers_covering_one_date_is_an_error() -> None:
         )
     )
     with pytest.raises(AmbiguousHandlerError):
-        resolve_handler("sales.invoice_issued", date(2023, 1, 1), frozenset())
+        resolve_handler("fixture.sample_event", date(2023, 1, 1), frozenset())
 
 
 def test_an_unregistered_type_cannot_be_resolved() -> None:
@@ -205,13 +205,13 @@ def test_a_registration_selects_and_never_imports() -> None:
     """
     register(
         EventType(
-            name="sales.invoice_issued",
+            name="fixture.sample_event",
             payload_fields=(),
             handlers=(HandlerVersion("os.system", date(2020, 1, 1)),),
         )
     )
     with pytest.raises(NoHandlerError):
-        resolve_handler("sales.invoice_issued", date(2026, 1, 1), frozenset())
+        resolve_handler("fixture.sample_event", date(2026, 1, 1), frozenset())
 
 
 # --- The boot check, and its probes ------------------------------------------
@@ -221,7 +221,7 @@ def test_a_type_without_a_handler_is_reported() -> None:
     """The check that matters most: a type that can be emitted and not posted is
     a document that goes missing silently.
     """
-    probe = {"sales.invoice_issued": EventType("sales.invoice_issued", ())}
+    probe = {"fixture.sample_event": EventType("fixture.sample_event", ())}
     problems = audit(probe)
     assert any("no handler" in p for p in problems)
 
@@ -234,8 +234,8 @@ def test_a_gap_between_handlers_is_reported() -> None:
     HANDLERS["probe.a"] = probe_handler
     HANDLERS["probe.b"] = probe_handler
     probe = {
-        "sales.invoice_issued": EventType(
-            "sales.invoice_issued",
+        "fixture.sample_event": EventType(
+            "fixture.sample_event",
             (),
             handlers=(
                 HandlerVersion("probe.a", date(2020, 1, 1), date(2023, 1, 1)),
@@ -251,8 +251,8 @@ def test_an_overlap_is_reported() -> None:
     HANDLERS["probe.a"] = probe_handler
     HANDLERS["probe.b"] = probe_handler
     probe = {
-        "sales.invoice_issued": EventType(
-            "sales.invoice_issued",
+        "fixture.sample_event": EventType(
+            "fixture.sample_event",
             (),
             handlers=(
                 HandlerVersion("probe.a", date(2020, 1, 1), date(2025, 1, 1)),
@@ -270,8 +270,8 @@ def test_an_open_ended_handler_followed_by_another_is_reported() -> None:
     HANDLERS["probe.a"] = probe_handler
     HANDLERS["probe.b"] = probe_handler
     probe = {
-        "sales.invoice_issued": EventType(
-            "sales.invoice_issued",
+        "fixture.sample_event": EventType(
+            "fixture.sample_event",
             (),
             handlers=(
                 HandlerVersion("probe.a", date(2020, 1, 1)),
@@ -284,8 +284,8 @@ def test_an_open_ended_handler_followed_by_another_is_reported() -> None:
 
 def test_a_handler_this_build_lacks_is_reported() -> None:
     probe = {
-        "sales.invoice_issued": EventType(
-            "sales.invoice_issued",
+        "fixture.sample_event": EventType(
+            "fixture.sample_event",
             (),
             handlers=(HandlerVersion("probe.absent", date(2020, 1, 1)),),
         )
@@ -305,7 +305,7 @@ def test_the_shipped_registry_is_serviceable() -> None:
 
 def test_check_registry_refuses_an_unserviceable_vocabulary() -> None:
     """The probe for the boot check itself."""
-    register(EventType(name="sales.invoice_issued", payload_fields=()))
+    register(EventType(name="fixture.sample_event", payload_fields=()))
     with pytest.raises(RegistryInvalidError):
         check_registry()
 
@@ -320,15 +320,15 @@ def test_a_deprecated_type_keeps_its_handlers() -> None:
     HANDLERS["probe.v1"] = probe_handler
     register(
         EventType(
-            name="sales.invoice_issued",
+            name="fixture.sample_event",
             payload_fields=(),
             handlers=(HandlerVersion("probe.v1", date(2020, 1, 1)),),
         )
     )
-    reg.deprecate("sales.invoice_issued")
-    assert "sales.invoice_issued" in reg.DEPRECATED
+    reg.deprecate("fixture.sample_event")
+    assert "fixture.sample_event" in reg.DEPRECATED
     assert (
-        resolve_handler("sales.invoice_issued", date(2021, 1, 1), frozenset())
+        resolve_handler("fixture.sample_event", date(2021, 1, 1), frozenset())
         is HANDLERS["probe.v1"]
     )
 
@@ -347,7 +347,7 @@ def test_two_treatments_of_one_event_coexist_on_one_date() -> None:
     HANDLERS["probe.without_vat"] = probe_handler
     register(
         EventType(
-            name="sales.invoice_issued",
+            name="fixture.sample_event",
             payload_fields=(),
             handlers=(
                 HandlerVersion("probe.with_vat", date(2020, 1, 1), requires=frozenset({"vat"})),
@@ -355,8 +355,8 @@ def test_two_treatments_of_one_event_coexist_on_one_date() -> None:
             ),
         )
     )
-    with_vat = resolve_handler("sales.invoice_issued", date(2026, 1, 1), frozenset({"vat"}))
-    without = resolve_handler("sales.invoice_issued", date(2026, 1, 1), frozenset())
+    with_vat = resolve_handler("fixture.sample_event", date(2026, 1, 1), frozenset({"vat"}))
+    without = resolve_handler("fixture.sample_event", date(2026, 1, 1), frozenset())
     assert with_vat is HANDLERS["probe.with_vat"]
     assert without is HANDLERS["probe.without_vat"]
 
@@ -371,7 +371,7 @@ def test_a_missing_capability_is_reported_as_such_not_as_a_missing_period() -> N
     HANDLERS["probe.with_vat"] = probe_handler
     register(
         EventType(
-            name="sales.invoice_issued",
+            name="fixture.sample_event",
             payload_fields=(),
             handlers=(
                 HandlerVersion("probe.with_vat", date(2020, 1, 1), requires=frozenset({"vat"})),
@@ -379,7 +379,7 @@ def test_a_missing_capability_is_reported_as_such_not_as_a_missing_period() -> N
         )
     )
     with pytest.raises(NoHandlerError) as failure:
-        resolve_handler("sales.invoice_issued", date(2026, 1, 1), frozenset())
+        resolve_handler("fixture.sample_event", date(2026, 1, 1), frozenset())
     assert "vat" in str(failure.value)
     assert "no handler" not in str(failure.value)
 
@@ -393,8 +393,8 @@ def test_handlers_differing_only_in_capability_are_not_an_overlap() -> None:
     HANDLERS["probe.with_vat"] = probe_handler
     HANDLERS["probe.without_vat"] = probe_handler
     probe = {
-        "sales.invoice_issued": EventType(
-            "sales.invoice_issued",
+        "fixture.sample_event": EventType(
+            "fixture.sample_event",
             (),
             handlers=(
                 HandlerVersion("probe.with_vat", date(2020, 1, 1), requires=frozenset({"vat"})),
@@ -412,8 +412,8 @@ def test_an_overlap_within_one_capability_set_is_still_reported() -> None:
     HANDLERS["probe.a"] = probe_handler
     HANDLERS["probe.b"] = probe_handler
     probe = {
-        "sales.invoice_issued": EventType(
-            "sales.invoice_issued",
+        "fixture.sample_event": EventType(
+            "fixture.sample_event",
             (),
             handlers=(
                 HandlerVersion("probe.a", date(2020, 1, 1), requires=frozenset({"vat"})),
@@ -436,7 +436,7 @@ def test_incomparable_requirements_stay_ambiguous() -> None:
     HANDLERS["probe.inventory"] = probe_handler
     register(
         EventType(
-            name="sales.invoice_issued",
+            name="fixture.sample_event",
             payload_fields=(),
             handlers=(
                 HandlerVersion("probe.vat", date(2020, 1, 1), requires=frozenset({"vat"})),
@@ -447,7 +447,7 @@ def test_incomparable_requirements_stay_ambiguous() -> None:
         )
     )
     with pytest.raises(AmbiguousHandlerError):
-        resolve_handler("sales.invoice_issued", date(2026, 1, 1), frozenset({"vat", "inventory"}))
+        resolve_handler("fixture.sample_event", date(2026, 1, 1), frozenset({"vat", "inventory"}))
 
 
 def test_a_strict_superset_wins_over_the_general_treatment() -> None:
@@ -460,7 +460,7 @@ def test_a_strict_superset_wins_over_the_general_treatment() -> None:
     HANDLERS["probe.vat_inventory"] = probe_handler
     register(
         EventType(
-            name="sales.invoice_issued",
+            name="fixture.sample_event",
             payload_fields=(),
             handlers=(
                 HandlerVersion("probe.general", date(2020, 1, 1), requires=frozenset({"vat"})),
@@ -473,7 +473,7 @@ def test_a_strict_superset_wins_over_the_general_treatment() -> None:
         )
     )
     chosen = resolve_handler(
-        "sales.invoice_issued", date(2026, 1, 1), frozenset({"vat", "inventory"})
+        "fixture.sample_event", date(2026, 1, 1), frozenset({"vat", "inventory"})
     )
     assert chosen is HANDLERS["probe.vat_inventory"]
 

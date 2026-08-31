@@ -30,6 +30,7 @@ class PostingConfig(AppConfig):
         # fixes it.
         from evidenta.accounting.posting.services import (
             closing,  # noqa: F401
+            commercial,  # noqa: F401
             manual,  # noqa: F401
             production,  # noqa: F401
             reversal,  # noqa: F401

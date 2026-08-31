@@ -51,7 +51,7 @@ def registered_type():
     saved_deprecated = set(reg.DEPRECATED)
     register(
         EventType(
-            name="sales.invoice_issued",
+            name="fixture.sample_event",
             payload_fields=("amount", "currency"),
         )
     )
@@ -89,7 +89,7 @@ def emit_one(
     return emit(
         tenant_id=world["tenant_a"],
         company_id=company_id,
-        event_type="sales.invoice_issued",
+        event_type="fixture.sample_event",
         source_module=SourceModule.SALES,
         source_document_type="sales_invoice",
         source_document_id=uuid.UUID("00000000-0000-0000-0000-0000000000f1"),
@@ -164,7 +164,7 @@ def test_key_reordering_in_the_payload_is_not_a_conflict(
         return emit(
             tenant_id=world["tenant_a"],
             company_id=company,
-            event_type="sales.invoice_issued",
+            event_type="fixture.sample_event",
             source_module=SourceModule.SALES,
             source_document_type="sales_invoice",
             source_document_id=document_id,
@@ -366,7 +366,7 @@ def test_a_payload_missing_a_declared_field_is_refused(
         emit(
             tenant_id=world["tenant_a"],
             company_id=company,
-            event_type="sales.invoice_issued",
+            event_type="fixture.sample_event",
             source_module=SourceModule.SALES,
             source_document_type="sales_invoice",
             source_document_id=uuid.uuid4(),
@@ -388,7 +388,7 @@ def test_a_deprecated_type_cannot_be_emitted(
 
     The handlers stay, because the entries the type already produced stay.
     """
-    reg.deprecate("sales.invoice_issued")
+    reg.deprecate("fixture.sample_event")
     with tenant_context(context), pytest.raises(DeprecatedEventTypeError):
         emit_one(world, company, key="deprecated")
 
@@ -398,7 +398,7 @@ def test_a_registered_type_with_no_handler_still_emits(
 ) -> None:
     """The line between a caller bug and a configuration gap.
 
-    `sales.invoice_issued` is registered here with no handler at all. Emission
+    `fixture.sample_event` is registered here with no handler at all. Emission
     succeeds and posting is what will fail -- into `failed` with a
     `posting_error`, which gives an operator a queue to work from. Refusing here
     would mean the business operation cannot even be recorded because of a gap
@@ -482,7 +482,7 @@ def test_the_queue_is_ordered_by_accounting_date(
         late, _ = emit(
             tenant_id=world["tenant_a"],
             company_id=company,
-            event_type="sales.invoice_issued",
+            event_type="fixture.sample_event",
             source_module=SourceModule.SALES,
             source_document_type="sales_invoice",
             source_document_id=uuid.uuid4(),

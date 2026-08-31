@@ -26,6 +26,7 @@ from evidenta.accounting.coa.models import CompanyAccount
 from evidenta.accounting.events.models import AccountingEvent
 from evidenta.accounting.ledger.models import JournalEntry, JournalLine
 from evidenta.platform.rls.context import tenant_context
+from tests.integration.conftest import seed_role_accounts
 
 pytestmark = pytest.mark.django_db(databases=["default", "migration"])
 
@@ -67,6 +68,9 @@ def _template(seed: Callable[..., None]) -> uuid.UUID:
             " '2020-01-01', now())",
             [account_id, template_id, code, name, klass, balance],
         )
+    # The chart has to be one a company can be set up from: instantiating it
+    # installs the role bindings, and those refuse on a missing account.
+    seed_role_accounts(seed, template_id)
     return template_id
 
 
@@ -111,7 +115,11 @@ def test_the_whole_slice(
 
     accounts = get(f"/api/v1/accounting/coa/companies/{company_id}/accounts").json()
     by_code = {row["account_code"]: row["id"] for row in accounts}
-    assert set(by_code) == {"242", "311"}
+    # The two this slice posts through, and the chart carries more now: the role
+    # accounts came with it, because a chart a company can be set up from has to
+    # support the bindings (ADR-073 section 10). Asserted as presence, not as the
+    # whole set -- the catalogue grows and this test is not about its size.
+    assert {"242", "311"} <= set(by_code)
 
     # A second chart is refused: a company has one, and a second would be a
     # second answer to "which version were these books built on".
@@ -199,6 +207,7 @@ def test_the_whole_slice(
     body = balance.json()
 
     rows = {row["account_code"]: row for row in body["rows"]}
+    # The trial balance shows only what was posted to, which is still the two.
     assert set(rows) == {"242", "311"}
     assert rows["242"]["debit"] == "5000.0000"
     assert rows["242"]["closing"] == "5000.0000"

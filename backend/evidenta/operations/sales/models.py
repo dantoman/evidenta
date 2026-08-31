@@ -36,6 +36,26 @@ class SaleNature(models.TextChoices):
     ADVANCE = "advance"
 
 
+class RevenueKind(models.TextChoices):
+    """What is being sold -- and therefore which revenue account (ADR-073 §3).
+
+    A closed vocabulary in code, on the pattern ADR-065 §7.1 fixed for the cost
+    destination: the value selects **which role** the handler asks for, which is
+    posting form (`R28`), not configuration. It does not condition which account a
+    role binds to.
+
+    Three values, and only the first posts today. Goods and finished products
+    recognise revenue the same way, but the entry has a second half -- the stock
+    coming off the books -- and that is F4. A handler posting only the first half
+    would produce a month whose margin equals its turnover: balanced, plausible,
+    false.
+    """
+
+    SERVICES = "services"
+    GOODS = "goods"
+    PRODUCTS = "products"
+
+
 class SalesDocument(models.Model):
     document = models.OneToOneField(
         Document,
@@ -49,12 +69,28 @@ class SalesDocument(models.Model):
 
     nature = models.TextField(choices=SaleNature.choices, default=SaleNature.DELIVERY)
 
+    #: Which revenue role the posting asks for. No default: the three are not
+    #: interchangeable, and a document that arrived without anyone choosing would
+    #: post to services because that is what a default would say.
+    revenue_kind = models.TextField(choices=RevenueKind.choices)
+
+    #: Country or abroad, for the receivable. **Carried, never derived** --
+    #: `Partner` has no residence field, and a default of "resident" would post
+    #: receivables from non-residents to the domestic account: balanced, `R11`
+    #: green, and wrong in the balance sheet at every reporting date. The same
+    #: shape ADR-057 fixed for settlement differences.
+    partner_resident = models.BooleanField()
+
     class Meta:
         db_table = "sales_document"
         constraints = [
             models.CheckConstraint(
                 condition=models.Q(nature__in=SaleNature.values),
                 name="sales_document_nature_valid",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(revenue_kind__in=RevenueKind.values),
+                name="sales_document_revenue_kind_valid",
             ),
         ]
         indexes = [

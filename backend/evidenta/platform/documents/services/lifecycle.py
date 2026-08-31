@@ -256,6 +256,40 @@ def validate(document_id: uuid.UUID) -> Document:
 
 
 @transaction.atomic
+def mark_posted(document_id: uuid.UUID) -> Document:
+    """*Postat*: the accounting effect now exists, so the document freezes again.
+
+    The transition was declared here and reachable from nowhere -- deliberately,
+    because this module has no business deciding that a ledger entry exists. What
+    it does own is the state machine, so the module that posts asks for the
+    transition rather than writing the column: `sales` holding a `Document` to set
+    a field on it would be `D6`, and the rule is not about the import, it is about
+    what having the row lets you do next.
+
+    Idempotent on purpose. A document already posted returns unchanged rather than
+    refusing: the posting service is itself idempotent on the accounting event
+    (`R19`), and a second call after a retry must not turn a successful posting
+    into an error.
+    """
+    document = get_document(document_id)
+    if document.state == DocumentState.POSTED:
+        return document
+
+    assert_transition(document.state, DocumentState.POSTED)
+    previous = document.state
+    document.state = DocumentState.POSTED
+    document.posted_at = datetime.now(UTC)
+    document.save(update_fields=["state", "posted_at", "updated_at"])
+
+    record_event(
+        document,
+        event_type="document.posted",
+        from_state=previous,
+        to_state=DocumentState.POSTED,
+    )
+    return document
+
+
 def cancel(document_id: uuid.UUID, *, reason: str) -> Document:
     """*Anulat*: allowed only before the accounting effect exists, with a reason.
 

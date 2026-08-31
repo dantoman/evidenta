@@ -45,7 +45,7 @@ from evidenta.accounting.coa.serializers import (
     UpdateAccountSerializer,
 )
 from evidenta.accounting.coa.services import accounts as account_services
-from evidenta.accounting.coa.services.instantiation import instantiate_chart
+from evidenta.accounting.coa.services.setup import set_up_chart
 from evidenta.platform.api.errors import ApiError
 from evidenta.platform.api.lookup import get_or_404
 
@@ -86,14 +86,20 @@ class ChartView(APIView):
         return Response(ChartSerializer(chart).data)
 
     def post(self, request: Request, company_id: uuid.UUID) -> Response:
-        """Instantiate a published version for this company.
+        """Set the company up to keep books: the chart **and** the role bindings.
 
         Until onboarding exists this is the only way a company gets a chart --
         `P-9` (ADR-040) is decided and unwritten, and when it lands it calls the
         same service in the same transaction rather than this endpoint.
+
+        `set_up_chart` rather than `instantiate_chart`, and the difference is the
+        defect it closes: the bindings had no caller outside the tests, so every
+        company created through the product had a chart and not one role binding
+        (ADR-073 section 10).
         """
         payload = _validated(InstantiateChartSerializer, request.data)
-        chart = instantiate_chart(company_id, payload["template_id"])
+        setup = set_up_chart(company_id, payload["template_id"])
+        chart = CompanyChart.objects.get(id=setup.chart_id)
         return Response(ChartSerializer(chart).data, status=201)
 
 
