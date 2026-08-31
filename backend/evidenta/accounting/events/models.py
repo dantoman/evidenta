@@ -101,6 +101,18 @@ class AccountingEvent(models.Model):
     #: the same failure R18 exists to prevent for parameters and logic.
     capability_snapshot = models.JSONField()
 
+    #: What was true about the company's fiscal standing on the accounting date --
+    #: ADR-088. Written by `emit` rather than passed in, and the asymmetry with the
+    #: capability profile is the point: that one is an *input* a caller may have
+    #: reason to override (`R26`), this one is a *fact* about the company at a
+    #: date, and a caller who forgot it would produce the silent drift the stamp
+    #: exists to prevent.
+    #:
+    #: `null` means one thing only: written before this column existed. It does
+    #: **not** mean "no statuses" -- the difference matters at the first
+    #: recalculation.
+    tax_status_snapshot = models.JSONField(null=True, blank=True)
+
     status = models.TextField(choices=EventStatus.choices, default=EventStatus.PENDING)
     posted_at = models.DateTimeField(null=True, blank=True)
 

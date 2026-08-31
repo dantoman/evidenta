@@ -38,6 +38,7 @@ from django.db import IntegrityError, transaction
 
 from evidenta.accounting.events.models import AccountingEvent, EventStatus
 from evidenta.accounting.events.registry import DEPRECATED, REGISTRY, UnknownEventTypeError
+from evidenta.platform.tenancy.services.tax_status import tax_status_at
 
 
 class IdempotencyConflictError(RuntimeError):
@@ -176,6 +177,10 @@ def emit(
                 idempotency_key=idempotency_key,
                 payload=payload,
                 capability_snapshot=capability_snapshot,
+                # Computed here, from the accounting date, so no caller can
+                # forget it and no event can carry a status from the wrong day
+                # (ADR-088 §4).
+                tax_status_snapshot=tax_status_at(company_id, accounting_date),
                 actor_user_id=actor_user_id,
                 request_id=request_id,
                 status=EventStatus.PENDING,

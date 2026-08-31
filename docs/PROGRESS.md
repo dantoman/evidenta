@@ -187,6 +187,38 @@ sunt bifate în `08`** — închiderea F1 e declarația proprietarului, ca la F0
 
 ## Ultima sesiune
 
+**2026-08-31 — statutul fiscal e datat și ștampilat pe eveniment
+([ADR-088](decisions/088-statutul-fiscal-e-datat-si-stampilat.md)); `OD-83` restrânsă, pasul 6
+deblocat.**
+
+**Cum s-a ajuns aici, fiindcă partea de proces contează:** sesiunea s-a oprit înaintea pasului 6
+citind „decizie de motor, a proprietarului" ca pe un zid. Proprietarul a corectat-o: *exista o variantă
+reversibilă și trebuia luată, cu un rând scris.* Raționamentul lui e reprodus verbatim în ADR-088 §2.
+
+**Partea portantă nu era unde se ramifică, ci ca statutul să fie datat.** Fără margini nu funcționează
+nici ștampilarea, nici rezolvarea la postare — n-ai de unde ști ce era valabil atunci. Cu ele, ambele
+variante rămân recuperabile. Diferența reală: fără ștampilă, o corecție de statut schimbă **tăcut**
+rapoarte deja emise.
+
+**Măsurat înainte de a construi:** marginile pentru TVA existau deja — `company_vat_registration`,
+datată, cu sursă, cu docstring-ul care spune exact de ce. Parcul IT **nu** are tabelă, deși `OD-81` o
+numește; nu s-a creat, fiindcă n-are cititor și acesta e chiar ADR-ul care refuză schemele fără
+consumator.
+
+**Livrat:**
+- `tenancy/services/tax_status.py` — un singur răspuns la *ce era adevărat despre această companie la
+  data asta*, versionat de la primul rând.
+- `accounting_event.tax_status_snapshot`, scris **în `emit()`**, nu cerut apelantului: profilul de
+  capabilități e *input* (`R26`) și poate fi suprascris, statutul e *fapt* la o dată, iar un apelant
+  care l-ar uita ar produce exact eșecul tăcut. `null` înseamnă un singur lucru — scris înainte ca
+  această coloană să existe —, nu „fără statute".
+- **4 teste de izolare.** Cel din mijloc e motivul întregii construcții: o înregistrare de TVA adăugată
+  *după* postare nu atinge ștampila, iar aceeași întrebare pusă acum răspunde altfel — ambele numere
+  există în test, ca diferența să fie vizibilă.
+
+**Ce rămâne amânat, cu rând scris:** `OD-130` — forma rezolvării în handlere, la al treilea caz.
+Ștampila nu prejudecă răspunsul, nici dacă statutul se dovedește diferență de *date*, nu de formă.
+
 **2026-08-31 — jurnalul documentelor: restul lui F1.8, deblocat de propria sesiune.**
 
 F1.8 avea un rest cu motiv scris: *„Rămân: jurnalele de vânzări/cumpărări — sunt «pe document prin
