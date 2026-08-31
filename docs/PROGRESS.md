@@ -617,6 +617,54 @@ furnizor obișnuită, latura vendorului nu există), `OD-108` (identitatea titul
 din produs: ar cere o cheie de permisiune nedecisă). `OD-37` rămâne motivul pentru care lista
 persoanelor din spațiu nu se poate afișa, și ecranul o spune.
 
+**A treia parte, în aceeași sesiune — modelul s-a răsturnat, și bine că devreme
+([ADR-085](decisions/085-spatiul-apartine-unui-utilizator.md), scris de sesiunea paralelă;
+[ADR-086](decisions/086-facturarea-pe-companie.md), al meu).**
+
+Proprietarul a numit cazul care rupe forma dată cu două ore înainte: **un antreprenor cu mai multe
+companii e mai frecvent decât un holding**, iar el nu are companie-mamă. Concluzia lui, verbatim:
+*„m-am grăbit să oblig orice tenant să fie companie… titularul contului să fie un user, cu acces și
+permisiuni pe companiile create de el."*
+
+Ce s-a schimbat în cod, pe ecran: titularul e **persoana** — nume, e-mail, rol, drepturi —, companiile
+sunt egale între ele, iar „compania titularului" a dispărut cu derivare, marcaj și ofertă cu tot.
+`tenant.idno` rămâne, cu alt înțeles: identitatea abonatului. Selectorul a recăpătat **starea goală**
+(„Alege compania"), fiindcă un antreprenor deschide aplicația fără să fie în vreuna, iar alegerea în
+locul lui ar fi o presupunere despre ce registre a venit să vadă.
+
+**Facturarea, decisă pe fondul contabil** (ADR-086): câte o factură pe companie, fiindcă o factură
+emisă pe o persoană juridică nu intră în registrele alteia; excepția e plata indirectă, unde firma de
+contabilitate primește una singură pentru companiile pe care le plătește. `OD-107` restrânsă la
+emitere.
+
+**Două ecrane de editare, cu granițele scrise pe ele:**
+- **Partenerul** — `PATCH` parțial pe denumiri, roluri, monedă și termen. IDNO/IDNP și TVA rămân
+  afară: primul e cum numesc documentele emise partenerul și ce împiedică două fișe să împartă un
+  sold (`R20`), a doua e stare cu dată. Găsit scriind testul: **DRF aruncă tăcut cheile nedeclarate**,
+  deci un `PATCH` cu `idno` întorcea `200` cu vechea valoare — o corecție care arăta că a mers. Acum
+  se refuză pe nume.
+- **Titularul** — numele, atât. E-mailul e credențialul și cere dovada noii adrese; parola și al
+  doilea factor pornesc de la cele actuale; limba n-are consumator (ADR-014). Formularul o spune,
+  în loc să lase omul să caute.
+
+**Un defect de tipografie prins tot de proprietar, cu efect larg:** utilitarele `type-*` erau scrise
+prin scurtătura CSS `font:`, care **resetează** `font-style`, `font-weight` și `font-variant`. Măsurat
+în artefactul construit: `.type-body-lg` apărea după `.italic`, deci `class="type-body-lg italic"`
+ieșea drept — clasa era acolo, italicul nu. Aceeași capcană aștepta orice `font-bold` sau `tabular`
+lipit de un `type-*`, inclusiv pe coloanele de sume, unde `C27` cere cifre tabulare. Rescrise pe
+proprietăți separate.
+
+**Unde s-a oprit:** tot ce e mai sus a intrat în `3d6291f`, comis de sesiunea paralelă la
+instrucțiunea proprietarului *„comite tot"* — 180 de fișiere, ambele fluxuri, `GATE: PASS` pe
+1217 teste backend și 49 frontend, `make check-committed` verde pe arborele comis.
+
+**Ce rămâne întrebare deschisă din partea mea:** `OD-129` (cum ajunge un om la spațiile lui, când are
+mai multe — directorul pe gazdă neutră, fără sesiune comună, fiindcă cookie-ul e host-only prin
+construcție) și divergența semnalată de trei ori și nerezolvată: **ADR-085 §4 spune că derivarea
+„companiei titularului" se păstrează pentru holdinguri, iar codul nu o mai are.** Ori se amendează
+§4, ori se pune derivarea la loc; azi ADR-ul descrie un cod care face altceva — chiar tiparul din
+`OD-86`.
+
 ## Sesiuni mai vechi
 
 **2026-08-30 — instrucțiune nouă: scop și metodă schimbate. Lista de deblocare, `R1` îngustată,
