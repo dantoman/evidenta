@@ -21,10 +21,7 @@ import { t } from '@/locales'
 import { createEmployee, listEmployees, type Employee } from '@/shared/api/payroll'
 import { DataGrid, type Column } from '@/shared/DataGrid'
 import { Failure } from '@/shared/Failure'
-
-const FIELD = 'rounded border border-border bg-surface px-2 text-sm'
-const BUTTON =
-  'rounded border border-border bg-surface px-3 text-sm text-accent disabled:text-ink-muted'
+import { Button, Card, Field, Input, Select } from '@/shared/ui'
 
 export function PeopleScreen() {
   const { companyId = '' } = useParams()
@@ -91,7 +88,7 @@ export function PeopleScreen() {
   return (
     <section className="flex flex-col gap-4">
       <header className="flex flex-wrap items-end justify-between gap-4">
-        <h1 className="text-base font-semibold">{t.payroll.people}</h1>
+        <h1 className="type-display-2 text-heading">{t.payroll.people}</h1>
         <div className="flex flex-wrap items-center gap-4">
           <Link to={`/companii/${companyId}/contracte`} className="text-sm text-accent">
             {t.payroll.contracts}
@@ -109,20 +106,20 @@ export function PeopleScreen() {
               setQuery(search.trim())
             }}
           >
-            <input
+            <Input
               value={search}
               onChange={(event) => setSearch(event.target.value)}
               placeholder={t.payroll.searchPeople}
               aria-label={t.payroll.searchPeople}
-              className={`${FIELD} w-72`}
+              className="w-72"
             />
-            <button type="submit" className={BUTTON}>
+            <Button variant="secondary" type="submit">
               {t.payroll.inForceShow}
-            </button>
+            </Button>
           </form>
-          <button type="button" onClick={() => setAdding((open) => !open)} className={BUTTON}>
+          <Button variant="primary" type="button" onClick={() => setAdding((open) => !open)}>
             {adding ? t.companies.cancel : t.payroll.addPerson}
-          </button>
+          </Button>
         </div>
       </header>
 
@@ -138,12 +135,14 @@ export function PeopleScreen() {
 
       {people.isError && <Failure error={people.error} />}
       {people.data && (
-        <DataGrid
-          columns={columns}
-          rows={people.data}
-          rowKey={(person) => person.id}
-          emptyMessage={t.payroll.noPeople}
-        />
+        <Card padding="none">
+          <DataGrid
+            columns={columns}
+            rows={people.data}
+            rowKey={(person) => person.id}
+            emptyMessage={t.payroll.noPeople}
+          />
+        </Card>
       )}
     </section>
   )
@@ -195,81 +194,74 @@ function NewPersonForm({
         create.mutate()
       }}
     >
-      <label className="flex flex-col gap-1 text-sm">
-        <span className="text-ink-muted">{t.payroll.lastName}</span>
-        <input
+      <Field label={t.payroll.lastName}>
+        <Input
           value={lastName}
           onChange={(event) => setLastName(event.target.value)}
-          className={`${FIELD} w-48`}
+          className="w-48"
         />
-      </label>
-      <label className="flex flex-col gap-1 text-sm">
-        <span className="text-ink-muted">{t.payroll.firstName}</span>
-        <input
+      </Field>
+      <Field label={t.payroll.firstName}>
+        <Input
           value={firstName}
           onChange={(event) => setFirstName(event.target.value)}
-          className={`${FIELD} w-48`}
+          className="w-48"
         />
-      </label>
-      <label className="flex flex-col gap-1 text-sm">
-        <span className="text-ink-muted">{t.payroll.residency}</span>
-        <select
+      </Field>
+      <Field label={t.payroll.residency}>
+        <Select
           value={residency}
           onChange={(event) =>
             setResidency(event.target.value === 'resident' ? 'resident' : 'non_resident')
           }
-          className={`${FIELD} w-48`}
+          className="w-48"
         >
           <option value="resident">{t.payroll.resident}</option>
           <option value="non_resident">{t.payroll.nonResident}</option>
-        </select>
-      </label>
+        </Select>
+      </Field>
 
       {byIdnp ? (
-        <label className="flex flex-col gap-1 text-sm">
-          <span className="text-ink-muted">{t.payroll.idnp}</span>
-          <input
+        <Field label={t.payroll.idnp}>
+          <Input
             value={idnp}
             onChange={(event) => setIdnp(event.target.value)}
             maxLength={13}
             title={t.payroll.idnpHint}
-            className={`${FIELD} w-40 font-mono`}
+            className="w-40 font-mono"
           />
-        </label>
+        </Field>
       ) : (
         <>
-          <label className="flex flex-col gap-1 text-sm">
-            <span className="text-ink-muted">{t.payroll.documentType}</span>
-            <input
+          <Field label={t.payroll.documentType}>
+            <Input
               value={documentType}
               onChange={(event) => setDocumentType(event.target.value)}
               title={t.payroll.documentHint}
-              className={`${FIELD} w-40`}
+              className="w-40"
             />
-          </label>
-          <label className="flex flex-col gap-1 text-sm">
-            <span className="text-ink-muted">{t.payroll.documentNumber}</span>
-            <input
+          </Field>
+          <Field label={t.payroll.documentNumber}>
+            <Input
               value={documentNumber}
               onChange={(event) => setDocumentNumber(event.target.value)}
-              className={`${FIELD} w-40 font-mono`}
+              className="w-40 font-mono"
             />
-          </label>
+          </Field>
         </>
       )}
 
-      <label className="flex flex-col gap-1 text-sm">
-        <span className="text-ink-muted">{t.payroll.insuranceCode}</span>
-        <input
+      <Field label={t.payroll.insuranceCode}>
+        <Input
           value={insuranceCode}
           onChange={(event) => setInsuranceCode(event.target.value)}
-          className={`${FIELD} w-40 font-mono`}
+          className="w-40 font-mono"
         />
-      </label>
+      </Field>
 
-      <button type="submit" disabled={!complete || create.isPending} className={BUTTON}>
+      <Button variant="primary" type="submit" disabled={!complete || create.isPending}>
         {t.payroll.createPerson}
-      </button>
+      </Button>
       {create.isError && <Failure error={create.error} />}
     </form>
   )

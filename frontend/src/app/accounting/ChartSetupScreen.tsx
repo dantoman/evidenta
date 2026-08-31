@@ -27,6 +27,7 @@ import { getChart, instantiateChart, listTemplates, type CoaTemplate } from '@/s
 import { listCompanies } from '@/shared/api/companies'
 import { DataGrid, type Column } from '@/shared/DataGrid'
 import { Failure, codeOf } from '@/shared/Failure'
+import { Card } from '@/shared/ui'
 
 function validity(template: CoaTemplate): string {
   const until = template.valid_to ? date(template.valid_to) : t.common.none
@@ -110,7 +111,7 @@ export function ChartSetupScreen() {
   return (
     <section className="flex flex-col gap-4">
       <header className="flex flex-col gap-1">
-        <h1 className="text-base font-semibold">{t.accounting.templates.title}</h1>
+        <h1 className="type-display-2 text-heading">{t.accounting.templates.title}</h1>
         {company && <span className="text-sm text-ink-muted">{company.legal_name}</span>}
       </header>
 
@@ -128,14 +129,16 @@ export function ChartSetupScreen() {
           {templates.isPending && <p className="text-sm text-ink-muted">{t.app.loading}</p>}
           {templates.isError && <Failure error={templates.error} />}
           {templates.data && (
-            <DataGrid
-              columns={columns}
-              rows={templates.data}
-              rowKey={(template) => template.id}
-              emptyMessage={t.accounting.templates.empty}
-              density="comfortable"
-              onRowClick={(template) => setChosen(template.id)}
-            />
+            <Card padding="none">
+              <DataGrid
+                columns={columns}
+                rows={templates.data}
+                rowKey={(template) => template.id}
+                emptyMessage={t.accounting.templates.empty}
+                density="comfortable"
+                onRowClick={(template) => setChosen(template.id)}
+              />
+            </Card>
           )}
 
           {instantiate.isError && <Failure error={instantiate.error} />}

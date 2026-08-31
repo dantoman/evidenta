@@ -42,9 +42,8 @@ from datetime import UTC, datetime
 from typing import Any
 
 import pyotp
-from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
-from django.db import connections, transaction
+from django.db import transaction
 
 from evidenta.platform.identity.services.authentication import confirm_totp, enrol_totp
 from evidenta.platform.identity.services.provisioning import (
@@ -54,42 +53,13 @@ from evidenta.platform.identity.services.provisioning import (
 )
 from evidenta.platform.identity.services.roles import create_system_roles
 from evidenta.platform.rls.context import TenantContext, tenant_context, unguarded
+from evidenta.platform.rls.installation import (
+    InstallationRoleError,
+    bind_default_to_installation_role,
+)
 from evidenta.platform.tenancy.models import Tenant
 
 MINIMUM_PASSWORD = 12
-
-
-def _bind_default_to_admin() -> None:
-    """Point the default connection at the installation role for this process.
-
-    The services below -- `create_system_roles`, `enrol_totp` -- are the product's
-    own and use the default connection. Handing them a `using=` they do not have
-    would mean changing a shared service to suit one command; rebinding the
-    connection here keeps them untouched and keeps this the only place that knows
-    a second role is involved.
-    """
-    admin = settings.DATABASES.get("admin")
-    if not admin:
-        raise CommandError(
-            "conexiunea de instalare nu este configurată: setați DB_ADMIN_USER și "
-            "DB_ADMIN_PASSWORD. Primul tenant nu se poate crea sub rolul aplicației "
-            "și nici sub cel de proprietar -- politicile sunt scrise `TO evidenta_app`."
-        )
-
-    # Both halves, and the second is the one that matters: the handler's
-    # `databases` dict is what a *new* wrapper would be built from, while the
-    # existing wrapper holds its own copy in `settings_dict`. Rebinding only the
-    # first reconnects as the same role it was already using -- measured, when
-    # the insert was still refused by a policy the installation role should never
-    # have been subject to.
-    connections["default"].close()
-    rebound = {
-        **connections.databases["default"],
-        "USER": admin["USER"],
-        "PASSWORD": admin["PASSWORD"],
-    }
-    connections.databases["default"] = rebound
-    connections["default"].settings_dict.update(rebound)
 
 
 class Command(BaseCommand):
@@ -98,6 +68,12 @@ class Command(BaseCommand):
     def add_arguments(self, parser: Any) -> None:
         parser.add_argument("--subdomain", required=True)
         parser.add_argument("--legal-name", required=True)
+        # The holder's own fiscal identity (ADR-075). Optional, because a tenant
+        # without it is the state every existing one is in -- and because the
+        # subscription can be signed before the IDNO is at hand. What it costs to
+        # leave empty is named on the workspace screen, not hidden.
+        parser.add_argument("--idno", default=None)
+        parser.add_argument("--legal-form", default=None)
         parser.add_argument("--email", required=True)
         parser.add_argument("--full-name", default="")
         # Not the default path: a password on the command line lands in shell
@@ -112,7 +88,14 @@ class Command(BaseCommand):
         if len(password) < MINIMUM_PASSWORD:
             raise CommandError(f"parola are cel puțin {MINIMUM_PASSWORD} caractere")
 
-        _bind_default_to_admin()
+        # The installation role, not the owner and not the application: the
+        # reason is in `platform.rls.installation`, which the repair command
+        # shares. A CommandError here rather than the RuntimeError, so an
+        # operator gets a message instead of a traceback.
+        try:
+            bind_default_to_installation_role()
+        except InstallationRoleError as unavailable:
+            raise CommandError(str(unavailable)) from unavailable
         now = datetime.now(UTC)
         tenant_id = uuid.uuid4()
 
@@ -129,6 +112,8 @@ class Command(BaseCommand):
                     id=tenant_id,
                     subdomain=subdomain,
                     legal_name=options["legal_name"],
+                    idno=options["idno"],
+                    legal_form=options["legal_form"],
                     status="active",
                     default_locale="ro",
                     created_at=now,

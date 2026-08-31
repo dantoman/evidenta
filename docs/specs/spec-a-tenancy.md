@@ -44,6 +44,7 @@ Clientul SaaS. Proprietarul datelor. Nu are `tenant_id` — este rădăcina.
 | `subdomain` | citext | NOT NULL, UNIQUE, CHECK `~ '^[a-z][a-z0-9-]{2,29}$'` | Singura sursă a contextului de tenant în request (C8) |
 | `legal_name` | text | NOT NULL | |
 | `status` | text | NOT NULL, CHECK în `('active','suspended','offboarding','archived')` | Vezi 9.4 |
+| `claimed_at` | timestamptz | NULL | Faptul revendicării, nu un status: un tenant nerevendicat e perfect `active`. [ADR-081](../decisions/081-revendicarea-optionala.md) |
 | `default_locale` | text | NOT NULL, DEFAULT `'ro'` | Există din F0, cu o singură valoare posibilă. Este un câmp, nu o funcționalitate — ADR-014 |
 | `primary_contact_user_id` | uuid | NULL, REFERENCES `user` | Contact administrativ; nu implică drepturi |
 | `suspended_at`, `offboarding_started_at`, `archived_at` | timestamptz | NULL | |
@@ -764,6 +765,7 @@ ceva trec prin căile privilegiate din secțiunea 6, unde sunt enumerate și aud
 |---|---|---|---|
 | — | `invited` | firma (către tenant) sau tenantul (către firmă) | niciun acces |
 | `invited` | `active` | partea care **nu** a inițiat, cu drept de administrare | acces conform scope-ului, de la `valid_from` |
+| — | `active` | firma, pe **mandat declarat**, la crearea tenantului — `acceptance_basis = 'declared_mandate'` ([ADR-081](../decisions/081-revendicarea-optionala.md) §3.3) | acces conform scope-ului; identic cu cel acceptat de client, iar predicatul nu se atinge |
 | `invited` | `revoked` | oricare parte | niciun acces; invitația expiră și de la sine — vezi `DN-13` |
 | `active` | `suspended` | tenantul, firma, sau administrarea platformei | acces tăiat instantaneu, relația se păstrează |
 | `suspended` | `active` | aceeași parte care a suspendat, sau tenantul | acces restabilit, fără reacceptare |
@@ -959,6 +961,7 @@ iar o greșeală de configurare dă acces la tot.
 | **P-8** | Offboarding și export | Produce exportul complet al unui tenant, inclusiv date pe care niciun rol de utilizator nu le citește într-o singură interogare | Operațiune de platformă | rând per export, cu cine l-a cerut |
 | **P-9** | Provizionarea unui tenant sau a unei companii | Creează rândul rădăcină și acordă accesul creatorului, în aceeași tranzacție | Crearea precede contextul: `tenant` e rădăcina contextului, iar politica pe `company` cere `has_company_access(id)` și în `WITH CHECK` — o companie nu poate avea acces la ea însăși înainte să existe | rând per creare, cu creatorul și subdomeniul sau IDNO-ul |
 | **P-10** | Încărcarea planului de conturi | Scrie o versiune publicată a planului general de conturi (`coa_template`, `coa_template_account`) și actul ei | Scriere globală; act **contabil**, nu parametru fiscal, deci nu e `P-4` (`OD-56`) | rând per rulare, cu versiunea și numărul de conturi scrise |
+| **P-11** | Revendicarea unui tenant | Acordă un `membership` de administrare celui care dovedește că reprezintă IDNO-ul tenantului, și scrie `claimed_at` | Revendicarea precede orice apartenență: cine revendică nu e încă membru al nimic | rând per revendicare, cu `justification` și referința probei |
 
 *`P-3`, `P-4`, `P-5` și `P-10` rulează sub rolul `evidenta_refdata` (§2.2), prin
 `platform.audit.services.privileged.privileged_run`, care scrie rândul din §6.3 în aceeași
@@ -966,11 +969,21 @@ tranzacție — [ADR-049](../decisions/049-rolul-de-date-de-referinta.md). `P-9`
 `SECURITY DEFINER`, fiindcă e apelată dintr-o cerere de utilizator; `DN-17` se închide astfel
 parțial, pe criteriul „cine apelează".*
 
-**`DECIZIE NECESARĂ (DN-18)` — accesul de suport (P-7).** Este singura cale prin care un angajat
-al platformei vede datele unui client. Opțiuni: (A) nu există — diagnosticul se face exclusiv din
+**`DN-18` — DECISĂ 2026-08-31, varianta (B)**, prin
+[ADR-077](../decisions/077-grantul-de-suport.md). `P-7` nu e o ocolire, e un **grant**: cererea trece
+prin calea privilegiată (angajat cu rol `support` în `platform_staff`,
+[ADR-076](../decisions/076-planul-de-control-al-platformei.md)), **aprobarea trece prin politica
+obișnuită a tenantului** — un membru cu `tenant.approve_support_access` — iar accesul trăiește ca o
+ramură mărginită în predicat, stinsă de `expires_at > now()` fără să ruleze niciun job. Grantul e
+**doar-citire**: nu există grant de scriere, fiindcă un autor din afara relației, în ledger, rupe
+`INV-9`. `request_ref` e `NOT NULL` fiindcă ecranul de consimțământ din
+[ADR-017](../decisions/017-terminologie.md) numește solicitarea — *„un consimțământ generic aprobă
+orice, oricând"*. Ce rămâne deschis e clauza contractuală (`OD-115`), nu mecanismul.
+
+*Formularea originală, păstrată: opțiunile erau (A) nu există — diagnosticul se face exclusiv din
 loguri și metrici, ceea ce face unele incidente irezolvabile; (B) există, cu acordul explicit al
 tenantului per incident și expirare automată; (C) există, fără acord, dar cu notificare către tenant
-și audit vizibil clientului. Alegerea are consecințe contractuale, nu doar tehnice.
+și audit vizibil clientului. Alegerea are consecințe contractuale, nu doar tehnice.*
 
 ### 6.3 `privileged_access_log`
 
@@ -1478,6 +1491,9 @@ Reguli:
 ## 11. DECIZII NECESARE — lista completă
 
 **28 de puncte** — 25 la scrierea specificației, plus `DN-26`–`DN-28`, apărute odată cu §12 și §13.
+*Decise la 2026-08-31: `DN-18` ([ADR-077](../decisions/077-grantul-de-suport.md)), `DN-26`
+([ADR-078](../decisions/078-cine-poate-crea-un-tenant.md)), `DN-27`
+([ADR-079](../decisions/079-tenantul-nerevendicat.md)).*
 
 Închise ulterior prin ADR-uri: `DN-01` (ADR-014, ADR-016), `DN-04` și `DN-05`
 ([ADR-039](../decisions/039-valuta-si-perioade.md)), `DN-06` și `DN-07` (ADR-018, ADR-019), `DN-08`
@@ -1491,7 +1507,7 @@ e dezvoltat în text.
 |---|---|---|---|
 | ~~DN-01~~ | **ÎNCHISĂ.** Rusa e strat de prezentare exclusiv; contabilitatea se ține în română prin lege (nr. 287/2017, art. 7). Denumirile de referință rămân valoare unică | — | [ADR-014](../decisions/014-limba-rusa.md), [ADR-016](../decisions/016-limba-contabilitatii.md) |
 | DN-02 | Subdomeniu: se poate schimba? se eliberează pentru realocare? | F0.3 | 11.2 |
-| DN-03 | IDNO: unic global între tenanți, sau doar per tenant? | F0.3 | 11.3 |
+| DN-03 | IDNO: unic global între tenanți, sau doar per tenant? **Restrânsă** — indexul nu se creează (ar decide tăcut o regulă comercială), dar duplicatul devine modul normal de eșec, deci se avertizează la creare, doar unei firme verificate | F0.3 | 11.3, [ADR-081](../decisions/081-revendicarea-optionala.md) §7 |
 | ~~DN-04~~ | **ÎNCHISĂ.** `MDL` fix; linia poartă valută din ziua 1, cu numele din Spec B și cu `rate_date` | — | [ADR-039](../decisions/039-valuta-si-perioade.md) |
 | ~~DN-05~~ | **ÎNCHISĂ.** Nu — exercițiul are `start_date`/`end_date` explicite; perioada TVA e entitate distinctă de perioada contabilă | — | [ADR-039](../decisions/039-valuta-si-perioade.md) |
 | ~~DN-06~~ | **ÎNCHISĂ.** Da — mai multe firme, separate prin scope de module. Unicitatea rămâne per pereche firmă–tenant; un `module_key` aparține unui singur engagement viu | — | [ADR-018](../decisions/018-engagementuri-multiple.md) |
@@ -1506,16 +1522,16 @@ e dezvoltat în text.
 | DN-15 | Suprapunerea la transferul între firme | F0.3 | §4.5 |
 | DN-16 | Nivelul metadatelor de atașament: tenant sau companie? | F0.6 | 11.16 |
 | DN-17 | Mecanismul căilor privilegiate: funcții `SECURITY DEFINER` sau rol separat | F0.1 | §6.1 |
-| DN-18 | Accesul de suport al platformei la datele unui tenant | F0.4, contract | §6.2 |
+| ~~DN-18~~ | **DECIS** — varianta (B): grant cerut privilegiat, aprobat de client, doar-citire, expirat în predicat | — | [ADR-077](../decisions/077-grantul-de-suport.md) |
 | DN-19 | Read models pentru tenantul fără firmă | F3, model acum | §7.5 |
 | DN-20 | Granularitatea corelatorului: `request_id`, `session_id`, sau ambele | F0.4 | §9.3 |
-| DN-21 | Durata perioadei de grație la offboarding; accesul de citire la neplată | F0.3, comercial | §9.4 |
+| DN-21 | Durata perioadei de grație la offboarding; accesul de citire la neplată. **Promovată la condiție de lansare** ([ADR-081](../decisions/081-revendicarea-optionala.md) §6): pe un tenant nerevendicat, neplata firmei suspendă registrele unui client care n-a contractat cu nimeni | **lansarea**, nu F3 | §9.4 |
 | DN-22 | Termenele legale de păstrare — **mecanismul e decis** (parametri fiscali), valorile rămân deschise (`OD-21`) | F3 | [ADR-008](../decisions/008-retention-fiscal-parameters.md), `Propus` |
 | DN-23 | Formatul exportului complet | F3 | 11.23 |
 | DN-24 | Moneda de facturare și tratamentul TVA pe abonament | F3 | 11.24 |
-| DN-25 | Ce se întâmplă cu `billing_account` la revocarea engagementului wholesale | F3 | §10.4 |
-| DN-26 | Cine poate crea un tenant: autoservire, invitație, sau exclusiv prin firmă | Onboarding | §12.3 |
-| DN-27 | Tenantul creat de o firmă și niciodată acceptat de client: ce `status` primește, după cât timp, cine îl plătește | Onboarding | §12.3 |
+| DN-25 | Ce se întâmplă cu `billing_account` la revocarea engagementului wholesale. **Restrânsă la politică** — mecanismul e decis: plătitorul e o atribuire cu dată, iar revocarea nu-l schimbă de la sine ([ADR-081](../decisions/081-revendicarea-optionala.md) §5). **Promovată la condiție de lansare** | **lansarea**, nu F3 | §10.4 |
+| ~~DN-26~~ | **DECIS** — două canale: autoservire și creare de către firmă; invitația e poartă de lansare, nu canal | — | [ADR-078](../decisions/078-cine-poate-crea-un-tenant.md) |
+| ~~DN-27~~ | **DECIS** — revendicarea e opțională, calea de revendicare (`P-11`) nu; mandat declarat, plătitor mutabil cu dată | — | [ADR-081](../decisions/081-revendicarea-optionala.md) *(înlocuiește [ADR-079](../decisions/079-tenantul-nerevendicat.md))* |
 | DN-28 | Granițele exacte ale ferestrei de îngheț și procesul de excepție | Prima lansare | §13.4 |
 
 ### 11.1 DN-01 — limba rusă
@@ -1737,26 +1753,43 @@ Trei lucruri din ordinea asta sunt constrângeri, nu preferințe:
 | Cale | Cine apelează `P-9` | Ce diferă |
 |---|---|---|
 | **Autoservire** | Viitorul administrator al tenantului | Creatorul devine membru cu rol de administrare; facturarea merge pe grila directă (10.1) |
-| **Firmă care aduce un client** | Un membru al tenantului firmei | Tenantul se creează **cu un engagement în stare `invited`**, nu activ: clientul acceptă, altfel firma și-ar acorda singură acces (4.2) |
+| **Firmă care aduce un client** | Un membru al unei firme `active`, adică verificate ([ADR-080](../decisions/080-tipul-nu-se-stocheaza.md) §4.1) | Tenantul se creează cu `claimed_at` nul și cu engagement `active` pe **mandat declarat** — `acceptance_basis`, `mandate_ref`, `claim_contact_email` ([ADR-081](../decisions/081-revendicarea-optionala.md) §3.3). Revendicarea rămâne posibilă permanent, prin `P-11`, dar nu e obligatorie |
 | **Migrare din alt sistem** | Ca autoservirea, plus importul | Soldurile inițiale vin din `import.*` ([ADR-038](../decisions/038-vocabularul-de-evenimente.md) §7.3): suma din sursă e autoritativă, nu recalculată |
 
 A doua cale este cea care merită atenție. Un tenant creat de o firmă rămâne **al clientului** —
-`INV-7`, datele n-au fost niciodată ale firmei. Engagementul `invited` nu produce niciun acces până
-la acceptare, ceea ce e chiar comportamentul din 4.2. Iar dacă clientul nu acceptă niciodată,
-tenantul rămâne un tenant fără membri activi: caz real, nu ipotetic, și care are nevoie de o politică
-de expirare.
+`INV-7`, datele n-au fost niciodată ale firmei. Iar clientul poate să nu revendice niciodată: e cazul
+normal, nu unul marginal. Formularea ascuțită a problemei: **dreptul de revocare din `INV-7` aparține
+unui proprietar care nu există ca persoană.** Răspunsul nu e să forțezi persoana să apară, ci să
+ancorezi dreptul în IDNO și să garantezi calea către el —
+[ADR-081](../decisions/081-revendicarea-optionala.md).
 
-> **`DECIZIE NECESARĂ (DN-26)` — cine poate crea un tenant.** Autoservire deschisă, invitație, sau
-> exclusiv prin firmă. Consecințele sunt comerciale și interacționează cu cele două canale de
-> facturare din 10.1: autoservirea deschisă cere protecție anti-abuz și verificarea IDNO, invitația
-> reduce fricțiunea de vânzare la zero pentru firme dar închide creșterea organică. `P-9`
-> funcționează pentru oricare — funcția verifică ce i se cere, iar cine are voie s-o apeleze e o
-> decizie de deasupra ei.
+> **`DN-26` — DECISĂ 2026-08-31**, prin
+> [ADR-078](../decisions/078-cine-poate-crea-un-tenant.md): **două canale**, autoservire și creare
+> de către firmă, corespunzând exact celor două canale de facturare din 10.1. Invitația nu e un al
+> treilea canal — lansarea controlată se face cu feature flag și ring (13.5, `R23`), ca poarta să
+> nu devină entitate. Anti-abuzul e în cea mai mare parte deja acolo, în ordinea din 12.2: e-mail
+> verificat, al doilea factor înrolat, abia apoi `P-9`; se adaugă limitare de rată și verificarea
+> numelor rezervate în funcție, nu în formular. IDNO-ul se **declară** la creare și nu se verifică
+> încă (`OD-116`); `DN-03` rămâne deschisă.
 
-> **`DECIZIE NECESARĂ (DN-27)` — tenantul neacceptat.** Un tenant creat de o firmă și niciodată
-> acceptat de client: se șterge, expiră, sau rămâne? Ștergerea fizică nu există în această
-> specificație (1), deci întrebarea reală e ce `status` primește și după cât timp. Atinge și
-> facturarea: cine plătește un tenant pe care nimeni nu l-a acceptat.
+> **`DN-27` — DECISĂ 2026-08-31**, prin
+> [ADR-081](../decisions/081-revendicarea-optionala.md), care **înlocuiește
+> [ADR-079](../decisions/079-tenantul-nerevendicat.md)**, scris și retras în aceeași zi.
+> **Revendicarea e opțională; calea de revendicare nu.** Tenantul nerevendicat nu e o anomalie care
+> expiră — e o stare normală, permanentă și plătită. Dreptul clientului e **dormant, nu absent**:
+> ancorat în IDNO (`ADR-075`), exercitabil oricând prin `P-11` (6.2). Linia care contează, fiindcă
+> poate fi trasată greșit fără să se observe: **ținerea contabilității nu cere un proprietar
+> revendicat; dispoziția asupra datelor, da** — postările și depunerile merg, exportul complet,
+> transferul, arhivarea și schimbarea IDNO-ului nu. Mandatul e **declarat de firmă, neverificat de
+> platformă**, iar `acceptance_basis` îl face vizibil pe fiecare rând, deci enumerabil. Plătitorul e
+> o atribuire cu dată și se poate muta între firmă și client, dar niciodată unilateral (10.4).
+> `DN-21` și `DN-25` devin **condiții de lansare**, nu decizii de F3: modelul produce scenariul de
+> neplată pe cazul normal. Standardul de probă la revendicare e juridic și rămâne `OD-118`.
+>
+> *Formularea originală a lui `DN-27`, păstrată: „un tenant creat de o firmă și niciodată acceptat de
+> client — se șterge, expiră, sau rămâne? Ștergerea fizică nu există în această specificație (1),
+> deci întrebarea reală e ce `status` primește și după cât timp." Întrebarea era greșită, nu doar
+> răspunsul: presupunea că acceptarea e obligatorie.*
 
 ### 12.4 Ce nu face onboarding-ul
 

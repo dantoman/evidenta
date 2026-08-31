@@ -35,10 +35,7 @@ import {
 } from '@/shared/api/payroll'
 import { DataGrid, type Column } from '@/shared/DataGrid'
 import { Failure } from '@/shared/Failure'
-
-const FIELD = 'rounded border border-border bg-surface px-2 text-sm'
-const BUTTON =
-  'rounded border border-border bg-surface px-3 text-sm text-accent disabled:text-ink-muted'
+import { Button, Card, Field, Input, Select } from '@/shared/ui'
 
 /** Five codes. The sixth does not exist, and that is deliberate. */
 const CODES = [
@@ -120,7 +117,7 @@ export function ExemptionsScreen() {
   return (
     <section className="flex flex-col gap-4">
       <header className="flex flex-wrap items-end justify-between gap-4">
-        <h1 className="text-base font-semibold">{t.payroll.exemptionHistory}</h1>
+        <h1 className="type-display-2 text-heading">{t.payroll.exemptionHistory}</h1>
         <div className="flex flex-wrap items-center gap-4">
           <Link to={`/companii/${companyId}/angajati`} className="text-sm text-accent">
             {t.payroll.people}
@@ -132,18 +129,17 @@ export function ExemptionsScreen() {
               setAsked(on)
             }}
           >
-            <label className="flex flex-col gap-1 text-sm">
-              <span className="text-ink-muted">{t.payroll.inForceAt}</span>
-              <input
+            <Field label={t.payroll.inForceAt}>
+              <Input
                 type="date"
                 value={on}
                 onChange={(event) => setOn(event.target.value)}
-                className={`${FIELD} w-40`}
+                className="w-40"
               />
-            </label>
-            <button type="submit" className={BUTTON}>
+            </Field>
+            <Button variant="primary" type="submit">
               {t.payroll.inForceShow}
-            </button>
+            </Button>
           </form>
         </div>
       </header>
@@ -154,12 +150,14 @@ export function ExemptionsScreen() {
       {history.isError && <Failure error={history.error} />}
       {withdrawal.isError && <Failure error={withdrawal.error} />}
       {history.data && (
-        <DataGrid
-          columns={columns}
-          rows={history.data}
-          rowKey={(row) => row.id}
-          emptyMessage={t.payroll.noExemptions}
-        />
+        <Card padding="none">
+          <DataGrid
+            columns={columns}
+            rows={history.data}
+            rowKey={(row) => row.id}
+            emptyMessage={t.payroll.noExemptions}
+          />
+        </Card>
       )}
     </section>
   )
@@ -214,15 +212,14 @@ function ApplicationForm({
         file.mutate()
       }}
     >
-      <label className="flex flex-col gap-1 text-sm">
-        <span className="text-ink-muted">{t.payroll.filedOn}</span>
-        <input
+      <Field label={t.payroll.filedOn}>
+        <Input
           type="date"
           value={filedOn}
           onChange={(event) => setFiledOn(event.target.value)}
-          className={`${FIELD} w-40`}
+          className="w-40"
         />
-      </label>
+      </Field>
 
       <div className="flex flex-col gap-1 text-sm">
         <span className="text-ink-muted">{t.payroll.exemptionAppliesFrom}</span>
@@ -231,31 +228,29 @@ function ApplicationForm({
         </span>
       </div>
 
-      <label className="flex flex-col gap-1 text-sm">
-        <span className="text-ink-muted">{t.payroll.exemptionCode}</span>
-        <select
+      <Field label={t.payroll.exemptionCode}>
+        <Select
           value={code}
           onChange={(event) => {
             setCode(event.target.value)
             setDependentId('')
           }}
-          className={`${FIELD} w-72`}
+          className="w-72"
         >
           {CODES.map((entry) => (
             <option key={entry.code} value={entry.code}>
               {entry.label}
             </option>
           ))}
-        </select>
-      </label>
+        </Select>
+      </Field>
 
       {needsDependent && (
-        <label className="flex flex-col gap-1 text-sm">
-          <span className="text-ink-muted">{t.payroll.pickDependent}</span>
-          <select
+        <Field label={t.payroll.pickDependent}>
+          <Select
             value={dependentId}
             onChange={(event) => setDependentId(event.target.value)}
-            className={`${FIELD} w-56`}
+            className="w-56"
           >
             <option value="">{t.common.none}</option>
             {(dependents.data ?? []).map((dependent) => (
@@ -263,8 +258,8 @@ function ApplicationForm({
                 {dependent.last_name} {dependent.first_name}
               </option>
             ))}
-          </select>
-        </label>
+          </Select>
+        </Field>
       )}
 
       <label className="flex items-center gap-2 text-sm" title={t.payroll.soleWorkplaceHint}>
@@ -276,9 +271,9 @@ function ApplicationForm({
         <span className="text-ink-muted">{t.payroll.soleWorkplace}</span>
       </label>
 
-      <button type="submit" disabled={!complete || file.isPending} className={BUTTON}>
+      <Button variant="primary" type="submit" disabled={!complete || file.isPending}>
         {t.payroll.submitApplication}
-      </button>
+      </Button>
       {file.isError && <Failure error={file.error} />}
     </form>
   )
@@ -309,9 +304,9 @@ function DependentForm({ employeeId }: { employeeId: string }) {
 
   if (!open) {
     return (
-      <button type="button" onClick={() => setOpen(true)} className={`${BUTTON} self-start`}>
+      <Button variant="secondary" type="button" onClick={() => setOpen(true)} className="self-start">
         {t.payroll.addDependent}
-      </button>
+      </Button>
     )
   }
 
@@ -323,42 +318,38 @@ function DependentForm({ employeeId }: { employeeId: string }) {
         create.mutate()
       }}
     >
-      <label className="flex flex-col gap-1 text-sm">
-        <span className="text-ink-muted">{t.payroll.lastName}</span>
-        <input
+      <Field label={t.payroll.lastName}>
+        <Input
           value={lastName}
           onChange={(event) => setLastName(event.target.value)}
-          className={`${FIELD} w-40`}
+          className="w-40"
         />
-      </label>
-      <label className="flex flex-col gap-1 text-sm">
-        <span className="text-ink-muted">{t.payroll.firstName}</span>
-        <input
+      </Field>
+      <Field label={t.payroll.firstName}>
+        <Input
           value={firstName}
           onChange={(event) => setFirstName(event.target.value)}
-          className={`${FIELD} w-40`}
+          className="w-40"
         />
-      </label>
-      <label className="flex flex-col gap-1 text-sm">
-        <span className="text-ink-muted">{t.payroll.idnp}</span>
-        <input
+      </Field>
+      <Field label={t.payroll.idnp}>
+        <Input
           value={idnp}
           onChange={(event) => setIdnp(event.target.value)}
           maxLength={13}
           title={t.payroll.dependentHint}
-          className={`${FIELD} w-40 font-mono`}
+          className="w-40 font-mono"
         />
-      </label>
-      <button
+      </Field>
+      <Button variant="primary"
         type="submit"
         disabled={lastName.trim() === '' || firstName.trim() === '' || create.isPending}
-        className={BUTTON}
       >
         {t.common.add}
-      </button>
-      <button type="button" onClick={() => setOpen(false)} className={BUTTON}>
+      </Button>
+      <Button variant="secondary" type="button" onClick={() => setOpen(false)}>
         {t.companies.cancel}
-      </button>
+      </Button>
       {create.isError && <Failure error={create.error} />}
     </form>
   )

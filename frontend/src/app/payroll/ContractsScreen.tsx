@@ -37,10 +37,7 @@ import {
 import { DataGrid, type Column } from '@/shared/DataGrid'
 import { Failure } from '@/shared/Failure'
 import { amount } from '@/shared/format'
-
-const FIELD = 'rounded border border-border bg-surface px-2 text-sm'
-const BUTTON =
-  'rounded border border-border bg-surface px-3 text-sm text-accent disabled:text-ink-muted'
+import { Button, Card, Field, Input, Select } from '@/shared/ui'
 
 /** The labels for the three codes. The codes themselves come from the server. */
 const TYPE_LABELS: Record<string, string> = {
@@ -107,7 +104,7 @@ export function ContractsScreen() {
   return (
     <section className="flex flex-col gap-4">
       <header className="flex flex-wrap items-end justify-between gap-4">
-        <h1 className="text-base font-semibold">{t.payroll.contracts}</h1>
+        <h1 className="type-display-2 text-heading">{t.payroll.contracts}</h1>
         <div className="flex flex-wrap items-center gap-4">
           <Link to={`/companii/${companyId}/angajati`} className="text-sm text-accent">
             {t.payroll.people}
@@ -120,9 +117,9 @@ export function ContractsScreen() {
             />
             <span className="text-ink-muted">{t.payroll.showEnded}</span>
           </label>
-          <button type="button" onClick={() => setAdding((open) => !open)} className={BUTTON}>
+          <Button variant="primary" type="button" onClick={() => setAdding((open) => !open)}>
             {adding ? t.companies.cancel : t.payroll.addContract}
-          </button>
+          </Button>
         </div>
       </header>
 
@@ -138,12 +135,14 @@ export function ContractsScreen() {
 
       {contracts.isError && <Failure error={contracts.error} />}
       {contracts.data && (
-        <DataGrid
-          columns={columns}
-          rows={contracts.data}
-          rowKey={(row) => row.id}
-          emptyMessage={t.payroll.noContracts}
-        />
+        <Card padding="none">
+          <DataGrid
+            columns={columns}
+            rows={contracts.data}
+            rowKey={(row) => row.id}
+            emptyMessage={t.payroll.noContracts}
+          />
+        </Card>
       )}
 
       {openContract && <ContractSeries contractId={openContract} onChanged={refresh} />}
@@ -219,12 +218,11 @@ function NewContractForm({
         create.mutate()
       }}
     >
-      <label className="flex flex-col gap-1 text-sm">
-        <span className="text-ink-muted">{t.payroll.people}</span>
-        <select
+      <Field label={t.payroll.people}>
+        <Select
           value={employeeId}
           onChange={(event) => setEmployeeId(event.target.value)}
-          className={`${FIELD} w-56`}
+          className="w-56"
         >
           <option value="">{t.common.none}</option>
           {(people.data ?? []).map((person) => (
@@ -232,116 +230,106 @@ function NewContractForm({
               {person.last_name} {person.first_name}
             </option>
           ))}
-        </select>
-      </label>
+        </Select>
+      </Field>
 
-      <label className="flex flex-col gap-1 text-sm">
-        <span className="text-ink-muted">{t.payroll.relationshipType}</span>
-        <select
+      <Field label={t.payroll.relationshipType}>
+        <Select
           value={relationshipType}
           onChange={(event) => setRelationshipType(event.target.value)}
-          className={`${FIELD} w-72`}
+          className="w-72"
         >
           {(types.data ?? []).map((type) => (
             <option key={type.code} value={type.code}>
               {TYPE_LABELS[type.code] ?? type.code}
             </option>
           ))}
-        </select>
-      </label>
+        </Select>
+      </Field>
 
-      <label className="flex flex-col gap-1 text-sm">
-        <span className="text-ink-muted">{t.payroll.contractNumber}</span>
-        <input
+      <Field label={t.payroll.contractNumber}>
+        <Input
           value={number}
           onChange={(event) => setNumber(event.target.value)}
-          className={`${FIELD} w-32 font-mono`}
+          className="w-32 font-mono"
         />
-      </label>
+      </Field>
 
-      <label className="flex flex-col gap-1 text-sm">
-        <span className="text-ink-muted">{t.payroll.signedOn}</span>
-        <input
+      <Field label={t.payroll.signedOn}>
+        <Input
           type="date"
           value={signedOn}
           onChange={(event) => setSignedOn(event.target.value)}
-          className={`${FIELD} w-40`}
+          className="w-40"
         />
-      </label>
+      </Field>
 
-      <label className="flex flex-col gap-1 text-sm">
-        <span className="text-ink-muted">{t.payroll.effectiveFrom}</span>
-        <input
+      <Field label={t.payroll.effectiveFrom}>
+        <Input
           type="date"
           value={effectiveFrom}
           onChange={(event) => setEffectiveFrom(event.target.value)}
-          className={`${FIELD} w-40`}
+          className="w-40"
         />
-      </label>
+      </Field>
 
-      <label className="flex flex-col gap-1 text-sm">
-        <span className="text-ink-muted">{t.payroll.orderNumber}</span>
-        <input
+      <Field label={t.payroll.orderNumber}>
+        <Input
           value={orderNumber}
           onChange={(event) => setOrderNumber(event.target.value)}
-          className={`${FIELD} w-28 font-mono`}
+          className="w-28 font-mono"
         />
-      </label>
+      </Field>
 
-      <label className="flex flex-col gap-1 text-sm">
-        <span className="text-ink-muted">{t.payroll.orderDate}</span>
-        <input
+      <Field label={t.payroll.orderDate}>
+        <Input
           type="date"
           value={orderDate}
           onChange={(event) => setOrderDate(event.target.value)}
-          className={`${FIELD} w-40`}
+          className="w-40"
         />
-      </label>
+      </Field>
 
-      <label className="flex flex-col gap-1 text-sm">
-        <span className="text-ink-muted">{t.payroll.position}</span>
-        <input
+      <Field label={t.payroll.position}>
+        <Input
           value={position}
           onChange={(event) => setPosition(event.target.value)}
-          className={`${FIELD} w-48`}
+          className="w-48"
         />
-      </label>
+      </Field>
 
-      <label className="flex flex-col gap-1 text-sm">
-        <span className="text-ink-muted">{t.payroll.salary}</span>
-        <input
+      <Field label={t.payroll.salary}>
+        <Input
           inputMode="decimal"
           value={salary}
           onChange={(event) => setSalary(event.target.value)}
-          className={`${FIELD} w-32 text-right tabular-nums`}
+          className="w-32 text-right tabular-nums"
         />
-      </label>
+      </Field>
 
-      <label className="flex flex-col gap-1 text-sm">
-        <span className="text-ink-muted">{t.payroll.weeklyHours}</span>
-        <input
+      <Field label={t.payroll.weeklyHours}>
+        <Input
           inputMode="decimal"
           value={hours}
           onChange={(event) => setHours(event.target.value)}
-          className={`${FIELD} w-24 text-right tabular-nums`}
+          className="w-24 text-right tabular-nums"
         />
-      </label>
+      </Field>
 
-      <label className="flex flex-col gap-1 text-sm">
-        <span className="text-ink-muted">{t.payroll.casPoint}</span>
-        <select
+      <Field label={t.payroll.casPoint}>
+        <Select
           value={casPoint}
           onChange={(event) => setCasPoint(event.target.value)}
           title={t.payroll.casPointHint}
-          className={`${FIELD} w-24`}
+          className="w-24"
         >
           {CAS_POINTS.map((point) => (
             <option key={point} value={point}>
               {point}
             </option>
           ))}
-        </select>
-      </label>
+        </Select>
+      </Field>
 
       <label className="flex items-center gap-2 text-sm" title={t.payroll.budgetFundedHint}>
         <input
@@ -352,9 +340,9 @@ function NewContractForm({
         <span className="text-ink-muted">{t.payroll.budgetFunded}</span>
       </label>
 
-      <button type="submit" disabled={!complete || create.isPending} className={BUTTON}>
+      <Button variant="primary" type="submit" disabled={!complete || create.isPending}>
         {t.payroll.createContract}
-      </button>
+      </Button>
       {create.isError && <Failure error={create.error} />}
     </form>
   )
@@ -396,18 +384,17 @@ function ContractSeries({
                 setAsked(on)
               }}
             >
-              <label className="flex flex-col gap-1 text-sm">
-                <span className="text-ink-muted">{t.payroll.inForceOn}</span>
-                <input
+              <Field label={t.payroll.inForceOn}>
+                <Input
                   type="date"
                   value={on}
                   onChange={(event) => setOn(event.target.value)}
-                  className={`${FIELD} w-40`}
+                  className="w-40"
                 />
-              </label>
-              <button type="submit" disabled={on === ''} className={BUTTON}>
+              </Field>
+              <Button variant="primary" type="submit" disabled={on === ''}>
                 {t.payroll.inForceShow}
-              </button>
+              </Button>
             </form>
           </header>
 
@@ -474,13 +461,13 @@ function AmendmentList({
     <div className="flex flex-col gap-3">
       <div className="flex flex-wrap items-center gap-4">
         <h3 className="text-sm font-semibold">{t.payroll.amendments}</h3>
-        <button type="button" onClick={() => setAdding((open) => !open)} className={BUTTON}>
+        <Button variant="primary" type="button" onClick={() => setAdding((open) => !open)}>
           {adding ? t.companies.cancel : t.payroll.addAmendment}
-        </button>
+        </Button>
         {!contract.ended_on && (
-          <button type="button" onClick={() => setEnding((open) => !open)} className={BUTTON}>
+          <Button variant="secondary" type="button" onClick={() => setEnding((open) => !open)}>
             {ending ? t.companies.cancel : t.payroll.endContract}
-          </button>
+          </Button>
         )}
       </div>
 
@@ -579,86 +566,77 @@ function AmendmentForm({
         create.mutate()
       }}
     >
-      <label className="flex flex-col gap-1 text-sm">
-        <span className="text-ink-muted">{t.payroll.amendmentNumber}</span>
-        <input
+      <Field label={t.payroll.amendmentNumber}>
+        <Input
           value={number}
           onChange={(event) => setNumber(event.target.value)}
-          className={`${FIELD} w-24 font-mono`}
+          className="w-24 font-mono"
         />
-      </label>
-      <label className="flex flex-col gap-1 text-sm">
-        <span className="text-ink-muted">{t.payroll.signedOn}</span>
-        <input
+      </Field>
+      <Field label={t.payroll.signedOn}>
+        <Input
           type="date"
           value={signedOn}
           onChange={(event) => setSignedOn(event.target.value)}
-          className={`${FIELD} w-40`}
+          className="w-40"
         />
-      </label>
-      <label className="flex flex-col gap-1 text-sm">
-        <span className="text-ink-muted">{t.payroll.effectiveFrom}</span>
-        <input
+      </Field>
+      <Field label={t.payroll.effectiveFrom}>
+        <Input
           type="date"
           value={effectiveFrom}
           onChange={(event) => setEffectiveFrom(event.target.value)}
-          className={`${FIELD} w-40`}
+          className="w-40"
         />
-      </label>
-      <label className="flex flex-col gap-1 text-sm">
-        <span className="text-ink-muted">{t.payroll.orderNumber}</span>
-        <input
+      </Field>
+      <Field label={t.payroll.orderNumber}>
+        <Input
           value={orderNumber}
           onChange={(event) => setOrderNumber(event.target.value)}
-          className={`${FIELD} w-24 font-mono`}
+          className="w-24 font-mono"
         />
-      </label>
-      <label className="flex flex-col gap-1 text-sm">
-        <span className="text-ink-muted">{t.payroll.orderDate}</span>
-        <input
+      </Field>
+      <Field label={t.payroll.orderDate}>
+        <Input
           type="date"
           value={orderDate}
           onChange={(event) => setOrderDate(event.target.value)}
-          className={`${FIELD} w-40`}
+          className="w-40"
         />
-      </label>
-      <label className="flex flex-col gap-1 text-sm">
-        <span className="text-ink-muted">{t.payroll.changedClause}</span>
-        <input
+      </Field>
+      <Field label={t.payroll.changedClause}>
+        <Input
           value={clause}
           onChange={(event) => setClause(event.target.value)}
           title={t.payroll.changedClauseHint}
-          className={`${FIELD} w-16 font-mono`}
+          className="w-16 font-mono"
         />
-      </label>
-      <label className="flex flex-col gap-1 text-sm">
-        <span className="text-ink-muted">{t.payroll.salary}</span>
-        <input
+      </Field>
+      <Field label={t.payroll.salary}>
+        <Input
           inputMode="decimal"
           value={salary}
           onChange={(event) => setSalary(event.target.value)}
-          className={`${FIELD} w-28 text-right tabular-nums`}
+          className="w-28 text-right tabular-nums"
         />
-      </label>
-      <label className="flex flex-col gap-1 text-sm">
-        <span className="text-ink-muted">{t.payroll.position}</span>
-        <input
+      </Field>
+      <Field label={t.payroll.position}>
+        <Input
           value={position}
           onChange={(event) => setPosition(event.target.value)}
-          className={`${FIELD} w-40`}
+          className="w-40"
         />
-      </label>
-      <label className="flex flex-col gap-1 text-sm">
-        <span className="text-ink-muted">{t.payroll.note}</span>
-        <input
+      </Field>
+      <Field label={t.payroll.note}>
+        <Input
           value={note}
           onChange={(event) => setNote(event.target.value)}
-          className={`${FIELD} w-56`}
+          className="w-56"
         />
-      </label>
-      <button type="submit" disabled={!complete || create.isPending} className={BUTTON}>
+      </Field>
+      <Button variant="primary" type="submit" disabled={!complete || create.isPending}>
         {t.payroll.createAmendment}
-      </button>
+      </Button>
       {create.isError && <Failure error={create.error} />}
     </form>
   )
@@ -695,35 +673,32 @@ function TerminationForm({
         end.mutate()
       }}
     >
-      <label className="flex flex-col gap-1 text-sm">
-        <span className="text-ink-muted">{t.payroll.endedOn}</span>
-        <input
+      <Field label={t.payroll.endedOn}>
+        <Input
           type="date"
           value={endedOn}
           onChange={(event) => setEndedOn(event.target.value)}
-          className={`${FIELD} w-40`}
+          className="w-40"
         />
-      </label>
-      <label className="flex flex-col gap-1 text-sm">
-        <span className="text-ink-muted">{t.payroll.terminationOrder}</span>
-        <input
+      </Field>
+      <Field label={t.payroll.terminationOrder}>
+        <Input
           value={orderNumber}
           onChange={(event) => setOrderNumber(event.target.value)}
-          className={`${FIELD} w-24 font-mono`}
+          className="w-24 font-mono"
         />
-      </label>
-      <label className="flex flex-col gap-1 text-sm">
-        <span className="text-ink-muted">{t.payroll.orderDate}</span>
-        <input
+      </Field>
+      <Field label={t.payroll.orderDate}>
+        <Input
           type="date"
           value={orderDate}
           onChange={(event) => setOrderDate(event.target.value)}
-          className={`${FIELD} w-40`}
+          className="w-40"
         />
-      </label>
-      <button type="submit" disabled={!complete || end.isPending} className={BUTTON}>
+      </Field>
+      <Button variant="primary" type="submit" disabled={!complete || end.isPending}>
         {t.payroll.endContract}
-      </button>
+      </Button>
       {end.isError && <Failure error={end.error} />}
     </form>
   )

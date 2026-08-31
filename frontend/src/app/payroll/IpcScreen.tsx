@@ -35,10 +35,7 @@ import {
 } from '@/shared/api/payroll'
 import { DataGrid, type Column } from '@/shared/DataGrid'
 import { Failure } from '@/shared/Failure'
-
-const FIELD = 'rounded border border-border bg-surface px-2 text-sm'
-const BUTTON =
-  'rounded border border-border bg-surface px-3 text-sm text-accent disabled:text-ink-muted'
+import { Button, Card, Field, Input } from '@/shared/ui'
 
 export function IpcScreen() {
   const { companyId = '' } = useParams()
@@ -55,7 +52,7 @@ export function IpcScreen() {
   return (
     <section className="flex flex-col gap-4">
       <header className="flex flex-wrap items-end justify-between gap-4">
-        <h1 className="text-base font-semibold">{t.payroll.ipc}</h1>
+        <h1 className="type-display-2 text-heading">{t.payroll.ipc}</h1>
         <div className="flex flex-wrap items-center gap-4">
           <Link to={`/companii/${companyId}/salarii`} className="text-sm text-accent">
             {t.payroll.runs}
@@ -78,18 +75,18 @@ export function IpcScreen() {
           )}
           {declarations.data.map((declaration) => (
             <li key={declaration.id}>
-              <button
+              <Button variant="secondary"
                 type="button"
                 onClick={() =>
                   setSelected(selected === declaration.id ? null : declaration.id)
                 }
-                className={`${BUTTON} ${selected === declaration.id ? 'text-ink' : ''}`}
+                className="${selected === declaration.id ? 'text-ink' : ''}"
               >
                 {declaration.year}-{String(declaration.month).padStart(2, '0')} ·{' '}
                 {t.payroll.ipcVersion} {declaration.version_number}
                 {declaration.version_number > 1 ? ` (${t.payroll.ipcCorrected})` : ''}
                 {declaration.submitted_on ? ` · ${t.payroll.ipcSubmitted}` : ''}
-              </button>
+              </Button>
             </li>
           ))}
         </ul>
@@ -124,27 +121,25 @@ function GenerateForm({
         generate.mutate()
       }}
     >
-      <label className="flex flex-col gap-1 text-sm">
-        <span className="text-ink-muted">{t.payroll.year}</span>
-        <input
+      <Field label={t.payroll.year}>
+        <Input
           inputMode="numeric"
           value={year}
           onChange={(event) => setYear(event.target.value)}
-          className={`${FIELD} w-24 tabular-nums`}
+          className="w-24 tabular-nums"
         />
-      </label>
-      <label className="flex flex-col gap-1 text-sm">
-        <span className="text-ink-muted">{t.payroll.month}</span>
-        <input
+      </Field>
+      <Field label={t.payroll.month}>
+        <Input
           inputMode="numeric"
           value={month}
           onChange={(event) => setMonth(event.target.value)}
-          className={`${FIELD} w-16 tabular-nums`}
+          className="w-16 tabular-nums"
         />
-      </label>
-      <button type="submit" disabled={generate.isPending} className={BUTTON}>
+      </Field>
+      <Button variant="primary" type="submit" disabled={generate.isPending}>
         {t.payroll.ipcGenerate}
-      </button>
+      </Button>
       {generate.isError && <Failure error={generate.error} />}
     </form>
   )
@@ -283,27 +278,26 @@ function Declaration({
                     submission.mutate()
                   }}
                 >
-                  <input
+                  <Input
                     type="date"
                     value={submittedOn}
                     onChange={(event) => setSubmittedOn(event.target.value)}
                     aria-label={t.payroll.ipcSubmittedOn}
-                    className={`${FIELD} w-40`}
+                    className="w-40"
                   />
-                  <button type="submit" disabled={submittedOn === ''} className={BUTTON}>
+                  <Button variant="primary" type="submit" disabled={submittedOn === ''}>
                     {t.payroll.ipcSubmit}
-                  </button>
+                  </Button>
                 </form>
               )}
               {/* A correction, never an edit -- there is no editable field here. */}
-              <button
+              <Button variant="secondary"
                 type="button"
                 onClick={() => correction.mutate()}
                 disabled={correction.isPending}
-                className={BUTTON}
               >
                 {t.payroll.ipcCorrect}
-              </button>
+              </Button>
             </div>
           </header>
           {correction.isError && <Failure error={correction.error} />}
@@ -359,20 +353,24 @@ function Declaration({
           )}
 
           <h3 className="text-sm font-semibold">{t.payroll.ipcTotals}</h3>
-          <DataGrid
-            columns={totalColumns}
-            rows={declaration.data.totals ?? []}
-            rowKey={(row) => `${row.income_source_code}-${row.cas_tariff_code}`}
-            emptyMessage={t.payroll.noDeclarations}
-          />
+          <Card padding="none">
+            <DataGrid
+              columns={totalColumns}
+              rows={declaration.data.totals ?? []}
+              rowKey={(row) => `${row.income_source_code}-${row.cas_tariff_code}`}
+              emptyMessage={t.payroll.noDeclarations}
+            />
+          </Card>
 
           <h3 className="text-sm font-semibold">{t.payroll.ipcNominal}</h3>
-          <DataGrid
-            columns={nominalColumns}
-            rows={declaration.data.nominal ?? []}
-            rowKey={(row) => row.person_id}
-            emptyMessage={t.payroll.noDeclarations}
-          />
+          <Card padding="none">
+            <DataGrid
+              columns={nominalColumns}
+              rows={declaration.data.nominal ?? []}
+              rowKey={(row) => row.person_id}
+              emptyMessage={t.payroll.noDeclarations}
+            />
+          </Card>
         </>
       )}
     </section>

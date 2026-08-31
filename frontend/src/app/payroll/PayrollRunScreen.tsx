@@ -37,10 +37,7 @@ import {
 } from '@/shared/api/payroll'
 import { DataGrid, type Column } from '@/shared/DataGrid'
 import { Failure } from '@/shared/Failure'
-
-const FIELD = 'rounded border border-border bg-surface px-2 text-sm'
-const BUTTON =
-  'rounded border border-border bg-surface px-3 text-sm text-accent disabled:text-ink-muted'
+import { Button, Card, Field, Input } from '@/shared/ui'
 
 export function PayrollRunScreen() {
   const { companyId = '' } = useParams()
@@ -57,7 +54,7 @@ export function PayrollRunScreen() {
   return (
     <section className="flex flex-col gap-4">
       <header className="flex flex-wrap items-end justify-between gap-4">
-        <h1 className="text-base font-semibold">{t.payroll.runs}</h1>
+        <h1 className="type-display-2 text-heading">{t.payroll.runs}</h1>
         <div className="flex flex-wrap items-center gap-4">
           <Link to={`/companii/${companyId}/angajati`} className="text-sm text-accent">
             {t.payroll.people}
@@ -79,14 +76,14 @@ export function PayrollRunScreen() {
           {runs.data.length === 0 && <li className="text-ink-muted">{t.payroll.noRuns}</li>}
           {runs.data.map((run) => (
             <li key={run.id}>
-              <button
+              <Button variant="secondary"
                 type="button"
                 onClick={() => setSelected(selected === run.id ? null : run.id)}
-                className={`${BUTTON} ${selected === run.id ? 'text-ink' : ''}`}
+                className="${selected === run.id ? 'text-ink' : ''}"
               >
                 {run.year}-{String(run.month).padStart(2, '0')} ·{' '}
                 {run.status === 'approved' ? t.payroll.approved : t.payroll.draft}
-              </button>
+              </Button>
             </li>
           ))}
         </ul>
@@ -127,37 +124,34 @@ function NewRunForm({
         create.mutate()
       }}
     >
-      <label className="flex flex-col gap-1 text-sm">
-        <span className="text-ink-muted">{t.payroll.year}</span>
-        <input
+      <Field label={t.payroll.year}>
+        <Input
           inputMode="numeric"
           value={year}
           onChange={(event) => setYear(event.target.value)}
-          className={`${FIELD} w-24 tabular-nums`}
+          className="w-24 tabular-nums"
         />
-      </label>
-      <label className="flex flex-col gap-1 text-sm">
-        <span className="text-ink-muted">{t.payroll.month}</span>
-        <input
+      </Field>
+      <Field label={t.payroll.month}>
+        <Input
           inputMode="numeric"
           value={month}
           onChange={(event) => setMonth(event.target.value)}
-          className={`${FIELD} w-16 tabular-nums`}
+          className="w-16 tabular-nums"
         />
-      </label>
-      <label className="flex flex-col gap-1 text-sm">
-        <span className="text-ink-muted">{t.payroll.accrualDate}</span>
-        <input
+      </Field>
+      <Field label={t.payroll.accrualDate}>
+        <Input
           type="date"
           value={accrualDate}
           onChange={(event) => setAccrualDate(event.target.value)}
           title={t.payroll.accrualHint}
-          className={`${FIELD} w-40`}
+          className="w-40"
         />
-      </label>
-      <button type="submit" disabled={accrualDate === '' || create.isPending} className={BUTTON}>
+      </Field>
+      <Button variant="primary" type="submit" disabled={accrualDate === '' || create.isPending}>
         {t.payroll.compute}
-      </button>
+      </Button>
       {create.isError && <Failure error={create.error} />}
     </form>
   )
@@ -237,23 +231,21 @@ function Register({ runId, onChanged }: { runId: string; onChanged: () => void }
             </h2>
             {run.data.status === 'draft' && (
               <div className="flex items-center gap-3">
-                <button
+                <Button variant="secondary"
                   type="button"
                   onClick={() => recompute.mutate()}
                   disabled={recompute.isPending}
-                  className={BUTTON}
                 >
                   {t.payroll.recompute}
-                </button>
-                <button
+                </Button>
+                <Button variant="secondary"
                   type="button"
                   onClick={() => approve.mutate()}
                   disabled={approve.isPending || !run.data.complete}
                   title={run.data.complete ? undefined : t.payroll.incompleteHint}
-                  className={BUTTON}
                 >
                   {t.payroll.approve}
-                </button>
+                </Button>
               </div>
             )}
           </header>
@@ -266,22 +258,24 @@ function Register({ runId, onChanged }: { runId: string; onChanged: () => void }
           {recompute.isError && <Failure error={recompute.error} />}
           {approve.isError && <Failure error={approve.error} />}
 
-          <DataGrid
-            columns={columns}
-            rows={run.data.lines ?? []}
-            rowKey={(row) => row.employee_id}
-            emptyMessage={t.payroll.noRuns}
-            serverTotals={
-              run.data.totals
-                ? {
-                    gross: run.data.totals.gross,
-                    withheld: run.data.totals.withheld,
-                    charges: run.data.totals.employer_charges,
-                    net: run.data.totals.net,
-                  }
-                : undefined
-            }
-          />
+          <Card padding="none">
+            <DataGrid
+              columns={columns}
+              rows={run.data.lines ?? []}
+              rowKey={(row) => row.employee_id}
+              emptyMessage={t.payroll.noRuns}
+              serverTotals={
+                run.data.totals
+                  ? {
+                      gross: run.data.totals.gross,
+                      withheld: run.data.totals.withheld,
+                      charges: run.data.totals.employer_charges,
+                      net: run.data.totals.net,
+                    }
+                  : undefined
+              }
+            />
+          </Card>
 
           <Reasons lines={run.data.lines ?? []} />
 

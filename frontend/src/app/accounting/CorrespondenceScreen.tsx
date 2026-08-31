@@ -16,6 +16,7 @@ import { correspondence, correspondenceExport, type CorrespondenceCell } from '@
 import { DataGrid, type Column } from '@/shared/DataGrid'
 import { Failure } from '@/shared/Failure'
 import { ReportHeader, useWindow } from './ReportHeader'
+import { Card } from '@/shared/ui'
 
 const columns: Column<CorrespondenceCell>[] = [
   {
@@ -76,17 +77,19 @@ export function CorrespondenceScreen() {
 
       {report.data && (
         <>
-          <DataGrid
-            columns={columns}
-            rows={report.data.cells}
-            rowKey={(row) => `${row.debit_account_id}:${row.credit_account_id}`}
-            emptyMessage={t.accounting.reports.empty}
-            onRowClick={(row) => navigate(`/companii/${companyId}/conturi/${row.debit_account_id}/fisa`)}
-            serverTotals={{
-              debit_code: t.accounting.reports.correspondenceTotal,
-              amount: amount(report.data.total),
-            }}
-          />
+          <Card padding="none">
+            <DataGrid
+              columns={columns}
+              rows={report.data.cells}
+              rowKey={(row) => `${row.debit_account_id}:${row.credit_account_id}`}
+              emptyMessage={t.accounting.reports.empty}
+              onRowClick={(row) => navigate(`/companii/${companyId}/conturi/${row.debit_account_id}/fisa`)}
+              serverTotals={{
+                debit_code: t.accounting.reports.correspondenceTotal,
+                amount: amount(report.data.total),
+              }}
+            />
+          </Card>
           <dl className="grid grid-cols-[14rem_auto] gap-x-6 gap-y-1 text-sm">
             <dt className="text-ink-muted">{t.accounting.reports.linesTotal}</dt>
             <dd className="tabular">{amount(report.data.lines_total)}</dd>

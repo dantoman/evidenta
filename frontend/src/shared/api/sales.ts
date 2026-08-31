@@ -21,6 +21,17 @@ import { request } from './client'
 
 export type RevenueKind = 'services' | 'goods' | 'products'
 
+/**
+ * What the document is, not what it contains.
+ *
+ * `advance` exists in the model and is deliberately not offered: its posting
+ * treatment is unregistered, because crediting the advance without the settlement
+ * that clears it would grow a balance nothing could reduce (ADR-073 §6). The
+ * server refuses it by name, and a screen that offered it would be offering a
+ * document nobody can post.
+ */
+export type SaleNature = 'delivery' | 'return'
+
 export interface SalesLineInput {
   description: string
   quantity: string
@@ -50,6 +61,8 @@ export interface NewSalesInvoice {
   partner_id: string
   document_date: string
   accounting_date?: string | null
+  /** Required over the wire: forgetting it would make a credit note an invoice. */
+  nature: SaleNature
   revenue_kind: RevenueKind
   partner_resident: boolean
   external_number?: string | null

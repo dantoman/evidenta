@@ -17,6 +17,11 @@
  *
  * **No VAT.** Every line is issued under the `fara_tva` regime; the treatment with
  * VAT is a later step, and a column here that showed a rate would imply one exists.
+ *
+ * Built on `shared/ui` since 31.08. It was the last screen carrying its own
+ * `FIELD` and `BUTTON` constants -- written while ADR-074 was moving the other
+ * sixteen off them, so it missed the sweep and then sat beside its own
+ * counterpart, `PurchasesScreen`, looking like a different product.
  */
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -30,16 +35,14 @@ import {
   issueInvoice,
   listInvoices,
   type RevenueKind,
+  type SaleNature,
   type SalesInvoice,
   type SalesLineInput,
 } from '@/shared/api/sales'
 import { DataGrid, type Column } from '@/shared/DataGrid'
 import { Failure } from '@/shared/Failure'
 import { amount } from '@/shared/format'
-
-const FIELD = 'rounded border border-border bg-surface px-2 text-sm'
-const BUTTON =
-  'rounded border border-border bg-surface px-3 text-sm text-accent disabled:text-ink-muted'
+import { Button, Card, Field, Input, PageHeader, Select } from '@/shared/ui'
 
 const STATE_LABELS: Record<string, string> = {
   draft: t.sales.draft,
@@ -66,6 +69,15 @@ export function SalesScreen() {
   })
 
   const columns: Column<SalesInvoice>[] = [
+    {
+      // The nature first, because it changes what every other column means: the
+      // same total is money owed on an invoice and money owed back on a credit
+      // note.
+      key: 'nature',
+      header: t.sales.nature,
+      cell: (row) => (row.nature === 'return' ? t.sales.creditNote : t.sales.invoice),
+      width: '10rem',
+    },
     {
       key: 'number',
       header: t.sales.number,
@@ -121,17 +133,20 @@ export function SalesScreen() {
 
   return (
     <section className="flex flex-col gap-4">
-      <header className="flex flex-wrap items-end justify-between gap-4">
-        <h1 className="text-base font-semibold">{t.sales.title}</h1>
-        <div className="flex flex-wrap items-center gap-4">
-          <Link to={`/companii/${companyId}/registru`} className="text-sm text-accent">
-            {t.accounting.register.title}
-          </Link>
-          <button type="button" onClick={() => setAdding((open) => !open)} className={BUTTON}>
-            {adding ? t.companies.cancel : t.sales.add}
-          </button>
-        </div>
-      </header>
+      <PageHeader
+        title={t.sales.title}
+        lead={t.sales.lead}
+        actions={
+          <div className="flex items-center gap-3">
+            <Link to={`/companii/${companyId}/registru`} className="text-sm text-accent">
+              {t.accounting.register.title}
+            </Link>
+            <Button icon="plus" onClick={() => setAdding((open) => !open)}>
+              {adding ? t.companies.cancel : t.sales.add}
+            </Button>
+          </div>
+        }
+      />
 
       {adding && (
         <NewInvoiceForm
@@ -147,12 +162,14 @@ export function SalesScreen() {
       {issue.isError && <Failure error={issue.error} />}
       {invoices.data && (
         <>
-          <DataGrid
-            columns={columns}
-            rows={invoices.data}
-            rowKey={(row) => row.id}
-            emptyMessage={t.sales.empty}
-          />
+          <Card padding="none">
+            <DataGrid
+              columns={columns}
+              rows={invoices.data}
+              rowKey={(row) => row.id}
+              emptyMessage={t.sales.empty}
+            />
+          </Card>
           <p className="text-sm text-ink-muted">{t.sales.totalsFromServer}</p>
         </>
       )}
@@ -174,6 +191,7 @@ function NewInvoiceForm({
 
   const [partnerId, setPartnerId] = useState('')
   const [documentDate, setDocumentDate] = useState('')
+  const [nature, setNature] = useState<SaleNature>('delivery')
   const [revenueKind, setRevenueKind] = useState<RevenueKind>('services')
   const [resident, setResident] = useState(true)
   const [lines, setLines] = useState<SalesLineInput[]>([
@@ -185,6 +203,7 @@ function NewInvoiceForm({
       createInvoice(companyId, {
         partner_id: partnerId,
         document_date: documentDate,
+        nature,
         revenue_kind: revenueKind,
         partner_resident: resident,
         lines,
@@ -203,20 +222,32 @@ function NewInvoiceForm({
     lines.every((line) => line.description.trim() !== '' && line.unit_price !== '')
 
   return (
-    <form
-      className="flex flex-col gap-4 rounded border border-border bg-surface p-4"
-      onSubmit={(event: FormEvent) => {
-        event.preventDefault()
-        create.mutate()
-      }}
-    >
+    <Card>
+      <form
+        className="flex flex-col gap-4"
+        onSubmit={(event: FormEvent) => {
+          event.preventDefault()
+          create.mutate()
+        }}
+      >
       <div className="flex flex-wrap items-end gap-4">
-        <label className="flex flex-col gap-1 text-sm">
-          <span className="text-ink-muted">{t.sales.partner}</span>
-          <select
+        <Field label={t.sales.nature}>
+          <Select
+            value={nature}
+            onChange={(event) => setNature(event.target.value as SaleNature)}
+            title={t.sales.natureHint}
+            className="w-44"
+          >
+            <option value="delivery">{t.sales.invoice}</option>
+            <option value="return">{t.sales.creditNote}</option>
+          </Select>
+        </Field>
+
+        <Field label={t.sales.partner}>
+          <Select
             value={partnerId}
             onChange={(event) => setPartnerId(event.target.value)}
-            className={`${FIELD} w-72`}
+            className="w-72"
           >
             <option value="">{t.common.none}</option>
             {(partners.data ?? []).map((partner) => (
@@ -224,32 +255,30 @@ function NewInvoiceForm({
                 {partner.display_name}
               </option>
             ))}
-          </select>
-        </label>
+          </Select>
+        </Field>
 
-        <label className="flex flex-col gap-1 text-sm">
-          <span className="text-ink-muted">{t.sales.documentDate}</span>
-          <input
+        <Field label={t.sales.documentDate}>
+          <Input
             type="date"
             value={documentDate}
             onChange={(event) => setDocumentDate(event.target.value)}
-            className={`${FIELD} w-40`}
+            className="w-40"
           />
-        </label>
+        </Field>
 
-        <label className="flex flex-col gap-1 text-sm">
-          <span className="text-ink-muted">{t.sales.revenueKind}</span>
-          <select
+        <Field label={t.sales.revenueKind}>
+          <Select
             value={revenueKind}
             onChange={(event) => setRevenueKind(event.target.value as RevenueKind)}
             title={t.sales.goodsHint}
-            className={`${FIELD} w-40`}
+            className="w-40"
           >
             <option value="services">{t.sales.services}</option>
             <option value="goods">{t.sales.goods}</option>
             <option value="products">{t.sales.products}</option>
-          </select>
-        </label>
+          </Select>
+        </Field>
 
         <label className="flex items-center gap-2 text-sm" title={t.sales.residentHint}>
           <input
@@ -273,26 +302,26 @@ function NewInvoiceForm({
           {lines.map((line, index) => (
             <tr key={index}>
               <td className="pr-4 py-1">
-                <input
+                <Input
                   value={line.description}
                   onChange={(event) => change(index, 'description', event.target.value)}
-                  className={`${FIELD} w-96`}
+                  className="w-96"
                 />
               </td>
               <td className="pr-4 py-1">
-                <input
+                <Input
                   inputMode="decimal"
                   value={line.quantity}
                   onChange={(event) => change(index, 'quantity', event.target.value)}
-                  className={`${FIELD} w-24 text-right tabular-nums`}
+                  className="w-24 text-right tabular-nums"
                 />
               </td>
               <td className="pr-4 py-1">
-                <input
+                <Input
                   inputMode="decimal"
                   value={line.unit_price}
                   onChange={(event) => change(index, 'unit_price', event.target.value)}
-                  className={`${FIELD} w-32 text-right tabular-nums`}
+                  className="w-32 text-right tabular-nums"
                 />
               </td>
             </tr>
@@ -301,20 +330,17 @@ function NewInvoiceForm({
       </table>
 
       <div className="flex items-center gap-3">
-        <button
-          type="button"
-          onClick={() =>
-            setLines([...lines, { description: '', quantity: '1', unit_price: '' }])
-          }
-          className={BUTTON}
+        <Button
+          onClick={() => setLines([...lines, { description: '', quantity: '1', unit_price: '' }])}
         >
           {t.sales.addLine}
-        </button>
-        <button type="submit" disabled={!complete || create.isPending} className={BUTTON}>
+        </Button>
+        <Button variant="primary" type="submit" disabled={!complete || create.isPending}>
           {t.sales.create}
-        </button>
+        </Button>
       </div>
       {create.isError && <Failure error={create.error} />}
-    </form>
+      </form>
+    </Card>
   )
 }

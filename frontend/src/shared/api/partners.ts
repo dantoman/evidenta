@@ -88,3 +88,32 @@ export function setPartnerActive(partnerId: string, active: boolean): Promise<Pa
     body: { active },
   })
 }
+
+
+/**
+ * What a person may correct on a partner -- ADR-083's line, drawn again here.
+ *
+ * The identity is absent on purpose: `idno` and `idnp` are what an issued
+ * document names the counterparty by, and what keeps two records from splitting
+ * one balance (`R20`). The VAT code is absent because registration is a dated
+ * state, not a field: it is added through its own path, never overwritten.
+ *
+ * The server refuses anything else **by name** rather than dropping it, so a
+ * caller that sends `idno` learns that it was not applied.
+ */
+export interface PartnerEdit {
+  legal_name?: string
+  short_name?: string | null
+  internal_name?: string | null
+  default_currency?: string | null
+  default_payment_terms_days?: number | null
+  is_customer?: boolean
+  is_supplier?: boolean
+}
+
+export function updatePartner(partnerId: string, change: PartnerEdit): Promise<Partner> {
+  return request<Partner>(`/api/v1/masterdata/partners/${partnerId}`, {
+    method: 'PATCH',
+    body: change,
+  })
+}

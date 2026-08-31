@@ -1,5 +1,10 @@
 """Issuing a sale: validate it, then post it -- ADR-073.
 
+A credit note comes through here too, and that is the point of ADR-073 §7: a
+return has the same lines, the same numbering and the same lifecycle as the
+delivery it answers, so it has the same door. What differs is which event the
+engine records, and the document's own nature says which.
+
 Two steps, and they are separate on purpose. **Validation** (*validat*) is the
 business commitment: the number is allocated and the document freezes. **Posting**
 is the accounting effect, and it goes through the Posting Engine like every other
@@ -84,7 +89,19 @@ def issue_and_post(
             "invoice is a draft somebody abandoned, not a document"
         )
 
+    # The advance is refused here rather than at the engine, so the message names
+    # the decision: ADR-073 §6 keeps its treatment unregistered on purpose, because
+    # posting only the first half would leave a balance of advances that nothing
+    # in the product could ever clear.
+    if extension.nature == "advance":
+        raise SaleNotIssuableError(
+            "an advance has no posting treatment yet: crediting the advance without "
+            "the settlement that clears it would grow a balance nothing can reduce "
+            "(ADR-073 §6)"
+        )
+
     result = post_sales_invoice(
+        nature=str(extension.nature),
         tenant_id=document.tenant_id,
         company_id=document.company_id,
         functional_currency=functional_currency(document.company_id),
@@ -98,8 +115,13 @@ def issue_and_post(
             revenue_kind=extension.revenue_kind,
             partner_resident=extension.partner_resident,
             # In Romanian, and from this module: it lands in the register, which
-            # `C33` keeps in Romanian whatever the interface is showing.
-            description=f"Factură emisă {document.formatted_number or ''}".strip(),
+            # `C33` keeps in Romanian whatever the interface is showing. The word
+            # follows the nature, because a register that called a credit note an
+            # invoice would be read wrong by whoever opens it next.
+            description=(
+                f"{'Notă de credit' if extension.nature == 'return' else 'Factură emisă'} "
+                f"{document.formatted_number or ''}"
+            ).strip(),
         ),
         actor_user_id=actor_user_id,
         request_id=request_id,

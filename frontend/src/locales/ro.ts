@@ -26,11 +26,42 @@ export const ro = {
   },
   auth: {
     title: 'Autentificare',
+    lead: 'Utilizați datele emise de administratorul companiei.',
     email: 'E-mail',
     password: 'Parolă',
     code: 'Cod de verificare',
+    codeHint: 'Șase cifre, din aplicația de autentificare.',
     submit: 'Intră în cont',
     signOut: 'Ieșire din cont',
+    jurisdiction: 'Republica Moldova · ro-MD',
+    // Citatele de pe panoul stâng al autentificării, din pachetul de design.
+    // Conținut de interfață, nu de registru: nimic de aici nu ajunge într-un
+    // document (C33). Traducerea stă lângă original fiindcă originalul e latin
+    // sau german, iar un ecran de intrare nu e locul unde se presupune că
+    // cititorul le știe.
+    quotes: [
+      {
+        original: '„Ubi non est ordo, ibi est confusio."',
+        translated: 'Unde nu este ordine, acolo este confuzie.',
+        source: 'Luca Pacioli · Summa de Arithmetica, 1494',
+      },
+      {
+        original: '„Quod non est in actis, non est in mundo."',
+        translated: 'Ce nu se află în acte nu se află în lume.',
+        source: 'Adagiu juridic latin',
+      },
+      {
+        original: '„Es ist eine der schönsten Erfindungen des menschlichen Geistes."',
+        translated:
+          'Partida dublă este una dintre cele mai frumoase invenții ale minții omenești.',
+        source: 'J. W. von Goethe · Wilhelm Meister, 1795',
+      },
+      {
+        original: '„Non dormire debet qui in mercatura vult prosperari."',
+        translated: 'Cine vrea să prospere în comerț nu trebuie să doarmă.',
+        source: 'Luca Pacioli · Summa de Arithmetica, 1494',
+      },
+    ],
   },
   common: {
     back: 'Înapoi',
@@ -45,14 +76,112 @@ export const ro = {
   // recunoaste un contabil, nu module ale codului.
   nav: {
     accounting: 'Contabilitate',
+    // Gruparea comerciala din bara laterala. Adaugata odata cu facturile primite,
+    // si ea e cea care a scos la iveala ca ecranul facturilor emise n-avea nicio
+    // intrare: exista de la pasul 5, accesibil doar tastandu-i adresa.
+    commercial: 'Documente comerciale',
     payroll: 'Salarizare',
+    // Deviza livrata cu marca, verbatim. Nu se traduce si nu se rescrie.
+    tagline: 'Autoritate în contabilitate',
+    compliance: 'Conform SNC',
+    company: 'Companie',
+    workspace: 'Spațiu de lucru',
+    // Marcajul titularului în comutator. Text, nu doar îngroșare: `option` nu se
+    // stilează la fel pe toate platformele, iar un marcaj care se vede doar pe
+    // unele nu e marcaj.
+    chooseCompany: 'Alege compania',
+    // Antetul. Ce caută textul e exact ce caută codul: documentele nu sunt
+    // căutabile pe server, deci nu apar în îndemn.
+    search: 'Caută cont sau contragent',
+    searchAccounts: 'Conturi',
+    searchPartners: 'Contragenți',
+    searchEmpty: 'Nimic găsit.',
+    notifications: 'Notificări',
+    help: 'Ajutor',
+    // Controale desenate, dar oprite: forma antetului e a machetei, starea e
+    // adevărul. Un clopoțel care nu numără nimic și un indicator SFS verde ar fi
+    // afirmații -- prima nevinovată, a doua despre legătura cu Fiscul.
+    notYet: 'Nu este disponibil încă.',
+    sfs: 'SFS',
+    sfsNotConfigured: 'Integrarea cu SFS nu este configurată.',
   },
+  workspace: {
+    title: 'Spațiul de lucru',
+    // Un rând. Partea a doua -- că spațiul se atribuie unei persoane, iar
+    // contabilitatea se ține pe companii -- se spune oricum în cartonașul
+    // titularului, deci aici era a doua oară.
+    lead: 'Titularul contului și drepturile din el.',
+    holder: 'Titularul contului',
+    holderNote:
+      'Spațiul de lucru se atribuie unei persoane, nu unei companii. Companiile dinăuntru sunt egale între ele, iar drepturile se dau pe fiecare în parte.',
+    stateActive: 'Activ',
+    stateSuspended: 'Suspendat',
+    stateOffboarding: 'În ieșire',
+    stateArchived: 'Arhivat',
+    email: 'E-mail',
+    me: 'Drepturile mele',
+    name: 'Nume',
+    editName: 'Modifică numele',
+    // Ce nu se schimbă din acest formular, spus înainte să fie căutat: fiecare
+    // are cale proprie, iar puse laolaltă ar face trei acte diferite să pară
+    // unul singur.
+    profileNote:
+      'E-mailul, parola și al doilea factor se schimbă pe căi proprii: primul cere dovada noii adrese, celelalte două pornesc de la cele actuale.',
+    myRole: 'Rol în spațiul de lucru',
+    noRole: 'Fără rol în acest spațiu de lucru.',
+    membership: 'Apartenență',
+    membershipActive: 'Activă',
+    membershipInvited: 'Invitat',
+    membershipSuspended: 'Suspendată',
+    myCompanies: 'Companiile la care am acces',
+    grantedViaMembership: 'Prin apartenență',
+    grantedViaEngagement: 'Prin mandat',
+    noCompanyAccess: 'Nicio companie nu v-a fost atribuită.',
+    roles: 'Rolurile spațiului de lucru',
+    roleSystem: 'De sistem',
+    roleLevelTenant: 'La nivel de spațiu',
+    roleLevelCompany: 'La nivel de companie',
+    noPermissions: 'Niciun drept.',
+    delegated: 'Acces delegat',
+    delegatedLead: 'Firmele de contabilitate cu mandat asupra acestui spațiu de lucru.',
+    noDelegated: 'Nicio firmă nu are acces la acest spațiu de lucru.',
+    validFrom: 'Din',
+    validTo: 'Până la',
+    allCompanies: 'Toate companiile',
+    // Limita e a politicii, nu a ecranului: `membership` se vede rând propriu
+    // (migrarea 0011), deci o listă de persoane ar întoarce doar cititorul și ar
+    // arăta ca un răspuns. Se spune, nu se ascunde.
+    peopleUnavailable:
+      'Lista persoanelor din spațiul de lucru nu se poate afișa încă: fiecare vede doar propria apartenență. Decizia care ar deschide întrebarea este OD-37.',
+  },
+  // Numele rolurilor de sistem. Serverul le ține ca ei -- chei, în engleză, fără
+  // etichete (ADR-020) --, iar cum se cheamă în interfață stă aici. Un rol
+  // compus de client își poartă numele lui și trece neatins.
+  roles: {
+    owner: 'Proprietar',
+    company_admin: 'Administrator de companie',
+  } as Record<string, string>,
+  // Etichetele drepturilor. Catalogul serverului poartă chei și domeniu, fără
+  // etichete — deliberat: ce se cheamă un drept în interfață stă aici, în
+  // română, lângă restul șirurilor (C32), nu într-o coloană care s-ar traduce
+  // printr-o migrare.
+  permissions: {
+    'tenant.manage_roles': 'Administrează rolurile',
+    'engagement.invite': 'Invită o firmă de contabilitate',
+    'engagement.accept': 'Acceptă un mandat',
+    'engagement.suspend': 'Suspendă un mandat',
+    'engagement.resume': 'Reia un mandat',
+    'engagement.transfer': 'Transferă un mandat',
+    'engagement.revoke': 'Retrage un mandat',
+    'company.revoke_access': 'Retrage accesul la o companie',
+  } as Record<string, string>,
   companies: {
     // „Companii", nu „companiile mele": pagina o citesc si proprietarul, si
     // contabilul care tine evidenta altcuiva, iar ADR-017 le da acelorasi randuri
     // doua formulari diferite („compania mea" / „clientii mei"). Un titlu neutru
     // nu se contrazice cu niciuna.
     title: 'Companii',
+    lead: 'Fiecare companie își ține propriul registru. Drumul spre contabilitate trece de aici.',
     legalName: 'Denumire legală',
     idno: 'IDNO',
     currency: 'Monedă funcțională',
@@ -65,6 +194,35 @@ export const ro = {
     currencyHint: 'Moneda în care se țin registrele.',
     idnoHint: '13 cifre.',
     cancel: 'Renunță',
+    // Ecranul unei companii (ADR-083). „Fisa companiei", nu „editare": pagina se
+    // citeste si de cine n-are dreptul s-o schimbe.
+    card: 'Fișa companiei',
+    cardLead: 'Ce se corectează, ce nu se corectează, și de ce.',
+    shortName: 'Denumire scurtă',
+    status: 'Stare',
+    statusActive: 'Activă',
+    statusSuspended: 'Suspendată',
+    statusClosed: 'Închisă',
+    save: 'Salvează',
+    saving: 'Se salvează…',
+    saved: 'Salvat.',
+    // Campurile cu consecinte: se arata, nu se editeaza.
+    fixed: 'Date care nu se schimbă de aici',
+    fixedWhy:
+      'IDNO-ul a plecat pe documentele emise, iar moneda și data de început au fost deja folosite ca să dateze și să evalueze ce este în registru. Se corectează prin operator, nu dintr-un formular.',
+    accountingStart: 'Începutul evidenței',
+    // Inchiderea.
+    close: 'Închide compania',
+    closeLead:
+      'Compania nu mai primește înregistrări. Registrele rămân: nimic din ce este postat nu se șterge și nu se modifică.',
+    closeReason: 'Motivul închiderii',
+    closing: 'Se închide…',
+    closed: 'Compania este închisă. Registrele rămân de citit; nu se mai postează în ele.',
+    // Cand cheia lipseste. Nu „acces interzis": accesul exista, dreptul nu.
+    noEditRight: 'Nu aveți dreptul de a modifica datele acestei companii.',
+    noCloseRight: 'Nu aveți dreptul de a închide această companie.',
+    openChart: 'Plan de conturi',
+    openPeople: 'Angajați',
   },
   partners: {
     // Partenerul e al spatiului de lucru, nu al unei companii: aceeasi entitate
@@ -72,6 +230,8 @@ export const ro = {
     // felul in care un holding ajunge cu doi furnizori identici ale caror solduri
     // nu mai reconciliaza.
     title: 'Parteneri',
+    lead:
+      'Aceeași entitate juridică pentru toate companiile firmei. Denumirea legală ajunge pe documente; cea scurtă rămâne în interfață.',
     add: 'Partener nou',
     // C39: denumirea legala ajunge pe documente si in registre; cea scurta exista
     // doar pentru interfata si cautare.
@@ -101,6 +261,17 @@ export const ro = {
     inactive: 'Retras',
     retire: 'Retrage',
     restore: 'Reactivează',
+    edit: 'Modifică',
+    editing: 'Modificarea partenerului',
+    defaultCurrency: 'Monedă implicită',
+    paymentTerms: 'Termen de plată',
+    paymentTermsHint: 'Zile de la data documentului.',
+    // Granița, scrisă pe ecran: identitatea și TVA-ul nu sunt câmpuri de
+    // formular. IDNO-ul e cum numesc partenerul documentele deja emise și e ce
+    // împiedică două fișe să împartă un sold; înregistrarea TVA e stare cu dată,
+    // deci se adaugă, nu se suprascrie.
+    identityNotHere:
+      'IDNO-ul și înregistrarea TVA nu se schimbă de aici: primul numește partenerul pe documentele deja emise, a doua este stare cu dată.',
     showInactive: 'Arată și retrașii',
     search: 'Caută după denumire sau IDNO',
     empty: 'Niciun partener.',
@@ -122,7 +293,6 @@ export const ro = {
     },
     chart: {
       title: 'Plan de conturi',
-      company: 'Companie',
       code: 'Cod',
       name: 'Denumire',
       class: 'Clasă',
@@ -625,10 +795,142 @@ export const ro = {
     ipcFormMissing:
       'Formularul tipizat nu se generează încă: textul Anexei nr. 1 la Ordinul MF nr. 94/2020 nu este disponibil. Ce se vede aici este registrul din care se completează.',
   },
+  journals: {
+    // Jurnalul documentelor, NU registrele statutare de TVA: acelea au forma
+    // prescrisa de act si coloane care nu se pot completa cat timp niciun
+    // document nu poarta TVA. Se spune pe ecran, ca sa nu fie depus ca altceva.
+    title: 'Jurnalul documentelor',
+    lead: 'Documentele contabilizate ale unei familii, într-o perioadă. Nu este registrul de livrări sau de procurări — acela are formă prescrisă și vine cu TVA-ul.',
+    family: 'Familia',
+    sales: 'Vânzări',
+    purchases: 'Cumpărări',
+    treasury: 'Trezorerie',
+    from: 'De la',
+    to: 'Până la',
+    accountingDate: 'Data contabilă',
+    documentDate: 'Data documentului',
+    number: 'Număr',
+    partner: 'Contraparte',
+    net: 'Fără TVA',
+    vat: 'TVA',
+    total: 'Total',
+    empty: 'Niciun document contabilizat în perioada aleasă.',
+    exportCsv: 'Export CSV',
+    totalsFromServer: 'Totalurile vin de la server, din aceeași sursă ca exportul.',
+  },
+  settlements: {
+    // Decontarea. Nu misca niciun sold: raspunde la „care factura".
+    title: 'Solduri deschise',
+    lead: 'Ce a rămas de stins, și banii care încă nu arată spre nimic.',
+    documents: 'Documente cu sold',
+    movements: 'Mișcări nealocate',
+    date: 'Data',
+    kind: 'Fel',
+    number: 'Număr',
+    outstanding: 'Rest',
+    invoiceIssued: 'Factură emisă',
+    invoiceReceived: 'Factură primită',
+    chosenDocument: 'Documentul ales',
+    chosenMovement: 'Mișcarea aleasă',
+    amount: 'Suma decontată',
+    match: 'Decontează',
+    noDocuments: 'Niciun document cu sold deschis.',
+    noMovements: 'Nicio mișcare nealocată.',
+    // Se spune pe ecran fiindca e contraintuitiv: potrivirea nu produce nicio
+    // inregistrare contabila. Soldul se miscase deja, la contabilizarea miscarii.
+    noLedgerEffect:
+      'Decontarea nu produce nicio înregistrare contabilă: soldul s-a mișcat deja când mișcarea a fost contabilizată. Ce adaugă este răspunsul la „care document".',
+  },
+  treasury: {
+    // Trezoreria. O singura lista pentru ambele sensuri: cine se uita la banii
+    // companiei ii vrea in ordinea datelor, nu in doua ecrane pe care le
+    // intercaleaza in cap.
+    title: 'Încasări și plăți',
+    lead: 'Banii intrați și ieșiți, în ordinea datelor.',
+    add: 'Mișcare nouă',
+    number: 'Număr',
+    documentDate: 'Data',
+    partner: 'Partener',
+    direction: 'Sens',
+    receipt: 'Încasare',
+    payment: 'Plată',
+    // Contul de trezorerie e al instrumentului, nu al documentului.
+    where: 'Unde',
+    whereHint:
+      'Unde au intrat sau ieșit efectiv banii. Contul de trezorerie e al instrumentului, nu al facturii: aceeași încasare intră în casă sau în cont după cum s-a predat.',
+    cash: 'Casă',
+    bank: 'Cont curent',
+    resident: 'Partener rezident',
+    residentHint:
+      'Alege contul de creanțe sau de datorii. Fișa partenerului nu poartă rezidența, deci se cere aici.',
+    amount: 'Suma',
+    create: 'Înregistrează mișcarea',
+    state: 'Stare',
+    draft: 'În lucru',
+    confirmed: 'Validată',
+    posted: 'Contabilizată',
+    cancelled: 'Anulată',
+    record: 'Validează și contabilizează',
+    recorded: 'Contabilizată',
+    empty: 'Nicio mișcare de trezorerie.',
+    // Se spune pe ecran, fiindca e o asteptare pe care altfel si-o face omul:
+    // banii sting soldul, dar nu se leaga inca de o factura anume.
+    noSettlementYet:
+      'Mișcarea reduce soldul partenerului. Legarea de o factură anume — decontarea — vine separat.',
+  },
+  purchases: {
+    // Factura primita. Doua numere pe acelasi rand: al furnizorului, care e pe
+    // hartie, si al nostru, alocat la validare. Un registru care arata doar unul
+    // nu se poate confrunta nici cu copia furnizorului, nici cu numerotarea proprie.
+    title: 'Facturi primite',
+    lead: 'Documentul furnizorului, înregistrat cu numărul lui și cu al nostru.',
+    add: 'Factură primită',
+    supplierNumber: 'Numărul furnizorului',
+    supplierNumberHint:
+      'Numărul de pe documentul primit. Nu se alocă de noi și nu urmează seria noastră.',
+    supplierDate: 'Data furnizorului',
+    ourNumber: 'Numărul nostru',
+    documentDate: 'Data înregistrării',
+    partner: 'Furnizor',
+    // Destinatia costului: alege contul de cheltuieli. Nu se deduce din nimic.
+    destination: 'Destinația costului',
+    destinationHint:
+      'Alege contul de cheltuieli. Nu se poate deduce: o factură de servicii nu spune singură dacă serviciul a fost administrativ sau comercial.',
+    administrative: 'Administrativă',
+    commercial: 'Comercială',
+    productionDirect: 'Producție — de bază',
+    productionIndirect: 'Producție — indirectă',
+    resident: 'Furnizor rezident',
+    residentHint:
+      'Alege contul de datorii. Fișa partenerului nu poartă rezidența, deci se cere aici.',
+    lineDescription: 'Descriere',
+    quantity: 'Cantitate',
+    unitPrice: 'Preț unitar',
+    addLine: 'Adaugă linie',
+    create: 'Înregistrează documentul',
+    total: 'Total',
+    state: 'Stare',
+    draft: 'În lucru',
+    confirmed: 'Validată',
+    posted: 'Contabilizată',
+    cancelled: 'Anulată',
+    record: 'Validează și contabilizează',
+    recorded: 'Contabilizată',
+    empty: 'Nicio factură primită.',
+    totalsFromServer: 'Totalurile vin de la server, din aceeași sursă ca registrul.',
+  },
   sales: {
     // Factura emisa. Fara TVA la pasul 5 — regimul e `fara_tva` pe fiecare linie,
     // iar tratamentul cu TVA e al pasului 6.
     title: 'Facturi emise',
+    lead: 'Documentul emis de noi, cu numărul din seria proprie.',
+    // Nota de credit e tot un document de vanzare, cu natura retur (ADR-073 §7):
+    // aceleasi linii, acelasi ciclu, alt cont de contrapartida.
+    nature: 'Fel',
+    invoice: 'Factură',
+    creditNote: 'Notă de credit',
+    natureHint:
+      'Nota de credit reduce creanța pe contul de returnări și reduceri, nu pe cel de venit: veniturile rămân cât s-a vândut.',
     add: 'Factură nouă',
     number: 'Număr',
     documentDate: 'Data facturii',
@@ -715,6 +1017,13 @@ export const ro = {
     'coa.invalid_date': 'Data nu este o dată validă.',
     'ledger.invalid_period': 'Perioada cerută nu este validă.',
     'tenancy.company_idno_taken': 'Există deja o companie cu acest IDNO.',
+    'tenancy.company_permission_denied':
+      'Nu aveți dreptul necesar asupra acestei companii.',
+    'tenancy.company_field_not_editable':
+      'Acest câmp nu se modifică din interfață: a plecat pe documente sau stă sub registrul deja postat.',
+    'tenancy.company_not_active': 'Compania este închisă și nu se mai modifică.',
+    'periods.company_not_postable':
+      'Compania nu mai primește înregistrări. Registrele rămân de citit.',
     'tenancy.company_provisioning_refused':
       'Nu aveți dreptul să creați o companie în acest spațiu de lucru.',
     // Postarea. Fiecare cod e cules din sursa serverului, nu scris din memorie:
@@ -810,6 +1119,28 @@ export const ro = {
       'Luna nu are o rulare de salarii aprobată. O dare de seamă goală ar declara că nimeni nu a fost asigurat.',
     'tax.ipc_submitted': 'Darea de seamă este deja marcată ca depusă.',
     'sales.malformed': 'Datele facturii nu au forma cerută.',
+    'purchases.supplier_reference_required':
+      'Documentul furnizorului are nevoie de numărul lui: fără el, aceeași factură nu poate fi recunoscută dacă ajunge a doua oară.',
+    'purchases.supplier_document_already_recorded':
+      'Această factură a furnizorului este deja înregistrată în această companie.',
+    'purchases.cost_destination_invalid':
+      'Destinația costului lipsește sau nu este una dintre cele patru.',
+    'purchases.discriminator_missing':
+      'Documentul nu spune unde cade costul sau a cui este datoria.',
+    'purchases.not_recordable': 'Documentul nu este într-o stare din care se poate contabiliza.',
+    'purchases.posting_payload_invalid': 'Datele facturii primite nu au forma cerută.',
+    'treasury.account_invalid': 'Alegeți unde au intrat sau ieșit banii: casă sau cont curent.',
+    'treasury.amount_invalid':
+      'Suma unei mișcări este pozitivă. Sensul este tipul documentului, niciodată semnul.',
+    'treasury.discriminator_missing':
+      'Documentul nu spune unde s-au mișcat banii sau al cui cont se stinge.',
+    'treasury.not_recordable': 'Mișcarea nu este într-o stare din care se poate contabiliza.',
+    'treasury.posting_payload_invalid': 'Datele mișcării nu au forma cerută.',
+    'settlements.refused': 'Decontarea a fost refuzată în forma cerută.',
+    'settlements.not_settleable':
+      'Documentele alese nu formează o decontare: o încasare stinge o creanță, o plată o datorie.',
+    'settlements.over_allocated':
+      'Suma depășește ce a rămas de stins pe document sau ce a rămas nealocat din mișcare.',
     'sales.not_issuable': 'Factura nu poate fi contabilizată în starea aceasta.',
     'sales.discriminator_missing':
       'Factura nu spune ce se vinde sau dacă clientul e rezident. Ambele aleg un cont.',

@@ -81,6 +81,8 @@ INSTALLED_APPS: list[str] = [
     # core never imports them and the graph stays acyclic (D2, D3).
     "evidenta.operations.sales.apps.SalesConfig",
     "evidenta.operations.purchases.apps.PurchasesConfig",
+    "evidenta.operations.treasury.apps.TreasuryConfig",
+    "evidenta.operations.settlements.apps.SettlementsConfig",
     # People, work relationships and the timesheet. No calculated amount lives
     # here: the payroll run is a later task, and a column anticipating it would be
     # that decision taken in the wrong place.

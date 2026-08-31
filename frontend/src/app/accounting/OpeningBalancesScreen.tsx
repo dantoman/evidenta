@@ -55,10 +55,7 @@ import {
 import { listPartners, type Partner } from '@/shared/api/partners'
 import { EntryGrid, type EntryColumn } from '@/shared/EntryGrid'
 import { Failure } from '@/shared/Failure'
-
-const FIELD = 'w-full rounded border border-border bg-surface px-2 text-sm'
-const BUTTON =
-  'rounded border border-border bg-surface px-3 text-sm text-accent disabled:text-ink-muted'
+import { Button, Card, Field, Input, Select } from '@/shared/ui'
 
 type Draft = {
   account_id: string
@@ -132,7 +129,7 @@ export function OpeningBalancesScreen() {
       </nav>
 
       <header className="flex flex-col gap-1">
-        <h1 className="text-base font-semibold">{t.accounting.opening.title}</h1>
+        <h1 className="type-display-2 text-heading">{t.accounting.opening.title}</h1>
         <p className="text-sm text-ink-muted">{t.accounting.opening.lead}</p>
       </header>
 
@@ -250,37 +247,34 @@ function NewBatch({
         create.mutate()
       }}
     >
-      <label className="flex flex-col gap-1 text-sm">
-        <span className="text-ink-muted">{t.accounting.opening.asOfDate}</span>
-        <input
+      <Field label={t.accounting.opening.asOfDate}>
+        <Input
           type="date"
           value={asOfDate}
           onChange={(event) => setAsOfDate(event.target.value)}
-          className={`${FIELD} w-44`}
+          className="w-44"
         />
-      </label>
+      </Field>
 
-      <label className="flex flex-col gap-1 text-sm">
-        <span className="text-ink-muted">{t.accounting.opening.source}</span>
-        <select
+      <Field label={t.accounting.opening.source}>
+        <Select
           value={source}
           onChange={(event) => setSource(event.target.value as BatchSource)}
-          className={`${FIELD} w-48`}
+          className="w-48"
         >
           {(Object.keys(SOURCE_LABEL) as BatchSource[]).map((key) => (
             <option key={key} value={key}>
               {SOURCE_LABEL[key]}
             </option>
           ))}
-        </select>
-      </label>
+        </Select>
+      </Field>
 
       <label className="flex flex-1 flex-col gap-1 text-sm">
         <span className="text-ink-muted">{t.accounting.opening.counterpart}</span>
-        <select
+        <Select
           value={counterpart}
           onChange={(event) => setCounterpart(event.target.value)}
-          className={FIELD}
         >
           <option value="" />
           {accounts.map((account) => (
@@ -288,16 +282,15 @@ function NewBatch({
               {account.account_code} — {account.name_ro}
             </option>
           ))}
-        </select>
+        </Select>
       </label>
 
-      <button
+      <Button variant="primary"
         type="submit"
         disabled={asOfDate === '' || counterpart === '' || create.isPending}
-        className={BUTTON}
       >
         {t.accounting.opening.create}
-      </button>
+      </Button>
 
       <p className="w-full text-sm text-ink-muted">{t.accounting.opening.asOfDateHint}</p>
       <p className="w-full text-sm text-ink-muted">{t.accounting.opening.counterpartHint}</p>
@@ -440,35 +433,35 @@ function Batch({
               not document lines, served by `EntryGrid` without a fork -- which
               is the criterion that makes it a general primitive rather than a
               lines grid. Ctrl+Enter saves the rows; no key handler here (C40). */}
-          <EntryGrid<Draft>
-            columns={glColumns}
-            rows={rows}
-            onChange={setRows}
-            newRow={() => ({ ...EMPTY })}
-            onValidate={() => {
-              if (!rows.every((row) => row.account_id === '') && !save.isPending) save.mutate()
-            }}
-            balance={{ debit: 'debit', credit: 'credit' }}
-            label={t.accounting.opening.title}
-            strings={t.accounting.entryGrid}
-            footer={<span className="text-xs text-ink-muted">{t.accounting.entryGrid.keys}</span>}
-          />
+          <Card padding="none">
+            <EntryGrid<Draft>
+              columns={glColumns}
+              rows={rows}
+              onChange={setRows}
+              newRow={() => ({ ...EMPTY })}
+              onValidate={() => {
+                if (!rows.every((row) => row.account_id === '') && !save.isPending) save.mutate()
+              }}
+              balance={{ debit: 'debit', credit: 'credit' }}
+              label={t.accounting.opening.title}
+              strings={t.accounting.entryGrid}
+              footer={<span className="text-xs text-ink-muted">{t.accounting.entryGrid.keys}</span>}
+            />
+          </Card>
           <div className="flex flex-wrap items-center gap-4">
-            <button
+            <Button variant="secondary"
               type="button"
               onClick={() => setRows((current) => [...current, { ...EMPTY }])}
-              className={BUTTON}
             >
               {t.accounting.opening.addRow}
-            </button>
-            <button
+            </Button>
+            <Button variant="secondary"
               type="button"
               onClick={() => save.mutate()}
               disabled={rows.every((row) => row.account_id === '') || save.isPending}
-              className={BUTTON}
             >
               {t.accounting.opening.saveRows}
-            </button>
+            </Button>
           </div>
           {save.isError && <Failure error={save.error} />}
         </div>
@@ -497,24 +490,22 @@ function Batch({
 
       <div className="flex flex-wrap items-center gap-4">
         {contents.status === 'draft' && (
-          <button
+          <Button variant="secondary"
             type="button"
             onClick={() => validate.mutate()}
             disabled={contents.gl.length === 0 || validate.isPending}
-            className={BUTTON}
           >
             {t.accounting.opening.validate}
-          </button>
+          </Button>
         )}
         {contents.status === 'validated' && (
-          <button
+          <Button variant="secondary"
             type="button"
             onClick={() => post.mutate()}
             disabled={post.isPending}
-            className={BUTTON}
           >
             {t.accounting.opening.post}
-          </button>
+          </Button>
         )}
         {contents.status === 'validated' && (
           <span className="text-sm text-ink-muted">{t.accounting.opening.validatedNote}</span>
@@ -597,23 +588,21 @@ function PartnerRows({
         {receivable ? t.accounting.opening.receivables : t.accounting.opening.payables}
       </span>
 
-      <label className="flex flex-col gap-1 text-sm">
-        <span className="text-ink-muted">{t.accounting.opening.partner}</span>
-        <input
+      <Field label={t.accounting.opening.partner}>
+        <Input
           value={search}
           onChange={(event) => setSearch(event.target.value)}
           placeholder={t.accounting.opening.partnerSearch}
-          className={`${FIELD} w-64`}
+          className="w-64"
           aria-label={t.accounting.opening.partnerSearch}
         />
-      </label>
+      </Field>
 
       <label className="flex flex-1 flex-col gap-1 text-sm">
         <span className="text-ink-muted">&nbsp;</span>
-        <select
+        <Select
           value={partnerId}
           onChange={(event) => setPartnerId(event.target.value)}
-          className={FIELD}
           aria-label={`${t.accounting.opening.partner} ${
             receivable ? t.accounting.opening.receivables : t.accounting.opening.payables
           }`}
@@ -625,15 +614,14 @@ function PartnerRows({
               {partner.idno ? ` — ${partner.idno}` : ''}
             </option>
           ))}
-        </select>
+        </Select>
       </label>
 
       <label className="flex flex-1 flex-col gap-1 text-sm">
         <span className="text-ink-muted">{t.accounting.opening.account}</span>
-        <select
+        <Select
           value={accountId}
           onChange={(event) => setAccountId(event.target.value)}
-          className={FIELD}
           aria-label={`${t.accounting.opening.account} ${
             receivable ? t.accounting.opening.receivables : t.accounting.opening.payables
           }`}
@@ -644,31 +632,30 @@ function PartnerRows({
               {account.account_code} — {account.name_ro}
             </option>
           ))}
-        </select>
+        </Select>
       </label>
 
       <label className="flex flex-col gap-1 text-sm">
         <span className="text-ink-muted">
           {receivable ? t.accounting.opening.debit : t.accounting.opening.credit}
         </span>
-        <input
+        <Input
           value={amount}
           onChange={(event) => setAmount(event.target.value)}
           inputMode="decimal"
-          className={`${FIELD} tabular w-36 text-right`}
+          className="tabular w-36 text-right"
           aria-label={`${t.accounting.opening.total} ${
             receivable ? t.accounting.opening.receivables : t.accounting.opening.payables
           }`}
         />
       </label>
 
-      <button
+      <Button variant="primary"
         type="submit"
         disabled={partnerId === '' || accountId === '' || amount === '' || add.isPending}
-        className={BUTTON}
       >
         {receivable ? t.accounting.opening.addReceivable : t.accounting.opening.addPayable}
-      </button>
+      </Button>
 
       {partners.data?.length === 0 && (
         <span className="text-sm text-ink-muted">{t.accounting.opening.partnerNone}</span>

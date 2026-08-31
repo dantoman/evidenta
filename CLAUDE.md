@@ -252,8 +252,11 @@ atare.
 - **C20** — Exporturile (Excel, CSV, PDF) se generează pe server, din aceeași sursă ca afișarea, ca
   să nu poată diverge de ce vede utilizatorul.
 - **C21** — Spațierea în ecranele cu grile folosește scara de densitate. Fără valori hardcodate.
-  *Scara însăși nu e încă stabilită — `OD-35`. Regula este activă de acum; valorile se completează
-  la închiderea deciziei. Până atunci, spațierea nouă se ridică, nu se inventează.*
+  Scara este `--spacing-row-comfortable|compact|dense` din `frontend/src/index.css`:
+  52 / 44 / 36, valorile sistemului de design ([ADR-074](docs/decisions/074-sistemul-de-design-evidenta.md),
+  care revizuiește 40/32/24 din [ADR-042](docs/decisions/042-scara-de-densitate.md)). Impusă prin
+  ESLint în cele două fișiere de grilă, singurele care pot seta o înălțime de rând. *Spațierea nouă
+  se ridică la scară, nu se inventează.*
 - **C22** — Documentele tipărite — factura, ordinul de plată, balanțele, situațiile financiare,
   declarațiile — nu se randează din React. Au format impus, uneori strict; se generează printr-un
   pipeline server-side separat.

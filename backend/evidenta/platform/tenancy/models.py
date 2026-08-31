@@ -45,6 +45,26 @@ class Tenant(models.Model):
     # through queries -- which gets forgotten exactly where it matters.
     subdomain = models.TextField(unique=True)
     legal_name = models.TextField()
+
+    #: The account holder's own fiscal identity -- ADR-075.
+    #:
+    #: Nullable, because tenants created before it exist and a required column
+    #: would make them retroactively invalid (C5). Not unique: "one legal entity,
+    #: one subscription" is a product rule nobody has decided, and an index would
+    #: decide it silently.
+    #:
+    #: A code, so `COLLATE "C"` in the accompanying SQL (C34) -- which is also
+    #: what makes the match against ``company.idno`` exact rather than
+    #: linguistic. That match is the whole point: it answers *which of these
+    #: companies is the holder*, a question the name cannot answer, because
+    #: "Alpha SRL" and `SRL "Alpha"` are the same firm written twice.
+    idno = models.TextField(null=True, blank=True)
+
+    #: Free text, like the classifier codes on ``Company`` and for the same
+    #: reason: the classifier of legal forms is not in this repository, and an
+    #: enumeration written from memory would refuse real ones.
+    legal_form = models.TextField(null=True, blank=True)
+
     status = models.TextField(choices=TenantStatus.choices, default=TenantStatus.ACTIVE)
     default_locale = models.TextField(default="ro")
 
@@ -58,6 +78,19 @@ class Tenant(models.Model):
         blank=True,
         related_name="primary_contact_for",
     )
+
+    #: When somebody proved they represent this account and took it over -- ADR-081.
+    #:
+    #: Null is the normal, permanent, paid state rather than an anomaly: a firm may
+    #: keep a client's books for years without the client ever signing in. So this
+    #: is a dated fact and **not** a status. The two axes answer different
+    #: questions -- whether the account works, and whether anybody has taken it
+    #: over -- and an unclaimed tenant is perfectly ``active``.
+    #:
+    #: Not derived from "has no live membership", however elegant that looks:
+    #: ``membership`` is policed as self_row, so nobody can count anybody else's
+    #: members (`OD-37`).
+    claimed_at = models.DateTimeField(null=True, blank=True)
 
     suspended_at = models.DateTimeField(null=True, blank=True)
     offboarding_started_at = models.DateTimeField(null=True, blank=True)

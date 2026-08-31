@@ -139,6 +139,21 @@ def registered() -> tuple[DocumentTypeSpec, ...]:
     return tuple(REGISTRY[code] for code in sorted(REGISTRY))
 
 
+def types_owned_by(owner: str) -> tuple[str, ...]:
+    """Every registered type one module owns, in a stable order.
+
+    Exists so a report can name a **family** without naming its codes. The journal
+    of sales documents is a report of *what `sales` issues*, and spelling
+    `("sales.document",)` into `accounting` would put another module's vocabulary
+    in this one -- the same coupling `D6` refuses at the level of tables, one
+    layer up.
+
+    Sorted, because a report's columns and a CSV's rows must not reorder
+    themselves when a module registers a second type.
+    """
+    return tuple(sorted(spec.code for spec in REGISTRY.values() if spec.owner == owner))
+
+
 def conversion_targets(code: str) -> tuple[str, ...]:
     """What this type may become. Empty is an answer, not a missing one."""
     return spec_for(code).converts_into

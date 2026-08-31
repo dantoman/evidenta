@@ -24,6 +24,7 @@ where posting will find them.
 from __future__ import annotations
 
 import uuid
+from collections.abc import Sequence
 from datetime import UTC, date, datetime
 from decimal import Decimal
 
@@ -84,6 +85,27 @@ def get_document(document_id: uuid.UUID) -> Document:
 
 
 @transaction.atomic
+def posted_of_types(company_id: uuid.UUID, document_types: Sequence[str]) -> list[Document]:
+    """Posted documents of the given types, oldest first.
+
+    A listing primitive, and it lives here because the table does. Settlement
+    needs to see invoices and movements together, and a module that queried
+    `Document` itself would be reading another module's table (`D6`) -- which the
+    dependency guard refuses, correctly: the day this needs a filter on state or a
+    join, one place changes rather than three.
+
+    Ordered by the document's own date, then by creation, so a list does not
+    reshuffle itself when two documents share a date.
+    """
+    return list(
+        Document.objects.filter(
+            company_id=company_id,
+            document_type__in=tuple(document_types),
+            state=DocumentState.POSTED,
+        ).order_by("document_date", "created_at")
+    )
+
+
 def open_draft(
     *,
     company_id: uuid.UUID,

@@ -16,7 +16,7 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState, type FormEvent } from 'react'
-import { Link, useNavigate } from 'react-router'
+import { Link, useNavigate, useSearchParams } from 'react-router'
 
 import { t } from '@/locales'
 import {
@@ -27,20 +27,42 @@ import {
 } from '@/shared/api/companies'
 import { DataGrid, type Column } from '@/shared/DataGrid'
 import { Failure } from '@/shared/Failure'
+import { Button, Card, Field, Input, PageHeader } from '@/shared/ui'
+
+function cardPath(company: Company): string {
+  return `/companii/${company.id}`
+}
 
 function chartPath(company: Company): string {
   return `/companii/${company.id}/plan-de-conturi`
 }
 
-const columns: Column<Company>[] = [
+/**
+ * The columns, built rather than declared -- kept a function so a column that
+ * needs data can take it. Nothing needs any today: the account-holder mark went
+ * with ADR-085, where the workspace stopped having a company of its own.
+ *
+ * The list keeps the server's order -- by legal name -- and only marks the
+ * holder. The switcher sorts it to the top instead, and the difference is
+ * deliberate: a list that reorders itself is a list whose second row means
+ * something else tomorrow, while a switcher is a place you reach for one known
+ * thing.
+ */
+function buildColumns(): Column<Company>[] {
+  return [
   {
     key: 'legal_name',
     header: t.companies.legalName,
     // A link, not only a clickable row: a row click is reachable with a mouse
     // and with nothing else. The row keeps its click for the mouse, the link
     // carries the keyboard.
+    //
+    // Both now open the company's card rather than its chart of accounts
+    // (ADR-083). The card carries the way onward, which it has to: without a
+    // company selected the sidebar shows no accounting sections, so this list is
+    // still the only door in.
     cell: (company) => (
-      <Link to={chartPath(company)} className="text-accent">
+      <Link to={cardPath(company)} className="text-accent">
         {company.legal_name}
       </Link>
     ),
@@ -73,13 +95,23 @@ const columns: Column<Company>[] = [
     ),
     width: '10rem',
   },
-]
+  ]
+}
 
 export function CompaniesScreen() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
-  const [adding, setAdding] = useState(false)
+  const [params] = useSearchParams()
+  // Arrived from the workspace screen's offer (ADR-075): the form opens with the
+  // account holder's own name and IDNO filled in. A query parameter rather than
+  // router state, because state does not survive a reload and this form is one a
+  // person may well come back to.
+  // `?nou=1` opens the form straight away. It used to be `?titular=1`, filled
+  // from the account holder -- an offer ADR-085 removed: the workspace is held by
+  // a person, so there is no "holder's company" to pre-fill from.
+  const [adding, setAdding] = useState(params.get('nou') === '1')
   const companies = useQuery({ queryKey: ['companies'], queryFn: listCompanies })
+  const columns = buildColumns()
 
   const create = useMutation({
     mutationFn: async (form: {
@@ -121,30 +153,41 @@ export function CompaniesScreen() {
 
   return (
     <section className="flex flex-col gap-4">
-      <header className="flex items-center justify-between">
-        <h1 className="text-base font-semibold">{t.companies.title}</h1>
-        <button type="button" onClick={() => setAdding((open) => !open)} className={BUTTON}>
-          {adding ? t.companies.cancel : t.companies.add}
-        </button>
-      </header>
+      {/* Fără supratitlu: spaţiul de lucru e scris în subsolul barei laterale şi
+          în adresă. În machetă îl purta antetul fiindcă acolo nu-l spunea nimic
+          altceva; aici ar fi a treia oară. Supratitlul rămâne pe ecranele unei
+          companii, unde poartă ce nu se vede altfel -- compania şi versiunea
+          planului. */}
+      <PageHeader
+        title={t.companies.title}
+        lead={t.companies.lead}
+        actions={
+          <Button icon="plus" onClick={() => setAdding((open) => !open)}>
+            {adding ? t.companies.cancel : t.companies.add}
+          </Button>
+        }
+      />
 
-      {adding && <NewCompanyForm pending={create.isPending} onSubmit={create.mutate} />}
+      {adding && (
+        <NewCompanyForm
+          pending={create.isPending}
+          onSubmit={create.mutate}
+        />
+      )}
       {create.isError && <Failure error={create.error} />}
 
-      <DataGrid
-        columns={columns}
-        rows={companies.data}
-        rowKey={(company) => company.id}
-        emptyMessage={t.companies.empty}
-        onRowClick={(company) => void navigate(chartPath(company))}
-      />
+      <Card padding="none">
+        <DataGrid
+          columns={columns}
+          rows={companies.data}
+          rowKey={(company) => company.id}
+          emptyMessage={t.companies.empty}
+          onRowClick={(company) => void navigate(cardPath(company))}
+        />
+      </Card>
     </section>
   )
 }
-
-const FIELD = 'rounded border border-border bg-surface px-2 text-sm'
-const BUTTON =
-  'rounded border border-border bg-surface px-3 text-sm text-accent disabled:text-ink-muted'
 
 /**
  * Three fields, which is what the server needs to create a company.
@@ -155,9 +198,12 @@ const BUTTON =
  * companies.
  */
 function NewCompanyForm({
+  initial,
   pending,
   onSubmit,
 }: {
+  /** Starting values, when the screen already knows them. */
+  initial?: { legal_name: string; idno: string } | null
   pending: boolean
   onSubmit: (form: {
     idno: string
@@ -167,8 +213,8 @@ function NewCompanyForm({
     caem_code: string | null
   }) => void
 }) {
-  const [legalName, setLegalName] = useState('')
-  const [idno, setIdno] = useState('')
+  const [legalName, setLegalName] = useState(initial?.legal_name ?? '')
+  const [idno, setIdno] = useState(initial?.idno ?? '')
   const [currency, setCurrency] = useState('MDL')
   // The two codes a statutory return's header carries. Optional here because
   // neither classifier is in the product yet -- a company recorded without them
@@ -192,56 +238,51 @@ function NewCompanyForm({
         })
       }}
     >
-      <label className="flex flex-col gap-1 text-sm">
-        <span className="text-ink-muted">{t.companies.legalName}</span>
-        <input
+      <Field label={t.companies.legalName}>
+        <Input
           value={legalName}
           onChange={(event) => setLegalName(event.target.value)}
           maxLength={255}
-          className={`${FIELD} w-96`}
+          className="w-96"
         />
-      </label>
-      <label className="flex flex-col gap-1 text-sm">
-        <span className="text-ink-muted">{t.companies.idno}</span>
-        <input
+      </Field>
+      <Field label={t.companies.idno}>
+        <Input
           value={idno}
           onChange={(event) => setIdno(event.target.value.replace(/\D/g, ''))}
           maxLength={13}
           inputMode="numeric"
           placeholder={t.companies.idnoHint}
-          className={`${FIELD} w-48 font-mono`}
+          className="w-48 font-mono"
         />
-      </label>
-      <label className="flex flex-col gap-1 text-sm">
-        <span className="text-ink-muted">{t.companies.currency}</span>
-        <input
+      </Field>
+      <Field label={t.companies.currency}>
+        <Input
           value={currency}
           onChange={(event) => setCurrency(event.target.value.toUpperCase().slice(0, 3))}
-          className={`${FIELD} w-24 font-mono`}
+          className="w-24 font-mono"
           title={t.companies.currencyHint}
         />
-      </label>
-      <label className="flex flex-col gap-1 text-sm">
-        <span className="text-ink-muted">{t.payroll.cuatm}</span>
-        <input
+      </Field>
+      <Field label={t.payroll.cuatm}>
+        <Input
           value={cuatm}
           onChange={(event) => setCuatm(event.target.value)}
           maxLength={16}
-          className={`${FIELD} w-28 font-mono`}
+          className="w-28 font-mono"
         />
-      </label>
-      <label className="flex flex-col gap-1 text-sm">
-        <span className="text-ink-muted">{t.payroll.caem}</span>
-        <input
+      </Field>
+      <Field label={t.payroll.caem}>
+        <Input
           value={caem}
           onChange={(event) => setCaem(event.target.value)}
           maxLength={16}
-          className={`${FIELD} w-28 font-mono`}
+          className="w-28 font-mono"
         />
-      </label>
-      <button type="submit" disabled={!complete || pending} className={BUTTON}>
+      </Field>
+      <Button variant="primary" type="submit" disabled={!complete || pending}>
         {pending ? t.companies.creating : t.companies.create}
-      </button>
+      </Button>
     </form>
   )
 }

@@ -20,7 +20,7 @@ from __future__ import annotations
 
 import re
 import uuid
-from collections.abc import Iterable
+from collections.abc import Iterable, Sequence
 from datetime import date
 from typing import Any
 
@@ -298,6 +298,85 @@ def partner_in_context(partner_id: uuid.UUID) -> dict[str, Any]:
     return _row(partner, _open_codes([partner]))
 
 
+#: What a person may correct from the partner's own form.
+#:
+#: The identity is **not** in it, and that is the same line ADR-083 drew for a
+#: company: `idno` and `idnp` are what a document already issued names the
+#: counterparty by, and what the unique constraint uses to keep two records from
+#: splitting one balance (`R20`). A typo in one is a correction with
+#: consequences -- it can move posted history from one partner to another -- so it
+#: is an operator act, not a form field.
+#:
+#: `kind` is out for the same reason once removed: it decides which identifier
+#: applies, so changing it would silently orphan the one that is filled.
+#:
+#: The VAT code is out because it is **not a field**: registration is a dated
+#: state (`register_vat` / `deregister_vat`), and overwriting a code would
+#: rewrite how documents issued before the change are treated.
+EDITABLE = (
+    "legal_name",
+    "short_name",
+    "internal_name",
+    "default_currency",
+    "default_payment_terms_days",
+    "is_customer",
+    "is_supplier",
+)
+
+
+def update_partner(partner_id: uuid.UUID, **changes: Any) -> dict[str, Any]:
+    """Correct what a partner's form owns. Absent keys are left alone.
+
+    A partial update, deliberately: a form that sent every field would clear
+    whatever it did not render, and the first screen to render half the record
+    would silently empty the other half.
+    """
+    partner = Partner.objects.filter(id=partner_id).first()
+    if partner is None:
+        raise PartnerNotFoundError(f"partner {partner_id} is not visible in this context")
+
+    unknown = set(changes) - set(EDITABLE)
+    if unknown:
+        # Named, not ignored: a caller that sends `idno` believes it is being
+        # applied, and a silent drop is how a wrong IDNO survives a correction.
+        raise PartnerMalformedError(
+            f"{sorted(unknown)} cannot be changed from the partner form: identity "
+            f"and VAT registration are corrected on their own paths"
+        )
+
+    if "legal_name" in changes:
+        name = (changes["legal_name"] or "").strip()
+        if not name:
+            raise PartnerMalformedError(
+                "a partner needs a legal name: it is what appears on documents and "
+                "in registers, and nothing else identifies it there (C39)"
+            )
+        changes["legal_name"] = name
+
+    for blankable in ("short_name", "internal_name"):
+        if blankable in changes:
+            changes[blankable] = (changes[blankable] or "").strip() or None
+
+    if "default_currency" in changes:
+        changes["default_currency"] = (changes["default_currency"] or "").strip().upper() or None
+
+    # Evaluated on the row as it will be, not on what arrived: a request that
+    # only clears `is_customer` still has to leave a partner something can be
+    # posted against.
+    after_customer = bool(changes.get("is_customer", partner.is_customer))
+    after_supplier = bool(changes.get("is_supplier", partner.is_supplier))
+    if not (after_customer or after_supplier):
+        raise PartnerMalformedError(
+            "a partner is a customer, a supplier, or both. Neither is a record "
+            "nothing can be posted against, and the database refuses it too"
+        )
+
+    for field, value in changes.items():
+        setattr(partner, field, value)
+    partner.save(update_fields=[*changes, "updated_at"])
+    return _row(partner, _open_codes([partner]))
+
+
 def set_partner_active(partner_id: uuid.UUID, *, active: bool) -> dict[str, Any]:
     """Retire a partner, or bring one back. Never delete.
 
@@ -345,3 +424,22 @@ def _row(partner: Partner, open_codes: dict[uuid.UUID, str]) -> dict[str, Any]:
         "is_supplier": partner.is_supplier,
         "is_active": partner.is_active,
     }
+
+
+def legal_names_for(partner_ids: Sequence[uuid.UUID]) -> dict[uuid.UUID, str]:
+    """The legal name of each partner, for the documents and registers that name them.
+
+    **The legal name, never the internal one** (`C39`, ADR-034): the internal name
+    exists for lists, search and imports, and a register that printed it would be
+    the non-conforming artefact `OD-40` is open about.
+
+    One query for many ids, because the caller is a report: a register asking per
+    row is how a page of forty documents becomes forty round trips.
+
+    Missing ids are simply absent from the result rather than raising. A report
+    that met a partner it cannot see -- deleted, or in another company's reach --
+    prints what it knows and says nothing it does not, which is what an empty cell
+    means to the person reading it.
+    """
+    rows = Partner.objects.filter(id__in=tuple(partner_ids)).values_list("id", "legal_name")
+    return {partner_id: str(name) for partner_id, name in rows}

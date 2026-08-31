@@ -201,3 +201,21 @@ def convert_to_sale(
         partner_resident=partner_resident,
     )
     return sale.id
+
+
+def residence_of(document_id: uuid.UUID) -> bool:
+    """Whether the customer on this invoice was recorded as a resident.
+
+    Public because settlement needs it and must not read this table (`D6`), and
+    because it must not ask the question a second time: residence was already
+    required once, from the person who knew (ADR-073 §2). Asking again would
+    invite two answers about one invoice.
+    """
+    resident = (
+        SalesDocument.objects.filter(document_id=document_id)
+        .values_list("partner_resident", flat=True)
+        .first()
+    )
+    if resident is None:
+        raise SaleMalformedError(f"document {document_id} is not a sale")
+    return bool(resident)

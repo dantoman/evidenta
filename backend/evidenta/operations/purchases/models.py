@@ -16,6 +16,26 @@ from evidenta.platform.documents.models import Document
 from evidenta.platform.tenancy.models import Company, Tenant
 
 
+class CostDestination(models.TextChoices):
+    """Where the cost lands -- and therefore which expense role (ADR-073 §4).
+
+    A closed vocabulary in code, the pattern ADR-065 §7.1 fixed and ADR-073
+    applied: the value selects **which role** the handler asks for, which is
+    posting form (`R28`). It does not condition which account a role binds to.
+
+    **What the four values leave out is the point.** None of them buys stock:
+    goods for resale and materials go onto the balance sheet, not into an expense,
+    and the entry that puts them there has a second half this system does not have
+    yet (F4). The vocabulary cannot express it, so nobody can post it by accident
+    -- the same refusal the sales side spells out with a code, made structural.
+    """
+
+    ADMINISTRATIVE = "administrative"
+    COMMERCIAL = "commercial"
+    PRODUCTION_DIRECT = "production_direct"
+    PRODUCTION_INDIRECT = "production_indirect"
+
+
 class PurchaseDocument(models.Model):
     document = models.OneToOneField(
         Document,
@@ -39,12 +59,29 @@ class PurchaseDocument(models.Model):
     supplier_document_number = models.TextField()
     supplier_document_date = models.DateField()
 
+    #: Which expense role the posting asks for. No default: the four are not
+    #: interchangeable, and a document that arrived without anybody choosing would
+    #: land on administrative services because that is what a default would say --
+    #: quietly, and in the profit and loss account of a company whose production
+    #: costs would then be understated.
+    cost_destination = models.TextField(choices=CostDestination.choices)
+
+    #: Country or abroad, for the payable. **Carried, never derived**, exactly as
+    #: on the sales side: `Partner` has no residence field, and a default would
+    #: post debts to non-residents on the domestic account -- balanced, `R11`
+    #: green, wrong in the balance sheet at every reporting date.
+    partner_resident = models.BooleanField()
+
     class Meta:
         db_table = "purchase_document"
         constraints = [
             models.CheckConstraint(
                 condition=~models.Q(supplier_document_number=""),
                 name="purchase_document_has_supplier_number",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(cost_destination__in=CostDestination.values),
+                name="purchase_document_cost_destination_valid",
             ),
             # The same document arriving twice -- once through an import, once
             # typed -- is deduplicated on the natural business key (`R20`): the

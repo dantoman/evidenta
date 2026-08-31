@@ -21,7 +21,7 @@ from datetime import UTC, date, datetime
 from django.db import transaction
 
 from evidenta.platform.audit.services.recording import record
-from evidenta.platform.engagement.models import Engagement, EngagementStatus
+from evidenta.platform.engagement.models import AcceptanceBasis, Engagement, EngagementStatus
 from evidenta.platform.notifications.services import dispatch
 
 
@@ -162,7 +162,20 @@ def accept(engagement_id: uuid.UUID, accepted_by_user_id: uuid.UUID, actor_side:
         engagement.status = EngagementStatus.ACTIVE
         engagement.accepted_at = datetime.now(UTC)
         engagement.accepted_by_id = accepted_by_user_id
-        engagement.save(update_fields=["status", "accepted_at", "accepted_by", "updated_at"])
+        # Whoever reaches this call is on the side that did not invite -- the check
+        # above is what guarantees it -- so the basis is a client acceptance and
+        # nothing else. A declared mandate never comes through here: it is written
+        # where it is declared (ADR-081 section 3.3).
+        engagement.acceptance_basis = AcceptanceBasis.CLIENT
+        engagement.save(
+            update_fields=[
+                "status",
+                "accepted_at",
+                "accepted_by",
+                "acceptance_basis",
+                "updated_at",
+            ]
+        )
         record(
             action="engagement.accepted",
             entity_type="engagement",
@@ -258,7 +271,18 @@ def transfer(
         incoming.status = EngagementStatus.ACTIVE
         incoming.accepted_at = datetime.now(UTC)
         incoming.accepted_by_id = accepted_by_user_id
-        incoming.save(update_fields=["status", "accepted_at", "accepted_by", "updated_at"])
+        # A transfer is moved by the client side (the transition check above says
+        # so), so the incoming engagement rests on a client acceptance too.
+        incoming.acceptance_basis = AcceptanceBasis.CLIENT
+        incoming.save(
+            update_fields=[
+                "status",
+                "accepted_at",
+                "accepted_by",
+                "acceptance_basis",
+                "updated_at",
+            ]
+        )
 
         # One act, two rows. Both entries carry the caller's request_id, so the
         # transfer is enumerable as a transfer rather than as two coincidences

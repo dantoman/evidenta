@@ -90,6 +90,13 @@ ALREADY_CORRECT = [
         "0059_legislation",
         "0060_refdata_write_policies",
         "0061_unit_precision_frozen",
+        # ADR-073 §5: the treasury table, its policy and its own trigger function
+        # -- the same shape as `0055`, so the single-file round trip means what it
+        # says.
+        "0073_treasury_documents",
+        # ADR-087: a policy and a grant, nothing else -- the reverse withdraws
+        # exactly what the forward granted.
+        "0074_settlements",
     )
 ]
 

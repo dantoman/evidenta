@@ -108,3 +108,80 @@ def test_a_retired_partner_leaves_the_directory_and_stays_readable(
     assert get(BASE).json() == []
     assert len(get(f"{BASE}?include_inactive=true").json()) == 1
     assert get(f"{BASE}{partner_id}").json()["legal_name"] == "Alfa Comert SRL"
+
+
+def test_a_partner_is_corrected_from_its_own_form(
+    post: Callable[..., Any], patch: Callable[..., Any], get: Callable[..., Any]
+) -> None:
+    """What the form owns: the names, the roles, the defaults."""
+    created = post(BASE, CLIENT).json()
+
+    changed = patch(
+        f"{BASE}{created['id']}",
+        {
+            "legal_name": "Alfa Comerț SRL",
+            "short_name": "",
+            "is_supplier": True,
+            "default_currency": "eur",
+            "default_payment_terms_days": 30,
+        },
+    )
+    assert changed.status_code == 200, changed.content.decode()
+    row = changed.json()
+    assert row["legal_name"] == "Alfa Comerț SRL"
+    # Blank clears rather than storing an empty string: a short name that is ""
+    # would print as a name nobody typed.
+    assert row["short_name"] is None
+    # Both roles now, on one record. Two records would disagree about the address
+    # the first time one of them is corrected.
+    assert row["is_customer"] is True and row["is_supplier"] is True
+    assert row["default_currency"] == "EUR"
+    assert row["default_payment_terms_days"] == 30
+
+    # And it is the stored row that changed, not just the answer.
+    assert get(f"{BASE}?q=Comerț").json()[0]["legal_name"] == "Alfa Comerț SRL"
+
+
+def test_the_identity_is_not_a_form_field(
+    post: Callable[..., Any], patch: Callable[..., Any], get: Callable[..., Any]
+) -> None:
+    """`idno` is refused **by name**, not dropped.
+
+    A caller that sends it believes it is being applied. Silently ignoring it is
+    how a wrong IDNO survives a correction that looked like it worked -- and the
+    IDNO is what a posted document names the counterparty by, and what keeps two
+    records from splitting one balance (`R20`).
+    """
+    created = post(BASE, CLIENT).json()
+
+    refused = patch(f"{BASE}{created['id']}", {"idno": "1003600099999"})
+    assert refused.status_code == 400, refused.content.decode()
+    assert get(f"{BASE}{created['id']}").json()["idno"] == "1003600012345"
+
+
+def test_a_correction_cannot_leave_a_partner_with_no_role(
+    post: Callable[..., Any], patch: Callable[..., Any]
+) -> None:
+    """Judged on the row as it will be, not on what arrived.
+
+    The request clears the only role it carries, and the record has no other --
+    so the refusal has to come from the state after the change, not from
+    inspecting the payload.
+    """
+    created = post(BASE, CLIENT).json()
+
+    refused = patch(f"{BASE}{created['id']}", {"is_customer": False})
+    # 422: refuzul de formă al acestui modul are codul lui stabil (`C10`).
+    assert refused.status_code == 422, refused.content.decode()
+
+
+def test_a_blank_legal_name_is_refused(post: Callable[..., Any], patch: Callable[..., Any]) -> None:
+    """Refuzat de formă, la serializator -- `400`, nu `422`.
+
+    Spațiile sunt tăiate acolo, deci ce ar ajunge la serviciu e un șir gol, iar
+    refuzul vine din stratul care poate spune „câmpul acesta nu poate fi gol".
+    Serviciul păstrează totuși aceeași verificare, pentru apelanții care nu vin
+    prin HTTP: două straturi, aceeași regulă, niciunul presupunându-l pe celălalt.
+    """
+    created = post(BASE, CLIENT).json()
+    assert patch(f"{BASE}{created['id']}", {"legal_name": "   "}).status_code == 400

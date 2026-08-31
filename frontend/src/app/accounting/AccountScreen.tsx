@@ -34,6 +34,7 @@ import {
   type AccountClass,
 } from '@/shared/api/coa'
 import { Failure } from '@/shared/Failure'
+import { Button, Input } from '@/shared/ui'
 
 const CLASS_LABEL: Record<AccountClass, string> = {
   asset: t.accounting.classes.asset,
@@ -42,10 +43,6 @@ const CLASS_LABEL: Record<AccountClass, string> = {
   income: t.accounting.classes.income,
   expense: t.accounting.classes.expense,
 }
-
-const FIELD = 'rounded border border-border bg-surface px-2 text-sm'
-const BUTTON =
-  'rounded border border-border bg-surface px-3 text-sm text-accent disabled:text-ink-muted'
 
 export function AccountScreen() {
   const { companyId = '', accountId = '' } = useParams()
@@ -107,7 +104,7 @@ export function AccountScreen() {
         >
           {t.accounting.reports.generalLedger}
         </Link>
-        <h1 className="text-base font-semibold">
+        <h1 className="type-display-2 text-heading">
           <span className="font-mono">{row.account_code}</span> {row.name_ro}
         </h1>
       </header>
@@ -205,14 +202,13 @@ export function AccountScreen() {
           {row.is_blocked ? t.accounting.account.unblock : t.accounting.account.block}
         </h2>
         <div>
-          <button
+          <Button variant="secondary"
             type="button"
             disabled={change.isPending}
             onClick={() => change.mutate({ is_blocked: !row.is_blocked })}
-            className={BUTTON}
           >
             {row.is_blocked ? t.accounting.account.unblock : t.accounting.account.block}
-          </button>
+          </Button>
         </div>
       </section>
 
@@ -258,20 +254,19 @@ function Rename({
             onSave(name)
           }}
         >
-          <input
+          <Input
             value={name}
             onChange={(event) => setName(event.target.value)}
             maxLength={255}
-            className={`${FIELD} w-96`}
+            className="w-96"
             aria-label={t.accounting.account.name}
           />
-          <button
+          <Button variant="primary"
             type="submit"
             disabled={name.trim() === '' || name === account.name_ro}
-            className={BUTTON}
           >
             {t.common.save}
-          </button>
+          </Button>
         </form>
       )}
     </section>
@@ -301,16 +296,15 @@ function Close({
       >
         <label className="flex items-center gap-2 text-sm">
           <span className="text-ink-muted">{t.accounting.account.closeFrom}</span>
-          <input
+          <Input
             type="date"
             value={until}
             onChange={(event) => setUntil(event.target.value)}
-            className={FIELD}
           />
         </label>
-        <button type="submit" disabled={until === '' || disabled} className={BUTTON}>
+        <Button variant="primary" type="submit" disabled={until === '' || disabled}>
           {t.accounting.account.closeAction}
-        </button>
+        </Button>
       </form>
     </section>
   )
@@ -372,29 +366,28 @@ function Subaccount({
       >
         <label className="flex items-center gap-2 text-sm">
           <span className="text-ink-muted">{t.accounting.account.code}</span>
-          <input
+          <Input
             value={input.account_code}
             onChange={(event) => set('account_code', event.target.value)}
             maxLength={64}
-            className={`${FIELD} w-32 font-mono`}
+            className="w-32 font-mono"
           />
         </label>
         <label className="flex items-center gap-2 text-sm">
           <span className="text-ink-muted">{t.accounting.account.name}</span>
-          <input
+          <Input
             value={input.name_ro}
             onChange={(event) => set('name_ro', event.target.value)}
             maxLength={255}
-            className={`${FIELD} w-96`}
+            className="w-96"
           />
         </label>
         <label className="flex items-center gap-2 text-sm">
           <span className="text-ink-muted">{t.accounting.account.validFrom}</span>
-          <input
+          <Input
             type="date"
             value={input.valid_from}
             onChange={(event) => set('valid_from', event.target.value)}
-            className={FIELD}
           />
         </label>
         <label className="flex items-center gap-2 text-sm">
@@ -421,13 +414,12 @@ function Subaccount({
           />
           <span className="text-ink-muted">{t.accounting.account.allowsSubaccounts}</span>
         </label>
-        <button
+        <Button variant="primary"
           type="submit"
           disabled={pending || input.account_code.trim() === '' || input.name_ro.trim() === ''}
-          className={BUTTON}
         >
           {t.common.add}
-        </button>
+        </Button>
       </form>
       <p className="text-sm text-ink-muted">{t.accounting.account.subaccountDimensions}</p>
       {error ? <Failure error={error} /> : null}

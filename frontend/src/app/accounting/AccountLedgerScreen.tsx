@@ -23,6 +23,7 @@ import { DataGrid, type Column } from '@/shared/DataGrid'
 import { Failure } from '@/shared/Failure'
 import { EntryDetailPanel } from './EntryDetail'
 import { ReportHeader, useWindow } from './ReportHeader'
+import { Card } from '@/shared/ui'
 
 const columns: Column<AccountLedgerRow>[] = [
   {
@@ -142,19 +143,21 @@ export function AccountLedgerScreen() {
           {ledger.data.truncated && (
             <p className="text-sm text-danger">{t.accounting.reports.truncated}</p>
           )}
-          <DataGrid
-            columns={columns}
-            rows={ledger.data.rows}
-            rowKey={(row) => row.journal_entry_id}
-            emptyMessage={t.accounting.reports.empty}
-            onRowClick={(row) => setOpened(row.journal_entry_id)}
-            serverTotals={{
-              accounting_date: t.accounting.reports.total,
-              debit: amount(ledger.data.total_debit),
-              credit: amount(ledger.data.total_credit),
-              balance: amount(ledger.data.closing),
-            }}
-          />
+          <Card padding="none">
+            <DataGrid
+              columns={columns}
+              rows={ledger.data.rows}
+              rowKey={(row) => row.journal_entry_id}
+              emptyMessage={t.accounting.reports.empty}
+              onRowClick={(row) => setOpened(row.journal_entry_id)}
+              serverTotals={{
+                accounting_date: t.accounting.reports.total,
+                debit: amount(ledger.data.total_debit),
+                credit: amount(ledger.data.total_credit),
+                balance: amount(ledger.data.closing),
+              }}
+            />
+          </Card>
           <p className="text-sm">
             <span className="text-ink-muted">{t.accounting.reports.closing}:</span>{' '}
             <span className="tabular font-medium">{amount(ledger.data.closing)}</span>

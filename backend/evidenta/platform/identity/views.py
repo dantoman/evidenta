@@ -27,7 +27,7 @@ import uuid
 from typing import Any
 
 from django.http import HttpRequest, HttpResponse, JsonResponse
-from django.views.decorators.http import require_GET, require_POST
+from django.views.decorators.http import require_GET, require_http_methods, require_POST
 
 from evidenta.platform.identity import cookie
 from evidenta.platform.identity.services import sessions
@@ -36,6 +36,7 @@ from evidenta.platform.identity.services.authentication import (
     MfaRequiredError,
     authenticate,
 )
+from evidenta.platform.identity.services.profile import ProfileMalformedError, update_profile
 from evidenta.platform.rls.middleware import REFUSAL_STATUS, TenantResolutionError
 from evidenta.platform.tenancy.middleware import subdomain_resolver
 
@@ -162,3 +163,28 @@ def whoami(request: HttpRequest) -> HttpResponse:
             "request_id": str(getattr(request, "request_id", "")),
         }
     )
+
+
+@require_http_methods(["PATCH"])
+def profile(request: HttpRequest) -> HttpResponse:
+    """Correct your own display name.
+
+    No identifier in the path or the payload: it edits the signed-in user and
+    nobody else. That is not politeness -- the policy on `user` is self-row, so a
+    request naming somebody else would update nothing, and an endpoint that
+    accepted the name would be inviting a question it cannot answer.
+    """
+    try:
+        payload = json.loads(request.body or b"{}")
+    except json.JSONDecodeError:
+        return JsonResponse({"code": "api.invalid"}, status=400)
+
+    try:
+        answer = update_profile(
+            request.authenticated_user_id,  # type: ignore[attr-defined]
+            full_name=str(payload.get("full_name", "")),
+        )
+    except ProfileMalformedError as refusal:
+        return JsonResponse({"code": refusal.code, "message": str(refusal)}, status=refusal.status)
+
+    return JsonResponse(answer)

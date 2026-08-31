@@ -88,6 +88,23 @@ class PeriodNotFoundError(ApiError):
     status = 404
 
 
+class CompanyNotPostableError(ApiError):
+    """The company itself does not accept postings -- it is closed or suspended.
+
+    Its own code, and not a variant of ``PeriodNotOpenError``: the remedies have
+    nothing in common. A closed period is reopened; a closed company is not a
+    period problem at all, and telling somebody to reopen March would send them
+    looking for a lock that is not there.
+
+    Read through ``tenancy``'s public service rather than its model: the fact
+    belongs to `platform`, the refusal belongs here, and the import goes the one
+    way the dependency graph allows (ADR-083 section 2.3).
+    """
+
+    code = "periods.company_not_postable"
+    status = 409
+
+
 class PeriodNotOpenError(ApiError):
     """The period exists and does not accept postings -- R12.
 

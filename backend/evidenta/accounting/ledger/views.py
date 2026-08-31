@@ -30,6 +30,7 @@ from evidenta.accounting.ledger.services import export
 from evidenta.accounting.ledger.services.account_ledger import account_ledger
 from evidenta.accounting.ledger.services.correspondence import correspondence
 from evidenta.accounting.ledger.services.detail import entry_detail
+from evidenta.accounting.ledger.services.document_journal import document_journal
 from evidenta.accounting.ledger.services.general_ledger import general_ledger
 from evidenta.accounting.ledger.services.trial_balance import trial_balance
 from evidenta.platform.api.errors import ApiError
@@ -340,6 +341,48 @@ class GeneralLedgerView(APIView):
                 "total_debit": str(ledger.total_debit),
                 "total_credit": str(ledger.total_credit),
                 "closing": str(ledger.closing),
+            }
+        )
+
+
+class DocumentJournalView(APIView):
+    """One family's posted documents over a window -- F1.8.
+
+    The family is a path segment and it is the **owner module's name**, not a list
+    of type codes: the reader asks for "the sales journal", and which document
+    types that means is the registry's answer, not the caller's.
+    """
+
+    def get(self, request: Request, company_id: uuid.UUID, owner: str) -> HttpResponse:
+        start, end = _window(request)
+        report = document_journal(company_id, owner=owner, date_from=start, date_to=end)
+        if _wants_csv(request):
+            return _csv(export.document_journal_csv(report), f"jurnal-{owner}-{start}-{end}.csv")
+        return Response(
+            {
+                "owner": report.owner,
+                "start_date": str(report.date_from),
+                "end_date": str(report.date_to),
+                "rows": [
+                    {
+                        "document_id": str(row.document_id),
+                        "document_type": row.document_type,
+                        "formatted_number": row.formatted_number,
+                        "document_date": str(row.document_date),
+                        "accounting_date": str(row.accounting_date),
+                        "partner_name": row.partner_name,
+                        "currency": row.currency,
+                        "net": str(row.net),
+                        "vat": str(row.vat),
+                        "total": str(row.total),
+                    }
+                    for row in report.rows
+                ],
+                "totals": {
+                    "net": str(report.total_net),
+                    "vat": str(report.total_vat),
+                    "total": str(report.total_amount),
+                },
             }
         )
 

@@ -376,17 +376,24 @@ def engage(seed: Callable[..., None]) -> Callable[..., uuid.UUID]:
         valid_from: str = "2020-01-01",
         valid_to: str | None = None,
         covers_all_companies: bool = True,
+        acceptance_basis: str = "client",
     ) -> uuid.UUID:
         now = datetime.now(UTC)
         engagement_id = uuid.uuid4()
         accepted = now if status in ("active", "suspended", "revoked") else None
         revoked = now if status == "revoked" else None
+        # An acceptance says on whose word it happened (ADR-081): a row carrying
+        # `accepted_at` carries a basis, an invitation carries neither. The
+        # fixture writes what production writes, rather than a shape the checks
+        # would refuse.
+        basis = acceptance_basis if accepted is not None else None
+        claim_contact = "revendicare@example.md" if basis == "declared_mandate" else None
         seed(
             "INSERT INTO engagement (id, firm_id, client_tenant_id, status,"
             " covers_all_companies, valid_from, valid_to, initiated_by,"
-            " invited_by_user_id, invited_at, accepted_at, revoked_at,"
-            " created_at, updated_at)"
-            " VALUES (%s, %s, %s, %s, %s, %s, %s, 'firm', %s, %s, %s, %s, %s, %s)",
+            " invited_by_user_id, invited_at, accepted_at, acceptance_basis,"
+            " claim_contact_email, revoked_at, created_at, updated_at)"
+            " VALUES (%s, %s, %s, %s, %s, %s, %s, 'firm', %s, %s, %s, %s, %s, %s, %s, %s)",
             [
                 engagement_id,
                 firm_id,
@@ -398,6 +405,8 @@ def engage(seed: Callable[..., None]) -> Callable[..., uuid.UUID]:
                 invited_by,
                 now,
                 accepted,
+                basis,
+                claim_contact,
                 revoked,
                 now,
                 now,

@@ -34,10 +34,7 @@ import {
   type TemplateSummary,
 } from '@/shared/api/templates'
 import { Failure } from '@/shared/Failure'
-
-const FIELD = 'w-full rounded border border-border bg-surface px-2 text-sm'
-const BUTTON =
-  'rounded border border-border bg-surface px-3 text-sm text-accent disabled:text-ink-muted'
+import { Button, Field, Input, Select } from '@/shared/ui'
 
 interface LineDraft {
   account_id: string
@@ -104,7 +101,7 @@ export function OperationTemplatesScreen() {
 
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div className="flex flex-col gap-1">
-          <h1 className="text-base font-semibold">{t.accounting.operationTemplates.title}</h1>
+          <h1 className="type-display-2 text-heading">{t.accounting.operationTemplates.title}</h1>
           <p className="text-sm text-ink-muted">{t.accounting.operationTemplates.lead}</p>
         </div>
         <div className="flex items-center gap-4">
@@ -118,9 +115,9 @@ export function OperationTemplatesScreen() {
               {t.accounting.operationTemplates.showInactive}
             </span>
           </label>
-          <button type="button" onClick={() => setDefining((open) => !open)} className={BUTTON}>
+          <Button variant="primary" type="button" onClick={() => setDefining((open) => !open)}>
             {defining ? t.companies.cancel : t.common.add}
-          </button>
+          </Button>
         </div>
       </header>
 
@@ -259,22 +256,20 @@ function Definition({
       }}
     >
       <div className="flex flex-wrap gap-4">
-        <label className="flex flex-col gap-1 text-sm">
-          <span className="text-ink-muted">{t.accounting.operationTemplates.name}</span>
-          <input
+        <Field label={t.accounting.operationTemplates.name}>
+          <Input
             value={name}
             onChange={(event) => setName(event.target.value)}
-            className={`${FIELD} w-64`}
+            className="w-64"
           />
-        </label>
+        </Field>
         <label className="flex flex-1 flex-col gap-1 text-sm">
           <span className="text-ink-muted">
             {t.accounting.operationTemplates.entryDescription}
           </span>
-          <input
+          <Input
             value={entryDescription}
             onChange={(event) => setEntryDescription(event.target.value)}
-            className={FIELD}
           />
         </label>
       </div>
@@ -283,10 +278,9 @@ function Definition({
         <div key={index} className="flex flex-wrap items-end gap-2">
           <label className="flex flex-1 flex-col gap-1 text-sm">
             <span className="text-ink-muted">{t.accounting.operationTemplates.account}</span>
-            <select
+            <Select
               value={line.account_id}
               onChange={(event) => set(index, { account_id: event.target.value })}
-              className={FIELD}
               aria-label={`${t.accounting.operationTemplates.account} ${index + 1}`}
             >
               <option value="" />
@@ -295,32 +289,30 @@ function Definition({
                   {account.account_code} — {account.name_ro}
                 </option>
               ))}
-            </select>
+            </Select>
           </label>
-          <label className="flex flex-col gap-1 text-sm">
-            <span className="text-ink-muted">{t.accounting.entry.debit}</span>
-            <select
+          <Field label={t.accounting.entry.debit}>
+            <Select
               value={line.side}
               onChange={(event) =>
                 set(index, { side: event.target.value as 'debit' | 'credit' })
               }
-              className={`${FIELD} w-28`}
+              className="w-28"
               aria-label={`${t.accounting.operationTemplates.account} ${index + 1} ${t.accounting.operationTemplates.debit}`}
             >
               <option value="debit">{t.accounting.operationTemplates.debit}</option>
               <option value="credit">{t.accounting.operationTemplates.credit}</option>
-            </select>
-          </label>
-          <label className="flex flex-col gap-1 text-sm">
-            <span className="text-ink-muted">{t.accounting.operationTemplates.amount}</span>
-            <input
+            </Select>
+          </Field>
+          <Field label={t.accounting.operationTemplates.amount}>
+            <Input
               value={line.value}
               onChange={(event) => set(index, { value: event.target.value })}
-              className={`${FIELD} w-40 ${line.fromInput ? '' : 'tabular text-right'}`}
+              className="w-40 ${line.fromInput ? '' : 'tabular text-right'}"
               inputMode={line.fromInput ? 'text' : 'decimal'}
               aria-label={`${t.accounting.operationTemplates.amount} ${index + 1}`}
             />
-          </label>
+          </Field>
           <label className="flex items-center gap-2 pb-1 text-sm">
             <input
               type="checkbox"
@@ -341,16 +333,15 @@ function Definition({
       ))}
 
       <div className="flex items-center gap-4">
-        <button
+        <Button variant="secondary"
           type="button"
           onClick={() => setLines((current) => [...current, { ...EMPTY_LINE }])}
-          className={BUTTON}
         >
           {t.accounting.entry.addLine}
-        </button>
-        <button type="submit" disabled={!complete || create.isPending} className={BUTTON}>
+        </Button>
+        <Button variant="primary" type="submit" disabled={!complete || create.isPending}>
           {t.common.save}
-        </button>
+        </Button>
       </div>
       {create.isError && <Failure error={create.error} />}
     </form>
@@ -409,26 +400,25 @@ function Posting({
         post.mutate()
       }}
     >
-      <label className="flex flex-col gap-1 text-sm">
-        <span className="text-ink-muted">{t.accounting.operationTemplates.date}</span>
-        <input
+      <Field label={t.accounting.operationTemplates.date}>
+        <Input
           type="date"
           value={accountingDate}
           onChange={(event) => setAccountingDate(event.target.value)}
-          className={`${FIELD} w-44`}
+          className="w-44"
         />
-      </label>
+      </Field>
 
       {template.inputs.map((key) => (
         <label key={key} className="flex flex-col gap-1 text-sm">
           <span className="text-ink-muted">{key}</span>
-          <input
+          <Input
             value={inputs[key] ?? ''}
             onChange={(event) =>
               setInputs((current) => ({ ...current, [key]: event.target.value }))
             }
             inputMode="decimal"
-            className={`${FIELD} tabular w-40 text-right`}
+            className="tabular w-40 text-right"
             aria-label={key}
           />
         </label>
@@ -436,17 +426,16 @@ function Posting({
 
       <label className="flex flex-1 flex-col gap-1 text-sm">
         <span className="text-ink-muted">{t.accounting.operationTemplates.description}</span>
-        <input
+        <Input
           value={description}
           onChange={(event) => setDescription(event.target.value)}
           placeholder={t.accounting.operationTemplates.descriptionHint}
-          className={FIELD}
         />
       </label>
 
-      <button type="submit" disabled={!filled || post.isPending} className={BUTTON}>
+      <Button variant="primary" type="submit" disabled={!filled || post.isPending}>
         {t.accounting.operationTemplates.post}
-      </button>
+      </Button>
 
       {post.isError && (
         <div className="w-full">

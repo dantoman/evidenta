@@ -47,3 +47,22 @@ export function logout(): Promise<void> {
 export function whoami(): Promise<Identity> {
   return request<Identity>('/api/v1/auth/whoami')
 }
+
+
+/**
+ * Correct your own display name.
+ *
+ * No identifier: it edits the signed-in user and nobody else, because the policy
+ * on `user` is self-row and the endpoint has nowhere to put another id.
+ *
+ * The e-mail, the password and the second factor are **not** here. The first is
+ * the credential and needs the new address proved; the other two start from the
+ * current ones. Each is its own path, and putting them in a profile form would
+ * make three different acts look like one.
+ */
+export function updateProfile(fullName: string): Promise<{ user_id: string; full_name: string }> {
+  return request<{ user_id: string; full_name: string }>('/api/v1/auth/profile', {
+    method: 'PATCH',
+    body: { full_name: fullName },
+  })
+}

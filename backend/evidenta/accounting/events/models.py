@@ -43,6 +43,12 @@ class SourceModule(models.TextChoices):
     #: (F1.5.4). Not `manual` -- nobody typed the closing chain -- and not an
     #: operational module: the source document is the period itself.
     PERIODS = "periods"
+    #: Money moving -- a receipt or a payment, cash or bank (ADR-073 §5). Not
+    #: `banking`, which names the *statement*: a bank feed is a different source
+    #: of the same kind of fact, and it arrives with the importer. A cash receipt
+    #: recorded by hand has never been near a bank, and saying it was would be
+    #: false in the one column that says where a fact came from.
+    TREASURY = "treasury"
     #: The production activity: the period's indirect costs allocated to the
     #: products (F1.4.4, C5). There is no production module yet; the value names
     #: the source of the fact, not an app -- `manual` would say somebody typed

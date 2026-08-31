@@ -19,8 +19,12 @@
 > e-Factura. **Ecranele merg în paralel cu fiecare pas: un pas fără ecran nu e livrat.** Deblocările
 > stau în `_bootstrap/13-lista-de-deblocare.md`, fiecare cu implicitul ei.
 >
-> **Livrate din secvență:** `F2.B0` (ADR-065), `C1(b)` (ADR-071, ADR-072) și **pasul 1** — persoană,
-> contract, act adițional, ordin, pontaj, cu cele trei ecrane. **Urmează pasul 2 (scutirile).**
+> **Livrate din secvență:** `F2.B0` (ADR-065), `C1(b)` (ADR-071, ADR-072), **pasul 1** — persoană,
+> contract, act adițional, ordin, pontaj —, **pașii 2, 3 și 4** (scutiri, calcul lunar și fluturaș,
+> IPC), fiecare cu ecranul lui, și **pasul 5 pe jumătate**: factura emisă și factura primită merg
+> cap-coadă. **Urmează, tot din pasul 5:** încasarea și plata (modul nou `operations/treasury`,
+> ADR-073 §5) și nota de credit (§7). *Antetul acesta spunea „urmează pasul 2" până la 31.08, cu trei
+> pași livrați între timp — starea se scria în „Ultima sesiune" și antetul rămânea în urmă.*
 
 **Felia verticală merge cap-coadă: companie → plan de conturi → notă manuală → balanță echilibrată.**
 Un test de integrare o parcurge prin HTTP, sub rolul aplicației
@@ -182,6 +186,438 @@ sunt bifate în `08`** — închiderea F1 e declarația proprietarului, ca la F0
 ține modulele F2 pe loc.
 
 ## Ultima sesiune
+
+**2026-08-31 — jurnalul documentelor: restul lui F1.8, deblocat de propria sesiune.**
+
+F1.8 avea un rest cu motiv scris: *„Rămân: jurnalele de vânzări/cumpărări — sunt «pe document prin
+definiție» și **nu au ce lista până nu postează un document**."* Blocajul a dispărut azi: patru
+familii postează.
+
+**Ce este, și ce spune că nu este.** Listează documentele contabilizate ale unei familii într-o
+fereastră, cu totalurile pe server (`C19`) și export CSV (`C20`). **Nu** e registrul de livrări sau de
+procurări: acela are formă prescrisă într-un act pe care nimeni de aici nu l-a citit, iar coloanele
+lui nu se pot completa cât timp niciun document nu poartă TVA (`OD-83`). Ecranul o spune în subtitlu,
+ca să nu fie depus ca altceva — `C33` e despre exact acest fel de artefact.
+
+**Nu citește nicio tabelă din `operations`.** Familia se numește după **modulul care o deține**, iar
+`platform.documents.registry` răspunde ce coduri de tip înseamnă asta — deci `accounting` nu află
+niciodată că `sales` își numește documentul `sales.document`. Primitiva nouă: `types_owned_by(owner)`.
+
+**Livrat:**
+- `accounting/ledger/services/document_journal.py` + `document_journal_csv` lângă celelalte exporturi.
+- `GET /api/v1/accounting/ledger/companies/<id>/journals/<owner>`, cu `?export=csv`.
+- **`legal_names_for` în `masterdata.partners`** — serviciul public care lipsea. Un registru fără
+  denumirea contrapărții nu e registru, iar `C39` cere **denumirea legală**, nu cea internă.
+- Ecranul *Jurnalul documentelor*, cu selector de familie și fereastră.
+- **4 teste de izolare** + 1 de frontend. Fixture-ul e o capcană: partenerul are ambele denumiri și
+  ele diferă, deci un export care ar tipări denumirea internă trece toate celelalte aserțiuni și cade
+  doar acolo.
+
+**O aserțiune a mea era greșită, nu exportul:** căutam denumirea legală ca substring, dar CSV-ul
+corect dublează ghilimelele din interiorul câmpului. Am corectat testul spre ce emite un scriitor
+corect — un test care ar fi cerut forma neescapată ar fi cerut exportului să fie greșit.
+
+## Sesiuni mai vechi
+
+**2026-08-31 — nota de credit: pasul 5 e complet
+([ADR-073](decisions/073-forma-postarii-documentelor-comerciale.md) §7).**
+
+A patra din serie, și cea mai mică — fiindcă decizia era deja luată și măsurată: `F2.X2 (j)` a
+constatat că **Instrucțiunea OMF 118/2017 anexa nr. 2 tace** asupra returului, deci actul nu alege în
+locul nostru, iar înclinația proprietarului e document de vânzare cu natură retur, nu `ReversalDocument`.
+
+**Livrat:**
+- `SaleNature` primește a treia valoare, `return` (migrarea `sales/0003`, aditivă).
+- **Handler propriu**, `sales.return_issued`: debit **7128 „Returnări și reduceri"**, credit creanțe.
+  Nu un venit cu minus — asertiunea din test e despre *care cont*, nu despre semn: un retur creditat pe
+  venit ar echilibra, ar trece `R11`, iar cifra de afaceri ar ieși mai mică exact cu returnările, fără
+  ca vreun total din balanță să contrazică.
+- **Orchestrarea vânzărilor alege evenimentul după natură**, cu vocabular enumerat: două fapte, două
+  chei de idempotență. O cheie comună ar face nota de credit să pară o reluare a facturii pe care o
+  răspunde.
+- **Avansul e refuzat pe nume**, în serviciu, cu motivul din ADR-073 §6 în mesaj: postarea doar a
+  primei jumătăți ar crește un sold de avansuri pe care nimic din produs nu-l poate stinge. Ecranul
+  nu-l oferă deloc — un document pe care nimeni nu-l poate contabiliza n-are ce căuta într-un select.
+- `nature` devine **obligatoriu pe API**, deși serviciul are implicit: uitat într-un body HTTP, ar
+  face dintr-o notă de credit o factură, adică ar recunoaște venit în loc de retur.
+- 3 teste de izolare noi, 1 de frontend extins.
+
+**Ce rămâne din ADR-073:** nimic. Cele patru familii — factura emisă, factura primită, încasarea și
+plata, nota de credit — merg toate cap-coadă.
+
+## Sesiuni mai vechi
+
+**2026-08-31 — decontarea: care factură a stins banii
+([ADR-087](decisions/087-decontarea-e-o-alocare.md), `F2.A3` parțial).**
+
+A treia din seria *„începe una după alta"*. Handlerul de diferențe exista din F1.4.4 și **n-avea
+apelant**: `SettlementFact` poartă un `settlement_id`, iar nimic din produs nu scria vreodată rândul
+cu acel id. Deci soldul partenerului scădea și nimic nu spunea *care factură*.
+
+**Ce a schimbat proiectarea, și motorul m-a corectat:** prima formă emitea evenimentul contabil la
+fiecare potrivire. Motorul l-a refuzat — `contract_denomination` are exact două valori, cele două
+noțiuni ale standardului, și **niciuna nu înseamnă „contractul e în lei"**. Nu e o scăpare de
+vocabular: **evenimentul aparține diferenței, nu alocării**. Spec B §10.1 o spune din celălalt capăt.
+Forma finală: o alocare în moneda funcțională se înregistrează și se auditează, și nu emite nimic.
+
+**Livrat:**
+- **Modul nou `operations/settlements`** — o tabelă, coloana `side`, `INSERT` și `SELECT` fără
+  `DELETE`: o decontare ștearsă ar face soldul unei facturi să crească înapoi fără urmă că cineva a
+  decis asta.
+- **Două plafoane, refuzate, nu tăiate**: nu mai mult decât a rămas pe document, nici decât a rămas pe
+  mișcare. Tăierea la cel mai mic ar posta un număr pe care nu l-a tastat nimeni.
+- **Discriminatorii vin de pe documentul stins** — rezidența a fost cerută o dată, de la omul care
+  știa (ADR-073 §2). Testul e o capcană: factura spune „nerezident", încasarea spune „rezident", iar
+  faptul trebuie să urmeze factura.
+- **Solduri deschise** — două liste (documente cu sold, mișcări nealocate), API și ecran de potrivire.
+- **7 teste de izolare** + 1 de frontend. Cel principal e **negativ**: balanța, la ban, și numărul de
+  înregistrări sunt identice înainte și după alocare.
+
+**Un gardian m-a prins din nou, și avea dreptate:** `balances.py` citea `platform.documents.models`
+direct. Listarea documentelor e treaba nucleului care ține tabela, nu a modulului care le compune —
+așa că primitiva a intrat în `documents.services.lifecycle`, unde o schimbare de filtru se face
+într-un loc, nu în trei.
+
+**Al doilea gardian, pe care nu-l întâlnisem:** `test_reservations_are_tracked` a refuzat ADR-087
+fiindcă se sprijină pe ADR-073 și **scăpase rezerva `OD-83`** — statutul TVA n-are pe ce selecta un
+tratament. E purtată mai departe acum, și nu ca formalitate: o decontare stinge soldul unei facturi
+**fără TVA**, fiindcă acela e singurul fel pe care produsul îl emite; când pasul 6 aduce TVA-ul,
+decontarea nu se schimbă, dar ajustarea bazei din `OD-128` se declanșează tot de aici.
+
+**Coliziune de numerotare, a doua oară azi:** sesiunea paralelă luase `OD-125` și `OD-126` între timp;
+ale mele au devenit `OD-127` (decontarea în valută) și `OD-128` (art. 98 alin. (2) — handler propriu,
+nu diferență de curs).
+
+## Sesiuni mai vechi
+
+**2026-08-31 — trezoreria: încasarea și plata merg cap-coadă
+([ADR-073](decisions/073-forma-postarii-documentelor-comerciale.md) §5).**
+
+A doua din seria *„începe una după alta"*. Bucla se închide: până acum o factură se contabiliza și
+**nimic nu o stingea** — creanțele și datoriile creșteau fără să aibă cum să scadă.
+
+**Livrat:**
+- **Modul nou `operations/treasury`** — două tipuri de document (`treasury.receipt`,
+  `treasury.payment`), **primele din produs care nu poartă poziții**. Suma e o coloană, nu o sumă de
+  linii: o încasare de 3.000 lei e un număr. Steagul `carries_lines` exista dinainte, deci nimic n-a
+  trebuit lărgit pentru ele — registrul îl anticipa pe nume.
+- **Tabela cu politica ei**, `infra/migrations/0073`, în aceeași tranzacție (`C30`), cu triggerul care
+  ține conținutul legat de starea documentului părinte.
+- **Două handlere** în familia comercială: contul de trezorerie e al **instrumentului** (casă / cont
+  curent), nu al documentului; sensul decide pe ce parte stă. `CASA_MDL` și `CONT_CURENT_MDL` erau
+  deja în catalog; conturile în valută rămân neatinse, fiindcă o încasare în valută deschide
+  diferențele de curs, care au handlerul lor.
+- **`treasury` în vocabularul lui `source_module`** (`accounting_events/0004`), a treia adăugire pe
+  tiparul lui `periods` și `production`: valoarea numește **sursa faptului**, nu un app. Nu `banking` —
+  acela numește extrasul, altă sursă a aceluiași fel de fapt, și o încasare în numerar n-a fost
+  niciodată pe la bancă.
+- **API** `/api/v1/treasury/…` și ecranul **Încasări și plăți**, o singură listă pentru ambele sensuri.
+- **8 teste de izolare** + 1 de frontend.
+
+**Ce nu face, și e decizia ADR-ului, nu o scăpare:** nu leagă banii de factura pe care o sting.
+Postarea n-are nevoie — debit trezorerie, credit creanțe, oricare creanță — iar legarea e
+**decontarea**, `F2.A3`, cu handlerul de diferențe deja livrat. O coloană nulă acum ar fi o legătură pe
+jumătate, pe care rapoartele ar începe s-o citească. Ecranul o **spune**, în loc s-o lase descoperită.
+
+**Arborele e partajat, și s-a văzut:** o a doua sesiune implementează `ADR-085` în paralel (spațiul
+aparține unui utilizator; `own_company_id` iese). La 20:35 `make web-check` a picat pe fișierele ei,
+nu pe ale mele; la 20:37 trecea. Lucrul meu din `tenancy/views.py` a supraviețuit — verificat, nu
+presupus. Cele trei teste de frontend roșii la sfârșitul sesiunii mele sunt ale ei, în zbor.
+
+## Sesiuni mai vechi
+
+**2026-08-31 — `OD-124` închisă: rolul scris la provizionare e de nivel companie
+([ADR-084](decisions/084-rolul-la-provizionare.md)).**
+
+Prima din seria cerută prin *„începe una după alta"*, pe varianta (a) — cea recomandată de două ori.
+**Dacă intenția era (b), ADR-084 se înlocuiește; e o schimbare diferită, nu o corecție a acesteia.**
+
+**Ce era, măsurat:** `rls.provision_company` copia în `company_access.role_id` rolul de `membership`,
+care e de nivel tenant. `role_permission` leagă scopul permisiunii de nivelul rolului, deci pe acele
+rânduri nu se putea ține nicio cheie de companie. Toate cele patru rânduri vii din dezvoltare purtau
+`owner`. Consecința nu era doar a lui ADR-083: **`company.revoke_access` e în catalog de la F0.3.3 și
+n-a putut fi ținută de nimeni, niciodată** — fixture-urile scriau `company_admin`, adică forma pe care
+modelul o documentează, deci fiecare test era de acord cu modelul și în dezacord cu producția.
+
+**Livrat:**
+- `infra/migrations/0072` + `tenancy/0011` — funcția **caută** rolul de sistem de nivel companie în loc
+  să copieze unul. Obiecția din `0045` (*o funcție privilegiată care și-ar alege rolul ar fi o cale de
+  escaladare*) rămâne valabilă și nu e încălcată: nu există alegere, interogarea are un singur rezultat
+  posibil. Fișierul vechi nu s-a atins (`C31`); reversul restaurează corpul lui verbatim, defect inclus.
+- **Refuz dacă rolul lipsește**, cu mesaj care numește `repair_system_roles`. Căderea înapoi pe rolul de
+  membership ar fi restaurat defectul tăcut și numai la tenanții stricați.
+- `repair_company_access` — comandă de operator, nu migrare (`OD-94`). Rulată: **alpha 3, proba 1,
+  proba2 0**; verificat după, toate rândurile vii poartă acum `company_admin`.
+- **Rândurile de engagement nu s-au atins**, deliberat: le-ar fi dat firmei `company.close` peste
+  compania clientului. Cine sunt oamenii firmei pe registrele clientului rămâne `OD-42`.
+- Testul care ieri afirma defectul îl afirmă acum reparat, cu povestea în docstring; plus refuzul pe un
+  tenant construit ca cei stricați — **cu `owner` și fără `company_admin`**, fiindcă starea nu se poate
+  atinge ștergând rolul: un rol de sistem refuză ștergerea, prin trigger.
+
+**Efectul vizibil:** *Fișa companiei* funcționează de acum pe `alpha` — formularul și închiderea nu mai
+sunt dezactivate.
+
+## Sesiuni mai vechi
+
+**2026-08-31 — pasul 5, latura achizițiilor: factura primită merge cap-coadă
+([ADR-073](decisions/073-forma-postarii-documentelor-comerciale.md) §4).**
+
+Sesiune de secvență, aleasă după ce am măsurat unde s-a oprit pasul 5: `sales` avea model, serviciu,
+API și ecran; `purchases` avea model și un serviciu de deschidere, **și nicio ușă** — fără `views.py`,
+fără `urls.py`, fără ecran. Regula fazei o spune singură: *„un pas fără ecran nu e livrat"*.
+
+**Livrat:**
+- **Cei doi discriminatori pe `purchase_document`** — `cost_destination` (vocabular închis de patru
+  valori) și `partner_resident`. Migrarea `purchases/0002`, **scrisă de mână**: `makemigrations` cere
+  valorile implicite la un prompt interactiv, iar un prompt răspuns într-un terminal nu lasă urmă
+  despre ce s-a răspuns și de ce. *Măsurat înainte: tabela are zero rânduri, deci implicitele
+  de-o-singură-dată nu etichetează nimic.*
+- **Handlerul de postare** `purchases.invoice_recorded`, în `accounting/posting/services/commercial.py`,
+  lângă cel de vânzări. Destinația alege **rolul** (7135 / 7129 / 811 / 821), rezidența alege
+  **datoria** (5211 / 5212). Toate cele șase roluri existau deja în catalog de la ADR-073.
+- **Serviciul de înregistrare** (`record_and_post`) — validează, apoi postează, în ordinea pe care o
+  impun actele. Cuvântul e *înregistrare*, nu *emitere*: facturile noastre le emitem, pe ale lor le
+  înregistrăm.
+- **API**: `/api/v1/purchases/…` — listă, detaliu, linii, `recording`.
+- **Ecranul „Facturi primite"**, pe primitivele din `shared/ui` (nu pe constantele locale `FIELD`/
+  `BUTTON` de dinainte de ADR-074). **Ambele numere pe același rând**: al furnizorului, care e pe
+  hârtie, și al nostru, alocat la validare.
+- **5 teste de izolare** sub rolul aplicației + **1 de frontend**.
+
+**Ce nu se poate exprima, și e structural, nu un refuz cu cod:** niciuna dintre cele patru destinații
+nu numește un activ. Marfa și materialele intră în bilanț, iar a doua jumătate a acelei înregistrări
+e F4 — deci nu există valoare sub care să călătorească. Latura de vânzări refuză același lucru cu un
+cod, fiindcă acolo `revenue_kind` are valorile care ar fi trebuit să meargă în stoc.
+
+**Un gol găsit prin construcție:** ecranul **facturilor emise** exista din pasul 5 și **n-avea nicio
+intrare în bara laterală** — accesibil doar tastându-i adresa, exact ce comentariul din lista de
+companii numește „un ecran pe care nu-l atinge nimeni". Gruparea nouă *Documente comerciale* îi dă
+prima intrare, odată cu a facturilor primite.
+
+**Verificat:** `make lint`, `make typecheck`, `make deps-check` (fără violări — `accounting` citește
+`platform`, niciodată invers), `make web-check`, `make web-test` (45 verzi), suita backend.
+
+**Al doilea gol, ridicat de proprietar privind cele două ecrane alăturate:** *„de ce arată diferit?"*
+Măsurat — `SalesScreen` era **singurul fișier din tot frontendul** care mai purta constantele locale
+`FIELD`/`BUTTON`, cele pe care ADR-074 le-a scos din șaisprezece ecrane. S-a scris în paralel cu
+sesiunea de design și a ratat parcurgerea, apoi a stat lângă propriul corespondent arătând ca alt
+produs. Trecută pe `shared/ui` și pe `PageHeader`. *Restul ecranelor își păstrează antetul simplu —
+acela e opritul deliberat din ADR-074 §5, nu o scăpare.*
+
+**Ce rămâne din pasul 5:** încasarea și plata — modul nou `operations/treasury`, ADR-073 §5 — și nota
+de credit (§7). `OD-124` rămâne deschisă și nu s-a atins: „continuă" nu e un răspuns la o alegere
+care lărgește sau nu accesul.
+
+## Sesiuni mai vechi
+
+**2026-08-31 — editarea și închiderea unei companii
+([ADR-083](decisions/083-editarea-companiei.md)), plus trei constatări măsurate care au schimbat
+lucrarea pe parcurs.**
+
+Pornită din întrebarea proprietarului privind lista de companii: *cum șterg sau editez o companie?*
+Răspunsul măsurat: niciuna dintre cele două nu exista — API-ul avea `GET` și `POST`, iar funcția
+privilegiată spune singură *„cannot touch an existing company"*. Clicul pe rând nu schimba
+selectorul: naviga la planul de conturi, iar antetul își ia compania din cale.
+
+**Deciziile proprietarului:** două chei, `company.edit` și `company.close`, ambele la nivel de
+companie; clicul pe rând trece pe ecranul companiei.
+
+**Trei lucruri măsurate, fiecare schimbând ce însemna „adaugă cheile":**
+
+1. **Catalogul de permisiuni nu e impus nicăieri.** `require_permission` are zero apelanți în
+   producție, nu există `permission_classes` în niciun view. Cele opt chei existente au `enforced_in`
+   completat spre cod care nu le verifică — exact ce interzice regula 1 din ADR-020. `company.edit` și
+   `company.close` sunt **primele două chei impuse efectiv**. Restul: `OD-121`.
+2. **`has_permission` nu putea vedea o cheie de nivel companie** — citește prin `role__membership`, iar
+   un rol de companie stă pe `company_access`. S-a adăugat `has_company_permission`, cu condițiile de
+   viață **copiate din `rls.has_company_access`**, nu inventate: o verificare mai largă decât predicatul
+   ar spune „da" despre o companie din care baza nu întoarce niciun rând.
+3. **`company.status` nu era citit de nimic.** `closed` nu însemna nimic — aceeași formă de defect ca
+   `covers_all_companies` înainte de F0.3.3. Punctul de impunere e `assert_postable`, unde stă deja
+   `R12`: motorul refuză, nu interfața.
+
+**Livrat:**
+- `company.edit` / `company.close` în catalog + migrarea `identity/0008`; `repair_system_roles --all`
+  rulat pe dezvoltare (`company_admin`: 1 → 3 permisiuni).
+- `has_company_permission` / `require_company_permission` în `identity.services.roles`.
+- `update_company` și `close_company` în `tenancy.services.companies`, cu audit, și cu **vizibilitatea
+  verificată înaintea permisiunii**: un 403 pe un rând invizibil ar confirma că id-ul există (`IZ-04`).
+- `is_open_for_posting` (fapt, în `platform`) citit de `assert_postable` (refuz, în `accounting`) —
+  singura direcție pe care graful o permite.
+- `GET`/`PATCH /api/v1/companies/<id>` și `POST .../close`, cu coduri stabile noi.
+- Ecranul **Fișa companiei**: trei zone — ce se corectează, ce nu se corectează *și de ce*, închiderea
+  cu motiv. Drepturile se **citesc** din `/workspace`, deci controalele sunt dezactivate cu explicație
+  în loc să eșueze la salvare.
+- 8 teste de izolare sub rolul aplicației.
+
+**Ce blochează ecranul, și e a treia constatare — `OD-124`:** `rls.provision_company` copiază în
+`company_access.role_id` rolul de **membership**, care e de nivel tenant. Măsurat: toate cele patru
+rânduri vii din dezvoltare poartă `owner`. Consecința e că nicio cheie de nivel companie nu se poate
+ține pe rândurile reale — deci pe `alpha`, azi, formularul se vede dezactivat. Motivul din
+`0045_provision_company.up.sql` e corect (*o funcție privilegiată care și-ar alege rolul ar fi o cale
+de escaladare*), deci reparația e o decizie, nu o corectură: rolul de sistem de nivel companie la
+provizionare, sau un rol de tenant care acoperă implicit toate companiile — **a doua lărgește accesul**.
+Consemnat ca test, nu ca afirmație.
+
+**Ce nu s-a făcut, deliberat:** ștergerea companiei (`OD-122` — „fără nimic postat" e o măsurătoare
+peste tabele neenumerate) și editarea câmpurilor cu consecințe (`OD-123` — `platform` nu poate citi un
+fapt din `accounting`, deci regula „nu după prima postare" n-are unde sta; refuzate în întregime, nu
+condiționat).
+
+**Verificat:** `make lint`, `make typecheck`, `make deps-check`, `make web-check`, `make web-test`
+(40 verzi), suita backend, migrarea aplicată pe dezvoltare.
+
+## Sesiuni mai vechi
+
+**2026-08-31 — schema mandatului declarat ([ADR-081](decisions/081-revendicarea-optionala.md)
+§3.1 și §3.3). Prima din cele patru sesiuni ale ADR-ului: numai schema, fără căi privilegiate și
+fără interfață.**
+
+**Proprietatea centrală a sesiunii e una negativă: predicatul de acces nu s-a atins.**
+`infra/migrations/0003_access_predicates.sql` are zero modificări. Un angajament pe mandat declarat
+e `active` ca oricare altul și trece prin calea 2 existentă a lui `rls.has_tenant_access` — fără
+ramură, fără stare nouă, fără cost pe calea fierbinte. Verificat din două părți, fiindcă o afirmație
+negativă nu se vede într-un test de funcționalitate: accesul măsurat al celor două temeiuri, comparat
+între ele, **și** textul funcției, citit din `pg_get_functiondef`.
+
+**Livrat:**
+- `tenant.claimed_at` — `tenancy/0010`. Fapt cu dată, **nu** status: un tenant nerevendicat e perfect
+  `active`, iar cele două axe răspund la întrebări diferite. Fără SQL pereche — n-are ce exprima
+  Django aici (nu e cod, nu e politică, nu e grant).
+- `engagement.acceptance_basis`, `mandate_ref`, `claim_contact_email` — `engagement/0004`, cu perechea
+  `infra/migrations/0071`: `COLLATE "C"` pe referința contractului (număr de document, deci cod — `C34`)
+  și `citext` pe contact, ca `user.email` din `0011` și din același motiv.
+- **Trei CHECK-uri**, adăugate după scriere (regula (c) din `OD-94`): acceptarea își spune temeiul,
+  temeiul stă în vocabular, mandatul declarat poartă contactul de revendicare.
+- `lifecycle.accept()` și acceptarea din transfer scriu `acceptance_basis = 'client'` — singurul temei
+  la care ajung, fiindcă acolo ajunge doar partea care n-a invitat.
+- Fixture-ul `engage` primește `acceptance_basis`, ca să semene cu ce scrie producția.
+- `backend/tests/isolation/test_declared_mandate.py` — **7 teste, `IZ-79`**, sub rolul aplicației (`T1`).
+
+**Măsurat, nu presupus:** `engagement` are **0 rânduri** în baza de dezvoltare, deci nu s-a scris niciun
+backfill. Dacă vreo bază ajunge la migrare cu un angajament acceptat, `engagement_acceptance_states_its_basis`
+o refuză zgomotos, iar reparația e un backfill cu `'client'` — adevărat pentru orice rând acceptat înainte
+de azi, fiindcă al doilea temei nu exista ca să fie ales.
+
+**Ce am adăugat peste lista din instrucțiune, și de ce se semnalează:** al treilea CHECK
+(`engagement_declared_mandate_has_claim_contact`). Instrucțiunea enumera coloana; §3.3 și §3.5 o numesc
+**obligatorie**, iar §3.5 o numește și veriga slabă. Un câmp obligatoriu pe care nu-l impune nimic e gol
+exact pe rândurile unde cineva are nevoie de el.
+
+**Ce a rămas neimplementat din ADR-081, deliberat, fiindcă nu era în sesiune:** `billing_payer_assignment`
+din §5 — atribuirea plătitorului cu dată, cu neîntrepătrundere pe `daterange`. E schemă, e aditivă și e
+listată în §8; nu e în această migrare și nu e programată. Restul (`P-11`, `P-8`, poarta de firmă din
+ADR-080, consola) sunt sesiunile 2–4.
+
+**Verificat:** `make lint`, `make typecheck` (413 fișiere), `make drift-check` („fără derivă față de
+contracte"), migrarea aplicată pe baza de dezvoltare, suita completă rulată.
+
+**Nicio decizie deschisă nu s-a închis.** `OD-118` (standardul de probă la revendicare) rămâne unde
+l-a lăsat ADR-081, iar `OD-37` rămâne motivul pentru care nimeni nu poate număra membrii altcuiva —
+de aceea `claimed_at` e coloană și nu deducție.
+
+## Sesiuni mai vechi
+
+**2026-08-31 — frontend: identitatea vizuală și stratul de componente, din macheta proprietarului
+([ADR-074](decisions/074-sistemul-de-design-evidenta.md)).**
+
+Sesiune de interfață, pornită de la trei simptome de mediu și terminată cu o schimbare de identitate
+vizuală.
+
+**Întâi, două defecte de mediu, amândouă măsurate, nu ghicite.** Ecranul roșu *„A apărut o eroare
+neașteptată"* era proxy-ul Vite care trimitea `/api` la portul 8000, unde rulează **alt proiect**:
+`.env` avea `BACKEND_PORT=8000`, backendul Evidenta rula pe 8001. Mesajul era tocmai fallback-ul
+`C10` — 404-ul HTML al celuilalt Django nu are cod, deci `ApiError('unknown')`. Reparat în `.env`;
+Vite citește fișierul o singură dată, la pornire, deci a cerut repornire. Apoi: *„nu apare nimic
+nou"* — nu lipsea nimic, cele 17 rute erau toate accesibile, dar **doar prin rândul companiei**.
+S-a adăugat navigarea companiei (întâi bandă, apoi bară laterală).
+
+**Ce era, măsurat:** `shared/ui/` gol deși ADR-009 spunea că acolo stau componentele; **27 de
+constante locale** `FIELD`/`BUTTON`, același șir de buton copiat în **16 fișiere**; titlul de pagină
+la o treaptă peste rândurile de sub el.
+
+**Direcția a ales-o proprietarul** dintre trei propuse *(„Primitive + bară laterală")*, apoi a livrat
+macheta: pachet de predare Claude Design, cu sistem de design complet (stemă cu bufniță, navy/aur pe
+pergament, 23 de primitive, 14 ecrane recreate).
+
+**Livrat:**
+- **Tokenii sistemului** în `index.css`, ca valori, cu maparea către utilitarele Tailwind sub numele
+  pe care codul le folosea deja — deci schimbarea de identitate n-a cerut o parcurgere a ecranelor.
+  Scurtăturile compuse de font stau în afara lui `@theme` (altfel Tailwind v4 le-ar face `font-size`
+  invalid) și se consumă prin utilitare `type-*`.
+- **`shared/ui/`**: `Button`, `IconButton`, `Icon`, `Input`, `Select`, `Field`, `Card`, `Badge`,
+  `Figure`, `EmptyState`, `PageHeader`. `Figure` **nu** formatează — cheamă `@/shared/format` (`C18`).
+- **Cochilia**: bară laterală pe gradientul stemei cu secțiunile companiei deschise, antet cu
+  comutator de companie (păstrează secțiunea, aruncă identificatorii de rând — un cont nu trece
+  dintr-o companie în alta).
+- **Grila**: cap de coloană în majuscule condensate pe fond scufundat, la înălțime de rând, și linie
+  de aur peste totaluri.
+- **Autentificarea**: panoul stâng cu stema și citatul care se schimbă.
+- **Ecranele**: 16 fișiere trecute pe primitive; antetul cu supratitlu adoptat pe *Companii* și
+  *Parteneri* ca tipar.
+- **Scara de densitate trece la 52 / 44 / 36** (ADR-074 §4 revizuiește ADR-042). Numele tokenilor
+  rămân, deci `C21` și gardianul ESLint nu se ating. **Rezerva de accesibilitate a lui ADR-042
+  dispare cu cauza ei**: la 36px treapta strânsă poate purta butoane în rând.
+- **`lucide-react` 0.544.0**, pinuită. Motivul distincției față de `C23` e în ADR-074 §6: shadcn e
+  opinie de design, o pictogramă e geometrie.
+
+**Ce s-a refuzat deliberat, deși e în machetă** (ADR-074 §5): **Panoul de control** cu cele patru
+dale KPI — niciuna dintre cifre n-are endpoint, iar un tablou de bord cu numere plauzibile într-o
+aplicație contabilă se citește ca un raport; căutarea din antet, clopoțelul, numele utilizatorului,
+perioada din subsol, ceasul de pe autentificare (ar fi cerut un al doilea format de dată, contra
+`C18`).
+
+**Verificat:** `make web-check` (tsc, eslint, build) și `make web-test` — 35 de teste verzi, inclusiv
+unul nou pentru navigarea companiei. Backendul nu s-a atins.
+
+**Unde s-a oprit:** restul ecranelor își păstrează antetul simplu (fără supratitlu); `StatTile`,
+`Tabs`, `Dialog`, `Toast`, `Tooltip`, `Breadcrumbs` din sistem nu s-au construit, fiindcă niciun
+ecran nu le cere azi.
+
+**Ce rămâne întrebare deschisă:** fonturile sunt substituție Google Fonts, cu declanșator scris în
+ADR-074 §7 — se auto-găzduiesc când există fișiere licențiate.
+
+**A doua jumătate a aceleiași sesiuni — titularul contului
+([ADR-075](decisions/075-identitatea-titularului.md)).**
+
+Pornită din întrebarea proprietarului privind lista de companii: *a cui e pagina asta?*, apoi
+*Alpha SRL nu are contabilitatea proprie?* Răspunsul măsurat: `tenant` purta doar abonamentul —
+subdomeniu, denumire, stare — fără IDNO și fără formă juridică, iar contabilitatea e legată de
+`company` fără excepție. Deci titularul își ține registrele proprii doar dacă există **și** ca
+companie, iar produsul nu putea spune care dintre companii este el: n-avea cu ce compara.
+
+**Deciziile proprietarului, ambele alese explicit dintre trei variante:** titularul poartă `idno` +
+`legal_form`; compania proprie **se propune, nu se creează automat** (data de început a evidenței e
+decizie contabilă, iar un implicit ar fi o dată greșită pe care nimeni n-a observat că o alege).
+
+**Livrat:**
+- `tenant.idno` + `tenant.legal_form` — migrarea `tenancy/0009`, SQL pereche `infra/migrations/0070`
+  pentru `COLLATE "C"`. Nullable, fără `UNIQUE` (regula „o firmă, un abonament" nu e decisă), fără
+  `CHECK` pe formă (clasificatorul nu e în repo).
+- `GET /api/v1/workspace` — titularul cu identitatea lui și **compania proprie derivată prin IDNO**,
+  drepturile cititorului în cuvinte, rolurile spațiului cu ce poate fiecare, firmele cu mandat.
+- Ecranul **Spațiul de lucru** + oferta care deschide formularul de companie completat din titular.
+- Comenzile de operator `set_tenant_identity` și `repair_system_roles`.
+- 7 teste de izolare sub rolul aplicației + 2 de frontend. Testul de potrivire e o **capcană**:
+  tenantul și două companii poartă aceeași denumire cu IDNO-uri diferite, deci o implementare pe nume
+  trece prin toate celelalte și cade aici.
+
+**Defect găsit pe drum, nu căutat:** pe `alpha`, rolul de sistem `owner` avea **zero** permisiuni și
+`company_admin` lipsea cu totul; `proba` și `proba2` aveau 7 și 1. Tenantul fusese creat înainte ca
+`create_system_roles` să însămânțeze permisiunile. Nimic n-a semnalat — un rol fără permisiuni e un
+rând valid — iar primul simptom ar fi fost proprietarul spațiului incapabil să-și editeze rolurile.
+Reparat cu `repair_system_roles --all`, idempotent fiindcă serviciul era deja idempotent.
+
+**Două violări `D6` prinse de gardian, reparate ca atare, nu prin lărgirea contractului:** vederea
+citea `identity.models` (acum întreabă serviciul), iar comanda de reparare citea `tenancy.models`
+(acum stă în `tenancy` și cheamă serviciul public din `identity`).
+
+**Deschise, consemnate:** `OD-107` (facturarea abonamentului — latura clientului e o factură de la
+furnizor obișnuită, latura vendorului nu există), `OD-108` (identitatea titularului nu se poate edita
+din produs: ar cere o cheie de permisiune nedecisă). `OD-37` rămâne motivul pentru care lista
+persoanelor din spațiu nu se poate afișa, și ecranul o spune.
+
+## Sesiuni mai vechi
 
 **2026-08-30 — instrucțiune nouă: scop și metodă schimbate. Lista de deblocare, `R1` îngustată,
 ADR-071 acceptat și construit, și pasul 1 al secvenței livrat cap-coadă.**

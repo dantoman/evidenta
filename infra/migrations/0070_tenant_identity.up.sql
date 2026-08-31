@@ -1,0 +1,29 @@
+-- Identitatea fiscala a TITULARULUI contului: IDNO si forma juridica.
+--
+-- Autoritate:  CLAUDE.md C34, C5; docs/decisions/015-colatie-icu.md;
+--              docs/decisions/075-identitatea-titularului.md
+--
+-- De ce exista. `tenant` purta pana acum doar abonamentul — subdomeniu, denumire,
+-- stare. Consecinta, gasita de proprietar privind lista de companii: produsul NU
+-- putea spune care dintre companii este titularul, fiindca nu avea cu ce sa
+-- compare. Denumirea nu e o cheie: „Alpha SRL" si `SRL "Alpha"` sunt aceeasi
+-- firma scrisa altfel, iar potrivirea dupa nume ar fi raspuns gresit exact acolo
+-- unde raspunsul conteaza.
+--
+-- IDNO e cod, deci `COLLATE "C"` (C34): se compara cifra cu cifra, ca pe
+-- `company.idno` si `firm.idno`, si de aceea potrivirea dintre ele este exacta.
+--
+-- NULLABLE, si nu din prudenta: tenantii existenti nu au IDNO, iar o coloana
+-- obligatorie i-ar face invalizi retroactiv (C5 — migrarile sunt aditive).
+--
+-- FARA UNIQUE, deliberat. „O entitate juridica are un singur abonament" e o
+-- regula de PRODUS, nu un fapt fiscal, si nu a fost decisa. Un index unic pus azi
+-- ar inchide-o tacit — si s-ar sparge la primul caz real: aceeasi firma cu doua
+-- spatii (productie si scoala), sau o migrare intre planuri.
+--
+-- FARA CHECK pe forma juridica. Vocabularul formelor de organizare (SRL, SA, II,
+-- IM, CO...) sta in Clasificatorul formelor juridice de organizare, iar acel act
+-- NU e in acest repo. O enumerare scrisa din memorie ar refuza forme reale —
+-- acelasi motiv pentru care CUATM si CAEM sunt text liber pe `company` (0068).
+
+ALTER TABLE tenant ALTER COLUMN idno TYPE text COLLATE "C";

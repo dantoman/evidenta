@@ -1,6 +1,12 @@
 /**
  * The chart of accounts of one company.
  *
+ * **The company is switched from the application header and nowhere else.** This
+ * screen used to carry its own company select, which meant two controls changing
+ * the same thing -- and two places where somebody can believe they are in a
+ * different company than they are. The header switcher keeps the section and
+ * changes the company; this screen only reads which one it is.
+ *
  * **The company is in the path, the tenant never is** (C8). The tenant is the
  * host the browser is already on; the company is a resource inside it, and the
  * server's own routes are shaped the same way. The first version kept the choice
@@ -17,7 +23,7 @@
 
 import { useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router'
+import { Link, useParams } from 'react-router'
 
 import { t } from '@/locales'
 import { date } from '@/shared/format'
@@ -31,6 +37,7 @@ import {
 import { listCompanies } from '@/shared/api/companies'
 import { DataGrid, type Column } from '@/shared/DataGrid'
 import { Failure, codeOf } from '@/shared/Failure'
+import { Button, Card, Field, Input } from '@/shared/ui'
 
 const CLASS_LABEL: Record<AccountClass, string> = {
   asset: t.accounting.classes.asset,
@@ -105,7 +112,6 @@ function columnsFor(companyId: string): Column<Account>[] {
 
 export function ChartOfAccountsScreen() {
   const { companyId = '' } = useParams()
-  const navigate = useNavigate()
 
   /**
    * The date a posting would carry, not "today".
@@ -147,8 +153,15 @@ export function ChartOfAccountsScreen() {
     <section className="flex flex-col gap-4">
       <header className="flex flex-wrap items-center justify-between gap-4">
         <div className="flex flex-col">
-          <h1 className="text-base font-semibold">{t.accounting.chart.title}</h1>
-          {company && <span className="text-sm text-ink-muted">{company.legal_name}</span>}
+          {/* Compania si versiunea planului stau in supratitlu, ca in machetă.
+              Compania NU se schimbă de aici: comutatorul e unul singur, în
+              antetul aplicației, fiindcă două locuri care schimbă acelaşi lucru
+              sunt două locuri în care cineva crede că e în altă companie. */}
+          <div className="type-eyebrow text-gold-strong">
+            {company?.legal_name}
+            {template && ` · ${t.accounting.chart.version} ${template.code} ${template.version}`}
+          </div>
+          <h1 className="type-display-2 text-heading">{t.accounting.chart.title}</h1>
           <nav className="flex gap-4 pt-1 text-sm">
             <Link to={`/companii/${companyId}/note`} className="text-accent">
               {t.accounting.entry.title}
@@ -168,47 +181,19 @@ export function ChartOfAccountsScreen() {
           </nav>
         </div>
 
-        <div className="flex flex-wrap items-center gap-4">
-          {template && (
-            <span className="text-sm text-ink-muted">
-              {t.accounting.chart.version}: {template.code} {template.version}
-            </span>
-          )}
-          {companies.data && companies.data.length > 1 && (
-            <label className="flex items-center gap-2 text-sm">
-              <span className="text-ink-muted">{t.accounting.chart.company}</span>
-              <select
-                value={companyId}
-                onChange={(event) =>
-                  void navigate(`/companii/${event.target.value}/plan-de-conturi`)
-                }
-                className="rounded border border-border bg-surface px-2 text-sm"
-              >
-                {companies.data.map((row) => (
-                  <option key={row.id} value={row.id}>
-                    {row.legal_name}
-                  </option>
-                ))}
-              </select>
-            </label>
-          )}
-          <label className="flex items-center gap-2 text-sm">
-            <span className="text-ink-muted">{t.accounting.chart.postableOn}</span>
-            <input
+        <div className="flex flex-wrap items-end gap-3">
+          <Field label={t.accounting.chart.postableOn}>
+            <Input
               type="date"
               value={on}
               onChange={(event) => setOn(event.target.value)}
-              className="rounded border border-border bg-surface px-2 text-sm"
+              className="w-44"
             />
-          </label>
+          </Field>
           {on && (
-            <button
-              type="button"
-              onClick={() => setOn('')}
-              className="text-sm text-accent"
-            >
+            <Button variant="ghost" onClick={() => setOn('')}>
               {t.accounting.chart.postableAll}
-            </button>
+            </Button>
           )}
         </div>
       </header>
@@ -236,12 +221,14 @@ export function ChartOfAccountsScreen() {
       {accounts.isPending && <p className="text-sm text-ink-muted">{t.app.loading}</p>}
       {accounts.isError && <Failure error={accounts.error} />}
       {accounts.data && !missingChart && (
-        <DataGrid
-          columns={columnsFor(companyId)}
-          rows={accounts.data}
-          rowKey={(account) => account.id}
-          emptyMessage={t.accounting.chart.empty}
-        />
+        <Card padding="none">
+          <DataGrid
+            columns={columnsFor(companyId)}
+            rows={accounts.data}
+            rowKey={(account) => account.id}
+            emptyMessage={t.accounting.chart.empty}
+          />
+        </Card>
       )}
     </section>
   )

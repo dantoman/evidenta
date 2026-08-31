@@ -34,6 +34,7 @@ from django.utils import translation
 
 from evidenta.accounting.ledger.services.account_ledger import AccountLedger
 from evidenta.accounting.ledger.services.correspondence import Correspondence
+from evidenta.accounting.ledger.services.document_journal import DocumentJournal
 from evidenta.accounting.ledger.services.general_ledger import GeneralLedger
 from evidenta.accounting.ledger.services.trial_balance import TrialBalance
 from evidenta.platform.documents.formatting import date_ro, decimal_ro
@@ -145,5 +146,51 @@ def correspondence_csv(report: Correspondence) -> bytes:
             *((cell.debit_code, cell.credit_code, cell.amount) for cell in report.cells),
             ("Total corespondențe", "", report.total),
             ("Fără corespondență", "", report.unassigned),
+        ],
+    )
+
+
+def document_journal_csv(journal: DocumentJournal) -> bytes:
+    """The document journal, in the shape a Moldovan spreadsheet opens.
+
+    The counterparty column carries the **legal** name (`C39`), and the VAT column
+    is present although every document in it carries zero: a register whose
+    columns changed with its content could not be compared with the next month's.
+    """
+    return _document(
+        (
+            "Data contabilă",
+            "Data documentului",
+            "Număr",
+            "Contraparte",
+            "Valută",
+            "Fără TVA",
+            "TVA",
+            "Total",
+        ),
+        [
+            *(
+                (
+                    row.accounting_date,
+                    row.document_date,
+                    row.formatted_number,
+                    row.partner_name,
+                    row.currency,
+                    row.net,
+                    row.vat,
+                    row.total,
+                )
+                for row in journal.rows
+            ),
+            (
+                None,
+                None,
+                None,
+                "Total",
+                None,
+                journal.total_net,
+                journal.total_vat,
+                journal.total_amount,
+            ),
         ],
     )

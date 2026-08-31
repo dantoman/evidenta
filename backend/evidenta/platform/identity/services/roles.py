@@ -21,11 +21,16 @@ one of several callers:
 from __future__ import annotations
 
 import uuid
+from dataclasses import dataclass
+from datetime import date
 
 from django.db import transaction
+from django.db.models import Q
 
 from evidenta.platform.audit.services.recording import record
 from evidenta.platform.identity.models import (
+    CompanyAccess,
+    GrantedVia,
     Membership,
     MembershipStatus,
     Permission,
@@ -80,6 +85,20 @@ def create_system_roles(tenant_id: uuid.UUID) -> dict[str, Role]:
     return created
 
 
+def permission_counts(tenant_id: uuid.UUID) -> dict[str, int]:
+    """How many permissions each role of a tenant holds, keyed by role key.
+
+    Exists for the repair command, and the count is the point: "the tenant has an
+    ``owner`` role" was true of the broken tenant too. What was missing was what
+    the role held, so an operator report that printed names would have said the
+    damaged state looked fine.
+    """
+    counts: dict[str, int] = {}
+    for role in Role.objects.filter(tenant_id=tenant_id):
+        counts[role.key] = RolePermission.objects.filter(role_id=role.id).count()
+    return counts
+
+
 def has_permission(user_id: uuid.UUID, tenant_id: uuid.UUID, permission_key: str) -> bool:
     """Does the **current** user hold this permission in this tenant, right now?
 
@@ -111,6 +130,55 @@ def require_permission(user_id: uuid.UUID, tenant_id: uuid.UUID, permission_key:
     """Refuse, loudly and with a stable code, unless the permission is held."""
     if not has_permission(user_id, tenant_id, permission_key):
         raise RoleError("PERMISSION_DENIED", f"{permission_key} is required")
+
+
+def has_company_permission(user_id: uuid.UUID, company_id: uuid.UUID, permission_key: str) -> bool:
+    """The same question, one level down -- ADR-083 section 2.2.
+
+    ``has_permission`` cannot answer it: it reads ``role__membership``, and a
+    company-level role is held through ``company_access``, never through a
+    membership. Measured before this function existed, that made every
+    company-scoped key in the catalogue unverifiable.
+
+    **The liveness conditions are copied from ``rls.has_company_access``, not
+    invented**: revoked rows and rows outside their validity window grant
+    nothing. A check wider than the predicate would say yes about a company the
+    database then returns no rows from -- a refusal that looks like a bug rather
+    than like a rule.
+
+    Answers about the caller and nobody else, for the reason ``has_permission``
+    gives: ``company_access`` is policed as ``user_id = app.current_user_id()``
+    (`OD-37`).
+    """
+    context = current_context()
+    if context is not None and context.user_id != user_id:
+        raise RoleError(
+            "PERMISSION_CHECK_NOT_SELF",
+            "permissions can only be checked for the current user until OD-37 is decided",
+        )
+    today = date.today()
+    return (
+        RolePermission.objects.filter(
+            permission_id=permission_key,
+            role__companyaccess__user_id=user_id,
+            role__companyaccess__company_id=company_id,
+            role__companyaccess__revoked_at__isnull=True,
+            role__companyaccess__valid_from__lte=today,
+        )
+        .filter(
+            Q(role__companyaccess__valid_to__isnull=True)
+            | Q(role__companyaccess__valid_to__gte=today)
+        )
+        .exists()
+    )
+
+
+def require_company_permission(
+    user_id: uuid.UUID, company_id: uuid.UUID, permission_key: str
+) -> None:
+    """Refuse unless the caller holds ``permission_key`` on **this** company."""
+    if not has_company_permission(user_id, company_id, permission_key):
+        raise RoleError("PERMISSION_DENIED", f"{permission_key} is required on this company")
 
 
 def grant_permission(role: Role, permission_key: str, granted_by_user_id: uuid.UUID) -> None:
@@ -225,3 +293,49 @@ def _assert_administration_survives(membership: Membership, new_role: Role) -> N
 
 def _role_grants(role_id: uuid.UUID, permission_key: str) -> bool:
     return RolePermission.objects.filter(role_id=role_id, permission_id=permission_key).exists()
+
+
+@dataclass(frozen=True, slots=True)
+class Realignment:
+    """What a repair found and what it changed."""
+
+    live: int
+    moved: int
+
+
+def realign_company_access(tenant_id: uuid.UUID) -> Realignment:
+    """Move this tenant's own company access onto the company-level system role -- ADR-084.
+
+    The rows `provision_company` wrote before `0072` carry the creator's
+    **membership** role, which is tenant-level, so no company-scoped key can hang
+    off them (`OD-124`). This puts them on ``company_admin`` -- the role the
+    platform creates with the tenant, and the only company-level role it
+    guarantees.
+
+    **Only ``granted_via = 'membership'``, deliberately.** Engagement-granted rows
+    carry whatever the firm's first grant carried, and moving those would hand a
+    firm's user ``company.close`` over a client's company -- a widening nobody
+    decided. Who a firm's people are on a client's books is `OD-42`, still open.
+
+    Idempotent: a second run finds nothing to move, because the rows it moved are
+    no longer tenant-level.
+    """
+    company_admin = Role.objects.filter(
+        tenant_id=tenant_id,
+        key="company_admin",
+        level=RoleLevel.COMPANY,
+        is_system=True,
+    ).first()
+    if company_admin is None:
+        raise RoleError(
+            "SYSTEM_ROLE_MISSING",
+            f"tenant {tenant_id} has no company_admin role; run repair_system_roles first",
+        )
+
+    live = CompanyAccess.objects.filter(
+        tenant_id=tenant_id,
+        granted_via=GrantedVia.MEMBERSHIP,
+        revoked_at__isnull=True,
+    )
+    moved = live.filter(role__level=RoleLevel.TENANT).update(role=company_admin)
+    return Realignment(live=live.count(), moved=moved)

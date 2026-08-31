@@ -27,7 +27,7 @@ from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from evidenta.operations.sales.models import RevenueKind, SalesDocument
+from evidenta.operations.sales.models import RevenueKind, SaleNature, SalesDocument
 from evidenta.operations.sales.services.documents import open_sale
 from evidenta.operations.sales.services.issuing import issue_and_post
 from evidenta.operations.sales.services.lines import service_line
@@ -47,6 +47,12 @@ class SaleSerializer(serializers.Serializer[dict[str, Any]]):
     partner_id = serializers.UUIDField()
     document_date = serializers.DateField()
     accounting_date = serializers.DateField(required=False, allow_null=True)
+    #: Required over the wire although the service defaults it, and the asymmetry
+    #: is deliberate: forgetting the field would make a credit note an invoice,
+    #: which recognises revenue instead of a return. The service's default serves
+    #: callers inside the process, which state the nature by choosing the function
+    #: they call; an HTTP body states it or is refused (ADR-073 §7).
+    nature = serializers.ChoiceField(choices=SaleNature.values)
     #: No default on either: both select an account, and neither is derivable.
     revenue_kind = serializers.ChoiceField(choices=RevenueKind.values)
     partner_resident = serializers.BooleanField()
@@ -78,6 +84,7 @@ class SalesListView(APIView):
             partner_id=data["partner_id"],
             document_date=data["document_date"],
             accounting_date=data.get("accounting_date"),
+            nature=data["nature"],
             revenue_kind=data["revenue_kind"],
             partner_resident=data["partner_resident"],
             external_number=data.get("external_number") or None,

@@ -30,10 +30,7 @@ import { listAccounts } from '@/shared/api/coa'
 import { postManualEntry, type ManualLine } from '@/shared/api/ledger'
 import { EntryGrid, amountUnits, type EntryColumn, type LookupOption } from '@/shared/EntryGrid'
 import { Failure } from '@/shared/Failure'
-
-const FIELD = 'w-full rounded border border-border bg-surface px-2 text-sm'
-const BUTTON =
-  'rounded border border-border bg-surface px-3 text-sm text-accent disabled:text-ink-muted'
+import { Button, Card, Field, Input } from '@/shared/ui'
 
 type Draft = { account_id: string; description: string; debit: string; credit: string }
 
@@ -124,25 +121,23 @@ export function ManualEntryScreen() {
           {t.accounting.balance.title}
         </Link>
       </nav>
-      <h1 className="text-base font-semibold">{t.accounting.entry.title}</h1>
+      <h1 className="type-display-2 text-heading">{t.accounting.entry.title}</h1>
 
       <div className="flex flex-wrap items-end gap-4">
-        <label className="flex flex-col gap-1 text-sm">
-          <span className="text-ink-muted">{t.accounting.entry.date}</span>
-          <input
+        <Field label={t.accounting.entry.date}>
+          <Input
             type="date"
             value={accountingDate}
             onChange={(event) => setAccountingDate(event.target.value)}
-            className={`${FIELD} w-44`}
+            className="w-44"
           />
-        </label>
+        </Field>
         <label className="flex flex-1 flex-col gap-1 text-sm">
           <span className="text-ink-muted">{t.accounting.entry.description}</span>
-          <input
+          <Input
             value={description}
             onChange={(event) => setDescription(event.target.value)}
             maxLength={500}
-            className={FIELD}
           />
         </label>
       </div>
@@ -152,31 +147,32 @@ export function ManualEntryScreen() {
         <p className="text-sm text-ink-muted">{t.accounting.entry.noChart}</p>
       )}
 
-      <EntryGrid<Draft>
-        columns={columns}
-        rows={lines}
-        onChange={setLines}
-        newRow={() => ({ ...EMPTY })}
-        onValidate={() => {
-          if (postable) post.mutate()
-        }}
-        balance={{ debit: 'debit', credit: 'credit' }}
-        label={t.accounting.entry.title}
-        strings={t.accounting.entryGrid}
-        footer={<span className="text-xs text-ink-muted">{t.accounting.entryGrid.keys}</span>}
-      />
+      <Card padding="none">
+        <EntryGrid<Draft>
+          columns={columns}
+          rows={lines}
+          onChange={setLines}
+          newRow={() => ({ ...EMPTY })}
+          onValidate={() => {
+            if (postable) post.mutate()
+          }}
+          balance={{ debit: 'debit', credit: 'credit' }}
+          label={t.accounting.entry.title}
+          strings={t.accounting.entryGrid}
+          footer={<span className="text-xs text-ink-muted">{t.accounting.entryGrid.keys}</span>}
+        />
+      </Card>
 
       <div className="flex flex-wrap items-center gap-4">
-        <button
+        <Button variant="secondary"
           type="button"
           onClick={() => setLines((current) => [...current, { ...EMPTY }])}
-          className={BUTTON}
         >
           {t.accounting.entry.addLine}
-        </button>
-        <button type="button" onClick={() => post.mutate()} disabled={!postable} className={BUTTON}>
+        </Button>
+        <Button variant="secondary" type="button" onClick={() => post.mutate()} disabled={!postable}>
           {post.isPending ? t.accounting.entry.posting : t.accounting.entry.post}
-        </button>
+        </Button>
       </div>
 
       {totalDebit !== totalCredit && filled.length > 0 && (

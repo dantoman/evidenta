@@ -33,6 +33,14 @@ urlpatterns = [
         views.GeneralLedgerView.as_view(),
         name="general-ledger",
     ),
+    # The family is named by the module that owns it -- `sales`, `purchases`,
+    # `treasury` -- and the registry answers which types that is. A route naming
+    # type codes would put another module's vocabulary in this one's addresses.
+    path(
+        "companies/<uuid:company_id>/journals/<slug:owner>",
+        views.DocumentJournalView.as_view(),
+        name="document-journal",
+    ),
     path(
         "companies/<uuid:company_id>/correspondence",
         views.CorrespondenceView.as_view(),

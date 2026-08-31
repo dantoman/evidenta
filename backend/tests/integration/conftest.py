@@ -95,6 +95,21 @@ def post(signed_in: dict[str, Any]) -> Callable[..., Any]:
 
 
 @pytest.fixture
+def patch(signed_in: dict[str, Any]) -> Callable[..., Any]:
+    """PATCH as the signed-in user. Partial by definition -- what is absent stays."""
+
+    def call(path: str, body: dict[str, Any], **headers: str) -> Any:
+        return signed_in["client"].patch(
+            path,
+            data=json.dumps(body),
+            content_type="application/json",
+            headers={"host": HOST_A, **headers},
+        )
+
+    return call
+
+
+@pytest.fixture
 def get(signed_in: dict[str, Any]) -> Callable[..., Any]:
     def call(path: str) -> Any:
         return signed_in["client"].get(path, headers={"host": HOST_A})

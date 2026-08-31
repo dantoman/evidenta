@@ -23,17 +23,24 @@ from evidenta.platform.tenancy.models import Company, Tenant
 
 
 class SaleNature(models.TextChoices):
-    """Delivery or advance -- one type of document, not two.
+    """Delivery, advance or return -- one type of document, not three.
 
-    The distinction is real: an advance is money received before anything is
-    delivered, and it is followed by a delivery that settles it. But it is an
-    *attribute of the same document*, not a different document: the header, the
-    positions, the numbering and the lifecycle are identical, and two types would
-    have meant two of everything to keep a single boolean apart.
+    The distinctions are real: an advance is money received before anything is
+    delivered, and a return is a delivery coming back. But each is an *attribute
+    of the same document*, not a different document: the header, the positions,
+    the numbering and the lifecycle are identical, and three types would have
+    meant three of everything to keep two flags apart.
+
+    **The return is not a reversal**, and ADR-073 §7 says why: a reversal cancels
+    an error, a return is a new economic event with the same shape as the delivery
+    it answers. The instruction the act would have settled it with (OMF 118/2017,
+    annex 2) is silent on returns -- measured, not assumed -- so the choice is the
+    product's, and it is this one.
     """
 
     DELIVERY = "delivery"
     ADVANCE = "advance"
+    RETURN = "return"
 
 
 class RevenueKind(models.TextChoices):

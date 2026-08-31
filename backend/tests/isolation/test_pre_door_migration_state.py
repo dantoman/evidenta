@@ -55,6 +55,49 @@ def test_identity_0003_seeded_the_whole_permission_catalogue() -> None:
     assert all(rows[d.key] == d.scope for d in PERMISSIONS), "a permission changed scope"
 
 
+def test_identity_0008_added_the_two_company_keys_on_both_paths() -> None:
+    """`identity/0008_company_keys` writes two rows into a table `0003` also feeds.
+
+    **On a database built from scratch it writes nothing**, and that is not a
+    defect: `0003` iterates the live ``PERMISSIONS`` tuple, so both keys are
+    already there by the time `0008` runs. It exists for the databases that ran
+    `0003` when the tuple held eight -- which is every database that existed
+    before ADR-083.
+
+    Two paths, one state, so the state is what gets asserted. Scope in
+    particular: ``role_permission`` binds a permission's scope to the role's
+    level, so a company key recorded at tenant scope would sit in the catalogue
+    looking granted and be unholdable by the only roles that could use it. That
+    is the same failure `OD-124` describes one table over, and it is invisible
+    until somebody is refused.
+
+    It cannot go through ``backfill()``: the helper checks the table's
+    cardinality, and the count here is eight on an upgraded database and ten on a
+    fresh one. A claim that is true on one path and false on the other is not a
+    claim.
+    """
+    company_keys = {
+        definition.key for definition in PERMISSIONS if definition.key.startswith("company.")
+    }
+    assert {"company.edit", "company.close"} <= company_keys, (
+        "ADR-083's two keys have left the catalogue in code; this assertion is about "
+        "the table agreeing with it, and there is nothing left to agree with"
+    )
+
+    with connections["migration"].cursor() as cursor:
+        cursor.execute(
+            "SELECT key, scope FROM permission WHERE key IN ('company.edit', 'company.close')"
+        )
+        rows = dict(cursor.fetchall())
+
+    assert set(rows) == {"company.edit", "company.close"}, (
+        f"the upgrade path did not add both keys; found {sorted(rows)}"
+    )
+    assert all(scope == "company" for scope in rows.values()), (
+        f"a company key is recorded at the wrong scope: {rows}"
+    )
+
+
 def test_fiscal_parameters_0007_left_every_margin_either_sourced_or_absent() -> None:
     """`fiscal_parameters/0007` moved asserted dates out of `valid_from`.
 

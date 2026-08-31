@@ -145,8 +145,28 @@ Acte normative, secțiuni din documentele de intrare, benchmark-uri, discuții.
 | [072](072-exceptia-care-nu-largeste.md) | `R1` cere confirmarea proprietarului doar pentru excepțiile care lărgesc accesul la date; catalogul global doar-citire, însămânțat din migrare, e commit obișnuit | Acceptat — proces, proprietar | 2026-08-30 | blocajul repetat al lui `C1(b)` |
 
 | [073](073-forma-postarii-documentelor-comerciale.md) | Forma postării pentru documentele comerciale: patru familii, discriminatorii ceruți și nu deduși, destinația alege rolul; mărfurile refuzate până la stocuri | Acceptat — domeniu, proprietar; §9 enumeră fiecare implicit | 2026-08-31 | `F2.A0` |
+| [074](074-sistemul-de-design-evidenta.md) | Identitatea vizuală și stratul de componente: sistemul de design Evidenta | Acceptat — produs, proprietar | 2026-08-31 | golul din ADR-009 *(revizuiește scara din ADR-042)* |
+| [075](075-identitatea-titularului.md) | Identitatea fiscală a titularului contului; compania proprie se propune, nu se impune | Acceptat — produs, proprietar | 2026-08-31 | „care companie e titularul" *(deschide `OD-107`, `OD-108`)* |
+| [076](076-planul-de-control-al-platformei.md) | Planul de control: platforma se administrează pe sine, nu datele clienților; `platform_staff`, gazda `admin.` | Acceptat — produs și tehnic, proprietar | 2026-08-31 | — *(deschide `OD-113`, `OD-114`; precondiție pentru ADR-077)* |
+| [077](077-grantul-de-suport.md) | Grantul de suport: cererea e privilegiată, aprobarea e obișnuită, expirarea e în predicat; doar citire | Acceptat — produs și tehnic, proprietar | 2026-08-31 | `DN-18` *(deschide `OD-115`)* |
+| [078](078-cine-poate-crea-un-tenant.md) | Cine poate crea un tenant: două canale — autoservire și firmă; invitația e o poartă de lansare, nu un canal | Acceptat — produs, proprietar | 2026-08-31 | `DN-26` *(restrânge `OD-108`; deschide `OD-116`)* |
+| [079](079-tenantul-nerevendicat.md) | Tenantul nerevendicat: statutul `unclaimed`, fereastra provizorie în predicat, re-invitarea rămâne a firmei | **Înlocuit de ADR-081** — acceptat și retras în aceeași zi; întrebarea presupunea răspunsul | 2026-08-31 | — *(închiderea lui `DN-27` retrasă)* |
+| [080](080-tipul-nu-se-stocheaza.md) | Tipul de cont nu se stochează: se descompune într-o capabilitate și un rând de firmă; poarta de verificare stă pe acțiune, nu pe cont | Acceptat — produs, proprietar | 2026-08-31 | „se poate transforma un tenant în holding sau firmă"; jumătatea din `DN-26` *(deschide `OD-119`)* |
+| [081](081-revendicarea-optionala.md) | Revendicarea e opțională, calea de revendicare (`P-11`) nu; mandatul declarat, plătitorul ca fapt cu dată | Acceptat — produs și tehnic, proprietar; **înlocuiește ADR-079** | 2026-08-31 | `DN-27` *(restrânge `DN-03`, `DN-25`; deschide `OD-118`)* |
+| [082](082-unitatea-facturabila.md) | Unitatea facturabilă e compania, nu tenantul; grila e date versionate, vocabularul de componente e cod; cantitatea se derivă și se ștampilează | Acceptat — produs, proprietar | 2026-08-31 | compunerea prețului la mai multe companii *(deschide `OD-120`)* |
+| [083](083-editarea-companiei.md) | Editarea companiei: două chei, la nivel de companie, și prima impunere reală | Acceptat — produs, proprietar | 2026-08-31 | — *(deschide `OD-121`, `OD-122`; nu închide `OD-108`)* |
+| [084](084-rolul-la-provizionare.md) | Rolul scris la provizionare e de nivel companie, altfel nicio cheie de companie nu se poate ține | Acceptat — proprietar, pe recomandarea sesiunii | 2026-08-31 | `OD-124` |
+| [085](085-spatiul-apartine-unui-utilizator.md) | Spațiul de lucru aparține unui utilizator, nu unei companii; „compania titularului" e adevărată doar pentru un holding | Acceptat — produs, proprietar | 2026-08-31 | „cum se înregistrează antreprenorul cu mai multe companii" *(restrânge ADR-075; corectează ADR-081 §3.4; deschide `OD-125`)* |
 
 *Indexul se actualizează la fiecare ADR nou. Un ADR care nu apare aici este invizibil.*
+
+*A treia oară în aceeași zi: `083` și `084`, scrise de o sesiune paralelă, lipseau din tabel la
+2026-08-31 seara, la fel cum lipsiseră `074` și `075` dimineața. Trei recurențe în douăsprezece ore
+nu mai sunt neglijență, sunt un fișier fără gardian — de aici `OD-126`. Nota inițială, păstrată:*
+
+*`074` și `075` lipseau din tabel până la 2026-08-31 — scrise în aceeași zi ca ADR-urile care le-au
+descoperit, într-o sesiune paralelă. Aceeași formă ca ciocnirile de numerotare de mai jos: indexul
+nu e păzit de nimic automat, deci absența dintr-un tabel nu produce niciun semnal.*
 
 [ADR-010](010-contabilul-practicant.md) închide `OD-32`: rolul de contabil practicant este acoperit
 de proprietarul proiectului. **ADR-007 și ADR-008 sunt deci deblocate** — trec în `Acceptat` la

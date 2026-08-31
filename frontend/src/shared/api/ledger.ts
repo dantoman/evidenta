@@ -374,3 +374,58 @@ export function generalLedgerExport(companyId: string, accountId: string, from: 
 export function correspondenceExport(companyId: string, from: string, to: string): string {
   return exportUrl(`${ledgerBase(companyId)}/correspondence`, from, to)
 }
+
+/**
+ * The document journal -- F1.8.
+ *
+ * The family is the **owner module's name**, not a list of document types: the
+ * reader asks for the sales journal, and which types that means is the server's
+ * answer. A client that spelled the codes would hold a copy of a vocabulary it
+ * does not own.
+ *
+ * **Not the statutory VAT register.** That has a prescribed form and columns that
+ * do not exist while no document carries VAT; this is the journal of documents,
+ * and the screen says so.
+ */
+export type JournalFamily = 'sales' | 'purchases' | 'treasury'
+
+export interface JournalRow {
+  document_id: string
+  document_type: string
+  formatted_number: string | null
+  document_date: string
+  accounting_date: string
+  partner_name: string
+  currency: string
+  net: string
+  vat: string
+  total: string
+}
+
+export interface DocumentJournal {
+  owner: JournalFamily
+  start_date: string
+  end_date: string
+  rows: JournalRow[]
+  totals: { net: string; vat: string; total: string }
+}
+
+export function documentJournal(
+  companyId: string,
+  owner: JournalFamily,
+  from: string,
+  to: string,
+): Promise<DocumentJournal> {
+  return request<DocumentJournal>(
+    `${ledgerBase(companyId)}/journals/${owner}${window(from, to)}`,
+  )
+}
+
+export function documentJournalExport(
+  companyId: string,
+  owner: JournalFamily,
+  from: string,
+  to: string,
+): string {
+  return exportUrl(`${ledgerBase(companyId)}/journals/${owner}`, from, to)
+}

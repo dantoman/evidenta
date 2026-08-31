@@ -32,6 +32,24 @@ class EngagementStatus(models.TextChoices):
     TRANSFERRED = "transferred"
 
 
+class AcceptanceBasis(models.TextChoices):
+    """On whose word an engagement became accepted -- ADR-081 section 3.3.
+
+    ``client`` is somebody on the client side pressing accept. ``declared_mandate``
+    is the firm stating that a service contract exists, which is how the product
+    works for a client who never signs in -- the normal case, not the exception.
+
+    The distinction is recorded and never verified: the platform checks no
+    contract, and the responsibility stays with the firm. What it buys is that
+    every relationship no client ever confirmed is **enumerable by one query**,
+    which is the question somebody asks the first time they wonder how much of the
+    base stands on declarations.
+    """
+
+    CLIENT = "client"
+    DECLARED_MANDATE = "declared_mandate"
+
+
 #: The vocabulary of ``module_key`` -- ADR-019.
 #:
 #: Business modules from the module map, never platform ones: tenancy, identity,
@@ -152,6 +170,31 @@ class Engagement(models.Model):
         related_name="engagements_accepted",
     )
     accepted_at = models.DateTimeField(null=True, blank=True)
+
+    #: What stands behind that acceptance -- ADR-081. NOT NULL once ``accepted_at``
+    #: is, which is the pairing that makes the two kinds tellable apart.
+    #:
+    #: **The access predicate does not read it, and that is the point.** An
+    #: engagement on a declared mandate is ``active`` like any other and travels
+    #: the existing second path of ``rls.has_tenant_access`` -- no branch, no new
+    #: state, no cost on the hot path. A change here that the predicate has to
+    #: learn about is a change that misread section 3.3.
+    acceptance_basis = models.TextField(choices=AcceptanceBasis.choices, null=True, blank=True)
+
+    #: The service contract the firm points at when it declares a mandate.
+    #: Declared, unverified. A reference, so `COLLATE "C"` in the accompanying SQL
+    #: (C34) -- the same treatment as any other document number.
+    mandate_ref = models.TextField(null=True, blank=True)
+
+    #: Where the claim invitation goes, and the honest weak link of the model
+    #: (ADR-081 section 3.5): the platform has no address for the client, the firm
+    #: has. Mandatory on a declared mandate and unverifiable -- a firm that
+    #: declares a contact nobody reads makes the claim path useless for that
+    #: client, and nothing here can tell.
+    #:
+    #: citext in the accompanying SQL, like every other email in the schema.
+    claim_contact_email = models.TextField(null=True, blank=True)
+
     suspended_at = models.DateTimeField(null=True, blank=True)
 
     revoked_at = models.DateTimeField(null=True, blank=True)
@@ -192,6 +235,29 @@ class Engagement(models.Model):
                 condition=~models.Q(status=EngagementStatus.ACTIVE)
                 | models.Q(accepted_at__isnull=False),
                 name="engagement_active_requires_acceptance",
+            ),
+            # An acceptance says on whose word. Without this the two kinds are
+            # indistinguishable after the fact, and "how much of the base nobody
+            # confirmed" stops being answerable -- which is most of what the
+            # column is for (ADR-081 section 3.3).
+            models.CheckConstraint(
+                condition=models.Q(accepted_at__isnull=True)
+                | models.Q(acceptance_basis__isnull=False),
+                name="engagement_acceptance_states_its_basis",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(acceptance_basis__isnull=True)
+                | models.Q(acceptance_basis__in=AcceptanceBasis.values),
+                name="engagement_acceptance_basis_valid",
+            ),
+            # ADR-081 section 3.5 names this the weak link and makes the column
+            # mandatory anyway, because it is the only channel INV-7 has. A
+            # mandatory field that nothing enforces is a field that is empty on
+            # exactly the rows where it matters.
+            models.CheckConstraint(
+                condition=~models.Q(acceptance_basis=AcceptanceBasis.DECLARED_MANDATE)
+                | models.Q(claim_contact_email__isnull=False),
+                name="engagement_declared_mandate_has_claim_contact",
             ),
             models.CheckConstraint(
                 condition=~models.Q(status=EngagementStatus.REVOKED)

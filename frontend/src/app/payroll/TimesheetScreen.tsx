@@ -36,10 +36,7 @@ import {
 } from '@/shared/api/payroll'
 import { DataGrid, type Column } from '@/shared/DataGrid'
 import { Failure } from '@/shared/Failure'
-
-const FIELD = 'rounded border border-border bg-surface px-2 text-sm'
-const BUTTON =
-  'rounded border border-border bg-surface px-3 text-sm text-accent disabled:text-ink-muted'
+import { Button, Card, Field, Input, Select } from '@/shared/ui'
 
 export function TimesheetScreen() {
   const { companyId = '' } = useParams()
@@ -56,7 +53,7 @@ export function TimesheetScreen() {
   return (
     <section className="flex flex-col gap-4">
       <header className="flex flex-wrap items-end justify-between gap-4">
-        <h1 className="text-base font-semibold">{t.payroll.timesheets}</h1>
+        <h1 className="type-display-2 text-heading">{t.payroll.timesheets}</h1>
         <div className="flex flex-wrap items-center gap-4">
           <Link to={`/companii/${companyId}/angajati`} className="text-sm text-accent">
             {t.payroll.people}
@@ -78,14 +75,14 @@ export function TimesheetScreen() {
           {months.data.length === 0 && <li className="text-ink-muted">{t.payroll.noMonths}</li>}
           {months.data.map((month) => (
             <li key={month.id}>
-              <button
+              <Button variant="secondary"
                 type="button"
                 onClick={() => setSelected(selected === month.id ? null : month.id)}
-                className={`${BUTTON} ${selected === month.id ? 'text-ink' : ''}`}
+                className="${selected === month.id ? 'text-ink' : ''}"
               >
                 {month.year}-{String(month.month).padStart(2, '0')} ·{' '}
                 {month.status === 'open' ? t.payroll.open : t.payroll.closed}
-              </button>
+              </Button>
             </li>
           ))}
         </ul>
@@ -129,37 +126,34 @@ function OpenMonthForm({
         open.mutate()
       }}
     >
-      <label className="flex flex-col gap-1 text-sm">
-        <span className="text-ink-muted">{t.payroll.year}</span>
-        <input
+      <Field label={t.payroll.year}>
+        <Input
           inputMode="numeric"
           value={year}
           onChange={(event) => setYear(event.target.value)}
-          className={`${FIELD} w-24 tabular-nums`}
+          className="w-24 tabular-nums"
         />
-      </label>
-      <label className="flex flex-col gap-1 text-sm">
-        <span className="text-ink-muted">{t.payroll.month}</span>
-        <input
+      </Field>
+      <Field label={t.payroll.month}>
+        <Input
           inputMode="numeric"
           value={month}
           onChange={(event) => setMonth(event.target.value)}
-          className={`${FIELD} w-16 tabular-nums`}
+          className="w-16 tabular-nums"
         />
-      </label>
-      <label className="flex flex-col gap-1 text-sm">
-        <span className="text-ink-muted">{t.payroll.normHours}</span>
-        <input
+      </Field>
+      <Field label={t.payroll.normHours}>
+        <Input
           inputMode="decimal"
           value={norm}
           onChange={(event) => setNorm(event.target.value)}
           title={t.payroll.normHint}
-          className={`${FIELD} w-28 text-right tabular-nums`}
+          className="w-28 text-right tabular-nums"
         />
-      </label>
-      <button type="submit" disabled={norm === '' || open.isPending} className={BUTTON}>
+      </Field>
+      <Button variant="primary" type="submit" disabled={norm === '' || open.isPending}>
         {t.payroll.openMonth}
-      </button>
+      </Button>
       {open.isError && <Failure error={open.error} />}
     </form>
   )
@@ -214,33 +208,33 @@ function MonthDetail({ companyId, timesheetId }: { companyId: string; timesheetI
               {t.payroll.normHours}: <span className="tabular-nums">{month.data.norm_hours}</span>
             </h2>
             {month.data.status === 'open' && (
-              <button
+              <Button variant="secondary"
                 type="button"
                 onClick={() => close.mutate()}
                 disabled={close.isPending}
-                className={BUTTON}
               >
                 {t.payroll.closeMonth}
-              </button>
+              </Button>
             )}
           </header>
           {close.isError && <Failure error={close.error} />}
 
-          <DataGrid
-            columns={columns}
-            rows={month.data.lines ?? []}
-            rowKey={(row) => row.contract_id}
-            emptyMessage={t.payroll.noContracts}
-          />
+          <Card padding="none">
+            <DataGrid
+              columns={columns}
+              rows={month.data.lines ?? []}
+              rowKey={(row) => row.contract_id}
+              emptyMessage={t.payroll.noContracts}
+            />
+          </Card>
 
           {month.data.status === 'open' && (
             <div className="flex flex-col gap-3">
-              <label className="flex flex-col gap-1 text-sm">
-                <span className="text-ink-muted">{t.payroll.pickContract}</span>
-                <select
+              <Field label={t.payroll.pickContract}>
+                <Select
                   value={contractId}
                   onChange={(event) => setContractId(event.target.value)}
-                  className={`${FIELD} w-72`}
+                  className="w-72"
                 >
                   <option value="">{t.common.none}</option>
                   {(contracts.data ?? []).map((contract) => (
@@ -248,8 +242,8 @@ function MonthDetail({ companyId, timesheetId }: { companyId: string; timesheetI
                       {contract.employee_name} · {contract.contract_number}
                     </option>
                   ))}
-                </select>
-              </label>
+                </Select>
+              </Field>
               {contractId && (
                 <DayEditor
                   timesheetId={timesheetId}
@@ -329,35 +323,35 @@ function DayEditor({
           {rows.map((row, index) => (
             <tr key={`${row.work_date}-${index}`}>
               <td className="pr-4 py-1">
-                <input
+                <Input
                   type="date"
                   value={row.work_date}
                   onChange={(event) => change(index, 'work_date', event.target.value)}
-                  className={`${FIELD} w-40`}
+                  className="w-40"
                 />
               </td>
               <td className="pr-4 py-1">
-                <input
+                <Input
                   inputMode="decimal"
                   value={row.hours_worked}
                   onChange={(event) => change(index, 'hours_worked', event.target.value)}
-                  className={`${FIELD} w-24 text-right tabular-nums`}
+                  className="w-24 text-right tabular-nums"
                 />
               </td>
               <td className="pr-4 py-1">
-                <input
+                <Input
                   inputMode="decimal"
                   value={row.night_hours}
                   onChange={(event) => change(index, 'night_hours', event.target.value)}
-                  className={`${FIELD} w-24 text-right tabular-nums`}
+                  className="w-24 text-right tabular-nums"
                 />
               </td>
               <td className="pr-4 py-1">
-                <input
+                <Input
                   inputMode="decimal"
                   value={row.holiday_hours}
                   onChange={(event) => change(index, 'holiday_hours', event.target.value)}
-                  className={`${FIELD} w-24 text-right tabular-nums`}
+                  className="w-24 text-right tabular-nums"
                 />
               </td>
             </tr>
@@ -365,17 +359,16 @@ function DayEditor({
         </tbody>
       </table>
       <div className="flex items-center gap-3">
-        <button type="button" onClick={addRow} className={BUTTON}>
+        <Button variant="secondary" type="button" onClick={addRow}>
           {t.payroll.addDay}
-        </button>
-        <button
+        </Button>
+        <Button variant="secondary"
           type="button"
           onClick={() => save.mutate()}
           disabled={save.isPending}
-          className={BUTTON}
         >
           {t.payroll.saveDays}
-        </button>
+        </Button>
       </div>
       {save.isError && <Failure error={save.error} />}
       {stored.isError && <Failure error={stored.error} />}

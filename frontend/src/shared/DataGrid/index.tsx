@@ -123,18 +123,21 @@ export function DataGrid<Row>({
   })
 
   return (
-    <div className="overflow-x-auto rounded border border-border bg-surface">
-      <table className="w-full border-collapse text-sm">
+    <div className="overflow-x-auto">
+      <table className="w-full border-collapse type-body-sm">
         <thead>
           <tr
-            className="border-b border-border text-left text-ink-muted"
+            className="border-y border-border bg-surface-muted text-left"
             style={{ height: HEADER_HEIGHT[density] }}
           >
             {columns.map((column) => (
               <th
                 key={column.key}
                 scope="col"
-                className={`font-medium ${column.numeric ? 'text-right' : ''}`}
+                // Condensed caps on the sunken ground: the design system marks a
+                // column head by voice and background, never by height, so a
+                // header row stays the height of a row (ADR-074).
+                className={`whitespace-nowrap type-eyebrow text-ink-muted ${column.numeric ? 'text-right' : ''}`}
                 style={cellStyle(column)}
               >
                 {column.header}
@@ -148,7 +151,7 @@ export function DataGrid<Row>({
             <tr style={{ height: ROW_HEIGHT[density] }}>
               <td
                 colSpan={columns.length}
-                className="text-center text-ink-muted"
+                className="text-center type-body-md text-ink-muted"
                 style={{ paddingInline: CELL_PADDING[density] }}
               >
                 {emptyMessage}
@@ -160,7 +163,7 @@ export function DataGrid<Row>({
                 key={row.id}
                 style={{ height: ROW_HEIGHT[density] }}
                 className={`border-b border-border last:border-0 ${
-                  onRowClick ? 'cursor-pointer hover:bg-surface-muted' : ''
+                  onRowClick ? 'cursor-pointer hover:bg-navy-050' : ''
                 }`}
                 onClick={onRowClick ? () => onRowClick(row.original) : undefined}
               >
@@ -189,7 +192,10 @@ export function DataGrid<Row>({
         {serverTotals && (
           <tfoot>
             <tr
-              className="border-t border-border font-medium"
+              // A gold rule over the totals, not a hairline. It is the one place
+              // the crest's foil appears in a grid, and it appears there because
+              // the line under a column of figures is what a reader looks for.
+              className="border-t-2 border-[var(--rule-gold)] type-label text-heading"
               style={{ height: 'var(--spacing-grid-footer)' }}
             >
               {columns.map((column) => (

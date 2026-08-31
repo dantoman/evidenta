@@ -20,7 +20,11 @@ from decimal import Decimal
 
 from django.db import IntegrityError, transaction
 
-from evidenta.operations.purchases.models import PurchaseDocument, SupplierOrder
+from evidenta.operations.purchases.models import (
+    CostDestination,
+    PurchaseDocument,
+    SupplierOrder,
+)
 from evidenta.operations.purchases.types import PURCHASE_DOCUMENT, SUPPLIER_ORDER
 from evidenta.platform.api.errors import ApiError
 from evidenta.platform.documents.errors import PartnerRequiredError
@@ -48,6 +52,28 @@ class SupplierDocumentAlreadyRecordedError(ApiError):
     status = 409
 
 
+class CostDestinationInvalidError(ApiError):
+    """Where the cost lands is asked for, and the vocabulary is closed.
+
+    Its own code rather than a generic validation error: the caller has to
+    *choose*, and the four values are not interchangeable -- one of them decides
+    whether the amount lands in the profit and loss account or in the cost of
+    production.
+    """
+
+    code = "purchases.cost_destination_invalid"
+    status = 422
+
+
+def _destination(value: str) -> str:
+    if value not in CostDestination.values:
+        raise CostDestinationInvalidError(
+            f"cost_destination is {value!r}; it selects the expense role, so it is "
+            f"chosen from {sorted(CostDestination.values)} and never defaulted"
+        )
+    return value
+
+
 @transaction.atomic
 def open_purchase(
     *,
@@ -56,12 +82,15 @@ def open_purchase(
     document_date: date,
     supplier_document_number: str,
     supplier_document_date: date,
+    cost_destination: str,
+    partner_resident: bool,
     accounting_date: date | None = None,
     currency: str | None = None,
     exchange_rate: Decimal | None = None,
     notes: str | None = None,
     rate_term: str = "payment_date",
 ) -> uuid.UUID:
+    destination = _destination(cost_destination)
     reference = (supplier_document_number or "").strip()
     if not reference:
         raise SupplierReferenceRequiredError(
@@ -91,6 +120,8 @@ def open_purchase(
             partner_id=_supplier_of(document.partner_id),
             supplier_document_number=reference,
             supplier_document_date=supplier_document_date,
+            cost_destination=destination,
+            partner_resident=partner_resident,
         )
     except IntegrityError as clash:
         if "purchase_document_supplier_reference_unique" in str(clash):
@@ -140,6 +171,8 @@ def convert_to_purchase(
     document_date: date,
     supplier_document_number: str,
     supplier_document_date: date,
+    cost_destination: str,
+    partner_resident: bool,
     accounting_date: date | None = None,
     exchange_rate: Decimal | None = None,
 ) -> uuid.UUID:
@@ -149,6 +182,7 @@ def convert_to_purchase(
     from the order: the order is ours, the invoice is theirs, and they have
     different numbers by construction.
     """
+    destination = _destination(cost_destination)
     reference = (supplier_document_number or "").strip()
     if not reference:
         raise SupplierReferenceRequiredError(
@@ -171,6 +205,8 @@ def convert_to_purchase(
             partner_id=_supplier_of(purchase.partner_id),
             supplier_document_number=reference,
             supplier_document_date=supplier_document_date,
+            cost_destination=destination,
+            partner_resident=partner_resident,
         )
     except IntegrityError as clash:
         if "purchase_document_supplier_reference_unique" in str(clash):
@@ -202,3 +238,20 @@ def _supplier_of(partner_id: uuid.UUID | None) -> uuid.UUID:
             "supplier the deduplication key has nothing to agree with"
         )
     return partner_id
+
+
+def residence_of(document_id: uuid.UUID) -> bool:
+    """Whether the supplier on this invoice was recorded as a resident.
+
+    The mirror of the sales helper, and public for the same reason: settlement
+    reads the discriminator from the document that carries it, never from the
+    partner card, which has none (ADR-073 §2).
+    """
+    resident = (
+        PurchaseDocument.objects.filter(document_id=document_id)
+        .values_list("partner_resident", flat=True)
+        .first()
+    )
+    if resident is None:
+        raise SupplierReferenceRequiredError(f"document {document_id} is not a purchase")
+    return bool(resident)

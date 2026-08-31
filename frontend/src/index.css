@@ -1,69 +1,356 @@
+/* Substituţie declarată, nu alegere: sistemul de design nu a primit fişiere de
+   font, iar acestea sunt cele mai apropiate potriviri Google Fonts la literele
+   din stema livrată. Se înlocuiesc cu fişiere licenţiate şi `@font-face` local
+   când există -- până atunci, fiecare familie are stivă de rezervă reală, aşa că
+   o reţea absentă schimbă litera, nu aşezarea. */
+@import url("https://fonts.googleapis.com/css2?family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&family=Barlow+Condensed:wght@400;500;600;700&family=Source+Sans+3:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=IBM+Plex+Mono:wght@400;500;600&display=swap");
 @import "tailwindcss";
 
-/* Design tokens -- C26. Colours, spacing and typography are variables consumed
-   everywhere; no literal values in components.
+/* =============================================================================
+   Tokenii sistemului de design Evidenta -- ADR-074.
+   Preluaţi ca valori din pachetul de predare (`_ds/.../tokens/*.css`), nu
+   reinterpretaţi: culorile sunt măsurate din stema livrată, iar restul scării e
+   a sistemului. Ce urmează după blocul acesta e maparea către utilitarele
+   Tailwind; sursa rămâne aici, într-un singur loc (C26).
+   ========================================================================== */
+:root {
+  /* Navy -- culoarea autorităţii, din inelul stemei şi din marcă. */
+  --navy-900: #061527;
+  --navy-800: #0a2039;
+  --navy-700: #0f2c52;
+  --navy-600: #153a66;
+  --navy-500: #1c4576;
+  --navy-400: #33608f;
+  --navy-300: #6e8fb3;
+  --navy-200: #aec2d6;
+  --navy-100: #dce5ee;
+  --navy-050: #eff3f8;
 
-   The density scale arrived with ADR-042, which closed OD-35. Until then this
-   comment said the tokens did not exist and nothing might invent them -- and that
-   was correct: the first grid screen was written the day after the values were
-   decided, not before. */
-@theme {
-  --color-surface: oklch(100% 0 0);
-  --color-surface-muted: oklch(97% 0.005 250);
-  --color-border: oklch(90% 0.008 250);
-  --color-ink: oklch(25% 0.015 250);
-  --color-ink-muted: oklch(52% 0.012 250);
-  --color-accent: oklch(52% 0.14 250);
-  --color-danger: oklch(52% 0.18 25);
+  /* Aur -- culoarea registrului, din laur, bufniţă şi panglică. */
+  --gold-900: #6e4e17;
+  --gold-800: #8a631f;
+  --gold-700: #a67c34;
+  --gold-600: #b98f45;
+  --gold-500: #c6a15b;
+  --gold-400: #d6b87c;
+  --gold-300: #e3c88a;
+  --gold-200: #efdcb4;
+  --gold-100: #f7edd8;
 
-  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
-  --font-mono: ui-monospace, "SF Mono", "Cascadia Mono", monospace;
+  /* Pergament -- hârtia pe care e tipărită stema. */
+  --parchment-500: #ede4d2;
+  --parchment-400: #f2ebdc;
+  --parchment-300: #f6f1e6;
+  --parchment-200: #faf6ee;
+  --parchment-100: #fdfbf6;
+  --white: #ffffff;
 
-  /* Scara de densitate -- ADR-042 (revizuit), `C21`, `C26`.
+  /* Neutre calde: griuri care stau pe pergament, nu pe alb pur. */
+  --ink-900: #1a1814;
+  --ink-700: #3d3a33;
+  --ink-500: #6b665c;
+  --ink-400: #918b7f;
+  --ink-300: #c2bcaf;
+  --ink-200: #ddd8cc;
+  --ink-100: #ebe7de;
 
-     Spatiul de nume este `--spacing-*`, singurul care GENEREAZA utilitare in
-     Tailwind v4: `h-row-compact`, `px-cell-compact`. Prima versiune folosea
-     `--density-*` si nu genera niciunul -- variabila exista, utilitarul nu.
-     Verificat in CSS-ul construit, nu presupus.
+  /* Limbajul registrului: creditul se citeşte verde, debitul roşu. */
+  --credit-700: #1e5b3e;
+  --credit-500: #2e8156;
+  --credit-100: #e3f0e8;
+  --debit-700: #8a2822;
+  --debit-500: #b23a31;
+  --debit-100: #f8e5e2;
+  --caution-700: #8a5a10;
+  --caution-500: #c08420;
+  --caution-100: #fbefd7;
+  --info-700: #134a63;
+  --info-500: #1e6d91;
+  --info-100: #e1eff5;
 
-     Valorile 40/32/24 nu sunt aritmetica noastra, sunt prior art: Carbon, Sage si
-     SAP livreaza toate trei exact aceste trepte, independent. 28 e orfan -- doar
-     AG Grid Balham il are. Implicitul este 32: la SAP treapta se numeste literal
-     „compact" si e implicitul de desktop, iar Sage, care e vendor de contabilitate,
-     livreaza 24/32/40/48/64.
+  /* Aliasuri semantice -- acestea se folosesc în componente. */
+  --surface-page: var(--parchment-200);
+  --surface-card: var(--white);
+  --surface-sunken: var(--parchment-300);
+  --surface-inverse: var(--navy-800);
+  --surface-crest: var(--navy-700);
+  --text-heading: var(--navy-800);
+  --text-body: var(--ink-700);
+  --text-muted: var(--ink-500);
+  --text-faint: var(--ink-400);
+  --text-on-navy: var(--parchment-100);
+  --text-on-navy-muted: var(--navy-200);
+  --text-on-gold: var(--navy-900);
+  --text-link: var(--navy-600);
+  --text-link-hover: var(--navy-800);
+  --border-hairline: var(--ink-200);
+  --border-strong: var(--navy-200);
+  --border-crest: var(--gold-500);
+  --border-focus: var(--navy-500);
+  --accent-primary: var(--navy-700);
+  --accent-primary-hover: var(--navy-600);
+  --accent-primary-active: var(--navy-800);
+  --accent-gold: var(--gold-500);
+  --accent-gold-hover: var(--gold-600);
+  --accent-gold-active: var(--gold-700);
+  --figure-positive: var(--credit-700);
+  --figure-negative: var(--debit-700);
+  --rule-gold: var(--gold-500);
 
-     ACCESIBILITATE, de stiut inainte de a pune butoane pe rand: la 24px, minus 1px
-     bordura raman 23px -- sub minimul de 24x24 din WCAG 2.2 SC 2.5.8. Deci `dense`
-     nu poarta butoane-iconita in rand. */
-  --spacing-row-comfortable: 2.5rem;
-  --spacing-row-compact: 2rem;
-  --spacing-row-dense: 1.5rem;
+  /* Familii. */
+  --font-display: "Libre Baskerville", Georgia, "Times New Roman", serif;
+  --font-eyebrow: "Barlow Condensed", "Arial Narrow", "Liberation Sans Narrow", "DejaVu Sans Condensed", sans-serif;
+  --font-sans: "Source Sans 3", "Segoe UI", Helvetica, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
 
-  --spacing-cell-x-comfortable: 0.75rem;
-  --spacing-cell-x-compact: 0.5rem;
-  --spacing-cell-x-dense: 0.375rem;
+  /* Scurtături compuse de font. Stau AICI şi nu în `@theme`: în Tailwind v4
+     spaţiul `--text-*` generează utilitare de mărime, iar o scurtătură `font`
+     pusă acolo ar produce un `font-size` invalid. Se consumă prin utilitarele
+     `type-*` de mai jos. */
+  --text-display-1: 700 44px/1.08 var(--font-display);
+  --text-display-2: 700 34px/1.12 var(--font-display);
+  --text-display-3: 700 26px/1.2 var(--font-display);
+  --text-title: 700 20px/1.3 var(--font-display);
+  --text-eyebrow: 600 13px/1.2 var(--font-eyebrow);
+  --text-eyebrow-lg: 600 17px/1.2 var(--font-eyebrow);
+  --text-body-lg: 400 17px/1.6 var(--font-sans);
+  --text-body-md: 400 15px/1.55 var(--font-sans);
+  --text-body-sm: 400 13px/1.5 var(--font-sans);
+  --text-label: 600 13px/1.3 var(--font-sans);
+  --text-caption: 400 12px/1.4 var(--font-sans);
+  --text-figure-lg: 500 26px/1.15 var(--font-mono);
+  --text-figure-md: 500 15px/1.4 var(--font-mono);
+  --text-figure-sm: 400 13px/1.4 var(--font-mono);
+  --tracking-eyebrow: 0.14em;
+  --tracking-caps: 0.08em;
+  --tracking-display: 0.01em;
+  --tracking-tight: -0.01em;
 
-  /* Antetul urmeaza randul, cu un prag jos: `max(rand, 2rem)`. Carbon spune
-     explicit ca antetul TREBUIE sa aiba aceeasi inaltime ca randul; se distinge
-     prin fundal si greutate, nu prin inaltime. Pragul exista doar fiindca sub
-     32px un cap de coloana cu text scurt devine greu de tintit. */
-  --spacing-header-comfortable: 2.5rem;
-  --spacing-header-compact: 2rem;
-  --spacing-header-dense: 2rem;
+  /* Documentele instituţionale au colţuri drepte; doar controalele se rotunjesc. */
+  --radius-xs: 2px;
+  --radius-sm: 3px;
+  --radius-md: 5px;
+  --radius-lg: 8px;
+  --radius-control: 5px;
+  --radius-card: 6px;
+  --border-width-crest: 3px;
 
-  --spacing-grid-footer: 2.5rem;
+  /* Umbre albăstrite şi joase -- senzaţie de document tipărit. */
+  --shadow-hairline: 0 0 0 1px var(--ink-200);
+  --shadow-card: 0 1px 2px rgba(6, 21, 39, 0.06), 0 1px 1px rgba(6, 21, 39, 0.04);
+  --shadow-raised: 0 2px 6px rgba(6, 21, 39, 0.08), 0 1px 2px rgba(6, 21, 39, 0.05);
+  --shadow-overlay: 0 12px 32px rgba(6, 21, 39, 0.18), 0 2px 8px rgba(6, 21, 39, 0.1);
+  --shadow-inset-field: inset 0 1px 2px rgba(6, 21, 39, 0.05);
+  --ring-focus: 0 0 0 3px rgba(28, 69, 118, 0.28);
+  --gradient-crest: linear-gradient(180deg, var(--navy-700) 0%, var(--navy-900) 100%);
+  --gradient-gold-foil: linear-gradient(140deg, var(--gold-300) 0%, var(--gold-500) 45%, var(--gold-700) 100%);
 }
 
-/* C27. Every numeric column uses tabular figures. Applied as a token rather than
-   sprinkled through screens: without it, amount columns shift horizontally from
-   one row to the next, and a column of money that moves is a column that is hard
-   to read down. */
+/* =============================================================================
+   Maparea către Tailwind. Numele de utilitare rămân cele pe care le foloseşte
+   deja codul (`bg-surface`, `text-ink-muted`, `border-border`), aşa că schimbarea
+   de identitate vizuală nu cere o parcurgere a ecranelor -- se schimbă valorile,
+   nu apelurile.
+   ========================================================================== */
+@theme {
+  --color-surface: var(--surface-card);
+  --color-surface-muted: var(--surface-sunken);
+  --color-surface-page: var(--surface-page);
+  --color-surface-inverse: var(--surface-inverse);
+
+  --color-border: var(--border-hairline);
+  --color-border-strong: var(--border-strong);
+
+  --color-ink: var(--text-body);
+  --color-ink-muted: var(--text-muted);
+  --color-ink-faint: var(--text-faint);
+  --color-heading: var(--text-heading);
+  --color-on-navy: var(--text-on-navy);
+  --color-on-navy-muted: var(--text-on-navy-muted);
+
+  --color-accent: var(--accent-primary);
+  --color-accent-soft: var(--navy-050);
+  --color-accent-strong: var(--accent-primary-hover);
+  --color-gold: var(--gold-500);
+  --color-gold-soft: var(--gold-100);
+  --color-gold-strong: var(--gold-700);
+  --color-navy-050: var(--navy-050);
+  --color-navy-200: var(--navy-200);
+  --color-navy-300: var(--navy-300);
+  --color-navy-700: var(--navy-700);
+  --color-navy-800: var(--navy-800);
+  --color-gold-400: var(--gold-400);
+
+  --color-on-gold: var(--text-on-gold);
+  --color-gold-hover: var(--accent-gold-hover);
+  --color-link: var(--text-link);
+  --color-link-hover: var(--text-link-hover);
+  --color-focus: var(--border-focus);
+
+  --color-danger: var(--debit-500);
+  --color-danger-strong: var(--debit-700);
+  --color-credit: var(--credit-700);
+  --color-debit: var(--debit-700);
+
+  --font-sans: "Source Sans 3", "Segoe UI", Helvetica, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+  --font-display: "Libre Baskerville", Georgia, "Times New Roman", serif;
+  /* Familia, ca utilitar. Nu se ciocnește cu `type-eyebrow`, care e vocea
+     întreagă -- corp, spațiere, majuscule: aici e doar litera, pentru locurile
+     care au nevoie de restul altfel dimensionat. */
+  --font-eyebrow: "Barlow Condensed", "Arial Narrow", "Liberation Sans Narrow", "DejaVu Sans Condensed", sans-serif;
+
+  /* Scara de densitate. Numele sunt cele din `C21`/ADR-042, valorile sunt ale
+     sistemului de design (ADR-074): 36 / 44 / 52. Deasupra vechilor 24/32/40,
+     şi treapta strânsă urcă de la 24px la 36px -- ceea ce şterge singura
+     rezervă a ADR-042, că `dense` nu poate purta butoane în rând (WCAG 2.2
+     SC 2.5.8 cere 24x24). */
+  --spacing-row-comfortable: 3.25rem;
+  --spacing-row-compact: 2.75rem;
+  --spacing-row-dense: 2.25rem;
+
+  /* Antetul grilei e fix la 34px în sistem: se distinge prin fundal scufundat
+     şi majuscule condensate, nu prin înălţime. */
+  --spacing-header-comfortable: 2.125rem;
+  --spacing-header-compact: 2.125rem;
+  --spacing-header-dense: 2.125rem;
+
+  /* Un singur pas de padding orizontal în celulă, la fel ca în sistem. */
+  --spacing-cell-x-comfortable: 0.75rem;
+  --spacing-cell-x-compact: 0.75rem;
+  --spacing-cell-x-dense: 0.75rem;
+
+  --spacing-grid-footer: 2.75rem;
+
+  /* Paddingul orizontal al butonului, pe treaptă. 18px nu e pe scara de 4px --
+     e valoarea sistemului, şi stă ca token tocmai fiindcă e o excepţie. */
+  --spacing-button-x-sm: 0.75rem;
+  --spacing-button-x-md: 1.125rem;
+  --spacing-button-x-lg: 1.5rem;
+
+  --spacing-control-sm: 2rem;
+  --spacing-control-md: 2.5rem;
+  --spacing-control-lg: 3rem;
+
+  --spacing-sidebar: 15.5rem;
+  --spacing-topbar: 4rem;
+  --container-page: 73.75rem;
+
+  --radius-control: 5px;
+  --radius-card: 6px;
+
+  --shadow-card: 0 1px 2px rgba(6, 21, 39, 0.06), 0 1px 1px rgba(6, 21, 39, 0.04);
+  --shadow-raised: 0 2px 6px rgba(6, 21, 39, 0.08), 0 1px 2px rgba(6, 21, 39, 0.05);
+}
+
+/* C27. Orice coloană numerică foloseşte cifre tabulare, aplicate ca token, nu
+   presărate prin ecrane: fără ele, coloanele de sume se mişcă vizual de la un
+   rând la altul. */
 @utility tabular {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+}
+
+/* Vocile tipografice, ca utilitare. Numele începe cu `type-` şi nu cu `font-`
+   fiindcă `font-*` e spaţiul familiilor în Tailwind v4, iar o suprapunere ar
+   face ca `font-eyebrow` să însemne două lucruri.
+
+   **Scrise pe proprietăţi separate, nu prin scurtătura `font:`** -- şi asta e o
+   corecţie, nu un stil. Scurtătura `font` RESETEAZĂ ce nu enumeră: `font-style`,
+   `font-weight`, `font-variant`. Măsurat în CSS-ul construit: `.type-body-lg`
+   apărea după `.italic`, deci `class="type-body-lg italic"` ieşea drept --
+   clasa era acolo, italicul nu. Acelaşi capcană pentru `font-bold` sau
+   `tabular` lipite de un `type-*`. Cu proprietăţi separate, ce nu e numit aici
+   rămâne al chemătorului. */
+@utility type-display-1 {
+  font-family: var(--font-display);
+  font-size: 44px;
+  font-weight: 700;
+  line-height: 1.08;
+  letter-spacing: var(--tracking-display);
+}
+@utility type-display-2 {
+  font-family: var(--font-display);
+  font-size: 34px;
+  font-weight: 700;
+  line-height: 1.12;
+  letter-spacing: var(--tracking-display);
+}
+@utility type-display-3 {
+  font-family: var(--font-display);
+  font-size: 26px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+@utility type-title {
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1.3;
+}
+@utility type-eyebrow {
+  font-family: var(--font-eyebrow);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: var(--tracking-eyebrow);
+  text-transform: uppercase;
+}
+@utility type-body-lg {
+  font-family: var(--font-sans);
+  font-size: 17px;
+  font-weight: 400;
+  line-height: 1.6;
+}
+@utility type-body-md {
+  font-family: var(--font-sans);
+  font-size: 15px;
+  font-weight: 400;
+  line-height: 1.55;
+}
+@utility type-body-sm {
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.5;
+}
+@utility type-label {
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.3;
+}
+@utility type-caption {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.4;
+}
+@utility type-figure-lg {
+  font-family: var(--font-mono);
+  font-size: 26px;
+  font-weight: 500;
+  line-height: 1.15;
+  font-variant-numeric: tabular-nums;
+}
+@utility type-figure-md {
+  font-family: var(--font-mono);
+  font-size: 15px;
+  font-weight: 500;
+  line-height: 1.4;
+  font-variant-numeric: tabular-nums;
+}
+@utility type-figure-sm {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.4;
   font-variant-numeric: tabular-nums;
 }
 
 body {
-  background: var(--color-surface-muted);
-  color: var(--color-ink);
-  font-family: var(--font-sans);
+  background: var(--surface-page);
+  color: var(--text-body);
+  font: var(--text-body-md);
+  -webkit-font-smoothing: antialiased;
 }

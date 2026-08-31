@@ -32,6 +32,7 @@ from evidenta.accounting.ledger.models import JournalEntry, JournalLine
 from evidenta.accounting.posting.services.commercial import (
     ROLE_CREANTE_STRAINATATE,
     ROLE_CREANTE_TARA,
+    ROLE_RETUR_REDUCERI,
     ROLE_VENIT_SERVICII,
     CostSideRequiresInventoryError,
     SalesDiscriminatorMissingError,
@@ -61,6 +62,9 @@ ROLE_ACCOUNT_CODES = {
     ROLE_CREANTE_TARA: "2211",
     ROLE_CREANTE_STRAINATATE: "2212",
     ROLE_VENIT_SERVICII: "6111",
+    # 7128 arrives with the credit note: a return is a distribution expense, not
+    # revenue with a minus (ADR-073 §7).
+    ROLE_RETUR_REDUCERI: "7128",
 }
 
 
@@ -123,6 +127,7 @@ def a_sale(
     revenue_kind: str = "services",
     resident: bool = True,
     amount: str = "5000.00",
+    nature: str = "delivery",
 ) -> uuid.UUID:
     document_id = open_sale(
         company_id=world["company"],
@@ -130,6 +135,7 @@ def a_sale(
         document_date=ON,
         revenue_kind=revenue_kind,
         partner_resident=resident,
+        nature=nature,
     )
     replace_lines(
         document_id,
@@ -310,3 +316,82 @@ def _debit_accounts(document_id: uuid.UUID, world: dict[str, Any]) -> set[str]:
             journal_entry__accounting_event_id=event.id, debit__gt=0
         )
     }
+
+
+def test_a_credit_note_is_a_distribution_expense_not_negative_revenue(
+    sales_world: dict[str, Any],
+) -> None:
+    """ADR-073 §7, and the assertion is about which account, not which sign.
+
+    A return could be posted by crediting revenue, and the entry would balance:
+    `R11` passes, the trial balance totals agree, and turnover comes out
+    understated by exactly the returns. The standard's chart puts the return in
+    class 712, beside the other costs of selling, and that is what this reads.
+    """
+    with tenant_context(sales_world["context"]):
+        document_id = a_sale(sales_world, nature="return", amount="800.00")
+        result = issue_and_post(
+            document_id=document_id,
+            actor_user_id=sales_world["user"],
+            request_id="return-1",
+            capability_snapshot=SNAPSHOT,
+        )
+        assert result.journal_entry_id is not None
+        lines = list(JournalLine.objects.filter(journal_entry_id=result.journal_entry_id))
+        debit = next(line for line in lines if line.debit > 0)
+        credit = next(line for line in lines if line.credit > 0)
+
+    accounts = sales_world["accounts"]
+    assert debit.account_id == accounts[ROLE_RETUR_REDUCERI]
+    assert credit.account_id == accounts[ROLE_CREANTE_TARA]
+    # And revenue was not touched at all -- the failure this test exists for.
+    assert accounts[ROLE_VENIT_SERVICII] not in {line.account_id for line in lines}
+    assert debit.debit == Decimal("800.00")
+
+
+def test_a_return_and_a_delivery_are_different_events(sales_world: dict[str, Any]) -> None:
+    """One document type, two facts -- so two event types and two idempotency keys.
+
+    A shared key would make the second document of a pair look like a retry of the
+    first, which is the shape a credit note against its own invoice would take.
+    """
+    with tenant_context(sales_world["context"]):
+        issue_and_post(
+            document_id=a_sale(sales_world, amount="100.00"),
+            actor_user_id=sales_world["user"],
+            request_id="pair-sale",
+            capability_snapshot=SNAPSHOT,
+        )
+        issue_and_post(
+            document_id=a_sale(sales_world, nature="return", amount="100.00"),
+            actor_user_id=sales_world["user"],
+            request_id="pair-return",
+            capability_snapshot=SNAPSHOT,
+        )
+        kinds = set(
+            AccountingEvent.objects.filter(company_id=sales_world["company"]).values_list(
+                "event_type", flat=True
+            )
+        )
+
+    assert kinds == {"sales.invoice_issued", "sales.return_issued"}
+
+
+def test_an_advance_is_refused_by_name(sales_world: dict[str, Any]) -> None:
+    """ADR-073 §6 kept its treatment unregistered on purpose.
+
+    Posting only the first half -- crediting the advance -- would grow a balance
+    of advances that nothing in the product could ever clear. The refusal names
+    the decision rather than reporting a missing handler.
+    """
+    from evidenta.operations.sales.services.issuing import SaleNotIssuableError
+
+    with tenant_context(sales_world["context"]):
+        document_id = a_sale(sales_world, nature="advance", amount="500.00")
+        with pytest.raises(SaleNotIssuableError, match="advance"):
+            issue_and_post(
+                document_id=document_id,
+                actor_user_id=sales_world["user"],
+                request_id="advance-1",
+                capability_snapshot=SNAPSHOT,
+            )

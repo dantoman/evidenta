@@ -68,8 +68,33 @@ def server_codes() -> set[str]:
     return codes
 
 
+def errors_block(text: str) -> str:
+    r"""Just the ``errors: { … }`` object of the resource file.
+
+    Scanning the whole file was the second version of this test's own bug, and it
+    is the mirror image of the first one: the server pattern had to stop matching
+    `tenant.manage_roles` because that is a **permission**, and then the client
+    pattern started matching it, because ADR-075 gave the interface a map of
+    permission labels keyed by the same names. Two vocabularies, one shape.
+
+    Sliced by counting braces rather than by a regex over the whole object: the
+    messages contain braces of their own the day one carries an interpolation,
+    and a lazy `errors:\s*{(.*?)}` would end at the first of them.
+    """
+    start = text.index("errors: {") + len("errors: {")
+    depth = 1
+    for index in range(start, len(text)):
+        if text[index] == "{":
+            depth += 1
+        elif text[index] == "}":
+            depth -= 1
+            if depth == 0:
+                return text[start:index]
+    raise AssertionError("errors: { … } is not closed in " + str(CATALOGUE))
+
+
 def client_codes() -> set[str]:
-    return set(CLIENT_CODE.findall(CATALOGUE.read_text(encoding="utf-8")))
+    return set(CLIENT_CODE.findall(errors_block(CATALOGUE.read_text(encoding="utf-8"))))
 
 
 def test_both_files_are_where_the_test_thinks() -> None:
@@ -78,6 +103,9 @@ def test_both_files_are_where_the_test_thinks() -> None:
         assert root.exists(), root
     assert CATALOGUE.is_file(), CATALOGUE
     assert len(server_codes()) >= 5
+    # And the slice actually found something: an `errors:` block renamed would
+    # otherwise make both directions pass over an empty set.
+    assert len(client_codes()) >= 5
 
 
 @pytest.mark.parametrize("code", sorted(server_codes()))

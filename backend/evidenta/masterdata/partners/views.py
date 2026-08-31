@@ -26,6 +26,7 @@ from evidenta.masterdata.partners.services.directory import (
     partner_in_context,
     partners_of,
     set_partner_active,
+    update_partner,
 )
 from evidenta.platform.rls.context import MissingTenantContextError, current_context
 
@@ -98,9 +99,52 @@ class PartnerListView(APIView):
         return Response(partner_in_context(partner.id), status=201)
 
 
+class EditPartnerSerializer(serializers.Serializer[dict[str, Any]]):
+    """Shape only, and every field optional: this is a PATCH.
+
+    What may be changed at all is the service's question -- `EDITABLE` there --
+    so this does not repeat the list as a second authority. It only refuses
+    shapes: a blank currency code, a negative payment term.
+    """
+
+    legal_name = serializers.CharField(max_length=255, required=False)
+    short_name = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    internal_name = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    default_currency = serializers.RegexField(
+        r"^[A-Za-z]{3}$", required=False, allow_blank=True, allow_null=True
+    )
+    default_payment_terms_days = serializers.IntegerField(
+        required=False, allow_null=True, min_value=0, max_value=365
+    )
+    is_customer = serializers.BooleanField(required=False)
+    is_supplier = serializers.BooleanField(required=False)
+
+    def validate(self, attrs: dict[str, Any]) -> dict[str, Any]:
+        """Refuse a field this form does not own, by name.
+
+        DRF drops undeclared keys silently, which is the wrong shape here: a
+        caller that sends `idno` believes it is being applied, and the answer
+        would be a `200` carrying the old value -- a correction that looked like
+        it worked. Measured: without this, the identity test got its request
+        through and read back an unchanged partner.
+        """
+        unknown = set(self.initial_data) - set(self.fields)
+        if unknown:
+            raise serializers.ValidationError(
+                {field: "nu se schimbă din formularul partenerului" for field in sorted(unknown)}
+            )
+        return attrs
+
+
 class PartnerDetailView(APIView):
     def get(self, request: Request, partner_id: uuid.UUID) -> Response:
         return Response(partner_in_context(partner_id))
+
+    def patch(self, request: Request, partner_id: uuid.UUID) -> Response:
+        """Correct a partner. Identity and VAT are not in it -- see the service."""
+        payload = EditPartnerSerializer(data=request.data, partial=True)
+        payload.is_valid(raise_exception=True)
+        return Response(update_partner(partner_id, **payload.validated_data))
 
 
 class PartnerActivationView(APIView):

@@ -13,8 +13,7 @@
 import { useState, type ReactNode } from 'react'
 
 import { t } from '@/locales'
-
-const FIELD = 'rounded border border-border bg-surface px-2 text-sm'
+import { Field, Input } from '@/shared/ui'
 
 export function yearStart(): string {
   return `${new Date().getFullYear()}-01-01`
@@ -57,7 +56,7 @@ export function ReportHeader({
     <header className="flex flex-col gap-2">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="text-base font-semibold">{title}</h1>
+          <h1 className="type-display-2 text-heading">{title}</h1>
           {lead && <p className="text-sm text-ink-muted">{lead}</p>}
         </div>
         <form
@@ -67,24 +66,20 @@ export function ReportHeader({
             onWindow({ from, to })
           }}
         >
-          <label className="flex flex-col gap-1 text-sm">
-            <span className="text-ink-muted">{t.accounting.reports.from}</span>
-            <input
+          <Field label={t.accounting.reports.from}>
+            <Input
               type="date"
               value={from}
               onChange={(event) => setFrom(event.target.value)}
-              className={FIELD}
             />
-          </label>
-          <label className="flex flex-col gap-1 text-sm">
-            <span className="text-ink-muted">{t.accounting.reports.to}</span>
-            <input
+          </Field>
+          <Field label={t.accounting.reports.to}>
+            <Input
               type="date"
               value={to}
               onChange={(event) => setTo(event.target.value)}
-              className={FIELD}
             />
-          </label>
+          </Field>
           <button
             type="submit"
             className="rounded border border-border bg-surface px-3 text-sm text-accent"

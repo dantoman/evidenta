@@ -24,8 +24,7 @@ import { t } from '@/locales'
 import { amount, date as formatDate } from '@/shared/format'
 import { listEntries, reverseEntry, type JournalEntryRead } from '@/shared/api/ledger'
 import { Failure } from '@/shared/Failure'
-
-const FIELD = 'rounded border border-border bg-surface px-2 text-sm'
+import { Field, Input } from '@/shared/ui'
 
 function yearStart(): string {
   return `${new Date().getFullYear()}-01-01`
@@ -63,7 +62,7 @@ export function RegisterScreen() {
         </Link>
       </nav>
       <header className="flex flex-wrap items-end justify-between gap-4">
-        <h1 className="text-base font-semibold">{t.accounting.register.title}</h1>
+        <h1 className="type-display-2 text-heading">{t.accounting.register.title}</h1>
         <form
           className="flex items-end gap-2"
           onSubmit={(event) => {
@@ -71,24 +70,20 @@ export function RegisterScreen() {
             setWindow({ from, to })
           }}
         >
-          <label className="flex flex-col gap-1 text-sm">
-            <span className="text-ink-muted">{t.accounting.balance.from}</span>
-            <input
+          <Field label={t.accounting.balance.from}>
+            <Input
               type="date"
               value={from}
               onChange={(event) => setFrom(event.target.value)}
-              className={FIELD}
             />
-          </label>
-          <label className="flex flex-col gap-1 text-sm">
-            <span className="text-ink-muted">{t.accounting.balance.to}</span>
-            <input
+          </Field>
+          <Field label={t.accounting.balance.to}>
+            <Input
               type="date"
               value={to}
               onChange={(event) => setTo(event.target.value)}
-              className={FIELD}
             />
-          </label>
+          </Field>
           <button
             type="submit"
             className="rounded border border-border bg-surface px-3 text-sm text-accent"
@@ -241,22 +236,19 @@ function Reversal({
       }}
     >
       <p className="w-full text-sm text-ink-muted">{t.accounting.register.reverseHint}</p>
-      <label className="flex flex-col gap-1 text-sm">
-        <span className="text-ink-muted">{t.accounting.register.reverseDate}</span>
-        <input
+      <Field label={t.accounting.register.reverseDate}>
+        <Input
           type="date"
           value={accountingDate}
           onChange={(event) => setAccountingDate(event.target.value)}
-          className={FIELD}
         />
-      </label>
+      </Field>
       <label className="flex flex-1 flex-col gap-1 text-sm">
         <span className="text-ink-muted">{t.accounting.register.reverseReason}</span>
-        <input
+        <Input
           value={reason}
           onChange={(event) => setReason(event.target.value)}
           maxLength={500}
-          className={FIELD}
         />
       </label>
       <button

@@ -754,6 +754,8 @@ def test_the_same_supplier_document_is_not_recorded_twice(
             document_date=ON,
             supplier_document_number="AA 0000123",
             supplier_document_date=date(2026, 3, 1),
+            cost_destination="administrative",
+            partner_resident=True,
         )
         with pytest.raises(SupplierDocumentAlreadyRecordedError):
             open_purchase(
@@ -762,6 +764,8 @@ def test_the_same_supplier_document_is_not_recorded_twice(
                 document_date=ON,
                 supplier_document_number="AA 0000123",
                 supplier_document_date=date(2026, 3, 1),
+                cost_destination="administrative",
+                partner_resident=True,
             )
 
 
@@ -792,6 +796,8 @@ def test_two_suppliers_may_issue_the_same_number_on_the_same_day(
                 document_date=ON,
                 supplier_document_number="001",
                 supplier_document_date=date(2026, 3, 1),
+                cost_destination="administrative",
+                partner_resident=True,
             )
         assert PurchaseDocument.objects.filter(supplier_document_number="001").count() == 2
 
@@ -813,6 +819,8 @@ def test_a_supplier_order_becomes_a_purchase_with_the_supplier_own_reference(
                 document_date=date(2026, 3, 18),
                 supplier_document_number="BB 0000777",
                 supplier_document_date=date(2026, 3, 17),
+                cost_destination="administrative",
+                partner_resident=True,
             )
         )
         reference = purchase.purchase.supplier_document_number

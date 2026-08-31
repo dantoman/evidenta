@@ -1,4 +1,4 @@
-import { BrowserRouter, Navigate, Route, Routes } from 'react-router'
+import { BrowserRouter, Route, Routes } from 'react-router'
 
 import { t } from '@/locales'
 import { ApiError } from '@/shared/api/client'
@@ -10,14 +10,20 @@ import { CorrespondenceScreen } from './accounting/CorrespondenceScreen'
 import { GeneralLedgerScreen } from './accounting/GeneralLedgerScreen'
 import { ChartOfAccountsScreen } from './accounting/ChartOfAccountsScreen'
 import { ChartSetupScreen } from './accounting/ChartSetupScreen'
+import { JournalScreen } from './accounting/JournalScreen'
 import { ManualEntryScreen } from './accounting/ManualEntryScreen'
 import { OpeningBalancesScreen } from './accounting/OpeningBalancesScreen'
 import { OperationTemplatesScreen } from './accounting/OperationTemplatesScreen'
 import { RegisterScreen } from './accounting/RegisterScreen'
 import { TrialBalanceScreen } from './accounting/TrialBalanceScreen'
 import { CompaniesScreen } from './companies/CompaniesScreen'
+import { CompanyScreen } from './companies/CompanyScreen'
 import { PartnersScreen } from './partners/PartnersScreen'
+import { WorkspaceScreen } from './workspace/WorkspaceScreen'
+import { PurchasesScreen } from './purchases/PurchasesScreen'
 import { SalesScreen } from './sales/SalesScreen'
+import { SettlementsScreen } from './settlements/SettlementsScreen'
+import { TreasuryScreen } from './treasury/TreasuryScreen'
 import { ContractsScreen } from './payroll/ContractsScreen'
 import { ExemptionsScreen } from './payroll/ExemptionsScreen'
 import { IpcScreen } from './payroll/IpcScreen'
@@ -25,6 +31,7 @@ import { PayrollRunScreen } from './payroll/PayrollRunScreen'
 import { PeopleScreen } from './payroll/PeopleScreen'
 import { TimesheetScreen } from './payroll/TimesheetScreen'
 import { AppLayout } from './layout/AppLayout'
+import { Landing } from './layout/Landing'
 
 /**
  * The whole routing decision, which is small on purpose.
@@ -80,12 +87,18 @@ export function App() {
       <Routes>
         <Route element={<AppLayout tenantId={identity.data.tenant_id} />}>
           {/* One canonical address per screen. `/` redirects rather than
-              rendering the list a second time under a second URL. */}
-          <Route index element={<Navigate to="/companii" replace />} />
+              rendering the list a second time under a second URL -- and it
+              redirects into the account holder's books when there are any
+              (ADR-075), because that is where a sign-in almost always goes. */}
+          <Route index element={<Landing />} />
           <Route path="companii" element={<CompaniesScreen />} />
+          <Route path="companii/:companyId" element={<CompanyScreen />} />
           {/* No company segment: a partner belongs to the workspace, and the
               same legal entity is the same entity for every company of it. */}
           <Route path="parteneri" element={<PartnersScreen />} />
+          {/* Spatiul de lucru: titularul contului si drepturile din el. Fara
+              segment de companie -- contractul e al spatiului, nu al uneia. */}
+          <Route path="spatiu-de-lucru" element={<WorkspaceScreen />} />
           <Route
             path="companii/:companyId/plan-de-conturi"
             element={<ChartOfAccountsScreen />}
@@ -106,11 +119,21 @@ export function App() {
             element={<GeneralLedgerScreen />}
           />
           <Route path="companii/:companyId/rulaje" element={<CorrespondenceScreen />} />
+          <Route path="companii/:companyId/jurnale" element={<JournalScreen />} />
           <Route path="companii/:companyId/note" element={<ManualEntryScreen />} />
           <Route path="companii/:companyId/balanta" element={<TrialBalanceScreen />} />
           <Route path="companii/:companyId/registru" element={<RegisterScreen />} />
           {/* Facturi emise: documentul și contarea lui, într-un singur pas. */}
           <Route path="companii/:companyId/facturi" element={<SalesScreen />} />
+          <Route
+            path="companii/:companyId/facturi-primite"
+            element={<PurchasesScreen />}
+          />
+          <Route path="companii/:companyId/trezorerie" element={<TreasuryScreen />} />
+          <Route
+            path="companii/:companyId/solduri-deschise"
+            element={<SettlementsScreen />}
+          />
           <Route path="companii/:companyId/sabloane" element={<OperationTemplatesScreen />} />
           {/* With and without a batch: the batch id is in the path so a draft
               survives a reload -- the server has no way to list a company's

@@ -16,9 +16,56 @@ export interface Company {
   legal_name: string
   idno: string
   functional_currency: string
+  /** The day the books start. Sent since the list existed; declared here since
+   *  the company card had to show it. */
+  accounting_start_date: string
   /** The two codes a statutory return's header carries. Null until entered. */
   cuatm_code: string | null
   caem_code: string | null
+  short_name: string | null
+  registered_address: unknown | null
+  /** `active`, `suspended` or `closed` -- ADR-083. A closed company is refused
+   *  by the posting engine, so the screens say so rather than letting somebody
+   *  discover it at the first entry. */
+  status: string
+}
+
+/**
+ * One company, and what may be corrected on it -- ADR-083.
+ *
+ * The fields absent from `EditableCompany` are absent on purpose, not by
+ * oversight: `idno` has left on issued documents, and the currency and start date
+ * have already dated and valued what is in the ledger. The server refuses them by
+ * name; the screen shows them as facts rather than as inputs.
+ */
+export interface EditableCompany {
+  legal_name?: string
+  short_name?: string | null
+  cuatm_code?: string | null
+  caem_code?: string | null
+}
+
+export function getCompany(companyId: string): Promise<Company> {
+  return request<Company>(`/api/v1/companies/${companyId}`)
+}
+
+export function updateCompany(companyId: string, fields: EditableCompany): Promise<Company> {
+  return request<Company>(`/api/v1/companies/${companyId}`, { method: 'PATCH', body: fields })
+}
+
+/**
+ * Closing is a POST to a named sub-resource, not a PATCH of `status`.
+ *
+ * It carries a reason because a company that stopped trading and one closed by
+ * mistake look identical afterwards, and it holds its own permission key because
+ * it is irreversible in practice -- nothing in the ledger moves, and nothing new
+ * is written either.
+ */
+export function closeCompany(companyId: string, reason: string): Promise<Company> {
+  return request<Company>(`/api/v1/companies/${companyId}/close`, {
+    method: 'POST',
+    body: { reason },
+  })
 }
 
 export function listCompanies(): Promise<Company[]> {

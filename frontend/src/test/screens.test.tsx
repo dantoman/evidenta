@@ -22,20 +22,30 @@ import { CorrespondenceScreen } from '@/app/accounting/CorrespondenceScreen'
 import { GeneralLedgerScreen } from '@/app/accounting/GeneralLedgerScreen'
 import { ChartOfAccountsScreen } from '@/app/accounting/ChartOfAccountsScreen'
 import { ChartSetupScreen } from '@/app/accounting/ChartSetupScreen'
+import { JournalScreen } from '@/app/accounting/JournalScreen'
 import { ManualEntryScreen } from '@/app/accounting/ManualEntryScreen'
 import { OpeningBalancesScreen } from '@/app/accounting/OpeningBalancesScreen'
 import { OperationTemplatesScreen } from '@/app/accounting/OperationTemplatesScreen'
 import { RegisterScreen } from '@/app/accounting/RegisterScreen'
 import { TrialBalanceScreen } from '@/app/accounting/TrialBalanceScreen'
 import { CompaniesScreen } from '@/app/companies/CompaniesScreen'
+import { CompanyScreen } from '@/app/companies/CompanyScreen'
+import { AppLayout } from '@/app/layout/AppLayout'
+import { Landing } from '@/app/layout/Landing'
+import { CompanyNav } from '@/app/layout/CompanyNav'
+import { WorkspaceScreen } from '@/app/workspace/WorkspaceScreen'
 import { PartnersScreen } from '@/app/partners/PartnersScreen'
+import { PurchasesScreen } from '@/app/purchases/PurchasesScreen'
 import { SalesScreen } from '@/app/sales/SalesScreen'
+import { SettlementsScreen } from '@/app/settlements/SettlementsScreen'
+import { TreasuryScreen } from '@/app/treasury/TreasuryScreen'
 import { ContractsScreen } from '@/app/payroll/ContractsScreen'
 import { ExemptionsScreen } from '@/app/payroll/ExemptionsScreen'
 import { IpcScreen } from '@/app/payroll/IpcScreen'
 import { PayrollRunScreen } from '@/app/payroll/PayrollRunScreen'
 import { PeopleScreen } from '@/app/payroll/PeopleScreen'
 import { TimesheetScreen } from '@/app/payroll/TimesheetScreen'
+import { MemoryRouter, Route, Routes } from 'react-router'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { renderScreen } from './render'
 
@@ -92,6 +102,12 @@ function stubFetch(routes: Record<string, unknown>, status = 200) {
 afterEach(() => {
   cleanup()
   vi.unstubAllGlobals()
+  // The shell remembers the company last opened, per workspace, in this browser
+  // (`useSelectedCompany`). jsdom keeps one `localStorage` for the whole file, so
+  // without this a test would inherit the previous one's choice -- and the
+  // failure reads as "the switcher picked the wrong company", which is a much
+  // more alarming sentence than the truth.
+  window.localStorage.clear()
 })
 
 describe('ecranele', () => {
@@ -101,6 +117,64 @@ describe('ecranele', () => {
 
     expect(await screen.findByText('Test Vertical SRL')).toBeInTheDocument()
     expect(screen.getByText('1013600012345')).toBeInTheDocument()
+  })
+
+  // Fișa companiei (ADR-083). Cele două teste sunt despre același lucru din
+  // două părți: dreptul se citește, nu se presupune. Un ecran care ar afișa
+  // formularul activ tuturor ar eșua abia la salvare, pe un 403 -- iar utilizatorul
+  // n-ar avea cum să deducă dacă i-a lipsit dreptul sau i-a picat rețeaua.
+  function companyCard(permissions: string[]) {
+    return {
+      [`/api/v1/companies/${COMPANY}`]: {
+        ...COMPANIES[0],
+        accounting_start_date: '2026-01-01',
+        cuatm_code: null,
+        caem_code: null,
+        short_name: null,
+        registered_address: null,
+        status: 'active',
+      },
+      '/api/v1/workspace': {
+        tenant: { id: 't', subdomain: 'alpha', legal_name: 'Alpha SRL', status: 'active' },
+        me: {
+          user_id: 'u',
+          email: 'a@example.md',
+          full_name: 'A',
+          membership_status: 'active',
+          role: null,
+          companies: [{ company_id: COMPANY, role_key: 'company_admin', granted_via: 'membership' }],
+        },
+        roles: [
+          {
+            key: 'company_admin',
+            name: 'Administrator de companie',
+            level: 'company',
+            is_system: true,
+            permissions,
+          },
+        ],
+        delegated_access: [],
+      },
+    }
+  }
+
+  it('fișa companiei arată IDNO-ul ca dată care nu se schimbă de aici', async () => {
+    stubFetch(companyCard(['company.edit', 'company.close']))
+    renderScreen(<CompanyScreen />, { path: '/companii/:companyId', route: `/companii/${COMPANY}` })
+
+    expect(await screen.findByText('Date care nu se schimbă de aici')).toBeInTheDocument()
+    expect(screen.getByText('1013600012345')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Salvează' })).toBeEnabled()
+  })
+
+  it('fără cheia de editare, formularul este dezactivat și spune de ce', async () => {
+    stubFetch(companyCard([]))
+    renderScreen(<CompanyScreen />, { path: '/companii/:companyId', route: `/companii/${COMPANY}` })
+
+    expect(
+      await screen.findByText('Nu aveți dreptul de a modifica datele acestei companii.'),
+    ).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Salvează' })).toBeDisabled()
   })
 
   it('planul de conturi cere conturile companiei din cale', async () => {
@@ -672,6 +746,330 @@ describe('ecranele', () => {
     expect(screen.getByRole('button', { name: 'Aprobă' })).toBeDisabled()
   })
 
+  it('spațiul de lucru numește PERSOANA ca titular și nu arată nimic de companie', async () => {
+    function space(idno: string | null) {
+      return {
+        tenant: {
+          id: 'w', subdomain: 'alpha', legal_name: 'ÎI Ion Popescu', status: 'active',
+          idno, legal_form: idno ? 'ÎI' : null,
+        },
+        me: {
+          user_id: 'u', email: 'ion@example.md', full_name: 'Ion Popescu',
+          membership_status: 'active',
+          role: {
+            key: 'owner', name: 'owner', level: 'tenant', is_system: true,
+            permissions: ['tenant.manage_roles'],
+          },
+          companies: [{ company_id: COMPANY, role_key: 'company_admin', granted_via: 'membership' }],
+        },
+        roles: [],
+        delegated_access: [],
+      }
+    }
+
+    stubFetch({ '/api/v1/companies': COMPANIES, '/api/v1/workspace': space('1002600012345') })
+    renderScreen(<WorkspaceScreen />, { path: '/spatiu-de-lucru', route: '/spatiu-de-lucru' })
+
+    // Titularul e omul (ADR-085): spațiul se atribuie unui utilizator, nu unei
+    // companii, iar cazul obișnuit e un antreprenor cu mai multe firme.
+    expect(await screen.findByText('Ion Popescu')).toBeInTheDocument()
+    expect(screen.getByText('ion@example.md')).toBeInTheDocument()
+    expect(screen.getByText('Proprietar')).toBeInTheDocument()
+    // Nimic în formă de companie pe ecranul spațiului: fără IDNO, fără formă
+    // juridică, fără plătitor. Factura merge per companie, pe IDNO-ul ei, iar
+    // două cartonașe cu același nume de firmă era exact confuzia de desfăcut.
+    expect(screen.queryByText('1002600012345')).toBeNull()
+    expect(screen.queryByText(/Plătitorul abonamentului/)).toBeNull()
+    expect(screen.queryByText(/Compania titularului/)).toBeNull()
+    // Nici denumirea spațiului nu se mai afișează ca titlu: purta numele unei
+    // firme și făcea spațiul să arate, încă o dată, ca o companie.
+    expect(screen.queryByText('ÎI Ion Popescu')).toBeNull()
+    // Starea rămâne, lângă titlu.
+    expect(screen.getByText('Activ')).toBeInTheDocument()
+    // Și limita spusă, nu ascunsă: lista de persoane nu se poate afișa.
+    expect(screen.getByText(/OD-37/)).toBeInTheDocument()
+
+    // Numele se corectează de aici; e-mailul, parola și al doilea factor nu --
+    // și formularul o spune, în loc să lase omul să caute.
+    fireEvent.click(screen.getByRole('button', { name: 'Modifică numele' }))
+    expect(await screen.findByDisplayValue('Ion Popescu')).toBeInTheDocument()
+    expect(screen.getByText(/E-mailul, parola și al doilea factor/)).toBeInTheDocument()
+    expect(screen.queryByDisplayValue('ion@example.md')).toBeNull()
+
+  })
+
+  it('„?nou=1" deschide formularul de companie, gol -- nu mai există ofertă de titular', async () => {
+    stubFetch({ '/api/v1/companies': COMPANIES })
+    renderScreen(<CompaniesScreen />, { path: '/companii', route: '/companii?nou=1' })
+
+    // Deschis, dar necompletat: nu mai există „compania titularului" din care să
+    // se preia ceva (ADR-085).
+    expect(await screen.findByText('Creează compania')).toBeInTheDocument()
+    expect(screen.queryByDisplayValue('Alpha SRL')).toBeNull()
+  })
+
+  it('intrarea duce în singura companie, iar cu mai multe neatinse duce în listă', async () => {
+    function land() {
+      return render(
+        <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+          <MemoryRouter initialEntries={['/']}>
+            <Routes>
+              <Route index element={<Landing />} />
+              <Route path="companii" element={<p>lista de companii</p>} />
+              <Route path="companii/:companyId/plan-de-conturi" element={<p>registrele ei</p>} />
+            </Routes>
+          </MemoryRouter>
+        </QueryClientProvider>,
+      )
+    }
+
+    // O singură companie: nu e o alegere, deci nu se cere.
+    stubFetch({ '/api/v1/companies': COMPANIES })
+    land()
+    expect(await screen.findByText('registrele ei')).toBeInTheDocument()
+
+    cleanup()
+    // Memoria e per browser și supraviețuiește în interiorul testului: fără
+    // golirea ei, jumătatea a doua ar porni cu prima companie deja aleasă.
+    window.localStorage.clear()
+
+    // Mai multe și niciuna deschisă vreodată: lista, nu prima din ea. Un
+    // antreprenor cu patru firme n-a venit la cea care se sortează prima.
+    stubFetch({
+      '/api/v1/companies': [
+        ...COMPANIES,
+        { id: '88888888-8888-8888-8888-888888888888', legal_name: 'Alt SRL',
+          idno: '1013600099999', functional_currency: 'MDL' },
+      ],
+    })
+    land()
+    expect(await screen.findByText('lista de companii')).toBeInTheDocument()
+  })
+
+  it('schimbarea companiei pe un ecran fără companie în adresă se vede imediat', async () => {
+    const SECOND = '77777777-7777-7777-7777-777777777777'
+    stubFetch({
+      '/api/v1/companies': [
+        ...COMPANIES,
+        { id: SECOND, legal_name: 'Alt SRL', idno: '1013600099999', functional_currency: 'MDL' },
+      ],
+      '/api/v1/workspace': {
+        tenant: {
+          id: 'w', subdomain: 'alpha', legal_name: 'Alpha SRL', status: 'active',
+          idno: '1002600012345', legal_form: 'SRL', own_company_id: COMPANY,
+        },
+        me: {
+          user_id: 'u', email: 'dev@example.md', full_name: 'Dev', membership_status: 'active',
+          role: null, companies: [],
+        },
+        roles: [],
+        delegated_access: [],
+      },
+    })
+    renderScreen(<AppLayout tenantId="t" />, { path: '/parteneri', route: '/parteneri' })
+
+    const chooser = await screen.findByRole('combobox', { name: 'Companie' })
+    // Nimic ales încă, deci nicio secțiune de companie în bara laterală.
+    expect(screen.queryByRole('link', { name: 'Balanța de verificare' })).toBeNull()
+
+    fireEvent.change(chooser, { target: { value: SECOND } })
+
+    // Fără navigare -- ecranul nu e al unei companii -- dar alegerea se vede pe
+    // loc: în chip și în secțiunile din bara laterală. Prima versiune o scria
+    // doar în `localStorage`, care nu e intrare de randare, deci nu se schimba
+    // nimic până la următoarea navigare.
+    expect(chooser).toHaveValue(SECOND)
+    expect(screen.getByRole('link', { name: 'Balanța de verificare' })).toHaveAttribute(
+      'href',
+      `/companii/${SECOND}/balanta`,
+    )
+  })
+
+  it('schimbarea companiei de pe fișa unui cont duce la planul celeilalte, nu la o adresă moartă', async () => {
+    const SECOND = '66666666-6666-6666-6666-666666666666'
+    stubFetch({
+      '/api/v1/companies': [
+        ...COMPANIES,
+        { id: SECOND, legal_name: 'Alt SRL', idno: '1013600099999', functional_currency: 'MDL' },
+      ],
+      '/api/v1/workspace': {
+        tenant: {
+          id: 'w', subdomain: 'alpha', legal_name: 'Alpha SRL', status: 'active',
+          idno: '1002600012345', legal_form: 'SRL', own_company_id: COMPANY,
+        },
+        me: {
+          user_id: 'u', email: 'dev@example.md', full_name: 'Dev', membership_status: 'active',
+          role: null, companies: [],
+        },
+        roles: [],
+        delegated_access: [],
+      },
+    })
+
+    // Ruta curentă e a unui CONT, deci primul segment e `conturi` -- care nu e
+    // secțiune. Prima versiune îl păstra ca atare și producea
+    // `/companii/<alta>/conturi`, adresă pe care nicio rută n-o prinde.
+    render(
+      <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+        <MemoryRouter initialEntries={[`/companii/${COMPANY}/conturi/${ACCOUNT}/fisa`]}>
+          <Routes>
+            <Route path="/companii/:companyId/*" element={<AppLayout tenantId="t" />} />
+            <Route path="/companii/:companyId/plan-de-conturi" element={<p>planul celeilalte</p>} />
+          </Routes>
+        </MemoryRouter>
+      </QueryClientProvider>,
+    )
+
+    const chooser = await screen.findByRole('combobox', { name: 'Companie' })
+    fireEvent.change(chooser, { target: { value: SECOND } })
+
+    expect(await screen.findByText('planul celeilalte')).toBeInTheDocument()
+  })
+
+  it('antetul caută conturi și contragenți, și spune cine e autentificat', async () => {
+    stubFetch({
+      '/api/v1/companies': COMPANIES,
+      [`/api/v1/accounting/coa/companies/${COMPANY}/accounts`]: ACCOUNTS,
+      '/api/v1/masterdata/partners/': [
+        {
+          id: 'p1', legal_name: 'ICS Termocom SRL', short_name: null, kind: 'legal_entity',
+          idno: '1002600011223', idnp: null, internal_name: null,
+          display_name: 'ICS Termocom SRL', vat_code: null, vat_registered: false,
+          default_currency: null, default_payment_terms_days: null,
+          is_customer: false, is_supplier: true, is_active: true,
+        },
+      ],
+      '/api/v1/workspace': {
+        tenant: {
+          id: 'w', subdomain: 'alpha', legal_name: 'Alpha SRL', status: 'active',
+          idno: '1002600012345', legal_form: 'SRL', own_company_id: COMPANY,
+        },
+        me: {
+          user_id: 'u', email: 'ana.rusu@example.md', full_name: 'Ana Rusu',
+          membership_status: 'active',
+          role: {
+            key: 'owner', name: 'owner', level: 'tenant', is_system: true, permissions: [],
+          },
+          companies: [],
+        },
+        roles: [],
+        delegated_access: [],
+      },
+    })
+    renderScreen(<AppLayout tenantId="t" />, {
+      path: '/companii/:companyId/*',
+      route: `/companii/${COMPANY}/plan-de-conturi`,
+    })
+
+    // Cine e autentificat, cu rolul în română -- serverul ține chei, nu etichete.
+    expect(await screen.findByText('Ana Rusu')).toBeInTheDocument()
+    expect(screen.getByText('Proprietar')).toBeInTheDocument()
+    // Iniţialele, nu o poză care nu există.
+    expect(screen.getByText('AR')).toBeInTheDocument()
+
+    // Căutarea găseşte contul după denumire, din planul companiei selectate.
+    fireEvent.change(screen.getByRole('searchbox', { name: /Caută/ }), {
+      target: { value: 'curente' },
+    })
+    expect(await screen.findByText('Conturi curente în monedă națională')).toBeInTheDocument()
+    // Şi contragentul, de la server.
+    expect(await screen.findByText('ICS Termocom SRL')).toBeInTheDocument()
+  })
+
+  it('în afara unei companii comutatorul poate fi gol, iar cu una singură dispare', async () => {
+    const SECOND = '55555555-5555-5555-5555-555555555555'
+    const workspaceBody = {
+      tenant: {
+        id: 'w', subdomain: 'alpha', legal_name: 'Ion Popescu', status: 'active',
+        idno: null, legal_form: null,
+      },
+      me: {
+        user_id: 'u', email: 'ion@example.md', full_name: 'Ion Popescu',
+        membership_status: 'active', role: null, companies: [],
+      },
+      roles: [],
+      delegated_access: [],
+    }
+
+    stubFetch({
+      '/api/v1/companies': [
+        ...COMPANIES,
+        { id: SECOND, legal_name: 'Alt SRL', idno: '1013600099999', functional_currency: 'MDL' },
+      ],
+      '/api/v1/workspace': workspaceBody,
+    })
+    renderScreen(<AppLayout tenantId="t" />, { path: '/parteneri', route: '/parteneri' })
+
+    // Stare goală legitimă (ADR-085), nu o scăpare: nimeni n-a ales încă.
+    const chooser = await screen.findByRole('combobox', { name: 'Companie' })
+    expect(chooser).toHaveValue('')
+    expect(screen.getAllByText('Alege compania').length).toBeGreaterThan(0)
+    // Fără companie aleasă nu există secțiuni la care să ducă.
+    expect(screen.queryByRole('link', { name: 'Balanța de verificare' })).toBeNull()
+
+    cleanup()
+
+    // O singură companie: nimic de ales, deci niciun control.
+    stubFetch({ '/api/v1/companies': COMPANIES, '/api/v1/workspace': workspaceBody })
+    renderScreen(<AppLayout tenantId="t" />, { path: '/parteneri', route: '/parteneri' })
+
+    expect(await screen.findByText('Test Vertical SRL')).toBeInTheDocument()
+    expect(screen.queryByRole('combobox', { name: 'Companie' })).toBeNull()
+  })
+
+  it('un partener se modifică din listă, iar IDNO-ul nu e câmp de formular', async () => {
+    const partner = {
+      id: 'p1', legal_name: 'Franzeluta SA', short_name: null, kind: 'legal_entity',
+      idno: '1002600055667', idnp: null, internal_name: null,
+      display_name: 'Franzeluta SA', vat_code: null, vat_registered: false,
+      default_currency: null, default_payment_terms_days: null,
+      is_customer: false, is_supplier: true, is_active: true,
+    }
+    stubFetch({ '/api/v1/masterdata/partners/': [partner] })
+    renderScreen(<PartnersScreen />, { path: '/parteneri', route: '/parteneri' })
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Modifică' }))
+
+    // Formularul se deschide pe rândul ales, cu valorile lui.
+    expect(await screen.findByDisplayValue('Franzeluta SA')).toBeInTheDocument()
+    // Și spune ce NU se schimbă de aici, în loc să lase omul să descopere.
+    expect(screen.getByText(/IDNO-ul și înregistrarea TVA nu se schimbă de aici/)).toBeInTheDocument()
+    // IDNO-ul nu are câmp: nu e ascuns, nu e dezactivat -- nu există.
+    expect(screen.queryByDisplayValue('1002600055667')).toBeNull()
+  })
+
+  it('secțiunile companiei duc oriunde în ea și lipsesc în afara uneia', async () => {
+    stubFetch({ '/api/v1/companies': COMPANIES })
+    const mounted = renderScreen(<CompanyNav companyId={COMPANY} />, {
+      path: '*',
+      route: `/companii/${COMPANY}/balanta`,
+    })
+
+    // Dintr-un ecran de contabilitate se ajunge direct în salarizare: exact
+    // drumul care înainte trecea înapoi prin lista de companii. Denumirea
+    // companiei nu e aici -- stă în comutatorul din antet (ADR-074).
+    expect(await screen.findByRole('link', { name: 'Pontaj' })).toHaveAttribute(
+      'href',
+      `/companii/${COMPANY}/pontaj`,
+    )
+    expect(screen.getByRole('link', { name: 'Registrul înregistrărilor' })).toHaveAttribute(
+      'href',
+      `/companii/${COMPANY}/registru`,
+    )
+    // Și secțiunea deschisă e marcată, nu doar prezentă.
+    expect(screen.getByRole('link', { name: 'Balanța de verificare' })).toHaveAttribute(
+      'aria-current',
+      'page',
+    )
+
+    mounted.unmount()
+    // Fără companie în adresă nu are ce arăta: antetul rămâne singurul nivel.
+    // Fără companie selectată -- un spațiu de lucru fără nicio companie -- nu
+    // există la ce să arate secțiunile.
+    renderScreen(<CompanyNav companyId={undefined} />, { path: '*', route: '/parteneri' })
+    expect(screen.queryByRole('link', { name: 'Pontaj' })).not.toBeInTheDocument()
+  })
+
   it('darea de seamă arată antetul, ambele secțiuni și reconcilierea în ambele sensuri', async () => {
     stubFetch({
       [`/api/v1/tax/ipc/companies/${COMPANY}`]: [
@@ -750,6 +1148,161 @@ describe('ecranele', () => {
     ).toBeInTheDocument()
   })
 
+  it('jurnalul arată denumirea legală, totalurile serverului, și spune ce nu este', async () => {
+    stubFetch({
+      [`/api/v1/accounting/ledger/companies/${COMPANY}/journals/sales`]: {
+        owner: 'sales',
+        start_date: '2026-01-01',
+        end_date: '2026-01-31',
+        rows: [
+          {
+            document_id: 'j1',
+            document_type: 'sales.document',
+            formatted_number: 'FV-0001-2026',
+            document_date: '2026-01-20',
+            accounting_date: '2026-01-20',
+            partner_name: 'Societatea Comercială "Beta" SRL',
+            currency: 'MDL',
+            net: '1000.00',
+            vat: '0',
+            total: '1000.00',
+          },
+        ],
+        totals: { net: '1000.00', vat: '0', total: '1000.00' },
+      },
+    })
+    renderScreen(<JournalScreen />, {
+      path: '/companii/:companyId/jurnale',
+      route: `/companii/${COMPANY}/jurnale`,
+    })
+
+    expect(await screen.findByText('FV-0001-2026')).toBeInTheDocument()
+    // The legal name, which is what a register carries (C39).
+    expect(screen.getByText('Societatea Comercială "Beta" SRL')).toBeInTheDocument()
+    // And the sentence that keeps it from being filed as the statutory register.
+    expect(
+      screen.getByText(/Nu este registrul de livrări sau de procurări/),
+    ).toBeInTheDocument()
+  })
+
+  it('soldurile deschise arată ambele coloane și spun că potrivirea nu postează', async () => {
+    stubFetch({
+      [`/api/v1/settlements/companies/${COMPANY}/open`]: {
+        documents: [
+          {
+            document_id: 'd1',
+            document_type: 'sales.document',
+            formatted_number: 'FV-0001-2026',
+            document_date: '2026-01-20',
+            partner_id: 'p1',
+            side: 'receivable',
+            total: '5000.00',
+            allocated: '2000.00',
+            outstanding: '3000.00',
+          },
+        ],
+        movements: [
+          {
+            document_id: 'm1',
+            document_type: 'treasury.receipt',
+            formatted_number: 'INC-0003-2026',
+            document_date: '2026-01-22',
+            partner_id: 'p1',
+            side: 'receivable',
+            total: '1500.00',
+            allocated: '0',
+            outstanding: '1500.00',
+          },
+        ],
+      },
+    })
+    renderScreen(<SettlementsScreen />, {
+      path: '/companii/:companyId/solduri-deschise',
+      route: `/companii/${COMPANY}/solduri-deschise`,
+    })
+
+    // Both columns, each with what is left rather than what it was worth.
+    expect(await screen.findByText('FV-0001-2026')).toBeInTheDocument()
+    expect(screen.getByText('INC-0003-2026')).toBeInTheDocument()
+    expect(screen.getByText('3.000,00')).toBeInTheDocument()
+    expect(screen.getByText('1.500,00')).toBeInTheDocument()
+    // And the sentence that keeps somebody from looking for an entry that is not there.
+    expect(
+      screen.getByText(/Decontarea nu produce nicio înregistrare contabilă/),
+    ).toBeInTheDocument()
+  })
+
+  it('trezoreria arată sensul, unde au intrat banii, și spune ce nu leagă încă', async () => {
+    stubFetch({
+      [`/api/v1/treasury/companies/${COMPANY}/movements`]: [
+        {
+          id: 'm1',
+          formatted_number: 'INC-0003-2026',
+          document_date: '2026-01-22',
+          accounting_date: '2026-01-22',
+          state: 'posted',
+          partner_id: 'c1',
+          currency: 'MDL',
+          direction: 'receipt',
+          treasury_account: 'cash',
+          amount: '1500.00',
+          partner_resident: true,
+        },
+      ],
+      '/api/v1/masterdata/partners/': [],
+    })
+    renderScreen(<TreasuryScreen />, {
+      path: '/companii/:companyId/trezorerie',
+      route: `/companii/${COMPANY}/trezorerie`,
+    })
+
+    expect(await screen.findByText('INC-0003-2026')).toBeInTheDocument()
+    // The two discriminators that choose accounts, shown as such.
+    expect(screen.getByText('Încasare')).toBeInTheDocument()
+    expect(screen.getByText('Casă')).toBeInTheDocument()
+    expect(screen.getByText('1.500,00')).toBeInTheDocument()
+    // And the limit, said on the screen rather than discovered: the money reduces
+    // the balance, it does not yet point at an invoice.
+    expect(
+      screen.getByText(/Legarea de o factură anume — decontarea — vine separat/),
+    ).toBeInTheDocument()
+  })
+
+  it('facturile primite arată ambele numere și destinația costului', async () => {
+    stubFetch({
+      [`/api/v1/purchases/companies/${COMPANY}/invoices`]: [
+        {
+          id: 'p1',
+          formatted_number: 'FP-0007-2026',
+          supplier_document_number: 'AA 0001',
+          supplier_document_date: '2026-01-18',
+          document_date: '2026-01-20',
+          accounting_date: '2026-01-20',
+          state: 'posted',
+          partner_id: 'f1',
+          currency: 'MDL',
+          cost_destination: 'commercial',
+          partner_resident: true,
+          totals: { net: '3000.00', vat: '0', total: '3000.00' },
+        },
+      ],
+      '/api/v1/masterdata/partners/': [],
+    })
+    renderScreen(<PurchasesScreen />, {
+      path: '/companii/:companyId/facturi-primite',
+      route: `/companii/${COMPANY}/facturi-primite`,
+    })
+
+    // Both numbers: theirs is on the paper, ours is allocated at validation, and
+    // a register showing one of them cannot be cross-checked against the other.
+    expect(await screen.findByText('AA 0001')).toBeInTheDocument()
+    expect(screen.getByText('FP-0007-2026')).toBeInTheDocument()
+    // Formatted ro-MD from the string the server sent, never parsed to a float.
+    expect(screen.getByText('3.000,00')).toBeInTheDocument()
+    // The discriminator that chooses the expense account, shown as such.
+    expect(screen.getByText('Comercială')).toBeInTheDocument()
+  })
+
   it('facturile emise arată totalul serverului și cei doi discriminatori', async () => {
     stubFetch({
       [`/api/v1/sales/companies/${COMPANY}/invoices`]: [
@@ -761,7 +1314,7 @@ describe('ecranele', () => {
           state: 'posted',
           partner_id: 'p1',
           currency: 'MDL',
-          nature: 'delivery',
+          nature: 'return',
           revenue_kind: 'services',
           partner_resident: false,
           totals: { net: '5000.00', vat: '0', total: '5000.00' },
@@ -779,6 +1332,9 @@ describe('ecranele', () => {
     expect(screen.getByText('5.000,00')).toBeInTheDocument()
     // The discriminator that chooses the receivable account, shown as such.
     expect(screen.getByText('Servicii')).toBeInTheDocument()
+    // And the nature, which changes what the total means: this row is money owed
+    // back, not money owed (ADR-073 §7).
+    expect(screen.getByText('Notă de credit')).toBeInTheDocument()
     expect(screen.getByText('Nu')).toBeInTheDocument()
     // Already posted, so the row offers no second posting.
     expect(screen.queryByRole('button', { name: /Validează/ })).not.toBeInTheDocument()

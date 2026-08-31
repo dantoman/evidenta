@@ -1,0 +1,33 @@
+-- Mandatul declarat: temeiul acceptarii, referinta contractului, contactul de
+-- revendicare.
+--
+-- Autoritate:  CLAUDE.md C34, C5; docs/decisions/015-colatie-icu.md;
+--              docs/decisions/081-revendicarea-optionala.md §3.3, §3.5
+--
+-- CE NU FACE ACEST FISIER, si e proprietatea centrala a lui ADR-081:
+-- NU atinge `rls.has_tenant_access`. Un angajament pe mandat declarat este
+-- `active` ca oricare altul si trece prin calea 2 existenta a predicatului --
+-- fara ramura noua, fara stare noua, fara cost pe calea fierbinte. Daca o
+-- schimbare viitoare ajunge sa ceara predicatului sa stie de `acceptance_basis`,
+-- atunci citirea lui §3.3 s-a pierdut pe drum.
+--
+-- Nicio politica noua si niciun GRANT: coloanele stau pe `engagement`, care are
+-- deja politica `engagement_parties` si granturile ei din 0013. Ordinea din C30
+-- nu are ce ordona aici -- tabela, politica si granturile exista de atunci.
+--
+-- Ce nu poate exprima Django, si de aceea exista perechea:
+--
+-- `mandate_ref` e referinta unui contract, adica un numar de document: cod, nu
+-- denumire, deci `COLLATE "C"` (C34). Fara ea, o lista ordonata dupa referinta se
+-- aseaza dupa reguli lingvistice pe un sir care nu e limba.
+--
+-- `claim_contact_email` primeste `citext`, ca `user.email` din 0011, si din
+-- acelasi motiv: insensibilitatea la majuscule se face de tip, nu prin lower() in
+-- interogari, fiindca se uita exact acolo unde conteaza. Aici conteaza la
+-- revendicare -- singurul canal pe care INV-7 il are catre client.
+--
+-- Ambele NULLABLE, aditiv (C5): randurile existente raman valide. Ce le leaga de
+-- temei sunt cele trei CHECK-uri din migrarea Django, adaugate dupa scriere.
+
+ALTER TABLE engagement ALTER COLUMN mandate_ref TYPE text COLLATE "C";
+ALTER TABLE engagement ALTER COLUMN claim_contact_email TYPE citext;

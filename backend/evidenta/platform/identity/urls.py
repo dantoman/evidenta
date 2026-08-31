@@ -16,4 +16,7 @@ urlpatterns = [
     path("login", views.login, name="login"),
     path("logout", views.logout, name="logout"),
     path("whoami", views.whoami, name="whoami"),
+    # Editarea propriului nume. Nu poartă identificator: schimbă utilizatorul
+    # din sesiune și pe nimeni altcineva.
+    path("profile", views.profile, name="profile"),
 ]

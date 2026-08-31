@@ -25,11 +25,13 @@ import uuid
 from datetime import date
 
 from evidenta.accounting.periods.errors import (
+    CompanyNotPostableError,
     PeriodLockedError,
     PeriodNotFoundError,
     PeriodNotOpenError,
 )
 from evidenta.accounting.periods.models import Period, PeriodStatus
+from evidenta.platform.tenancy.services.companies import is_open_for_posting
 
 
 def period_for(company_id: uuid.UUID, accounting_date: date) -> Period:
@@ -58,6 +60,17 @@ def assert_postable(company_id: uuid.UUID, accounting_date: date) -> Period:
     answers the first and never answers the second, so a caller that cannot tell
     them apart cannot tell a user what to do next.
     """
+    # The company before the period, and the order is the message: a closed
+    # company has no open period anywhere, so asking about the calendar first
+    # would answer a question nobody asked. Until ADR-083 this check did not
+    # exist and `company.status` was read by nothing -- the value was there, the
+    # rule was not.
+    if not is_open_for_posting(company_id):
+        raise CompanyNotPostableError(
+            f"company {company_id} does not accept postings; "
+            f"its books stay readable, but nothing new is written into them"
+        )
+
     period = period_for(company_id, accounting_date)
     if period.status == PeriodStatus.LOCKED:
         raise PeriodLockedError(

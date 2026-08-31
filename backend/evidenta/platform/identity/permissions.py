@@ -60,6 +60,12 @@ PERMISSIONS: Final[tuple[PermissionDef, ...]] = (
     PermissionDef(
         "company.revoke_access", PermissionScope.COMPANY, "engagement.services.revocation"
     ),
+    # ADR-083. Two keys rather than one: closing is irreversible in practice and
+    # has no business travelling with the correction of an address. Company
+    # scope, so a holding can put somebody in charge of one company without
+    # handing them the others.
+    PermissionDef("company.edit", PermissionScope.COMPANY, "tenancy.services.companies"),
+    PermissionDef("company.close", PermissionScope.COMPANY, "tenancy.services.companies"),
 )
 
 PERMISSION_KEYS: Final[tuple[str, ...]] = tuple(p.key for p in PERMISSIONS)
