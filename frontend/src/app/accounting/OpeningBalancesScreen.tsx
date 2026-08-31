@@ -119,14 +119,6 @@ export function OpeningBalancesScreen() {
 
   return (
     <section className="flex flex-col gap-4">
-      <nav className="flex gap-4 text-sm">
-        <Link to={`/companii/${companyId}/plan-de-conturi`} className="text-accent">
-          {t.accounting.chart.title}
-        </Link>
-        <Link to={`/companii/${companyId}/balanta`} className="text-accent">
-          {t.accounting.balance.title}
-        </Link>
-      </nav>
 
       <header className="flex flex-col gap-1">
         <h1 className="type-display-2 text-heading">{t.accounting.opening.title}</h1>

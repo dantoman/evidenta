@@ -23,7 +23,7 @@
 
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
-import { Link, useParams } from 'react-router'
+import { useParams } from 'react-router'
 
 import { t } from '@/locales'
 import { listAccounts } from '@/shared/api/coa'
@@ -110,17 +110,6 @@ export function ManualEntryScreen() {
       {/* Out of this screen and across to its siblings. The chart is the
           company's home: every other accounting screen is reached from it, so
           it is the one link all three carry. */}
-      <nav className="flex gap-4 text-sm">
-        <Link to={`/companii/${companyId}/plan-de-conturi`} className="text-accent">
-          {t.accounting.chart.title}
-        </Link>
-        <Link to={`/companii/${companyId}/registru`} className="text-accent">
-          {t.accounting.register.title}
-        </Link>
-        <Link to={`/companii/${companyId}/balanta`} className="text-accent">
-          {t.accounting.balance.title}
-        </Link>
-      </nav>
       <h1 className="type-display-2 text-heading">{t.accounting.entry.title}</h1>
 
       <div className="flex flex-wrap items-end gap-4">

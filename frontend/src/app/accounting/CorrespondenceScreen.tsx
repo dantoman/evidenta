@@ -8,7 +8,7 @@
  */
 
 import { useQuery } from '@tanstack/react-query'
-import { Link, useNavigate, useParams } from 'react-router'
+import { useNavigate, useParams } from 'react-router'
 
 import { t } from '@/locales'
 import { amount } from '@/shared/format'
@@ -52,17 +52,6 @@ export function CorrespondenceScreen() {
 
   return (
     <section className="flex flex-col gap-4">
-      <nav className="flex gap-4 text-sm">
-        <Link to={`/companii/${companyId}/plan-de-conturi`} className="text-accent">
-          {t.accounting.chart.title}
-        </Link>
-        <Link to={`/companii/${companyId}/balanta`} className="text-accent">
-          {t.accounting.balance.title}
-        </Link>
-        <Link to={`/companii/${companyId}/registru`} className="text-accent">
-          {t.accounting.register.title}
-        </Link>
-      </nav>
 
       <ReportHeader
         title={t.accounting.reports.correspondence}

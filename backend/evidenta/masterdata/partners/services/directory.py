@@ -58,6 +58,26 @@ class PartnerDuplicateError(ApiError):
     status = 409
 
 
+class PartnerNameCollisionError(ApiError):
+    """A second nameless record for a name that already exists.
+
+    `R20` deduplicates by natural business keys, and for a partner that key is
+    the IDNO -- which the unique index already enforces. A record with **no**
+    identifier has no key at all, so nothing stops a second one, and the two then
+    split one counterparty's balance between them. The split does not announce
+    itself: it surfaces later as a reconciliation that will not close.
+
+    Not a database constraint, and the reason is that the rule is not true in
+    general: two real firms can carry the same name, and a constraint would refuse
+    the second one forever. What is refused here is narrower -- a second record
+    when **neither** side has anything to tell them apart -- and the message says
+    the way out, which is to give one of them its IDNO.
+    """
+
+    code = "partners.name_collision"
+    status = 409
+
+
 class PartnerNotFoundError(ApiError):
     code = "partners.not_found"
     status = 404
@@ -130,6 +150,25 @@ def create_partner(
             "counterparty was registered on the day of a document decides how that "
             "document is treated, and there is no safe date to assume."
         )
+
+    # Only when the newcomer has nothing to be told apart by. With an IDNO the
+    # unique index is the authority, and two same-named firms are a fact of the
+    # register rather than a mistake.
+    if idno is None and idnp is None:
+        nameless_twin = (
+            Partner.objects.filter(
+                tenant_id=tenant_id, legal_name__iexact=name, idno__isnull=True, idnp__isnull=True
+            )
+            .exclude(is_active=False)
+            .first()
+        )
+        if nameless_twin is not None:
+            raise PartnerNameCollisionError(
+                f"a partner named {name!r} without an IDNO already exists; a second "
+                f"nameless record splits one counterparty's balance between two, and "
+                f"the split surfaces as a reconciliation that will not close. Give "
+                f"one of them its IDNO, or use the record that is already there"
+            )
 
     try:
         with transaction.atomic():

@@ -102,17 +102,11 @@ export function AccountLedgerScreen() {
   return (
     <section className="flex flex-col gap-4">
       <nav className="flex gap-4 text-sm">
-        <Link to={`/companii/${companyId}/plan-de-conturi`} className="text-accent">
-          {t.accounting.chart.title}
-        </Link>
         <Link to={`/companii/${companyId}/conturi/${accountId}`} className="text-accent">
           {t.accounting.account.title}
         </Link>
         <Link to={`/companii/${companyId}/conturi/${accountId}/cartea-mare`} className="text-accent">
           {t.accounting.reports.generalLedger}
-        </Link>
-        <Link to={`/companii/${companyId}/balanta`} className="text-accent">
-          {t.accounting.balance.title}
         </Link>
       </nav>
 

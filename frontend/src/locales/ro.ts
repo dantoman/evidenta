@@ -1088,6 +1088,10 @@ export const ro = {
     'opening.batch_already_posted': 'Lotul a fost deja postat.',
     'partners.malformed': 'Datele partenerului nu au forma cerută.',
     'partners.idno_taken': 'Există deja un partener cu acest IDNO.',
+    // Refuzul spune și ieșirea, fiindcă altfel omul rămâne blocat pe un ecran
+    // care zice „nu" fără să zică „ci cum".
+    'partners.name_collision':
+      'Există deja un partener cu această denumire și fără IDNO. Completați IDNO-ul la unul dintre ei, sau folosiți fișa existentă.',
     'partners.not_found': 'Partenerul nu a fost găsit.',
     // Salarizare. Fiecare cod exista in `operations/payroll/services/`.
     'payroll.employee_malformed': 'Datele persoanei nu au forma cerută.',

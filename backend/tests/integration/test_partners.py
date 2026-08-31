@@ -185,3 +185,31 @@ def test_a_blank_legal_name_is_refused(post: Callable[..., Any], patch: Callable
     """
     created = post(BASE, CLIENT).json()
     assert patch(f"{BASE}{created['id']}", {"legal_name": "   "}).status_code == 400
+
+
+def test_a_second_nameless_record_for_one_name_is_refused(post: Callable[..., Any]) -> None:
+    """Two „Franzeluta SA" fără IDNO sunt un sold rupt în două, nu doi parteneri.
+
+    Cazul e din arborele de dezvoltare al proprietarului: două rânduri cu aceeași
+    denumire și coloana IDNO goală. Indexul unic nu-l prinde -- nu are pe ce, cheia
+    naturală lipsește -- deci refuzul e al serviciului, și e îngust: doar când
+    **niciuna** dintre fișe n-are cu ce fi deosebită.
+    """
+    nameless = {"legal_name": "Franzeluta SA", "is_customer": True}
+    assert post(BASE, nameless).status_code == 201
+
+    refused = post(BASE, nameless)
+    assert refused.status_code == 409, refused.content.decode()
+    assert refused.json()["code"] == "partners.name_collision"
+
+
+def test_the_same_name_with_an_idno_is_allowed(post: Callable[..., Any]) -> None:
+    """Două firme reale pot purta același nume -- iar atunci una dintre ele îl are.
+
+    Regula nu e „un nume, un partener": e „nimic care să le deosebească". Testul
+    o ține îngustă, ca refuzul de mai sus să nu se lățească într-o interdicție
+    care ar refuza pentru totdeauna un caz real.
+    """
+    assert post(BASE, {"legal_name": "Franzeluta SA", "is_customer": True}).status_code == 201
+    with_idno = {"legal_name": "Franzeluta SA", "idno": "1002600055667", "is_customer": True}
+    assert post(BASE, with_idno).status_code == 201

@@ -162,23 +162,6 @@ export function ChartOfAccountsScreen() {
             {template && ` · ${t.accounting.chart.version} ${template.code} ${template.version}`}
           </div>
           <h1 className="type-display-2 text-heading">{t.accounting.chart.title}</h1>
-          <nav className="flex gap-4 pt-1 text-sm">
-            <Link to={`/companii/${companyId}/note`} className="text-accent">
-              {t.accounting.entry.title}
-            </Link>
-            <Link to={`/companii/${companyId}/sabloane`} className="text-accent">
-              {t.accounting.operationTemplates.title}
-            </Link>
-            <Link to={`/companii/${companyId}/solduri-initiale`} className="text-accent">
-              {t.accounting.opening.title}
-            </Link>
-            <Link to={`/companii/${companyId}/registru`} className="text-accent">
-              {t.accounting.register.title}
-            </Link>
-            <Link to={`/companii/${companyId}/balanta`} className="text-accent">
-              {t.accounting.balance.title}
-            </Link>
-          </nav>
         </div>
 
         <div className="flex flex-wrap items-end gap-3">
