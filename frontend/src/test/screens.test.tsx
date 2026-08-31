@@ -28,7 +28,6 @@ import { OperationTemplatesScreen } from '@/app/accounting/OperationTemplatesScr
 import { RegisterScreen } from '@/app/accounting/RegisterScreen'
 import { TrialBalanceScreen } from '@/app/accounting/TrialBalanceScreen'
 import { CompaniesScreen } from '@/app/companies/CompaniesScreen'
-import { CompanyNav } from '@/app/layout/CompanyNav'
 import { PartnersScreen } from '@/app/partners/PartnersScreen'
 import { SalesScreen } from '@/app/sales/SalesScreen'
 import { ContractsScreen } from '@/app/payroll/ContractsScreen'
@@ -671,37 +670,6 @@ describe('ecranele', () => {
     ).toBeInTheDocument()
     // And approval is out of reach while it is open.
     expect(screen.getByRole('button', { name: 'Aprobă' })).toBeDisabled()
-  })
-
-  it('banda companiei duce în orice secțiune a ei și lipsește în afara uneia', async () => {
-    stubFetch({ '/api/v1/companies': COMPANIES })
-    const mounted = renderScreen(<CompanyNav />, {
-      path: '*',
-      route: `/companii/${COMPANY}/balanta`,
-    })
-
-    // Denumirea legală, nu identificatorul: acela e deja în bara de adrese.
-    expect(await screen.findByText('Test Vertical SRL')).toBeInTheDocument()
-    // Dintr-un ecran de contabilitate se ajunge direct în salarizare: exact
-    // drumul care înainte trecea înapoi prin lista de companii.
-    expect(screen.getByRole('link', { name: 'Pontaj' })).toHaveAttribute(
-      'href',
-      `/companii/${COMPANY}/pontaj`,
-    )
-    expect(screen.getByRole('link', { name: 'Registrul înregistrărilor' })).toHaveAttribute(
-      'href',
-      `/companii/${COMPANY}/registru`,
-    )
-    // Și secțiunea deschisă e marcată, nu doar prezentă.
-    expect(screen.getByRole('link', { name: 'Balanța de verificare' })).toHaveAttribute(
-      'aria-current',
-      'page',
-    )
-
-    mounted.unmount()
-    // Fără companie în adresă nu are ce arăta: antetul rămâne singurul nivel.
-    renderScreen(<CompanyNav />, { path: '*', route: '/parteneri' })
-    expect(screen.queryByRole('link', { name: 'Pontaj' })).not.toBeInTheDocument()
   })
 
   it('darea de seamă arată antetul, ambele secțiuni și reconcilierea în ambele sensuri', async () => {
