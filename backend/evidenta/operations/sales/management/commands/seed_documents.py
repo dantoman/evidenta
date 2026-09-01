@@ -32,16 +32,27 @@ from django.db import connections
 
 from evidenta.accounting.slots.services.binding import install_default_bindings
 from evidenta.masterdata.partners.services.directory import create_partner, partners_of
-from evidenta.operations.purchases.services.documents import open_purchase
+from evidenta.operations.purchases.services.documents import (
+    convert_to_purchase,
+    open_purchase,
+    open_supplier_order,
+)
 from evidenta.operations.purchases.services.lines import service_line as purchase_line
 from evidenta.operations.purchases.services.recording import record_and_post as record_purchase
 from evidenta.operations.sales.models import SalesDocument
-from evidenta.operations.sales.services.documents import open_sale
+from evidenta.operations.sales.services.documents import (
+    convert_to_sale,
+    open_customer_order,
+    open_proforma,
+    open_sale,
+)
 from evidenta.operations.sales.services.issuing import issue_and_post
 from evidenta.operations.sales.services.lines import service_line as sale_line
+from evidenta.operations.settlements.services.allocation import allocate
 from evidenta.operations.treasury.services.documents import open_payment, open_receipt
 from evidenta.operations.treasury.services.recording import record_and_post as record_movement
 from evidenta.platform.capabilities.services.profile import active_profile
+from evidenta.platform.documents.services.lifecycle import validate
 from evidenta.platform.documents.services.lines import replace_lines
 from evidenta.platform.numbering.services.allocation import resolve_template
 from evidenta.platform.rls.context import TenantContext, tenant_context
@@ -199,19 +210,23 @@ class Command(BaseCommand):
         supplier: uuid.UUID,
         base: date,
     ) -> int:
-        made = 0
+        """Every situation the product can express today, each reported by name.
+
+        Written as a list of attempts rather than a straight line, and each one is
+        caught: a refusal is **information**, not a crash. What the run prints is
+        therefore a map of what this build supports -- goods and finished products
+        select revenue roles that nothing binds yet, non-residents select another,
+        and each of those refuses with a sentence saying which. A seeder that
+        stopped at the first refusal would have hidden the other eleven.
+        """
         scale = _scale(company_id)
         snapshot = active_profile(company_id, base).as_snapshot()
+        made = 0
 
-        for index, (description, amount) in enumerate(SALES):
-            on = date(base.year, base.month, 5 + index * 10)
-            document_id = open_sale(
-                company_id=company_id,
-                partner_id=customer,
-                document_date=on,
-                revenue_kind="services",
-                partner_resident=True,
-            )
+        def day(number: int) -> date:
+            return date(base.year, base.month, min(number, 28))
+
+        def issue(document_id: uuid.UUID, description: str, amount: str, on: date) -> None:
             replace_lines(
                 document_id,
                 [
@@ -229,29 +244,8 @@ class Command(BaseCommand):
                 request_id="seed_documents",
                 capability_snapshot=snapshot,
             )
-            made += 1
 
-        for index, (description, amount) in enumerate(PURCHASES):
-            on = date(base.year, base.month, 8 + index * 10)
-            try:
-                document_id = open_purchase(
-                    company_id=company_id,
-                    partner_id=supplier,
-                    document_date=on,
-                    # The supplier's own number, and it carries the company:
-                    # without it two companies buying from the same supplier
-                    # would be issued the same reference by this seeder, which is
-                    # a collision the seeder invented rather than one the world
-                    # has. A re-run still collides, and rightly -- the same
-                    # document recorded twice is `R20`'s whole subject.
-                    supplier_document_number=f"FF-{base:%Y}-{company_id.hex[:4]}{index}",
-                    supplier_document_date=on,
-                    cost_destination="administrative",
-                    partner_resident=True,
-                )
-            except Exception as recorded:  # documentul furnizorului e deja înregistrat
-                self.stdout.write(f"  achiziție sărită: {recorded}")
-                continue
+        def record(document_id: uuid.UUID, description: str, amount: str, on: date) -> None:
             replace_lines(
                 document_id,
                 [
@@ -269,31 +263,262 @@ class Command(BaseCommand):
                 request_id="seed_documents",
                 capability_snapshot=snapshot,
             )
-            made += 1
 
-        receipt = open_receipt(
-            company_id=company_id,
-            partner_id=customer,
-            document_date=date(base.year, base.month, 20),
-            amount=_amount("48000.00", scale),
-            treasury_account="bank",
-            partner_resident=True,
-        )
-        payment = open_payment(
-            company_id=company_id,
-            partner_id=supplier,
-            document_date=date(base.year, base.month, 22),
-            amount=_amount("12000.00", scale),
-            treasury_account="bank",
-            partner_resident=True,
-        )
-        for movement in (receipt, payment):
+        def movement(document_id: uuid.UUID) -> None:
             record_movement(
-                document_id=movement,
+                document_id=document_id,
                 actor_user_id=user_id,
                 request_id="seed_documents",
                 capability_snapshot=snapshot,
             )
-            made += 1
+
+        # Kept for the settlement below: an allocation needs an invoice with a
+        # balance and a receipt with money on it, both of them real.
+        invoiced: uuid.UUID | None = None
+        received: uuid.UUID | None = None
+
+        def sale_delivery_resident() -> str:
+            nonlocal invoiced
+            on = day(5)
+            document_id = open_sale(
+                company_id=company_id,
+                partner_id=customer,
+                document_date=on,
+                revenue_kind="services",
+                partner_resident=True,
+            )
+            issue(document_id, "Servicii de consultanță", "48000.00", on)
+            invoiced = document_id
+            return "vânzare · livrare · rezident"
+
+        def sale_delivery_non_resident() -> str:
+            on = day(6)
+            document_id = open_sale(
+                company_id=company_id,
+                partner_id=customer,
+                document_date=on,
+                revenue_kind="services",
+                partner_resident=False,
+            )
+            issue(document_id, "Servicii către nerezident", "22000.00", on)
+            return "vânzare · livrare · nerezident"
+
+        def sale_advance() -> str:
+            on = day(7)
+            document_id = open_sale(
+                company_id=company_id,
+                partner_id=customer,
+                document_date=on,
+                revenue_kind="services",
+                partner_resident=True,
+                nature="advance",
+            )
+            issue(document_id, "Avans încasat", "15000.00", on)
+            return "vânzare · avans"
+
+        def sale_return() -> str:
+            on = day(9)
+            document_id = open_sale(
+                company_id=company_id,
+                partner_id=customer,
+                document_date=on,
+                revenue_kind="services",
+                partner_resident=True,
+                nature="return",
+            )
+            issue(document_id, "Storno servicii facturate", "5000.00", on)
+            return "vânzare · retur (notă de credit)"
+
+        def sale_goods() -> str:
+            on = day(10)
+            document_id = open_sale(
+                company_id=company_id,
+                partner_id=customer,
+                document_date=on,
+                revenue_kind="goods",
+                partner_resident=True,
+            )
+            issue(document_id, "Mărfuri vândute", "18000.00", on)
+            return "vânzare · mărfuri"
+
+        def proforma_converted() -> str:
+            on = day(11)
+            source = open_proforma(company_id=company_id, partner_id=customer, document_date=on)
+            replace_lines(
+                source,
+                [
+                    sale_line(
+                        description="Ofertă servicii",
+                        quantity=Decimal("1"),
+                        unit_price=_amount("9000.00", scale),
+                        on=on,
+                    )
+                ],
+            )
+            # Validated first: only a commitment converts, and a draft proforma
+            # is still an offer somebody is editing. The refusal that taught me
+            # this said exactly that.
+            validate(source)
+            document_id = convert_to_sale(
+                source_id=source,
+                document_date=on,
+                revenue_kind="services",
+                partner_resident=True,
+            )
+            issue_and_post(
+                document_id=document_id,
+                actor_user_id=user_id,
+                request_id="seed_documents",
+                capability_snapshot=snapshot,
+            )
+            return "proformă → vânzare"
+
+        def order_converted() -> str:
+            on = day(12)
+            source = open_customer_order(
+                company_id=company_id, partner_id=customer, document_date=on
+            )
+            replace_lines(
+                source,
+                [
+                    sale_line(
+                        description="Comandă servicii",
+                        quantity=Decimal("1"),
+                        unit_price=_amount("7500.00", scale),
+                        on=on,
+                    )
+                ],
+            )
+            validate(source)
+            document_id = convert_to_sale(
+                source_id=source,
+                document_date=on,
+                revenue_kind="services",
+                partner_resident=True,
+            )
+            issue_and_post(
+                document_id=document_id,
+                actor_user_id=user_id,
+                request_id="seed_documents",
+                capability_snapshot=snapshot,
+            )
+            return "comandă client → vânzare"
+
+        def purchase(destination: str, label: str, amount: str, offset: int) -> str:
+            on = day(14 + offset)
+            document_id = open_purchase(
+                company_id=company_id,
+                partner_id=supplier,
+                document_date=on,
+                # The supplier's own number, and it carries the company: without
+                # it two companies buying from one supplier would be handed the
+                # same reference by this seeder -- a collision the seeder invented
+                # rather than one the world has. A re-run still collides, and
+                # rightly: that is `R20`'s subject.
+                supplier_document_number=f"FF-{base:%Y%m}-{company_id.hex[:4]}{offset}",
+                supplier_document_date=on,
+                cost_destination=destination,
+                partner_resident=True,
+            )
+            record(document_id, label, amount, on)
+            return f"achiziție · {destination}"
+
+        def supplier_order_converted() -> str:
+            on = day(18)
+            source = open_supplier_order(
+                company_id=company_id, partner_id=supplier, document_date=on
+            )
+            replace_lines(
+                source,
+                [
+                    purchase_line(
+                        description="Comandă consumabile",
+                        quantity=Decimal("1"),
+                        unit_price=_amount("3400.00", scale),
+                        on=on,
+                    )
+                ],
+            )
+            validate(source)
+            document_id = convert_to_purchase(
+                source_id=source,
+                document_date=on,
+                supplier_document_number=f"FF-{base:%Y%m}-{company_id.hex[:4]}C",
+                supplier_document_date=on,
+                cost_destination="administrative",
+                partner_resident=True,
+            )
+            record_purchase(
+                document_id=document_id,
+                actor_user_id=user_id,
+                request_id="seed_documents",
+                capability_snapshot=snapshot,
+            )
+            return "comandă furnizor → achiziție"
+
+        def receipt(account: str, amount: str, offset: int) -> str:
+            nonlocal received
+            document_id = open_receipt(
+                company_id=company_id,
+                partner_id=customer,
+                document_date=day(20 + offset),
+                amount=_amount(amount, scale),
+                treasury_account=account,
+                partner_resident=True,
+            )
+            movement(document_id)
+            if account == "bank":
+                received = document_id
+            return f"încasare · {account}"
+
+        def payment(account: str, amount: str, offset: int) -> str:
+            document_id = open_payment(
+                company_id=company_id,
+                partner_id=supplier,
+                document_date=day(22 + offset),
+                amount=_amount(amount, scale),
+                treasury_account=account,
+                partner_resident=True,
+            )
+            movement(document_id)
+            return f"plată · {account}"
+
+        def settlement() -> str:
+            if invoiced is None or received is None:
+                raise RuntimeError("nu există factură și încasare de decontat")
+            allocate(
+                settled_document_id=invoiced,
+                movement_document_id=received,
+                amount=_amount("20000.00", scale),
+            )
+            return "decontare · încasare alocată pe factură"
+
+        situations = (
+            sale_delivery_resident,
+            sale_delivery_non_resident,
+            sale_advance,
+            sale_return,
+            sale_goods,
+            proforma_converted,
+            order_converted,
+            lambda: purchase("administrative", "Chirie spațiu", "12000.00", 0),
+            lambda: purchase("commercial", "Publicitate", "4800.00", 1),
+            lambda: purchase("production_direct", "Subcontractare", "9200.00", 2),
+            supplier_order_converted,
+            lambda: receipt("bank", "48000.00", 0),
+            lambda: receipt("cash", "3500.00", 1),
+            lambda: payment("bank", "12000.00", 0),
+            lambda: payment("cash", "1800.00", 1),
+            settlement,
+        )
+
+        for attempt in situations:
+            try:
+                label = attempt()
+            except Exception as refusal:  # un refuz e informație, nu o oprire
+                self.stdout.write(f"    refuzat: {refusal}")
+            else:
+                made += 1
+                self.stdout.write(f"    {label}")
 
         return made
