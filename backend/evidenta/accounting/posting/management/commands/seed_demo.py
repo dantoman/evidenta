@@ -37,7 +37,9 @@ parameter is activated, VAT enters through the posting rules, not through here.
 from __future__ import annotations
 
 import uuid
+from dataclasses import dataclass
 from datetime import date
+from decimal import Decimal
 from typing import Any
 
 from django.core.management.base import BaseCommand, CommandError
@@ -65,8 +67,8 @@ PARTNERS = (
 
 #: Three months of ordinary movement, as (month offset, day, description, debit,
 #: credit, amount). Offsets rather than calendar months: the first month a
-#: company can number a document is not always January (see `_first_postable`),
-#: and a demo that insisted on January would refuse to seed a company created in
+#: company can number a document is not always January (see the base search), and
+#: a demo that insisted on January would refuse to seed a company created in
 #: August.
 NOTES: tuple[tuple[int, int, str, str, str, str], ...] = (
     (0, 15, "Vânzare produse", "221", "611", "128300.00"),
@@ -82,6 +84,43 @@ NOTES: tuple[tuple[int, int, str, str, str, str], ...] = (
     (2, 20, "Consum de materiale", "711", "211", "31200.00"),
     (2, 28, "Salarii calculate", "713", "531", "62000.00"),
 )
+
+
+@dataclass(frozen=True, slots=True)
+class Profile:
+    """How one company's demo differs from the next one's.
+
+    **The point is that they differ.** Three companies seeded with identical
+    figures make the one check a person actually performs -- switch company, look
+    at the balance -- prove nothing: the same numbers are what a leak would look
+    like too. Different scales, different lengths and different words mean a
+    glance at the trial balance answers "am I looking at this company's books?"
+    without trusting anything.
+
+    Chosen by a stable hash of the company id, so a re-run gives a company the
+    same profile and adding a fourth company does not reshuffle the other three.
+    """
+
+    label: str
+    scale: Decimal
+    notes: int
+
+
+PROFILES: tuple[Profile, ...] = (
+    Profile("mare", Decimal("1.0"), 12),
+    Profile("mică", Decimal("0.35"), 8),
+    Profile("mijlocie", Decimal("1.7"), 10),
+    Profile("de sezon", Decimal("0.6"), 6),
+)
+
+
+def _profile(company_id: uuid.UUID) -> Profile:
+    return PROFILES[int(company_id.hex[:8], 16) % len(PROFILES)]
+
+
+def _scaled(amount: str, scale: Decimal) -> str:
+    """Rounded to the currency's two decimals, so the note balances exactly."""
+    return str((Decimal(amount) * scale).quantize(Decimal("0.01")))
 
 
 def _shift(base: date, months: int, day: int) -> date:
@@ -234,8 +273,13 @@ class Command(BaseCommand):
         # care se postează.
         accounts = {row.account_code: row.id for row in postable_accounts(company_id, base)}
 
+        # Fiecare companie primește altă amprentă: alt volum, altă lungime. Vezi
+        # `Profile` -- cifre identice pe trei companii fac verificarea vizuală
+        # inutilă, fiindcă exact așa ar arăta și o scurgere.
+        profile = _profile(company_id)
         posted = 0
-        for months, day, description, debit, credit, amount in NOTES:
+        for months, day, description, debit, credit, raw in NOTES[: profile.notes]:
+            amount = _scaled(raw, profile.scale)
             if debit not in accounts or credit not in accounts:
                 self.stdout.write(f"  notă sărită: contul {debit} sau {credit} lipsește")
                 continue
@@ -272,4 +316,7 @@ class Command(BaseCommand):
             )
             posted += 1
 
-        self.stdout.write(f"{legal_name}: {posted} note din {base:%m.%Y}")
+        self.stdout.write(
+            f"{legal_name}: {posted} note din {base:%m.%Y}, "
+            f"profil {profile.label!r}, scara {profile.scale}"
+        )

@@ -52,6 +52,21 @@ from evidenta.platform.tenancy.services.companies import accounting_start_date
 SALES = (("Servicii de consultanță", "48000.00"), ("Servicii de mentenanță", "31500.00"))
 PURCHASES = (("Chirie spațiu", "12000.00"), ("Servicii de contabilitate", "6500.00"))
 
+#: Each company gets its own scale, for the reason `seed_demo` gives at length:
+#: three companies carrying identical figures make the check a person actually
+#: performs -- switch company, read the total -- prove nothing, because identical
+#: numbers are also what a leak would look like. Keyed by a stable hash of the
+#: company id, so a re-run keeps a company on its own scale.
+SCALES = (Decimal("1.0"), Decimal("0.35"), Decimal("1.7"), Decimal("0.6"))
+
+
+def _scale(company_id: uuid.UUID) -> Decimal:
+    return SCALES[int(company_id.hex[:8], 16) % len(SCALES)]
+
+
+def _amount(raw: str, scale: Decimal) -> Decimal:
+    return (Decimal(raw) * scale).quantize(Decimal("0.01"))
+
 
 def _tenant_and_user(subdomain: str) -> tuple[uuid.UUID, uuid.UUID]:
     """Read on the installation connection -- `membership` answers nothing without a context."""
@@ -143,7 +158,9 @@ class Command(BaseCommand):
                 )
 
                 made = self._documents(company_id, user_id, customer, supplier, base)
-                self.stdout.write(f"{name}: {made} documente din {base:%m.%Y}")
+                self.stdout.write(
+                    f"{name}: {made} documente din {base:%m.%Y}, scara {_scale(company_id)}"
+                )
 
     def _counterparties(self, tenant_id: uuid.UUID) -> tuple[uuid.UUID, uuid.UUID]:
         """A customer and a supplier, reused if the directory already has them."""
@@ -183,6 +200,7 @@ class Command(BaseCommand):
         base: date,
     ) -> int:
         made = 0
+        scale = _scale(company_id)
         snapshot = active_profile(company_id, base).as_snapshot()
 
         for index, (description, amount) in enumerate(SALES):
@@ -200,7 +218,7 @@ class Command(BaseCommand):
                     sale_line(
                         description=description,
                         quantity=Decimal("1"),
-                        unit_price=Decimal(amount),
+                        unit_price=_amount(amount, scale),
                         on=on,
                     )
                 ],
@@ -215,22 +233,32 @@ class Command(BaseCommand):
 
         for index, (description, amount) in enumerate(PURCHASES):
             on = date(base.year, base.month, 8 + index * 10)
-            document_id = open_purchase(
-                company_id=company_id,
-                partner_id=supplier,
-                document_date=on,
-                supplier_document_number=f"FF-{base:%Y}-{100 + index}",
-                supplier_document_date=on,
-                cost_destination="administrative",
-                partner_resident=True,
-            )
+            try:
+                document_id = open_purchase(
+                    company_id=company_id,
+                    partner_id=supplier,
+                    document_date=on,
+                    # The supplier's own number, and it carries the company:
+                    # without it two companies buying from the same supplier
+                    # would be issued the same reference by this seeder, which is
+                    # a collision the seeder invented rather than one the world
+                    # has. A re-run still collides, and rightly -- the same
+                    # document recorded twice is `R20`'s whole subject.
+                    supplier_document_number=f"FF-{base:%Y}-{company_id.hex[:4]}{index}",
+                    supplier_document_date=on,
+                    cost_destination="administrative",
+                    partner_resident=True,
+                )
+            except Exception as recorded:  # documentul furnizorului e deja înregistrat
+                self.stdout.write(f"  achiziție sărită: {recorded}")
+                continue
             replace_lines(
                 document_id,
                 [
                     purchase_line(
                         description=description,
                         quantity=Decimal("1"),
-                        unit_price=Decimal(amount),
+                        unit_price=_amount(amount, scale),
                         on=on,
                     )
                 ],
@@ -247,7 +275,7 @@ class Command(BaseCommand):
             company_id=company_id,
             partner_id=customer,
             document_date=date(base.year, base.month, 20),
-            amount=Decimal("48000.00"),
+            amount=_amount("48000.00", scale),
             treasury_account="bank",
             partner_resident=True,
         )
@@ -255,7 +283,7 @@ class Command(BaseCommand):
             company_id=company_id,
             partner_id=supplier,
             document_date=date(base.year, base.month, 22),
-            amount=Decimal("12000.00"),
+            amount=_amount("12000.00", scale),
             treasury_account="bank",
             partner_resident=True,
         )
