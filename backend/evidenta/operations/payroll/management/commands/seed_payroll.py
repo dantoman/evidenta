@@ -34,10 +34,12 @@ from evidenta.operations.payroll.services.timesheets import close_month, open_mo
 from evidenta.platform.rls.context import TenantContext, tenant_context
 from evidenta.platform.tenancy.services.companies import accounting_start_date
 
-#: Four people and four shapes of relationship, so the screens show more than one
-#: row and the CAS rules meet more than one case.
-STAFF: tuple[tuple[str, str, str, str, str, str, str], ...] = (
-    ("Rusu", "Ana", "resident", "2001600012345", "employment_contract", "Contabil-șef", "18000.00"),
+#: The staff pool. Each company draws its own slice, for the reason the other two
+#: seeders settled: four identical names on three companies make "switch company
+#: and look" prove nothing, because identical rows are what a leak would look like.
+#:
+#: `(last, first, residency, idnp, relationship, position, salary)`.
+POOL: tuple[tuple[str, str, str, str, str, str, str], ...] = (
     ("Popescu", "Ion", "resident", "2001600012346", "employment_contract", "Operator", "9500.00"),
     (
         "Ciobanu",
@@ -49,7 +51,44 @@ STAFF: tuple[tuple[str, str, str, str, str, str, str], ...] = (
         "11200.00",
     ),
     ("Nistor", "Mihai", "non_resident", "2001600012348", "civil_contract", "Consultant", "7400.00"),
+    (
+        "Munteanu",
+        "Elena",
+        "resident",
+        "2001600012349",
+        "employment_contract",
+        "Vânzător",
+        "8600.00",
+    ),
+    ("Cebotari", "Andrei", "resident", "2001600012350", "employment_contract", "Șofer", "10400.00"),
+    ("Grosu", "Diana", "resident", "2001600012351", "service_relationship", "Casier", "9100.00"),
+    ("Balan", "Sergiu", "resident", "2001600012352", "employment_contract", "Depozitar", "8800.00"),
+    ("Lungu", "Cristina", "resident", "2001600012353", "civil_contract", "Traducător", "6200.00"),
+    ("Ursu", "Vlad", "non_resident", "2001600012354", "civil_contract", "Analist", "12800.00"),
 )
+
+#: One person on purpose in every company, with the same IDNP: the accountant who
+#: keeps the books of all of an entrepreneur's firms. It is not a duplicate --
+#: `employee_idnp_unique` is `(company_id, idnp)` exactly so a person may have
+#: several employers -- and a demo that never showed the case would leave the
+#: reader assuming the constraint is global.
+SHARED = (
+    "Rusu",
+    "Ana",
+    "resident",
+    "2001600012345",
+    "employment_contract",
+    "Contabil-șef",
+    "18000.00",
+)
+
+
+def _staff(company_id: uuid.UUID) -> tuple[tuple[str, str, str, str, str, str, str], ...]:
+    """Three of the pool, chosen by a stable hash, plus the shared accountant."""
+    start = int(company_id.hex[8:12], 16) % len(POOL)
+    slice_ = tuple(POOL[(start + step) % len(POOL)] for step in range(3))
+    return (SHARED, *slice_)
+
 
 #: Twenty-one working days at eight hours -- a plain month. Weekends are skipped
 #: by the calendar rather than by a rule about holidays: the holiday calendar is
@@ -140,7 +179,7 @@ class Command(BaseCommand):
             year, month = starts_on.year, max(starts_on.month, 1)
 
         contracts: list[uuid.UUID] = []
-        for last, first, residency, idnp, relationship, position, salary in STAFF:
+        for last, first, residency, idnp, relationship, position, salary in _staff(company_id):
             try:
                 employee = create_employee(
                     tenant_id=tenant_id,
@@ -155,10 +194,14 @@ class Command(BaseCommand):
                     company_id=company_id,
                     employee_id=employee.id,
                     relationship_type=relationship,
-                    contract_number=f"CM-{year}-{len(contracts) + 1:03d}",
+                    # Numbered from the person, not from how many succeeded: a
+                    # counter that only advances on success hands the same number
+                    # to every attempt after the first refusal, and the collision
+                    # that follows is one the seeder invented.
+                    contract_number=f"CM-{year}-{idnp[-4:]}",
                     signed_on=date(year, month, 1),
                     effective_from=date(year, month, 1),
-                    hire_order_number=f"OA-{year}-{len(contracts) + 1:03d}",
+                    hire_order_number=f"OA-{year}-{idnp[-4:]}",
                     hire_order_date=date(year, month, 1),
                     position_title=position,
                     base_salary=Decimal(salary),
