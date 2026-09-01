@@ -258,11 +258,16 @@ seed-coa: ## Încarcă planul general de conturi (SNC 2020) — idempotent, sub 
 	cd backend && uv run python manage.py load_coa_template
 
 .PHONY: seed-demo
-seed-demo: ## Umple o companie cu parteneri și note de demonstrație (SUBDOMAIN=..., COMPANY="...")
-	@test -n "$(SUBDOMAIN)" -a -n "$(COMPANY)" || { \
-	  echo "folosire: make seed-demo SUBDOMAIN=alpha COMPANY=\"Alpha SRL\""; exit 1; }
-	cd backend && uv run python manage.py seed_demo \
-	  --subdomain "$(SUBDOMAIN)" --company "$(COMPANY)"
+seed-demo: ## Note de demonstrație pe toate companiile spațiului (SUBDOMAIN=..., opțional COMPANY=...)
+	@test -n "$(SUBDOMAIN)" || { echo "folosire: make seed-demo SUBDOMAIN=alpha"; exit 1; }
+	cd backend && uv run python manage.py seed_demo --subdomain "$(SUBDOMAIN)" \
+	  $(if $(COMPANY),--company "$(COMPANY)") $(if $(FORCE),--force)
+
+.PHONY: seed-documents
+seed-documents: ## Documente comerciale: vânzări, achiziții, încasări, plăți (SUBDOMAIN=...)
+	@test -n "$(SUBDOMAIN)" || { echo "folosire: make seed-documents SUBDOMAIN=alpha"; exit 1; }
+	cd backend && uv run python manage.py seed_documents --subdomain "$(SUBDOMAIN)" \
+	  $(if $(COMPANY),--company "$(COMPANY)") $(if $(FORCE),--force)
 
 .PHONY: check-committed
 check-committed: ## Se compilează ce e COMIS? (verificările obișnuite citesc discul, unde fișierul uitat există)

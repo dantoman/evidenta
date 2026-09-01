@@ -89,15 +89,15 @@ def _shift(base: date, months: int, day: int) -> date:
     return date(base.year + month // 12, month % 12 + 1, day)
 
 
-def _identifiers(subdomain: str, legal_name: str) -> tuple[uuid.UUID, uuid.UUID, uuid.UUID]:
+def _identifiers(subdomain: str) -> tuple[uuid.UUID, uuid.UUID]:
     """The tenant, a user to act as, and the company -- on the installation connection.
 
     Reads, and only reads. `membership` answers nothing without a context, so the
-    alternative would be passing three UUIDs on the command line, which is how a
-    demo ends up seeded into the wrong workspace. The company is resolved here for
-    a second reason: `platform.tenancy` exposes facts about a company by id, and
-    finding one by name is not among them -- adding a public service so a seeder
-    can search would widen the module's surface for a development convenience.
+    alternative would be passing UUIDs on the command line, which is how a demo
+    ends up seeded into the wrong workspace. The companies are resolved the same
+    way and for a second reason: `platform.tenancy` exposes facts about a company
+    by id, and finding one by name is not among them -- adding a public service so
+    a seeder can search would widen the module's surface for a convenience.
     """
     admin = connections["admin"] if "admin" in connections.databases else None
     if admin is None:
@@ -107,22 +107,34 @@ def _identifiers(subdomain: str, legal_name: str) -> tuple[uuid.UUID, uuid.UUID,
     with admin.cursor() as cursor:
         cursor.execute(
             """
-            SELECT t.id, m.user_id, c.id
+            SELECT t.id, m.user_id
               FROM tenant t
               JOIN membership m ON m.tenant_id = t.id AND m.status = 'active'
-              JOIN company c    ON c.tenant_id = t.id AND c.legal_name = %s
              WHERE t.subdomain = %s
              ORDER BY m.created_at
              LIMIT 1
             """,
-            [legal_name, subdomain],
+            [subdomain],
         )
         row = cursor.fetchone()
     if row is None:
-        raise CommandError(
-            f"nu există tenantul {subdomain!r} cu un membru activ și compania {legal_name!r}"
+        raise CommandError(f"nu există tenantul {subdomain!r} cu un membru activ")
+    return uuid.UUID(str(row[0])), uuid.UUID(str(row[1]))
+
+
+def _companies(tenant_id: uuid.UUID, only: str | None) -> list[tuple[uuid.UUID, str]]:
+    """Every company of the workspace, or the one named."""
+    with connections["admin"].cursor() as cursor:
+        cursor.execute(
+            "SELECT id, legal_name FROM company WHERE tenant_id = %s"
+            + (" AND legal_name = %s" if only else "")
+            + " ORDER BY legal_name",
+            [tenant_id, only] if only else [tenant_id],
         )
-    return uuid.UUID(str(row[0])), uuid.UUID(str(row[1])), uuid.UUID(str(row[2]))
+        rows = cursor.fetchall()
+    if not rows:
+        raise CommandError("nicio companie de însămânțat în acest spațiu de lucru")
+    return [(uuid.UUID(str(r[0])), str(r[1])) for r in rows]
 
 
 class Command(BaseCommand):
@@ -130,7 +142,11 @@ class Command(BaseCommand):
 
     def add_arguments(self, parser: Any) -> None:
         parser.add_argument("--subdomain", required=True)
-        parser.add_argument("--company", required=True, help="Denumirea legală a companiei.")
+        parser.add_argument(
+            "--company",
+            default=None,
+            help="Denumirea legală a companiei. Implicit: toate companiile spațiului.",
+        )
         parser.add_argument("--year", type=int, default=None, help="Implicit: anul exercițiului.")
         parser.add_argument(
             "--force",
@@ -139,61 +155,13 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args: Any, **options: Any) -> None:
-        tenant_id, user_id, company_id = _identifiers(
-            options["subdomain"].strip().lower(), options["company"]
-        )
+        tenant_id, user_id = _identifiers(options["subdomain"].strip().lower())
         context = TenantContext(tenant_id=tenant_id, user_id=user_id, request_id="seed_demo")
 
         with tenant_context(context):
-            # Every read below goes through the policies: an identifier resolved
-            # on the installation connection buys nothing if the company is not
-            # this caller's to see -- `functional_currency` answers from the row
-            # the policy allows, and refuses otherwise.
-            currency = functional_currency(company_id)
-            starts_on = accounting_start_date(company_id)
-
-            # Asked through the public report rather than by counting rows in
-            # another module's table (`D6`): what matters is whether this company
-            # has movement, and the trial balance is the service that answers it.
-            year = options["year"] or starts_on.year
-            moved = trial_balance(company_id, date(year, 1, 1), date(year, 12, 31))
-            existing = len(moved.rows)
-            if existing and not options["force"]:
-                raise CommandError(
-                    f"compania are deja mișcare pe {existing} conturi. Datele de demonstrație "
-                    f"amestecate în registre reale nu se mai scot: o înregistrare postată "
-                    f"e imutabilă (`R10`), iar corecția ar fi un storno care ar minți. "
-                    f"Dacă baza e deja de demonstrație, --force."
-                )
-
-            # **Where the demo can actually be posted.** A company numbers its
-            # documents from a series, and a series has a start: `II Tomsa Dan`
-            # carries one valid from the day it was created, in August, so notes
-            # dated January are refused by `platform.numbering` in the middle of
-            # the first posting -- which reads as a seeder bug rather than as the
-            # true answer, that the company could not have issued a document then.
-            #
-            # So the base month is searched forward from the day the books start,
-            # and only when no month of the year has a series is one created.
-            base = None
-            probe = date(year, 1, 1)
-            for _ in range(12):
-                try:
-                    resolve_template(company_id, "journal_entry", probe)
-                except Exception:  # orice refuz înseamnă „nicio serie în vigoare"
-                    probe = _shift(probe, 1, 1)
-                else:
-                    base = probe
-                    break
-            if base is None:
-                create_general_template(tenant_id, company_id, valid_from=starts_on)
-                base = starts_on
-                self.stdout.write("  serie de numerotare creată (nu exista niciuna)")
-
-            # Postabile în luna de la care începe demonstrația, adică exact
-            # întrebarea pe care o pune o notă: un cont închis înainte de atunci
-            # nu e unul în care se postează.
-            accounts = {row.account_code: row.id for row in postable_accounts(company_id, base)}
+            # Partners belong to the workspace, not to a company: seeded once,
+            # then reused by every company below (ADR-034 -- one legal entity, one
+            # record, or the balances split).
             made = 0
             for name, idno, customer, supplier in PARTNERS:
                 try:
@@ -205,48 +173,103 @@ class Command(BaseCommand):
                         is_supplier=supplier,
                     )
                     made += 1
-                except Exception as clash:
+                except Exception as clash:  # re-rularea sare peste ce există deja
                     self.stdout.write(f"  partener sărit ({name}): {clash}")
+            self.stdout.write(f"parteneri noi: {made}")
 
-            posted = 0
-            for months, day, description, debit, credit, amount in NOTES:
-                if debit not in accounts or credit not in accounts:
-                    self.stdout.write(f"  notă sărită: contul {debit} sau {credit} lipsește")
-                    continue
-                on = _shift(base, months, day)
-                note_id = uuid.uuid4()
-                post_manual_entry(
-                    tenant_id=tenant_id,
-                    company_id=company_id,
-                    accounting_date=on,
-                    functional_currency=currency,
-                    note_id=note_id,
-                    payload={
-                        "description": description,
-                        "lines": [
-                            {
-                                "account_id": str(accounts[debit]),
-                                "debit": amount,
-                                "credit": "0",
-                                "description": None,
-                            },
-                            {
-                                "account_id": str(accounts[credit]),
-                                "debit": "0",
-                                "credit": amount,
-                                "description": None,
-                            },
-                        ],
-                    },
-                    # Derived from the note, so a re-run finds the same key and
-                    # the same entry rather than doubling the books (`R19`).
-                    idempotency_key=f"seed:{company_id}:{on}:{description}:{amount}",
-                    actor_user_id=user_id,
-                    request_id="seed_demo",
-                    capability_snapshot=active_profile(company_id, on).as_snapshot(),
-                )
-                posted += 1
+            for company_id, legal_name in _companies(tenant_id, options["company"]):
+                self._company(tenant_id, user_id, company_id, legal_name, options)
 
-        self.stdout.write(
-            f"{options['company']}: {made} parteneri, {posted} note din {base:%m.%Y}."
-        )
+    def _company(
+        self,
+        tenant_id: uuid.UUID,
+        user_id: uuid.UUID,
+        company_id: uuid.UUID,
+        legal_name: str,
+        options: dict[str, Any],
+    ) -> None:
+        # Every read goes through the policies: an identifier resolved on the
+        # installation connection buys nothing if the company is not this
+        # caller's to see -- these services answer from the row the policy
+        # allows, and refuse otherwise.
+        currency = functional_currency(company_id)
+        starts_on = accounting_start_date(company_id)
+
+        # Asked through the public report rather than by counting rows in another
+        # module's table (`D6`): what matters is whether this company has
+        # movement, and the trial balance is the service that answers it.
+        year = options["year"] or starts_on.year
+        moved = trial_balance(company_id, date(year, 1, 1), date(year, 12, 31))
+        if moved.rows and not options["force"]:
+            self.stdout.write(
+                f"{legal_name}: are deja mișcare pe {len(moved.rows)} conturi, sărită. "
+                f"Datele de demonstrație amestecate în registre reale nu se mai scot -- "
+                f"o înregistrare postată e imutabilă (`R10`). Cu --force, oricum."
+            )
+            return
+
+        # **Where the demo can actually be posted.** A company numbers its
+        # documents from a series, and a series has a start: a company created in
+        # August cannot have issued anything in January, and `platform.numbering`
+        # refuses mid-posting -- which reads as a seeder bug rather than as the
+        # true answer. So the base month is searched forward, and a series is
+        # created only when no month of the year has one.
+        base = None
+        probe = date(year, 1, 1)
+        for _ in range(12):
+            try:
+                resolve_template(company_id, "journal_entry", probe)
+            except Exception:  # orice refuz înseamnă „nicio serie în vigoare"
+                probe = _shift(probe, 1, 1)
+            else:
+                base = probe
+                break
+        if base is None:
+            create_general_template(tenant_id, company_id, valid_from=starts_on)
+            base = starts_on
+            self.stdout.write(f"  {legal_name}: serie de numerotare creată")
+
+        # Postabile în luna de la care începe demonstrația, adică exact întrebarea
+        # pe care o pune o notă: un cont închis înainte de atunci nu e unul în
+        # care se postează.
+        accounts = {row.account_code: row.id for row in postable_accounts(company_id, base)}
+
+        posted = 0
+        for months, day, description, debit, credit, amount in NOTES:
+            if debit not in accounts or credit not in accounts:
+                self.stdout.write(f"  notă sărită: contul {debit} sau {credit} lipsește")
+                continue
+            on = _shift(base, months, day)
+            post_manual_entry(
+                tenant_id=tenant_id,
+                company_id=company_id,
+                accounting_date=on,
+                functional_currency=currency,
+                note_id=uuid.uuid4(),
+                payload={
+                    "description": description,
+                    "lines": [
+                        {
+                            "account_id": str(accounts[debit]),
+                            "debit": amount,
+                            "credit": "0",
+                            "description": None,
+                        },
+                        {
+                            "account_id": str(accounts[credit]),
+                            "debit": "0",
+                            "credit": amount,
+                            "description": None,
+                        },
+                    ],
+                },
+                # Derived from the note, so a re-run finds the same key and the
+                # same entry rather than doubling the books (`R19`).
+                idempotency_key=f"seed:{company_id}:{on}:{description}:{amount}",
+                actor_user_id=user_id,
+                request_id="seed_demo",
+                capability_snapshot=active_profile(company_id, on).as_snapshot(),
+            )
+            posted += 1
+
+        self.stdout.write(f"{legal_name}: {posted} note din {base:%m.%Y}")
