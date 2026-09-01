@@ -269,6 +269,12 @@ seed-documents: ## Documente comerciale: vânzări, achiziții, încasări, plă
 	cd backend && uv run python manage.py seed_documents --subdomain "$(SUBDOMAIN)" \
 	  $(if $(COMPANY),--company "$(COMPANY)") $(if $(FORCE),--force)
 
+.PHONY: seed-payroll
+seed-payroll: ## Angajați, contracte, pontaj și calcul salarial (SUBDOMAIN=..., opțional COMPANY=..., MONTH=AAAA-LL)
+	@test -n "$(SUBDOMAIN)" || { echo "folosire: make seed-payroll SUBDOMAIN=alpha"; exit 1; }
+	cd backend && uv run python manage.py seed_payroll --subdomain "$(SUBDOMAIN)" \
+	  $(if $(COMPANY),--company "$(COMPANY)") $(if $(MONTH),--month "$(MONTH)")
+
 .PHONY: check-committed
 check-committed: ## Se compilează ce e COMIS? (verificările obișnuite citesc discul, unde fișierul uitat există)
 	./scripts/check-committed.sh
