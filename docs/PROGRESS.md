@@ -187,6 +187,57 @@ sunt bifate în `08`** — închiderea F1 e declarația proprietarului, ca la F0
 
 ## Ultima sesiune
 
+**2026-09-01 — Panoul de control: ce poate spune registrul azi, și golurile numite pe nume.**
+
+Macheta panoului există în canvasul de design (`Evidenta.dc.html`, artboard „Panou de control").
+Nouă carduri; **patru dintre ele n-au sursă în sistem**, iar asta s-a măsurat înainte de a scrie
+ecranul, nu după:
+
+- *De depus* — calendarul de raportare e parametru fiscal cu act normativ în spate (`R15`),
+  `fiscal_parameter` e goală (`OD-22`). `periods/services/vat.py` refuză deja același lucru, cu
+  motivul scris; panoul nu putea face altfel.
+- *TVA de plată* — nimic nu calculează o declarație. `5344 − 2252` ar fi arătat ca răspunsul și
+  n-ar fi purtat niciuna dintre regulile lui.
+- *Creanțe scadente* și *Vechimea creanțelor* — `document` poartă `document_date`, nu termen de
+  plată. „Scadent" nu se poate spune deloc, nici ca cifră, nici ca interval.
+
+**Alegerea proprietarului a fost „toată macheta, cu goluri marcate"**, nu „doar ce se poate".
+Fiecare gol spune ce anume lipsește — o tabelă de parametri, un calcul, o coloană — fiindcă „—"
+singur se citește ca defect, iar `0,00` s-ar citi ca răspuns. Aceeași alegere pe care o face deja
+antetul cu clopoțelul și cu indicatorul SFS.
+
+**Unde stă compunerea, fiindcă asta a fost întrebarea de arhitectură.** Nu în `platform/readmodels`:
+Spec A §7 îl definește cross-tenant, iar panoul e al unei companii. Nu într-un modul de
+`operations`: `D3` interzice `operations` → `accounting.ledger`. Deci **fiecare modul răspunde
+despre datele lui, cu totalurile pe server** (`C19`), iar ecranul pune cardurile alături. Documentele
+nepostate vin prin serviciu public, nu prin citirea tabelei altcuiva (`D6`).
+
+**Livrat:**
+- `accounting/ledger/services/overview.py` — rulajul lunii și al lunii precedente, seria pe șase
+  luni (o singură interogare grupată, nu șase), balanța de la începutul anului, ultimele cinci
+  înregistrări cu ambele legături `R14`, notele în ciornă, disponibilul din casă prin rolul
+  `CASA_MDL`. Ferestrele sunt **luni întregi**: un rulaj tăiat la ziua în care s-a pus întrebarea nu
+  se compară cu luna precedentă, iar panoul le pune alături.
+- `GET /api/v1/accounting/ledger/companies/<id>/overview?on=YYYY-MM-DD`. Ziua e a apelantului,
+  niciodată ceasul serverului — ca toate ferestrele din API-ul acesta.
+- `platform.documents.unposted_work(company_id, types)` — două numere per tip, ciornă și validat,
+  niciodată suma lor: cer lucruri opuse de la cititor.
+- Ecranul `app/dashboard/DashboardScreen.tsx`, componenta partajată `StatTile` (care știe să n-aibă
+  cifră), `month` / `monthShort` în modulul de formatare.
+- **Panoul e acum secțiunea implicită**: `DEFAULT_SECTION` și `/` duc în el, nu în planul de
+  conturi. Prima pagină a unei companii nu mai e o listă de coduri de cont.
+- **Ziua e un câmp, nu ceasul.** Pe Alpha, al cărei ultim rulaj e din martie, panoul din septembrie
+  arăta corect „0,00" lângă o listă de note din martie — corect și necitibil. Câmpul „Situația la"
+  pune ziua în adresă (`?la=YYYY-MM-DD`), deci panoul pentru martie se poate trimite ca link;
+  absent, e azi.
+- **6 teste de izolare** (5 pe panou, 1 pe numărătoarea documentelor) + 1 de frontend. Cel de
+  frontier verifică ce contează: același `company_id`, citit din celălalt tenant, dă zerouri și
+  nicio înregistrare.
+
+**Rămâne întrebare deschisă, cu declanșator:** dacă *Creanțe scadente* trebuie să arate creanțele
+**deschise** (`settlements` le știe, fără scadență) în loc să rămână gol — se decide împreună cu
+termenul de plată pe document, fiindcă abia acela face cuvântul „scadent" adevărat.
+
 **2026-08-31 — statutul fiscal e datat și ștampilat pe eveniment
 ([ADR-088](decisions/088-statutul-fiscal-e-datat-si-stampilat.md)); `OD-83` restrânsă, pasul 6
 deblocat.**

@@ -33,7 +33,9 @@ export function PageHeader({
             sunt una-două propoziţii; ce le mărgineşte e antetul, nu un `ch`. */}
         {lead && <p className="mt-2 mb-0 type-body-md text-ink-muted">{lead}</p>}
       </div>
-      {actions && <div className="flex shrink-0 flex-wrap gap-3">{actions}</div>}
+      {/* `items-end`, so a field with a label above its control lines up with
+          the buttons beside it -- the panel's date is the first such action. */}
+      {actions && <div className="flex shrink-0 flex-wrap items-end gap-3">{actions}</div>}
     </header>
   )
 }

@@ -32,6 +32,7 @@ from evidenta.accounting.ledger.services.correspondence import correspondence
 from evidenta.accounting.ledger.services.detail import entry_detail
 from evidenta.accounting.ledger.services.document_journal import document_journal
 from evidenta.accounting.ledger.services.general_ledger import general_ledger
+from evidenta.accounting.ledger.services.overview import Turnover, company_overview
 from evidenta.accounting.ledger.services.trial_balance import trial_balance
 from evidenta.platform.api.errors import ApiError
 from evidenta.platform.api.lookup import NotFoundError
@@ -510,3 +511,87 @@ class EntryDetailView(APIView):
                 ),
             }
         )
+
+
+class CompanyOverviewView(APIView):
+    def get(self, request: Request, company_id: uuid.UUID) -> Response:
+        """The control panel for the month `?on=` falls in.
+
+        The day is the caller's and is not defaulted to the server's clock, for
+        the reason every other window here is not: two people looking at the same
+        panel must be looking at the same month, and a browser open since
+        yesterday would otherwise show a month the server thinks is over.
+
+        What is **not** in the answer is as deliberate as what is: no filing
+        deadline, no VAT payable, no overdue receivable. The service says why in
+        its docstring; the screen says so in place of each figure. An endpoint
+        that answered `null` for them would leave the screen to invent the
+        reason, and there are three different ones.
+        """
+        overview = company_overview(company_id, _day(request, "on"))
+
+        return Response(
+            {
+                "on": str(overview.on),
+                "month": _turnover(overview.month),
+                "previous_month": _turnover(overview.previous_month),
+                "year_to_date": _turnover(overview.year_to_date),
+                "series": [_turnover(window) for window in overview.series],
+                "latest_entries": [
+                    {
+                        "id": str(entry.id),
+                        "entry_number": entry.entry_number,
+                        "accounting_date": str(entry.accounting_date),
+                        "description": entry.description,
+                        "partner_name": entry.partner_name,
+                        "amount": str(entry.amount),
+                        "entry_type": entry.entry_type,
+                        "reverses_entry_id": (
+                            str(entry.reverses_entry_id) if entry.reverses_entry_id else None
+                        ),
+                        "reversed_by_entry_id": (
+                            str(entry.reversed_by_entry_id) if entry.reversed_by_entry_id else None
+                        ),
+                    }
+                    for entry in overview.latest_entries
+                ],
+                "open_work": {
+                    "draft_entries": overview.draft_entries,
+                    "documents": [
+                        {
+                            "owner": work.owner,
+                            "draft": work.draft,
+                            "confirmed": work.confirmed,
+                        }
+                        for work in overview.documents
+                    ],
+                },
+                # `null`, not zero: the chart binds no cash account, so there is
+                # no balance to state -- see the service.
+                "cash": (
+                    {
+                        "account_id": str(overview.cash.account_id),
+                        "account_code": overview.cash.account_code,
+                        "name_ro": overview.cash.name_ro,
+                        "balance": str(overview.cash.balance),
+                    }
+                    if overview.cash
+                    else None
+                ),
+                "checks": {
+                    "unexplained": str(overview.unexplained),
+                    "unpostable_with_turnover": overview.unpostable_with_turnover,
+                },
+            }
+        )
+
+
+def _turnover(window: Turnover) -> dict[str, Any]:
+    """A window as the wire carries it -- decimals as strings, both ends named."""
+    return {
+        "start_date": str(window.start_date),
+        "end_date": str(window.end_date),
+        "debit": str(window.debit),
+        "credit": str(window.credit),
+        "balanced": window.balanced,
+    }

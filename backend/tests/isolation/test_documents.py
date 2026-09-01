@@ -68,6 +68,7 @@ from evidenta.platform.documents.services.lifecycle import (
     delete_draft,
     get_document,
     open_draft,
+    unposted_work,
     validate,
 )
 from evidenta.platform.documents.services.lines import LineInput, replace_lines, totals_of
@@ -1002,3 +1003,33 @@ def test_the_rate_term_freezes_with_the_header(
         validate(document.id)
         with pytest.raises(DatabaseError), transaction.atomic():
             Document.objects.filter(pk=document.pk).update(rate_term="fixed")
+
+
+# --- what has not reached the ledger yet -------------------------------------
+
+
+def test_unfinished_work_is_counted_by_type_and_by_state(
+    context: TenantContext, company: uuid.UUID, partner: uuid.UUID, series: None
+) -> None:
+    """Two counts, never their sum.
+
+    A draft is unfinished; a validated document is finished and waiting for its
+    posting. Added together they would answer "three documents" to a screen whose
+    reader has to decide what to do next -- and the two halves need opposite
+    things done to them.
+
+    Types with nothing open are absent rather than present with zeros: a caller
+    that asks about a family it has never used is asking about a family with no
+    work, and a row of zeros is not an answer, it is noise on a panel.
+    """
+    with tenant_context(context):
+        a_sale(company, partner)
+        a_sale(company, partner)
+        validated = a_sale(company, partner)
+        validate(validated.id)
+
+        counted = {row.document_type: row for row in unposted_work(company, [SALES_DOCUMENT])}
+
+        assert counted[SALES_DOCUMENT].draft == 2
+        assert counted[SALES_DOCUMENT].confirmed == 1
+        assert unposted_work(company, [PROFORMA]) == ()

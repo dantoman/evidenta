@@ -69,3 +69,31 @@ export function date(isoDate: string): string {
   if (!year || !month || !day) return isoDate
   return dateOnly.format(new Date(year, month - 1, day))
 }
+
+const monthAndYear = new Intl.DateTimeFormat(LOCALE, { month: 'long', year: 'numeric' })
+const shortMonth = new Intl.DateTimeFormat(LOCALE, { month: 'short' })
+
+/**
+ * The month a server date falls in -- `iunie 2026`.
+ *
+ * Built from parts, for the reason `date` is: the string form parses as UTC
+ * midnight, and a viewer east of Greenwich would read the first of the month as
+ * the last of the previous one. On a panel whose whole claim is *which month*
+ * this is, that is the one error that must not be possible.
+ */
+export function month(isoDate: string): string {
+  const parts = monthOf(isoDate)
+  return parts ? monthAndYear.format(parts) : isoDate
+}
+
+/** The same month, short -- for a chart's axis, where the year is in the title. */
+export function monthShort(isoDate: string): string {
+  const parts = monthOf(isoDate)
+  return parts ? shortMonth.format(parts) : isoDate
+}
+
+function monthOf(isoDate: string): Date | null {
+  const [year, monthNumber, day] = isoDate.split('-').map(Number)
+  if (!year || !monthNumber || !day) return null
+  return new Date(year, monthNumber - 1, day)
+}

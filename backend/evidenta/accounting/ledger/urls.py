@@ -16,6 +16,15 @@ urlpatterns = [
         views.EntryListView.as_view(),
         name="entries",
     ),
+    # The panel of the company, for the month the caller's day falls in. Under
+    # the ledger because that is where every figure on it comes from -- and the
+    # ones that cannot come from anywhere are refused by the service rather than
+    # answered as zeros.
+    path(
+        "companies/<uuid:company_id>/overview",
+        views.CompanyOverviewView.as_view(),
+        name="overview",
+    ),
     path(
         "companies/<uuid:company_id>/trial-balance",
         views.TrialBalanceView.as_view(),

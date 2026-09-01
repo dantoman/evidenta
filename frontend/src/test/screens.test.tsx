@@ -30,6 +30,7 @@ import { RegisterScreen } from '@/app/accounting/RegisterScreen'
 import { TrialBalanceScreen } from '@/app/accounting/TrialBalanceScreen'
 import { CompaniesScreen } from '@/app/companies/CompaniesScreen'
 import { CompanyScreen } from '@/app/companies/CompanyScreen'
+import { DashboardScreen } from '@/app/dashboard/DashboardScreen'
 import { AppLayout } from '@/app/layout/AppLayout'
 import { Landing } from '@/app/layout/Landing'
 import { CompanyNav } from '@/app/layout/CompanyNav'
@@ -551,6 +552,92 @@ describe('ecranele', () => {
     expect(screen.getAllByText('5.000,00').length).toBeGreaterThan(0)
   })
 
+  it('panoul arată cifrele serverului și spune, acolo unde nu are sursă, de ce nu are', async () => {
+    const OVERVIEW = {
+      on: '2026-06-18',
+      month: {
+        start_date: '2026-06-01', end_date: '2026-06-30',
+        debit: '841320.0000', credit: '841320.0000', balanced: true,
+      },
+      previous_month: {
+        start_date: '2026-05-01', end_date: '2026-05-31',
+        debit: '807000.0000', credit: '807000.0000', balanced: true,
+      },
+      year_to_date: {
+        start_date: '2026-01-01', end_date: '2026-06-30',
+        debit: '1284730.0000', credit: '1284730.0000', balanced: true,
+      },
+      series: [
+        { start_date: '2026-01-01', end_date: '2026-01-31', debit: '0', credit: '0', balanced: true },
+        { start_date: '2026-02-01', end_date: '2026-02-28', debit: '120000.0000', credit: '120000.0000', balanced: true },
+        { start_date: '2026-03-01', end_date: '2026-03-31', debit: '98000.0000', credit: '98000.0000', balanced: true },
+        { start_date: '2026-04-01', end_date: '2026-04-30', debit: '210000.0000', credit: '210000.0000', balanced: true },
+        { start_date: '2026-05-01', end_date: '2026-05-31', debit: '807000.0000', credit: '807000.0000', balanced: true },
+        { start_date: '2026-06-01', end_date: '2026-06-30', debit: '841320.0000', credit: '841320.0000', balanced: true },
+      ],
+      latest_entries: [
+        {
+          id: 'e1', entry_number: 'NC-2026-000423', accounting_date: '2026-06-18',
+          description: 'Factură fiscală', partner_name: 'SA "Franzeluța"',
+          amount: '128300.0000', entry_type: 'standard',
+          reverses_entry_id: null, reversed_by_entry_id: null,
+        },
+        {
+          id: 'e2', entry_number: 'NC-2026-000422', accounting_date: '2026-06-18',
+          description: 'Stornare NC-2026-000420', partner_name: '',
+          amount: '12480.0000', entry_type: 'reversal',
+          reverses_entry_id: 'e3', reversed_by_entry_id: null,
+        },
+        {
+          id: 'e3', entry_number: 'NC-2026-000420', accounting_date: '2026-06-17',
+          description: 'Factură fiscală', partner_name: 'SA "Franzeluța"',
+          amount: '12480.0000', entry_type: 'standard',
+          reverses_entry_id: null, reversed_by_entry_id: 'e2',
+        },
+      ],
+      open_work: {
+        draft_entries: 2,
+        documents: [{ owner: 'purchases', draft: 5, confirmed: 2 }],
+      },
+      cash: null,
+      checks: { unexplained: '187390.0000', unpostable_with_turnover: 1 },
+    }
+    const fetcher = stubFetch({
+      [`/api/v1/companies/${COMPANY}`]: COMPANIES[0],
+      [`/api/v1/accounting/ledger/companies/${COMPANY}/overview`]: OVERVIEW,
+    })
+    renderScreen(<DashboardScreen />, {
+      path: '/companii/:companyId/panou',
+      route: `/companii/${COMPANY}/panou?la=2026-06-18`,
+    })
+
+    // Cifra serverului, formatată ro-MD din șirul lui -- niciodată însumată aici.
+    expect(await screen.findByText('841.320,00')).toBeInTheDocument()
+    // Ziua din adresă e cea cerută serverului: panoul e pentru luna ALEASĂ, nu
+    // pentru cea în care se întâmplă să fie ceasul browserului.
+    expect(
+      fetcher.mock.calls.some(([input]) => String(input).includes('/overview?on=2026-06-18')),
+    ).toBe(true)
+    expect(screen.getByLabelText('Situația la')).toHaveValue('2026-06-18')
+    expect(screen.getByText('Echilibrată')).toBeInTheDocument()
+
+    // R14 în ambele sensuri, ca pe registru: una stornează, cealaltă e stornată.
+    expect(screen.getByText('Stornare')).toBeInTheDocument()
+    expect(screen.getByText('Stornată')).toBeInTheDocument()
+
+    // Lucrul deschis se numără pe stări, nu se contopește într-un total.
+    expect(screen.getByText('Documente primite, neînregistrate')).toBeInTheDocument()
+    expect(screen.getByText('5 în ciornă · 2 validate')).toBeInTheDocument()
+
+    // Și golurile: fiecare spune ce anume lipsește, fiindcă „—" singur se
+    // citește ca defect, iar „0,00" s-ar citi ca răspuns.
+    expect(screen.getByText(/Nimic nu calculează încă declarația de TVA/)).toBeInTheDocument()
+    expect(screen.getByText(/nimic nu poate spune ce este scadent/)).toBeInTheDocument()
+    expect(screen.getByText(/Vechimea se numără de la scadență/)).toBeInTheDocument()
+    expect(screen.getByText(/Calendarul de raportare este parametru fiscal/)).toBeInTheDocument()
+    expect(screen.getByText(/nu are un cont de casă legat/)).toBeInTheDocument()
+  })
+
   it('lista de angajați cere persoanele companiei din cale', async () => {
     const fetcher = stubFetch({
       [`/api/v1/payroll/companies/${COMPANY}/employees`]: [
@@ -816,7 +903,7 @@ describe('ecranele', () => {
             <Routes>
               <Route index element={<Landing />} />
               <Route path="companii" element={<p>lista de companii</p>} />
-              <Route path="companii/:companyId/plan-de-conturi" element={<p>registrele ei</p>} />
+              <Route path="companii/:companyId/panou" element={<p>registrele ei</p>} />
             </Routes>
           </MemoryRouter>
         </QueryClientProvider>,
@@ -885,7 +972,7 @@ describe('ecranele', () => {
     )
   })
 
-  it('schimbarea companiei de pe fișa unui cont duce la planul celeilalte, nu la o adresă moartă', async () => {
+  it('schimbarea companiei de pe fișa unui cont duce la panoul celeilalte, nu la o adresă moartă', async () => {
     const SECOND = '66666666-6666-6666-6666-666666666666'
     stubFetch({
       '/api/v1/companies': [
@@ -908,13 +995,14 @@ describe('ecranele', () => {
 
     // Ruta curentă e a unui CONT, deci primul segment e `conturi` -- care nu e
     // secțiune. Prima versiune îl păstra ca atare și producea
-    // `/companii/<alta>/conturi`, adresă pe care nicio rută n-o prinde.
+    // `/companii/<alta>/conturi`, adresă pe care nicio rută n-o prinde. Cade
+    // deci pe secțiunea implicită, care de la panou încoace e panoul.
     render(
       <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
         <MemoryRouter initialEntries={[`/companii/${COMPANY}/conturi/${ACCOUNT}/fisa`]}>
           <Routes>
             <Route path="/companii/:companyId/*" element={<AppLayout tenantId="t" />} />
-            <Route path="/companii/:companyId/plan-de-conturi" element={<p>planul celeilalte</p>} />
+            <Route path="/companii/:companyId/panou" element={<p>panoul celeilalte</p>} />
           </Routes>
         </MemoryRouter>
       </QueryClientProvider>,
@@ -923,7 +1011,7 @@ describe('ecranele', () => {
     const chooser = await screen.findByRole('combobox', { name: 'Companie' })
     fireEvent.change(chooser, { target: { value: SECOND } })
 
-    expect(await screen.findByText('planul celeilalte')).toBeInTheDocument()
+    expect(await screen.findByText('panoul celeilalte')).toBeInTheDocument()
   })
 
   it('antetul caută conturi și contragenți, și spune cine e autentificat', async () => {

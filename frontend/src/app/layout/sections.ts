@@ -28,6 +28,13 @@ export interface Section {
   icon: IconName
 }
 
+/**
+ * The company's own front page. Alone above the groups, because it is not one of
+ * them: it reports on all of them, and a heading over a single entry would say
+ * there is a fourth kind of work.
+ */
+export const PANEL: Section = { path: 'panou', label: t.dashboard.title, icon: 'layout-dashboard' }
+
 export const ACCOUNTING: Section[] = [
   { path: 'plan-de-conturi', label: t.accounting.chart.title, icon: 'list-tree' },
   { path: 'note', label: t.accounting.entry.title, icon: 'file-plus' },
@@ -53,11 +60,19 @@ export const PAYROLL: Section[] = [
   { path: 'salarii', label: t.payroll.runs, icon: 'coins' },
 ]
 
-/** Where a switch lands when the current address is not on a section. */
-export const DEFAULT_SECTION = 'plan-de-conturi'
+/**
+ * Where a switch lands when the current address is not on a section, and where
+ * `/` sends somebody who has just signed in.
+ *
+ * The panel rather than the chart, since there is a panel: it is the screen that
+ * says what state the company is in, and the chart is one click from it. Before
+ * it existed, the first thing an accountant saw on opening the application was a
+ * list of account codes.
+ */
+export const DEFAULT_SECTION = PANEL.path
 
 const KNOWN = new Set(
-  [...ACCOUNTING, ...COMMERCIAL, ...PAYROLL].map((section) => section.path),
+  [PANEL, ...ACCOUNTING, ...COMMERCIAL, ...PAYROLL].map((section) => section.path),
 )
 
 /**

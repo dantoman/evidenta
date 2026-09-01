@@ -11,13 +11,18 @@
  * (ADR-085): an entrepreneur holding four firms did not come to the one that
  * sorts first, and the list is where they say which.
  *
+ * **Which screen** is `DEFAULT_SECTION`, shared with the company switcher rather
+ * than spelled here: one rule, one place, and the two cannot come to disagree
+ * about where a company opens.
+ *
  * `replace`, so the redirect does not sit in history: a person pressing Back from
- * the chart would otherwise bounce through `/` and land here again.
+ * the panel would otherwise bounce through `/` and land here again.
  */
 
 import { Navigate } from 'react-router'
 
 import { t } from '@/locales'
+import { DEFAULT_SECTION } from './sections'
 import { useSelectedCompany } from './useSelectedCompany'
 
 export function Landing() {
@@ -29,7 +34,7 @@ export function Landing() {
 
   return (
     <Navigate
-      to={selected ? `/companii/${selected.id}/plan-de-conturi` : '/companii'}
+      to={selected ? `/companii/${selected.id}/${DEFAULT_SECTION}` : '/companii'}
       replace
     />
   )

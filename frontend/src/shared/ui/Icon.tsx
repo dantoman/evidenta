@@ -27,6 +27,7 @@ import {
   CircleHelp,
   ChevronsUpDown,
   ClipboardList,
+  Clock,
   Coins,
   Copy,
   Download,
@@ -48,6 +49,7 @@ import {
   Shield,
   TriangleAlert,
   Users,
+  Wallet,
   X,
   type LucideIcon,
 } from 'lucide-react'
@@ -66,6 +68,7 @@ const ICONS = {
   'chevrons-up-down': ChevronsUpDown,
   'circle-help': CircleHelp,
   'clipboard-list': ClipboardList,
+  clock: Clock,
   coins: Coins,
   copy: Copy,
   download: Download,
@@ -87,6 +90,7 @@ const ICONS = {
   shield: Shield,
   'triangle-alert': TriangleAlert,
   users: Users,
+  wallet: Wallet,
   x: X,
 } satisfies Record<string, LucideIcon>
 

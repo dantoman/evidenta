@@ -17,6 +17,7 @@ import { OperationTemplatesScreen } from './accounting/OperationTemplatesScreen'
 import { RegisterScreen } from './accounting/RegisterScreen'
 import { TrialBalanceScreen } from './accounting/TrialBalanceScreen'
 import { CompaniesScreen } from './companies/CompaniesScreen'
+import { DashboardScreen } from './dashboard/DashboardScreen'
 import { CompanyScreen } from './companies/CompanyScreen'
 import { PartnersScreen } from './partners/PartnersScreen'
 import { WorkspaceScreen } from './workspace/WorkspaceScreen'
@@ -99,6 +100,9 @@ export function App() {
           {/* Spatiul de lucru: titularul contului si drepturile din el. Fara
               segment de companie -- contractul e al spatiului, nu al uneia. */}
           <Route path="spatiu-de-lucru" element={<WorkspaceScreen />} />
+          {/* The company's front page: what the month looks like, and what is
+              not finished in it. */}
+          <Route path="companii/:companyId/panou" element={<DashboardScreen />} />
           <Route
             path="companii/:companyId/plan-de-conturi"
             element={<ChartOfAccountsScreen />}

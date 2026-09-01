@@ -105,6 +105,100 @@ export const ro = {
     sfs: 'SFS',
     sfsNotConfigured: 'Integrarea cu SFS nu este configurată.',
   },
+  // Panoul de control. Jumătate din textele de aici spun ce NU se poate afișa:
+  // termenul de depunere, TVA de plată, creanța scadentă. Fiecare numește ce
+  // lipsește -- un parametru fiscal neîncărcat, o declarație pe care n-o
+  // calculează nimic, o coloană care nu există -- fiindcă „—" fără explicație se
+  // citește ca defect, iar „0,00" s-ar citi ca răspuns.
+  dashboard: {
+    title: 'Panou de control',
+    lead: 'Situația contabilă a companiei. Cifrele vin din registre, nu din estimări.',
+    // Ziua pentru care se cere panoul; serverul ia luna în care cade. Un câmp de
+    // dată, nu de lună: `type="month"` nu e implementat peste tot, iar `date` e
+    // controlul pe care îl folosesc deja balanța și fișa contului.
+    asOf: 'Situația la',
+    newEntry: 'Notă contabilă nouă',
+    exportVat: 'Export TVA',
+    exportVatNotYet: 'Nu există declarație de TVA calculată, deci nu are ce exporta.',
+    turnover: 'Rulaj lunar',
+    turnoverPrevious: 'Luna precedentă',
+    vat: 'TVA de plată',
+    vatMissing:
+      'Nimic nu calculează încă declarația de TVA. Cotele și termenele sunt parametri fiscali, iar tabela lor este goală.',
+    receivables: 'Creanțe scadente',
+    receivablesMissing:
+      'Documentele nu poartă termen de plată, deci nimic nu poate spune ce este scadent.',
+    cash: 'Disponibil în casă',
+    cashMissing: 'Planul companiei nu are un cont de casă legat.',
+    cashAccount: 'Contul',
+    register: {
+      eyebrow: 'Ultimele înregistrări',
+      title: 'Registrul jurnal',
+      number: 'Nr. notă',
+      date: 'Data',
+      partner: 'Contragent',
+      amount: 'Suma',
+      state: 'Stare',
+      total: 'Rulajul lunii',
+      empty: 'Nicio înregistrare în registru.',
+      posted: 'Înregistrat',
+      reversal: 'Stornare',
+      reversed: 'Stornată',
+    },
+    deadlines: {
+      eyebrow: 'Termene',
+      title: 'De depus',
+      missing:
+        'Calendarul de raportare este parametru fiscal: act normativ, dată de publicare, dată de intrare în vigoare. Tabela de parametri este goală, deci niciun termen nu se afișează aici.',
+      why: 'Un termen scris din memorie ar fi o dată pe care cineva ar plăti-o.',
+    },
+    balance: {
+      eyebrow: 'Verificare',
+      title: 'Balanța',
+      window: 'De la începutul anului',
+      debit: 'Total rulaj debit',
+      credit: 'Total rulaj credit',
+      state: 'Stare',
+      balanced: 'Echilibrată',
+      unbalanced: 'Neechilibrată',
+    },
+    work: {
+      eyebrow: 'De rezolvat',
+      title: 'Lucrări deschise',
+      empty: 'Nimic în așteptare.',
+      purchases: 'Documente primite, neînregistrate',
+      sales: 'Documente emise, neînregistrate',
+      treasury: 'Documente de trezorerie, neînregistrate',
+      draft: 'în ciornă',
+      confirmed: 'validate',
+      entries: 'Note contabile în ciornă',
+      entriesHint: 'Salvate, dar neînregistrate în jurnal',
+    },
+    checks: {
+      eyebrow: 'Verificări',
+      title: 'Ce nu se închide',
+      clear: 'Nimic de semnalat în luna aceasta.',
+      unexplained: 'Rulaj fără corespondență',
+      unexplainedHint: 'din rulajul lunii, în linii pe care nicio formulă nu le explică',
+      unpostable: 'Conturi cu rulaj, indisponibile pentru înregistrare',
+      unpostableHint: 'blocate sau închise înainte de sfârșitul lunii',
+      opening: 'Contrapartida soldurilor inițiale',
+      openingMissing: 'Se citește din lotul de solduri inițiale, la care panoul nu ajunge încă.',
+    },
+    series: {
+      eyebrow: 'Șase luni',
+      title: 'Rulaj lunar',
+      debit: 'Debit',
+      credit: 'Credit',
+      empty: 'Nicio lună cu rulaj.',
+    },
+    aging: {
+      eyebrow: 'Creanțe',
+      title: 'Vechimea creanțelor',
+      missing:
+        'Vechimea se numără de la scadență, iar documentele nu poartă termen de plată. Cât este deschis se vede în soldurile deschise.',
+    },
+  },
   workspace: {
     title: 'Spațiul de lucru',
     // Un rând. Partea a doua -- că spațiul se atribuie unei persoane, iar

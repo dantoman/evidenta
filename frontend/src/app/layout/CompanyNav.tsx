@@ -18,13 +18,22 @@ import { NavLink } from 'react-router'
 
 import { t } from '@/locales'
 import { Icon } from '@/shared/ui'
-import { ACCOUNTING, COMMERCIAL, PAYROLL, type Section } from './sections'
+import { ACCOUNTING, COMMERCIAL, PANEL, PAYROLL, type Section } from './sections'
 
 export function CompanyNav({ companyId }: { companyId: string | undefined }) {
   if (companyId === undefined) return null
 
   return (
     <>
+      {/* Above the groups and without one of its own: the panel is the company's
+          front page, not a fourth kind of work. */}
+      <NavLink
+        to={`/companii/${companyId}/${PANEL.path}`}
+        className={({ isActive }) => navItem(isActive)}
+      >
+        <Icon name={PANEL.icon} size={20} />
+        <span>{PANEL.label}</span>
+      </NavLink>
       <Group label={t.nav.accounting} sections={ACCOUNTING} companyId={companyId} />
       <Group label={t.nav.commercial} sections={COMMERCIAL} companyId={companyId} />
       <Group label={t.nav.payroll} sections={PAYROLL} companyId={companyId} />

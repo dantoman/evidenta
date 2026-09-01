@@ -25,10 +25,12 @@ from __future__ import annotations
 
 import uuid
 from collections.abc import Sequence
+from dataclasses import dataclass
 from datetime import UTC, date, datetime
 from decimal import Decimal
 
 from django.db import transaction
+from django.db.models import Count
 
 from evidenta.platform.audit.services.recording import record
 from evidenta.platform.documents.errors import (
@@ -103,6 +105,56 @@ def posted_of_types(company_id: uuid.UUID, document_types: Sequence[str]) -> lis
             document_type__in=tuple(document_types),
             state=DocumentState.POSTED,
         ).order_by("document_date", "created_at")
+    )
+
+
+@dataclass(frozen=True, slots=True)
+class UnpostedWork:
+    """Documents of one type that have not reached the ledger.
+
+    Two counts and not a sum, because they are different work: a draft is
+    unfinished, a validated document is finished and waiting for its posting.
+    """
+
+    document_type: str
+    draft: int
+    confirmed: int
+
+
+def unposted_work(company_id: uuid.UUID, document_types: Sequence[str]) -> tuple[UnpostedWork, ...]:
+    """How much of each type is still on its way in, counted in the database.
+
+    Beside `posted_of_types`, and here for the same reason: the table is this
+    module's, so a module that counted `Document` rows itself would be reading
+    another module's table (`D6`). Counted rather than listed -- the caller is a
+    panel that shows a number, and a list of every unposted document would be a
+    page of rows to produce one integer.
+
+    Types with nothing open are absent from the answer rather than present with
+    zeros: the caller asks about a family, and a family with no work is a family
+    the panel says nothing about.
+    """
+    rows = (
+        Document.objects.filter(
+            company_id=company_id,
+            document_type__in=tuple(document_types),
+            state__in=(DocumentState.DRAFT, DocumentState.CONFIRMED),
+        )
+        .values("document_type", "state")
+        .annotate(total=Count("id"))
+    )
+
+    counted: dict[str, dict[str, int]] = {}
+    for row in rows:
+        counted.setdefault(row["document_type"], {})[row["state"]] = row["total"]
+
+    return tuple(
+        UnpostedWork(
+            document_type=document_type,
+            draft=states.get(DocumentState.DRAFT, 0),
+            confirmed=states.get(DocumentState.CONFIRMED, 0),
+        )
+        for document_type, states in counted.items()
     )
 
 
