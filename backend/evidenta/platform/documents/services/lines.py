@@ -22,11 +22,12 @@ was given and refuses what cannot be true whatever the rule turns out to be.
 from __future__ import annotations
 
 import uuid
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass, field
 from decimal import Decimal
 
 from django.db import transaction
+from django.db.models import Sum
 
 from evidenta.platform.documents.errors import (
     DocumentNotEditableError,
@@ -247,3 +248,29 @@ def totals_of(document_id: uuid.UUID) -> DocumentTotals:
         net += line.net_amount
         vat += line.vat_amount
     return DocumentTotals(net=net, vat=vat, total=net + vat)
+
+
+def totals_of_many(document_ids: Iterable[uuid.UUID]) -> dict[uuid.UUID, DocumentTotals]:
+    """`totals_of` for a list: one grouped query instead of one per row.
+
+    Every id asked for is in the result. A document with no positions comes back
+    with zeros, exactly as `totals_of` reports it, because a list and the detail
+    it opens into must show the same figure -- a row missing from the result
+    would read as "unknown" where the truth is "nothing yet".
+
+    The same arithmetic as `totals_of` and no more: the database adds what is
+    stored, per document, and applies no rate.
+    """
+    ids = list(document_ids)
+    zero = Decimal(0)
+    totals = {document_id: DocumentTotals(net=zero, vat=zero, total=zero) for document_id in ids}
+    summed = (
+        DocumentLine.objects.filter(document_id__in=ids)
+        .values("document_id")
+        .annotate(net=Sum("net_amount"), vat=Sum("vat_amount"))
+    )
+    for row in summed:
+        net = Decimal(row["net"])
+        vat = Decimal(row["vat"])
+        totals[row["document_id"]] = DocumentTotals(net=net, vat=vat, total=net + vat)
+    return totals

@@ -106,7 +106,7 @@ export function SalesScreen() {
       key: 'total',
       header: t.sales.total,
       // Formatted from the string the server sent, never parsed to a float.
-      cell: (row) => (row.totals ? amount(row.totals.total) : t.common.none),
+      cell: (row) => amount(row.totals.total),
       numeric: true,
       width: '10rem',
     },

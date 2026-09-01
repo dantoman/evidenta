@@ -104,7 +104,7 @@ export function PurchasesScreen() {
     {
       key: 'total',
       header: t.purchases.total,
-      cell: (row) => (row.totals ? amount(row.totals.total) : t.common.none),
+      cell: (row) => amount(row.totals.total),
       numeric: true,
       width: '10rem',
     },

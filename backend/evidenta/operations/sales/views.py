@@ -33,7 +33,12 @@ from evidenta.operations.sales.services.issuing import issue_and_post
 from evidenta.operations.sales.services.lines import service_line
 from evidenta.platform.capabilities.services.profile import active_profile
 from evidenta.platform.documents.services.lifecycle import get_document
-from evidenta.platform.documents.services.lines import replace_lines, totals_of
+from evidenta.platform.documents.services.lines import (
+    DocumentTotals,
+    replace_lines,
+    totals_of,
+    totals_of_many,
+)
 from evidenta.platform.rls.context import MissingTenantContextError, current_context
 
 
@@ -67,12 +72,15 @@ class LinesSerializer(serializers.Serializer[dict[str, Any]]):
 
 class SalesListView(APIView):
     def get(self, request: Request, company_id: uuid.UUID) -> Response:
-        rows = (
+        rows = list(
             SalesDocument.objects.filter(company_id=company_id)
             .select_related("document")
             .order_by("-document__document_date", "-document__created_at")
         )
-        return Response([_rendered(row) for row in rows])
+        # The register shows each invoice's total, and the screen adds nothing
+        # up (`C19`): the figure travels with the row, summed once for the list.
+        totals = totals_of_many(row.document_id for row in rows)
+        return Response([_rendered(row, totals[row.document_id]) for row in rows])
 
     def post(self, request: Request, company_id: uuid.UUID) -> Response:
         payload = SaleSerializer(data=request.data)
@@ -150,17 +158,10 @@ def _detail(document_id: uuid.UUID) -> dict[str, Any]:
     row = SalesDocument.objects.filter(document_id=document_id).select_related("document").first()
     if row is None:
         raise MissingTenantContextError("no such sale in this context")
-    payload = _rendered(row)
-    totals = totals_of(document_id)
-    payload["totals"] = {
-        "net": str(totals.net),
-        "vat": str(totals.vat),
-        "total": str(totals.total),
-    }
-    return payload
+    return _rendered(row, totals_of(document_id))
 
 
-def _rendered(row: SalesDocument) -> dict[str, Any]:
+def _rendered(row: SalesDocument, totals: DocumentTotals) -> dict[str, Any]:
     document = row.document
     return {
         "id": str(document.id),
@@ -173,6 +174,11 @@ def _rendered(row: SalesDocument) -> dict[str, Any]:
         "nature": row.nature,
         "revenue_kind": row.revenue_kind,
         "partner_resident": row.partner_resident,
+        "totals": {
+            "net": str(totals.net),
+            "vat": str(totals.vat),
+            "total": str(totals.total),
+        },
     }
 
 

@@ -187,6 +187,22 @@ sunt bifate în `08`** — închiderea F1 e declarația proprietarului, ca la F0
 
 ## Ultima sesiune
 
+**2026-09-01 — Registrele de facturi emise și primite arată totalul pe fiecare rând.**
+
+Ecranele randau `totals.total` și nimic altceva (`C19`), dar endpoint-urile de listă
+(`/api/v1/sales/companies/{id}/invoices`, `/api/v1/purchases/companies/{id}/invoices`) trimiteau
+rândul fără `totals` — doar detaliul le atașa, prin `totals_of`. Rezultatul: liniuță în coloana
+*Total* pe fiecare factură din ambele registre.
+
+**Livrat:** `totals_of_many` în `platform/documents/services/lines.py` — o singură interogare
+grupată pe `document_id` (`Sum` peste `net_amount` și `vat_amount`), cu zerouri pentru documentele
+fără poziții, exact cum raportează `totals_of`, ca lista și detaliul să arate aceeași cifră. Ambele
+liste o folosesc, iar `_rendered` cere totalurile ca argument — un rând nu se mai poate randa fără
+ele. În frontend `totals` a devenit câmp obligatoriu pe `SalesInvoice` și `PurchaseInvoice`, iar
+celula nu mai are ramura „—". Test HTTP sub rolul de aplicație,
+`tests/isolation/test_document_lists.py`: trei documente per registru (două cu sume diferite, o
+ciornă fără poziții), fiecare rând egal cu detaliul lui.
+
 **2026-09-01 — Panoul de control: ce poate spune registrul azi, și golurile numite pe nume.**
 
 Macheta panoului există în canvasul de design (`Evidenta.dc.html`, artboard „Panou de control").

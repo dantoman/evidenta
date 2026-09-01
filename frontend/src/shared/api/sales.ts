@@ -49,7 +49,8 @@ export interface SalesInvoice {
   nature: string
   revenue_kind: RevenueKind
   partner_resident: boolean
-  totals?: { net: string; vat: string; total: string }
+  /** On every row, list and detail alike: the register shows the total (`C19`). */
+  totals: { net: string; vat: string; total: string }
   posting?: {
     accounting_event_id: string
     journal_entry_id: string | null
