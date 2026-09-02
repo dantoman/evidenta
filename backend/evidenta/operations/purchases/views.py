@@ -21,6 +21,7 @@ import uuid
 from decimal import Decimal
 from typing import Any
 
+from django.db import transaction
 from rest_framework import serializers
 from rest_framework.request import Request
 from rest_framework.response import Response
@@ -85,18 +86,24 @@ class PurchaseListView(APIView):
         payload.is_valid(raise_exception=True)
         data = dict(payload.validated_data)
 
-        document_id = open_purchase(
-            company_id=company_id,
-            partner_id=data["partner_id"],
-            document_date=data["document_date"],
-            accounting_date=data.get("accounting_date"),
-            supplier_document_number=data["supplier_document_number"],
-            supplier_document_date=data["supplier_document_date"],
-            cost_destination=data["cost_destination"],
-            partner_resident=data["partner_resident"],
-            notes=data.get("notes") or None,
-        )
-        _write_lines(document_id, data["lines"])
+        # Header, then positions, in one transaction. A refusal from the service
+        # becomes a response *inside* the request's transaction -- DRF's handler
+        # does not roll it back -- so without this a line refused on its regime
+        # (ADR-089) would leave a header with no positions. Measured by the
+        # parallel session on the sales twin of this view, 2026-09-02.
+        with transaction.atomic():
+            document_id = open_purchase(
+                company_id=company_id,
+                partner_id=data["partner_id"],
+                document_date=data["document_date"],
+                accounting_date=data.get("accounting_date"),
+                supplier_document_number=data["supplier_document_number"],
+                supplier_document_date=data["supplier_document_date"],
+                cost_destination=data["cost_destination"],
+                partner_resident=data["partner_resident"],
+                notes=data.get("notes") or None,
+            )
+            _write_lines(document_id, data["lines"])
         return Response(_detail(document_id), status=201)
 
 
