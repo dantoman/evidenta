@@ -25,7 +25,7 @@ from django.conf import settings
 from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.utils.module_loading import import_string
 
-from evidenta.platform.rls.context import TenantContext, tenant_context
+from evidenta.platform.rls.context import Context, TenantContext, tenant_context
 
 
 class TenantResolutionError(RuntimeError):
@@ -52,6 +52,10 @@ REFUSAL_STATUS: dict[str, int] = {
     "auth.required": 401,
     "tenant.mismatch": 400,
     "auth.session_tenant_mismatch": 401,
+    # The console host serves the platform's own routes and nothing else
+    # (ADR-076 §4.2). A tenant route asked for there is not forbidden, it does
+    # not exist: there is no tenant it could be about.
+    "console.not_found": 404,
 }
 
 
@@ -85,7 +89,7 @@ class TenantContextMiddleware:
         self.get_response = get_response
         dotted: str | None = getattr(settings, "RLS_CONTEXT_RESOLVER", None)
         factory = import_string(dotted) if dotted else None
-        self.resolve: Callable[[HttpRequest], TenantContext] = (
+        self.resolve: Callable[[HttpRequest], Context] = (
             factory() if factory is not None else refuse_all
         )
         # Paths served before authentication -- login, and nothing else by

@@ -38,6 +38,12 @@ RESERVED_SUBDOMAINS = frozenset(
     }
 )
 
+#: The one reserved label that answers to somebody: the platform's own console
+#: (ADR-076 §4.2). It is in ``RESERVED_SUBDOMAINS`` too, so no tenant can take
+#: it -- and ``subdomain_of`` keeps returning None for it, because it is not a
+#: tenant. ``is_console_host`` is the only function that recognises it.
+CONSOLE_SUBDOMAIN = "admin"
+
 #: Same shape as the CHECK on tenant.subdomain, deliberately duplicated: the
 #: database refuses a bad value, this refuses a bad *request* before it becomes a
 #: query. If they ever disagree, the database wins and this is the bug.
@@ -54,6 +60,22 @@ class ResolvedTenant:
     status: str
 
 
+def _label_of(host: str, base_domain: str) -> str | None:
+    """The single label in front of the base domain, or None.
+
+    Shared by the tenant and the console lookups so that both normalise the
+    host the same way -- port stripped, case folded, trailing dot removed -- and
+    neither can accept a nesting the other refuses.
+    """
+    host = host.split(":", 1)[0].strip().lower().rstrip(".")
+    if not host or not host.endswith("." + base_domain):
+        return None
+    label = host[: -(len(base_domain) + 1)]
+    if "." in label:  # deeper nesting is not a tenant name
+        return None
+    return label
+
+
 def subdomain_of(host: str, base_domain: str) -> str | None:
     """Extract the tenant label from a Host header.
 
@@ -62,16 +84,23 @@ def subdomain_of(host: str, base_domain: str) -> str | None:
     caller. Distinguishing them in the response would turn the login page into a
     tenant directory.
     """
-    host = host.split(":", 1)[0].strip().lower().rstrip(".")
-    if not host or not host.endswith("." + base_domain):
-        return None
-
-    label = host[: -(len(base_domain) + 1)]
-    if "." in label:  # deeper nesting is not a tenant name
+    label = _label_of(host, base_domain)
+    if label is None:
         return None
     if label in RESERVED_SUBDOMAINS or not SUBDOMAIN_PATTERN.match(label):
         return None
     return label
+
+
+def is_console_host(host: str, base_domain: str) -> bool:
+    """Whether the request arrived on the platform's console host, ``admin.``.
+
+    Exact match on the reserved label, after the same normalisation the tenant
+    lookup applies. Nothing about this consults the database: the console is a
+    property of the deployment, not a row -- which is what makes it impossible
+    for a tenant to become one.
+    """
+    return _label_of(host, base_domain) == CONSOLE_SUBDOMAIN
 
 
 def resolve_tenant(subdomain: str) -> ResolvedTenant | None:

@@ -37,7 +37,7 @@
 # eșuează la fel.
 
 schema_version = 1
-updated = "2026-08-29"
+updated = "2026-09-02"
 
 # ── Forme de politică recunoscute ────────────────────────────────────────────
 #
@@ -63,6 +63,14 @@ tenant_column = false
 policy_shape = "self_row"
 reason = "Identitate globală: un contabil are un singur cont pentru toți clienții. Tabela nu conține niciun câmp de business — vezi spec-a §1.5."
 source = "V2 §4.1; ADR-003"
+
+[[table]]
+name = "platform_staff"
+tenant_column = false
+policy_shape = "self_row"
+writer_role = "evidenta_refdata"
+reason = "Cine e angajat al platformei — support, operator, admin —, la nivelul lui `user`: un angajat al platformei nu aparține niciunui tenant, deci tabela nu poate avea `tenant_id`. Rolul aplicației citește rândul propriu și NU scrie nimic (privilegiile de scriere sunt retrase în `0075`); scrie doar rolul de date de referință, fără DELETE — retragerea e o dată, nu o ștergere. Un rând aici nu deschide nicio politică: nu apare în `rls.has_tenant_access` și nici în `rls.has_company_access`; îl citesc ușile consolei ca să afle dacă apelantul are voie să le apeleze. Excepția LĂRGEȘTE accesul (se scrie la runtime, de oameni) — clasa (a), confirmarea proprietarului e dată prin acceptarea ADR-076."
+source = "ADR-076 §4.1; regimul intrării — ADR-072 §2, clasa (a), confirmat prin ADR-076"
 
 [[table]]
 name = "permission"

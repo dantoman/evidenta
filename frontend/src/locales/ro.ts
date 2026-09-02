@@ -1153,6 +1153,96 @@ export const ro = {
     } as Record<string, string>,
     rateUnavailable: 'Cota nu este activată din act; linia nu se poate calcula.',
   },
+  // Consola platformei (ADR-076): planul de control, nu datele clienților. Aceleași
+  // fișiere de resurse și același grep pentru C37 -- publicul intern nu e o
+  // excepție. Pe ecran scrie „platformă", „spații", „angajați ai platformei".
+  console: {
+    title: 'Consola platformei',
+    // Propoziția din ADR-076 §2, ca deviză a consolei.
+    tagline: 'Platforma, nu datele',
+    lead: 'Acces pentru angajații platformei. Aici se administrează platforma, nu contabilitatea vreunui client.',
+    signedInAs: 'Conectat ca',
+    roles: {
+      support: 'Suport',
+      operator: 'Operator',
+      admin: 'Administrator',
+    } as Record<string, string>,
+    // Paginile din ADR-076 §4.3 care nu sunt construite nu se desenează: o intrare
+    // care duce nicăieri învață oamenii să nu creadă bara laterală.
+    onlyFiscal: 'Deocamdată consola are o singură pagină: parametrii fiscali.',
+    notStaff: 'Contul dumneavoastră nu mai are rol pe platformă.',
+    fiscal: {
+      title: 'Parametri fiscali',
+      eyebrow: 'Consola platformei · Date de referință',
+      // Răspunsul la întrebarea proprietarului -- „dacă se schimbă TVA-ul?": nu
+      // se editează o valoare, se scrie o versiune nouă, cu data din care se
+      // aplică și actul care o stabilește; apoi o activează un operator.
+      lead: 'Cotele, pragurile și termenele sunt date, cu actul normativ și marginea lor. O schimbare a legii se scrie ca versiune nouă, cu data din care se aplică; activarea o face un operator, ca aprobator, iar valoarea veche rămâne pentru perioadele ei.',
+      filterKey: 'Filtrează după cheie',
+      key: 'Cheie',
+      value: 'Valoare',
+      unit: 'Unitate',
+      validFrom: 'Din',
+      validTo: 'Până la',
+      // Rândul fără `valid_from`: valoarea s-a citit, articolul care o datează nu
+      // (OD-92). Se spune, nu se completează.
+      noMargin: 'fără margine',
+      noMarginHint:
+        'Articolul final care stabilește data nu a fost citit (OD-92). Fără margine, valoarea nu poate fi activată: calculul n-ar găsi-o niciodată.',
+      act: 'Act',
+      marginAct: 'Act pentru margine',
+      marginBasis: 'Temeiul marginii',
+      marginBasisAct: 'Articolul unui act',
+      marginBasisConvention: 'Convenție de platformă (ADR)',
+      marginReference: 'Articolul sau decizia',
+      observedIn: 'Unde s-a observat valoarea',
+      confidence: 'Încredere',
+      confirmed: 'Citită în act',
+      provisional: 'Dedusă',
+      provisionalReason: 'Pe ce se sprijină deducerea',
+      status: 'Stare',
+      statusDraft: 'Ciornă',
+      statusApproved: 'Aprobată',
+      statusActive: 'Activă',
+      statusSuperseded: 'Înlocuită',
+      approvedBy: 'Aprobată de',
+      activate: 'Activează',
+      activateHint:
+        'Activarea înregistrează aprobatorul și data. Cere o margine: fără ea, valoarea n-ar fi găsită de niciun calcul.',
+      newVersion: 'Versiune nouă',
+      newVersionLead:
+        'Se scrie o ciornă. Nimic nu intră în vigoare din formular; activarea e un pas separat, pe rând.',
+      valueType: 'Tipul valorii',
+      typeDecimal: 'Număr',
+      typeInteger: 'Întreg',
+      typeMoney: 'Sumă',
+      typePercentage: 'Procent',
+      typeDate: 'Dată',
+      typeBoolean: 'Da / Nu',
+      typeTable: 'Tabel (JSON)',
+      valueHint: 'Așa cum apare în act. Un tabel se scrie ca JSON.',
+      valueInvalidJson: 'Tabelul nu este JSON valid.',
+      valueNotANumber: 'Valoarea nu este un număr.',
+      actType: 'Tipul actului',
+      actNumber: 'Numărul actului',
+      actDate: 'Data actului',
+      actTitle: 'Titlul actului',
+      actEffectiveFrom: 'În vigoare din',
+      actEffectiveHint:
+        'Data intrării în vigoare a actului, nu a valorii. Fără ea valoarea nu se poate apăra la un control.',
+      gazette: 'Monitorul Oficial',
+      gazetteYear: 'Anul',
+      gazetteNumber: 'Numărul',
+      gazetteArticle: 'Poziția (art.)',
+      gazettePublishedAt: 'Data publicării',
+      save: 'Scrie ciorna',
+      cancel: 'Renunță',
+      written: 'Ciornă scrisă.',
+      unchanged: 'Nimic de schimbat: rândul exista deja, identic.',
+      empty: 'Niciun parametru încărcat.',
+      readOnly: 'Rolul dumneavoastră poate citi lista; scrierea și activarea sunt ale operatorului.',
+    },
+  },
   errors: {
     // Keyed by the stable code from C10, never by the server's message. A client
     // that branched on message text would break the first time a sentence is
@@ -1169,6 +1259,18 @@ export const ro = {
     'auth.mfa_enrolment_required':
       'Contul nu are încă un al doilea factor configurat.',
     'auth.no_access_to_tenant': 'Nu aveți acces la acest spațiu de lucru.',
+    // Consola (ADR-076): datele au fost corecte; ce lipsește e rolul pe platformă.
+    'auth.no_access_to_console': 'Contul nu are rol pe platformă.',
+    // Gazda `admin.` nu servește nimic în afara consolei: nu e interzis, nu există.
+    'console.not_found': 'Această pagină nu există pe consolă.',
+    // Ușa parametrilor fiscali (P-4), din `fiscal/parameters/services/authoring.py`.
+    'fiscal.parameter_invalid': 'Parametrul nu este complet: verificați actul, marginea și motivul.',
+    'fiscal.active_not_edited':
+      'O valoare activă nu se modifică. Scrieți o versiune nouă, cu data ei.',
+    'fiscal.parameter_not_found': 'Parametrul nu există.',
+    'fiscal.margin_missing':
+      'Fără margine (data din care se aplică), valoarea nu se poate activa.',
+    'fiscal.not_a_draft': 'Se activează doar o ciornă.',
     'api.not_found': 'Nu s-a găsit.',
     // The tenant comes from the subdomain (C8), so this is what a host with no
     // workspace behind it answers -- not an error in the usual sense.

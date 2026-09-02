@@ -36,7 +36,8 @@ from evidenta.platform.identity.models import (
     UserSession,
 )
 from evidenta.platform.identity.services import sessions
-from evidenta.platform.rls.context import TenantContext, tenant_context
+from evidenta.platform.identity.services.staff import staff_role_in_context
+from evidenta.platform.rls.context import Context, PlatformContext, TenantContext, tenant_context
 from evidenta.platform.tenancy.services.access import tenant_visible_in_context
 
 #: How long an issued session lives before it must be renewed.
@@ -153,7 +154,7 @@ class IssuedSession:
 def authenticate(
     email: str,
     password: str,
-    tenant_id: uuid.UUID,
+    tenant_id: uuid.UUID | None,
     *,
     request_id: str,
     totp_code: str | None = None,
@@ -167,10 +168,13 @@ def authenticate(
     There is no argument that skips the second factor, and no branch that returns
     a session without one.
 
-    ``tenant_id`` is required rather than optional: the tenant comes from the
-    subdomain the request arrived on (C8), and a session not bound to one could
-    never serve a request -- every policy would refuse it. An optional argument
-    here would only produce sessions that authenticate nothing.
+    ``tenant_id`` comes from the subdomain the request arrived on (C8) and is
+    never chosen by the caller. **``None`` means the console** (ADR-076 §4.2):
+    the request arrived on the ``admin.`` host, where there is no tenant to
+    bind, and the session issued is bound to *no* tenant -- which is exactly why
+    a tenant host refuses it. It is not a shortcut around the check below: a
+    console session is issued only to a live member of ``platform_staff``, the
+    way a tenant session is issued only to somebody the tenant's policies admit.
 
     Everything up to the second factor runs on the privileged path, because it
     precedes the identity a policy would need. Everything after it runs inside a
@@ -216,7 +220,7 @@ def authenticate(
 def _open_session(
     *,
     user_id: uuid.UUID,
-    tenant_id: uuid.UUID,
+    tenant_id: uuid.UUID | None,
     request_id: str,
     actor_firm_id: uuid.UUID | None,
     ip_address: str | None,
@@ -233,19 +237,36 @@ def _open_session(
     session for a tenant the user has nothing to do with. Every query would
     return nothing, which is safe and reads to the user as the product being
     broken.
+
+    **The console is the same shape with a different question.** Under a
+    `PlatformContext` the access check asks `platform_staff`, through its own
+    self-row policy, whether this person is a live employee of the platform. A
+    correct password and second factor from anybody else issue nothing -- and the
+    refusal code says "no access to the console", not "wrong password", because
+    the credentials were right and retrying them will never help.
     """
     now = datetime.now(UTC)
     token = sessions.new_token()
     expires_at = now + SESSION_LIFETIME
-    context = TenantContext(
-        tenant_id=tenant_id,
-        user_id=user_id,
-        request_id=request_id,
-        actor_firm_id=actor_firm_id,
-    )
+    context: Context
+    if tenant_id is None:
+        if actor_firm_id is not None:
+            # A firm acts for a client's tenant; the console has no client.
+            raise AuthenticationError("auth.no_access_to_console")
+        context = PlatformContext(user_id=user_id, request_id=request_id)
+    else:
+        context = TenantContext(
+            tenant_id=tenant_id,
+            user_id=user_id,
+            request_id=request_id,
+            actor_firm_id=actor_firm_id,
+        )
 
     with tenant_context(context):
-        if not tenant_visible_in_context(tenant_id):
+        if tenant_id is None:
+            if staff_role_in_context(user_id) is None:
+                raise AuthenticationError("auth.no_access_to_console")
+        elif not tenant_visible_in_context(tenant_id):
             raise AuthenticationError("auth.no_access_to_tenant")
 
         User.objects.filter(pk=user_id).update(last_login_at=now, updated_at=now)

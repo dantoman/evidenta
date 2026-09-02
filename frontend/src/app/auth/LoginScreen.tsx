@@ -34,7 +34,13 @@ import { IDENTITY_KEY } from './useIdentity'
  * exactly one home.
  */
 
-export function LoginScreen() {
+/**
+ * `console`: the form is on the platform's `admin.` host (ADR-076). Same fields,
+ * same request -- the server decides from the host, not from anything sent --
+ * and a different sentence above them, so a person does not type a client's
+ * credentials into the platform's door by mistake.
+ */
+export function LoginScreen({ console = false }: { console?: boolean } = {}) {
   const queryClient = useQueryClient()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -161,8 +167,12 @@ export function LoginScreen() {
           <div className="mb-2 type-eyebrow text-gold-strong">
             {t.nav.workspace} · {window.location.hostname.split('.')[0]}
           </div>
-          <h1 className="type-display-2 m-0 text-heading">{t.auth.title}</h1>
-          <p className="mt-2 mb-7 type-body-md text-ink-muted">{t.auth.lead}</p>
+          <h1 className="type-display-2 m-0 text-heading">
+            {console ? t.console.title : t.auth.title}
+          </h1>
+          <p className="mt-2 mb-7 type-body-md text-ink-muted">
+            {console ? t.console.lead : t.auth.lead}
+          </p>
 
           <div className="flex flex-col gap-4.5">
             <Field label={t.auth.email} required>

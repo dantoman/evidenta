@@ -352,6 +352,66 @@ class CompanyAccess(models.Model):
         return f"{self.user_id}@{self.company_id}"
 
 
+class StaffRole(models.TextChoices):
+    """The three roles of a platform employee -- ADR-076 §4.1, fixed in code.
+
+    Not roles-as-data (ADR-020): those compose a *tenant's* roles from a
+    catalogue scoped `tenant` or `company`, and a platform role has no tenant
+    to belong to. Three values in a CHECK are honest; a fourth is a migration,
+    deliberately.
+    """
+
+    #: May *request* a support grant (ADR-077). Touches no reference table.
+    SUPPORT = "support"
+    #: Runs the reference-data paths: fiscal parameters, rates, chart of accounts.
+    OPERATOR = "operator"
+    #: Administers `platform_staff` itself. Nothing else.
+    ADMIN = "admin"
+
+
+class PlatformStaff(models.Model):
+    """Who is an employee of the platform -- ADR-076 §4.1.
+
+    Global, at the level of ``user``: an employee of the platform belongs to no
+    tenant, so the table has no ``tenant_id`` and cannot have one. Declared in
+    infra/rls/exceptions.toml.
+
+    **A row here grants nothing.** It does not appear in ``rls.has_tenant_access``
+    or ``rls.has_company_access`` and opens no policy. It is a list of people,
+    read by the console's doors to decide whether the caller may knock -- and by
+    the login on the ``admin.`` host to decide whether to issue a session at all.
+
+    Revocation is a date, not a deletion: who was staff when is part of the
+    answer to "who could have run this path", which is the question the whole
+    table exists to answer.
+    """
+
+    user = models.OneToOneField(
+        User, on_delete=models.PROTECT, primary_key=True, db_column="user_id"
+    )
+    staff_role = models.TextField(choices=StaffRole.choices)
+    granted_by = models.ForeignKey(
+        User,
+        on_delete=models.PROTECT,
+        db_column="granted_by_user_id",
+        related_name="platform_staff_granted",
+    )
+    granted_at = models.DateTimeField()
+    revoked_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        db_table = "platform_staff"
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(staff_role__in=StaffRole.values),
+                name="platform_staff_role_valid",
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.staff_role}:{self.user_id}"
+
+
 class MfaMethodType(models.TextChoices):
     """Second factors the product knows.
 

@@ -28,6 +28,10 @@ reads as what it is:
 The file format is TOML, chosen for one property: the source citation sits next
 to the value it justifies, in a form a reviewer reads without a schema. See
 `data/platform_conventions.toml` for the shape.
+
+The rules themselves live in `services/authoring.py` since ADR-076 gave the
+table a second writer -- the console. This command keeps only what is the file's
+own: resolving `[[act]]` references and reading TOML.
 """
 
 from __future__ import annotations
@@ -42,12 +46,15 @@ from typing import Any
 from django.core.management.base import BaseCommand, CommandError
 
 from evidenta.fiscal.parameters.models import (
-    FiscalParameter,
     FiscalParameterSource,
     ParameterScope,
-    ParameterStatus,
     SourceConfidence,
-    ValueType,
+)
+from evidenta.fiscal.parameters.services.authoring import (
+    AuthoringError,
+    ParameterDraft,
+    register_source,
+    write_parameter,
 )
 from evidenta.fiscal.registry.services import versions as logic_versions
 from evidenta.platform.audit.services.privileged import (
@@ -177,27 +184,16 @@ class Command(BaseCommand):
         logic: list[dict[str, Any]],
         db: str,
     ) -> Outcome:
+        # The source rows, through the same door the console uses (ADR-076):
+        # `register_source` refuses an act with no `effective_from`, and the file
+        # loader records that act in the registry regardless -- a citation is a
+        # citation -- while every parameter naming it is refused below.
         sources: dict[str, FiscalParameterSource] = {}
         for ref, act in acts.items():
-            row = register_act(act, using=db)
-            # The fiscal source row is the act as the resolver knows it; the
-            # registry row is the act as a citation. One points at the other.
             if act.effective_from is None:
-                # Recorded in the registry regardless -- a parameter that names
-                # this act is what gets refused, below.
+                register_act(act, using=db)
                 continue
-            source, _ = FiscalParameterSource.objects.using(db).update_or_create(
-                act_type=act.act_type,
-                act_number=act.act_number,
-                act_date=act.act_date,
-                defaults={
-                    "effective_from": act.effective_from,
-                    "url": act.url,
-                    "notes": act.notes,
-                    "act": row,
-                },
-            )
-            sources[ref] = source
+            sources[ref] = register_source(act, using=db)
 
         created = updated = unchanged = 0
         for entry in parameters:
@@ -214,141 +210,58 @@ class Command(BaseCommand):
                     f"parameter {key!r}: act {act_ref!r} has no `effective_from`. R15 wants the "
                     f"date the act entered into force; a value without it cannot be defended"
                 )
-            value_type = entry.get("value_type")
-            if value_type not in ValueType.values:
-                raise CommandError(
-                    f"parameter {key!r}: value_type {value_type!r} is not one of {ValueType.values}"
-                )
-            scope = entry.get("scope", ParameterScope.GLOBAL)
-            if scope not in ParameterScope.values:
-                raise CommandError(
-                    f"parameter {key!r}: scope {scope!r} is not one of {ParameterScope.values}"
-                )
-            scope_ref = uuid.UUID(str(entry["scope_ref"])) if entry.get("scope_ref") else None
-            confidence = entry.get("confidence", SourceConfidence.PROVISIONAL)
-            if confidence not in SourceConfidence.values:
-                raise CommandError(
-                    f"parameter {key!r}: confidence {confidence!r} is not one of "
-                    f"{SourceConfidence.values}"
-                )
-            reason = entry.get("provisional_reason")
-            if confidence == SourceConfidence.PROVISIONAL and not (reason or "").strip():
-                raise CommandError(
-                    f"parameter {key!r}: a provisional value states what the inference rests on"
-                )
             if "value" not in entry:
                 raise CommandError(f"parameter {key!r}: no `value`")
-            # `OD-92`: the margin and the observation are two claims, and the
-            # loader keeps them apart. `valid_from` is a margin and may only be
-            # written with what establishes it; a value whose margin was never
-            # read carries `observed_in` instead and stays unresolvable, which is
-            # the honest state rather than a date nobody can check.
-            margin_act = None
-            margin_basis = entry.get("margin_basis")
-            margin_reference = entry.get("margin_reference")
-            observed_in = entry.get("observed_in")
-            valid_from = (
-                _date(entry["valid_from"], f"parameter {key!r}")
-                if entry.get("valid_from")
-                else None
-            )
-            if valid_from is not None:
-                if margin_basis not in ("act", "platform_convention"):
+            # `OD-92`: the file names the act whose final article sets the margin,
+            # which need not be the act the value was read in. Resolving that
+            # reference is the file's business; the rule about what a margin
+            # needs is the service's.
+            margin_act: Act | None = None
+            if entry.get("valid_from") and entry.get("margin_basis") == "act":
+                margin_ref = entry.get("margin_act", act_ref)
+                if margin_ref not in sources:
                     raise CommandError(
-                        f"parameter {key!r}: a `valid_from` needs `margin_basis` "
-                        f"(`act` or `platform_convention`) -- OD-92"
+                        f"parameter {key!r}: `margin_act` {margin_ref!r} is not an "
+                        f"[[act]] in this file -- OD-92 wants the act whose final "
+                        f"article sets the margin, which need not be the act the "
+                        f"value was read in"
                     )
-                if not (margin_reference or "").strip():
-                    raise CommandError(
-                        f"parameter {key!r}: a `valid_from` needs `margin_reference`, "
-                        f"the article or the ADR that establishes it -- OD-92"
-                    )
-                if margin_basis == "act":
-                    margin_ref = entry.get("margin_act", act_ref)
-                    if margin_ref not in sources:
-                        raise CommandError(
-                            f"parameter {key!r}: `margin_act` {margin_ref!r} is not an "
-                            f"[[act]] in this file -- OD-92 wants the act whose final "
-                            f"article sets the margin, which need not be the act the "
-                            f"value was read in"
-                        )
-                    margin_act = sources[margin_ref].act
-            elif not (reason or "").strip():
-                raise CommandError(
-                    f"parameter {key!r}: without a `valid_from` the row states why -- OD-92"
-                )
-            valid_to = (
-                _date(entry["valid_to"], f"parameter {key!r}") if entry.get("valid_to") else None
+                margin_act = acts[margin_ref]
+            draft = ParameterDraft(
+                key=str(key),
+                value_type=str(entry.get("value_type")),
+                value=entry["value"],
+                act=acts[act_ref],
+                unit=entry.get("unit"),
+                scope=entry.get("scope", ParameterScope.GLOBAL),
+                scope_ref=uuid.UUID(str(entry["scope_ref"])) if entry.get("scope_ref") else None,
+                valid_from=(
+                    _date(entry["valid_from"], f"parameter {key!r}")
+                    if entry.get("valid_from")
+                    else None
+                ),
+                valid_to=(
+                    _date(entry["valid_to"], f"parameter {key!r}")
+                    if entry.get("valid_to")
+                    else None
+                ),
+                margin_basis=entry.get("margin_basis"),
+                margin_reference=entry.get("margin_reference"),
+                margin_act=margin_act,
+                observed_in=entry.get("observed_in"),
+                confidence=entry.get("confidence", SourceConfidence.PROVISIONAL),
+                provisional_reason=entry.get("provisional_reason"),
             )
-
-            fields = {
-                "value_type": value_type,
-                "value": entry["value"],
-                "unit": entry.get("unit"),
-                "valid_to": valid_to,
-                "source": sources[act_ref],
-                "source_confidence": confidence,
-                "provisional_reason": reason
-                if confidence == SourceConfidence.PROVISIONAL
-                else None,
-                "margin_basis": margin_basis,
-                "margin_act": margin_act,
-                "margin_reference": margin_reference,
-                "observed_in": observed_in,
-            }
-            existing = (
-                FiscalParameter.objects.using(db)
-                .filter(parameter_key=key, scope=scope, scope_ref=scope_ref, valid_from=valid_from)
-                .first()
-            )
-            if existing is None:
-                FiscalParameter.objects.using(db).create(
-                    parameter_key=key,
-                    scope=scope,
-                    scope_ref=scope_ref,
-                    valid_from=valid_from,
-                    status=ParameterStatus.DRAFT,
-                    **fields,
-                )
+            try:
+                written = write_parameter(draft, using=db)
+            except AuthoringError as error:
+                raise CommandError(str(error)) from error
+            if written.outcome == "created":
                 created += 1
-                continue
-
-            changed = {
-                name: value
-                for name, value in fields.items()
-                if (
-                    getattr(existing, name + "_id") if name == "source" else getattr(existing, name)
-                )
-                != (value.pk if name == "source" else value)
-            }
-            if not changed:
+            elif written.outcome == "updated":
+                updated += 1
+            else:
                 unchanged += 1
-                continue
-            # The provenance fields are in this list for the reason `OD-92` exists.
-            # A margin is defensible only if what establishes it can be read back
-            # unchanged; a citation edited in place after activation leaves the
-            # row claiming a source it no longer has, with no new row and no
-            # history to show the swap. Same argument as the value itself, and it
-            # was missed until `schema-reviewer` named it.
-            protected = {
-                "value",
-                "value_type",
-                "unit",
-                "margin_basis",
-                "margin_act",
-                "margin_reference",
-            }
-            if existing.status == ParameterStatus.ACTIVE and (protected & set(changed)):
-                touched = sorted(protected & set(changed))
-                raise CommandError(
-                    f"parameter {key!r} valid from {valid_from} is active; the file changes "
-                    f"{touched}. An active value and the margin that dates it are not edited "
-                    f"(R15, OD-92): a new claim is a new row with its own valid_from"
-                )
-            for name, value in changed.items():
-                setattr(existing, name, value)
-            existing.save(using=db, update_fields=[*changed, "updated_at"])
-            updated += 1
 
         logic_created = logic_unchanged = 0
         for entry in logic:

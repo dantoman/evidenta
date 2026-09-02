@@ -27,7 +27,7 @@ from django.db.backends.signals import connection_created
 
 from evidenta.platform.rls.context import (
     MissingTenantContextError,
-    current_context,
+    has_context,
     is_unguarded,
 )
 
@@ -59,7 +59,10 @@ def guard_execute(execute: Any, sql: str, params: Any, many: bool, context: dict
     if connection.alias != DEFAULT_DB_ALIAS:
         return execute(sql, params, many, context)
 
-    if _is_infrastructure(sql) or is_unguarded() or current_context() is not None:
+    # A platform context (ADR-076) counts as context: the console's queries
+    # carry a user and a request, and the database itself refuses the tenant
+    # tables under it -- see `PlatformContext`.
+    if _is_infrastructure(sql) or is_unguarded() or has_context():
         return execute(sql, params, many, context)
 
     raise MissingTenantContextError(

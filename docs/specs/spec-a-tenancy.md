@@ -969,6 +969,17 @@ tranzacție — [ADR-049](../decisions/049-rolul-de-date-de-referinta.md). `P-9`
 `SECURITY DEFINER`, fiindcă e apelată dintr-o cerere de utilizator; `DN-17` se închide astfel
 parțial, pe criteriul „cine apelează".*
 
+*Consola platformei ([ADR-076](../decisions/076-planul-de-control-al-platformei.md)) apelează `P-4`
+dintr-o cerere HTTP pe gazda `admin.`, tot sub `evidenta_refdata` și tot prin `privileged_run`, cu
+apelantul verificat în `platform_staff` (rol `operator`) și ștampilat ca `actor_user_id`.
+[ADR-091](../decisions/091-consola-scrie-referinta-din-procesul-web.md) precizează criteriul „cine
+apelează": `P-9` rămâne `SECURITY DEFINER` fiindcă apelantul e un utilizator al unui tenant; consola
+apelează ca angajat al platformei, pe o gazdă fără tenant, asupra unor tabele care nu sunt ale
+nimănui — două categorii de apelant, nu două transporturi. Propoziția din §6.1 despre procesul care
+servește cereri rămâne neadevărată la nivel de proces, cum era și înainte (`DATABASES["refdata"]` e
+declarat necondiționat), și se revine la ea când producția dă serverului web și workerului
+credențiale diferite (ADR-091 §6).*
+
 **`DN-18` — DECISĂ 2026-08-31, varianta (B)**, prin
 [ADR-077](../decisions/077-grantul-de-suport.md). `P-7` nu e o ocolire, e un **grant**: cererea trece
 prin calea privilegiată (angajat cu rol `support` în `platform_staff`,
@@ -1875,7 +1886,47 @@ niciodată rulate, fiindcă docker nu e instalat pe mașina de dezvoltare.
 
 ---
 
-## 14. Ce urmează după această specificație
+## 14. Consola platformei
+
+Sursa: [ADR-076](../decisions/076-planul-de-control-al-platformei.md) (decizia),
+[ADR-091](../decisions/091-consola-scrie-referinta-din-procesul-web.md) (mecanismul scrierii). Aici
+stă doar ce e normativ pentru schemă și pentru calea cererii; argumentele sunt în ADR-uri.
+
+**Principiul.** Administratorul de platformă administrează platforma, nu datele. Testul de
+proiectare: dacă o pagină a consolei afișează o balanță, un jurnal, un salariu sau o factură a unui
+client, `DN-18` a fost închisă din greșeală — de un ecran, nu de un ADR.
+
+**Gazda.** `admin.` — pe lista rezervată din §1.1, nealocabilă unui tenant. Pe ea nu există subdomeniu
+de tenant, deci nu există context de tenant (C8, R4): sub un context de consolă orice politică de
+tenant ridică eroare, fiindcă `app.current_tenant_id()` e fail-closed — măsurat în
+`tests/isolation/test_console.py`. Măsurătoarea a găsit și condiția ei: `SET LOCAL` supraviețuiește
+savepoint-ului, deci un context deschis după altul în aceeași tranzacție moștenea cheile nesetate;
+`_apply` le **golește** acum, nu le sare. Gazda servește **doar** `/api/v1/auth/` și `/api/v1/platform/`
+(`CONSOLE_PATH_PREFIXES`); orice altă cale primește `404 console.not_found`, cu sau fără sesiune.
+
+**Sesiunea.** Emisă pe `admin.` cu `tenant_id` și `actor_firm_id` nule, doar unei persoane cu rând viu
+în `platform_staff`; altfel `401 auth.no_access_to_console`, **după** ce parola și al doilea factor au
+fost acceptate. O sesiune de consolă e refuzată pe orice gazdă de tenant și reciproc
+(`auth.session_tenant_mismatch`). Aceeași persoană, două sesiuni, niciun meniu între ele.
+
+**`platform_staff`.** Tabelă globală la nivelul lui `user`, declarată în `infra/rls/exceptions.toml`
+(`self_row`, `writer_role = "evidenta_refdata"`, fără DELETE): `user_id` (PK), `staff_role` în
+(`support`, `operator`, `admin`), `granted_by_user_id`, `granted_at`, `revoked_at`. Un rând aici nu
+apare în niciun predicat de acces și nu deschide nicio politică. Primul rând se scrie din
+`grant_platform_staff`, sub rolul de instalare (ca `create_tenant`); acordarea din consolă e `OD-133`.
+
+**Cine apelează ce.** `operator` — `P-3`, `P-4`, `P-5`, `P-10`; `support` — cererea grantului din
+`P-7` (ADR-077); `admin` — `platform_staff`. Verificat în cod la fiecare ușă
+(`platform/api/permissions.py`), nu doar afirmat; catalogul acțiunilor rămâne `OD-113`.
+
+**Paginile** (ADR-076 §4.3) și starea lor la 2026-09-02: **Parametri fiscali — construită**
+(listă, versiune nouă datată cu act și margine, activare de către operator ca aprobator, sub `P-4`);
+spații, abonamente, capabilități, ringuri și flaguri, versiuni de plan de conturi, jurnalul căilor
+privilegiate, granturi de suport, incidente — **neconstruite**, și nedesenate în interfață până când
+au server în spate. Ce nu apare niciodată: registre, documente, solduri, salarii, declarații,
+atașamente, denumiri de parteneri, sume.
+
+## 15. Ce urmează după această specificație
 
 1. **Review uman**, cu atenție la punctele rămase din secțiunea 11. Cele trei care blocau sarcini
    F0 — DN-11, DN-12, DN-22 — sunt închise prin ADR-003, ADR-004 și ADR-008.

@@ -14,7 +14,8 @@ export interface Session {
 
 export interface Identity {
   user_id: string
-  tenant_id: string
+  /** Null on the console host: a session bound to no workspace (ADR-076). */
+  tenant_id: string | null
   actor_firm_id: string | null
   request_id: string
 }

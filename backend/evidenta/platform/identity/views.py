@@ -37,6 +37,7 @@ from evidenta.platform.identity.services.authentication import (
     authenticate,
 )
 from evidenta.platform.identity.services.profile import ProfileMalformedError, update_profile
+from evidenta.platform.identity.services.staff import staff_role_in_context
 from evidenta.platform.rls.middleware import REFUSAL_STATUS, TenantResolutionError
 from evidenta.platform.tenancy.middleware import subdomain_resolver
 
@@ -67,11 +68,22 @@ def login(request: HttpRequest) -> HttpResponse:
     arrived on, like every other request in the product (C8) -- so a session is
     issued for the tenant the user is actually visiting, and a body claiming
     otherwise changes nothing.
+
+    **On the console host there is no tenant to resolve** (ADR-076 §4.2), and
+    the session issued is bound to none. The same form, the same password and
+    second factor, one more condition: the person is a live employee of the
+    platform. Everybody else gets `auth.no_access_to_console` -- after their
+    credentials were accepted, because that is what is true.
     """
-    try:
-        tenant = subdomain_resolver().host_tenant(request)
-    except TenantResolutionError as refusal:
-        return _refusal(refusal)
+    resolver = subdomain_resolver()
+    tenant_id: uuid.UUID | None
+    if resolver.is_console(request):
+        tenant_id = None
+    else:
+        try:
+            tenant_id = resolver.host_tenant(request).tenant_id
+        except TenantResolutionError as refusal:
+            return _refusal(refusal)
 
     payload = _body(request)
     if payload is None:
@@ -94,7 +106,7 @@ def login(request: HttpRequest) -> HttpResponse:
         issued = authenticate(
             email,
             password,
-            tenant.tenant_id,
+            tenant_id,
             request_id=str(getattr(request, "request_id", "login")),
             totp_code=payload.get("totp_code") or None,
             backup_code=payload.get("backup_code") or None,
@@ -151,10 +163,13 @@ def whoami(request: HttpRequest) -> HttpResponse:
     means the cookie resolved, the host resolved, the two agreed, and the context
     was set -- and none of those steps could have been faked by the response.
     """
+    # Null on the console host, and the client branches on it: a session with no
+    # tenant is a console session, by construction (ADR-076 §4.2).
+    tenant_id = getattr(request, "authenticated_tenant_id", None)
     return JsonResponse(
         {
             "user_id": str(request.authenticated_user_id),  # type: ignore[attr-defined]
-            "tenant_id": str(request.authenticated_tenant_id),  # type: ignore[attr-defined]
+            "tenant_id": str(tenant_id) if tenant_id is not None else None,
             "actor_firm_id": (
                 str(request.authenticated_actor_firm_id)  # type: ignore[attr-defined]
                 if getattr(request, "authenticated_actor_firm_id", None)
@@ -188,3 +203,41 @@ def profile(request: HttpRequest) -> HttpResponse:
         return JsonResponse({"code": refusal.code, "message": str(refusal)}, status=refusal.status)
 
     return JsonResponse(answer)
+
+
+@require_GET
+def staff_me(request: HttpRequest) -> HttpResponse:
+    """Who the console's caller is: their name, and which staff role they hold.
+
+    Served only on the console host -- the tenant resolver never opens a
+    platform context anywhere else -- and answered through two self-row
+    policies: the caller's own `user` row and their own `platform_staff` row. A
+    person with a console session and no live staff row (revoked since they
+    signed in) gets 403, and the client shows them the door.
+    """
+    user_id = uuid.UUID(str(request.authenticated_user_id))  # type: ignore[attr-defined]
+    membership = staff_role_in_context(user_id)
+    if membership is None:
+        return JsonResponse({"code": "auth.no_access_to_console"}, status=403)
+    me = _me(user_id)
+    return JsonResponse(
+        {
+            "user_id": str(user_id),
+            "email": me.get("email", ""),
+            "full_name": me.get("full_name", ""),
+            "staff_role": membership.staff_role,
+            "granted_at": membership.granted_at.isoformat(),
+        }
+    )
+
+
+def _me(user_id: uuid.UUID) -> dict[str, str]:
+    """The caller's own name and address, through the `user_self` policy.
+
+    Lazy import of the model module's *public* shape via the ORM is what the
+    self-row policy is for: the row returned is the caller's or nothing.
+    """
+    from evidenta.platform.identity.models import User
+
+    row = User.objects.filter(pk=user_id).values("email", "full_name").first()
+    return {k: str(v) for k, v in (row or {}).items()}

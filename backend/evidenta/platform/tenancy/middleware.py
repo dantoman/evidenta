@@ -17,9 +17,14 @@ from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
 from django.http import HttpRequest
 
-from evidenta.platform.rls.context import TenantContext
+from evidenta.platform.rls.context import Context, PlatformContext, TenantContext
 from evidenta.platform.rls.middleware import TenantResolutionError
-from evidenta.platform.tenancy.subdomain import ResolvedTenant, resolve_tenant, subdomain_of
+from evidenta.platform.tenancy.subdomain import (
+    ResolvedTenant,
+    is_console_host,
+    resolve_tenant,
+    subdomain_of,
+)
 
 #: Statuses under which a request is served at all. `suspended` and `offboarding`
 #: keep read access per Spec A 9.4, but the read-only regime is not built yet, so
@@ -30,6 +35,14 @@ SERVEABLE_STATUSES = frozenset({"active"})
 #: Places a client might try to state a tenant. Any of them disagreeing with the
 #: host is a refusal, not a preference (C8, IZ-36).
 CLIENT_TENANT_KEYS = ("tenant_id", "tenant")
+
+#: What the console host serves -- the platform's own routes, and the
+#: authentication routes it shares with everyone (ADR-076 §4.3). Prefixes, not
+#: exact paths, and deliberately so: this is not an exemption from a guarantee
+#: but the *whole* surface of a host, and every route under `/api/v1/platform/`
+#: is a console route by construction. Anything else asked for on `admin.` is
+#: answered 404: not forbidden -- there is no tenant it could be about.
+CONSOLE_PATH_PREFIXES = ("/api/v1/auth/", "/api/v1/platform/")
 
 
 def subdomain_resolver() -> SubdomainTenantResolver:
@@ -83,7 +96,43 @@ class SubdomainTenantResolver:
         self._refuse_client_supplied_tenant(request, resolved.tenant_id)
         return resolved
 
-    def __call__(self, request: HttpRequest) -> TenantContext:
+    def is_console(self, request: HttpRequest) -> bool:
+        """Whether the request is on the platform's console host (ADR-076 §4.2)."""
+        return is_console_host(request.get_host(), self.base_domain)
+
+    def console_context(self, request: HttpRequest) -> PlatformContext:
+        """The console's context: a person and a request, no tenant.
+
+        Three refusals, in the order that gives away the least. A route the
+        console does not serve is 404 before anything is asked about the
+        session, so a probe learns nothing from the difference between a
+        signed-in and a signed-out request. Then the session must exist, and it
+        must have been issued **on this host**: a session bound to a tenant is
+        refused here just as a console session is refused on a tenant's host
+        (`_refuse_foreign_session`). One person, two sessions, no menu between
+        them -- that is the property ADR-076 asks for.
+        """
+        if not request.path.startswith(CONSOLE_PATH_PREFIXES):
+            raise TenantResolutionError(
+                "the console serves only the platform's own routes", code="console.not_found"
+            )
+        user_id = getattr(request, "authenticated_user_id", None)
+        if user_id is None:
+            raise TenantResolutionError("no authenticated session", code="auth.required")
+        if getattr(request, "authenticated_tenant_id", None) is not None:
+            raise TenantResolutionError(
+                "a tenant session does not authenticate on the console host",
+                code="auth.session_tenant_mismatch",
+            )
+        return PlatformContext(
+            user_id=uuid.UUID(str(user_id)),
+            request_id=getattr(request, "request_id", "unknown"),
+        )
+
+    def __call__(self, request: HttpRequest) -> Context:
+        if self.is_console(request):
+            return self.console_context(request)
+
         resolved = self.host_tenant(request)
 
         user_id = getattr(request, "authenticated_user_id", None)

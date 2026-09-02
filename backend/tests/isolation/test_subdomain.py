@@ -14,7 +14,7 @@ import pytest
 from django.http import HttpRequest
 from django.test import RequestFactory
 
-from evidenta.platform.rls.context import tenant_context
+from evidenta.platform.rls.context import TenantContext, tenant_context
 from evidenta.platform.rls.middleware import TenantResolutionError
 from evidenta.platform.tenancy.middleware import SubdomainTenantResolver
 from evidenta.platform.tenancy.subdomain import resolve_tenant, subdomain_of
@@ -94,6 +94,8 @@ def test_full_resolution_produces_the_context(world: dict[str, uuid.UUID]) -> No
     request.authenticated_user_id = world["user_a"]  # type: ignore[attr-defined]
     request.authenticated_tenant_id = world["tenant_a"]  # type: ignore[attr-defined]
     context = SubdomainTenantResolver(BASE)(request)
+    # A tenant host yields a tenant context, never the console's (ADR-076).
+    assert isinstance(context, TenantContext)
     assert context.tenant_id == world["tenant_a"]
 
     with tenant_context(context):
@@ -163,7 +165,9 @@ def test_a_matching_client_stated_tenant_is_accepted(
     )
     request.authenticated_user_id = world["user_a"]  # type: ignore[attr-defined]
     request.authenticated_tenant_id = world["tenant_a"]  # type: ignore[attr-defined]
-    assert SubdomainTenantResolver(BASE)(request).tenant_id == world["tenant_a"]
+    context = SubdomainTenantResolver(BASE)(request)
+    assert isinstance(context, TenantContext)
+    assert context.tenant_id == world["tenant_a"]
 
 
 @pytestmark_db

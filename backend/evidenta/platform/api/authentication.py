@@ -46,6 +46,24 @@ class Principal:
         return True
 
 
+@dataclass(frozen=True, slots=True)
+class StaffPrincipal:
+    """The caller on the console host -- a person and **no tenant** (ADR-076).
+
+    A separate class rather than a `Principal` with a null tenant, so that a
+    business view reading ``request.user.tenant_id`` keeps its type and its
+    guarantee: on the console there is no such attribute to read. Which staff
+    role the person holds is not carried here -- it is a row, asked for inside
+    the request's context by the permission class that needs it.
+    """
+
+    user_id: UUID
+
+    @property
+    def is_authenticated(self) -> bool:
+        return True
+
+
 class SessionIdentityAuthentication(BaseAuthentication):
     """Adopt ``request.authenticated_user_id``, or stay anonymous.
 
@@ -55,11 +73,18 @@ class SessionIdentityAuthentication(BaseAuthentication):
     code (C10).
     """
 
-    def authenticate(self, request: Any) -> tuple[Principal, None] | None:
+    def authenticate(self, request: Any) -> tuple[Principal | StaffPrincipal, None] | None:
         user_id = getattr(request, "authenticated_user_id", None)
-        tenant_id = getattr(request, "authenticated_tenant_id", None)
-        if user_id is None or tenant_id is None:
+        if user_id is None:
             return None
+        tenant_id = getattr(request, "authenticated_tenant_id", None)
+        if tenant_id is None:
+            # A session with no tenant is a console session, and it reaches a
+            # DRF view only on the console host: the tenant resolver refuses it
+            # everywhere else before any view runs. So adopting it here does not
+            # widen what a business endpoint can see -- there is no path from
+            # this branch to one.
+            return (StaffPrincipal(user_id=user_id), None)
         return (
             Principal(
                 user_id=user_id,

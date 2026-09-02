@@ -32,6 +32,17 @@ urlpatterns: list[URLPattern | URLResolver] = [
     path("api/v1/tax/", include("evidenta.operations.tax.urls")),
     path("api/v1/strict-forms/", include("evidenta.platform.strictforms.urls")),
     path("api/v1/", include("evidenta.platform.tenancy.urls")),
+    # The platform's console (ADR-076). Served only on the `admin.` host: the
+    # tenant resolver refuses `/api/v1/platform/` on every other host, and
+    # refuses everything *but* it on this one -- see CONSOLE_PATH_PREFIXES. The
+    # fiscal door lives in `fiscal`, not here in `platform`: the dependency graph
+    # runs one way (platform imports nothing above it), so the console's
+    # reference-data screens are mounted by the module that owns the data.
+    path("api/v1/platform/staff/", include("evidenta.platform.identity.platform_urls")),
+    path(
+        "api/v1/platform/fiscal-parameters/",
+        include("evidenta.fiscal.parameters.console_urls"),
+    ),
     # Operational, not API. They sit outside /api/v1/ because they are not
     # resources and are not versioned with the product: an orchestrator probe
     # must not have to be updated when the API version changes.

@@ -27,15 +27,19 @@
 > 5344 / 2252, cota din nomenclator, înregistrarea companiei cu ușă și ecran; cotele rămân `draft`
 > (`OD-22`), deci pe baza de dezvoltare calculul refuză numind cheia. **A doua felie, tot 02.09
 > ([ADR-090](decisions/090-registrele-tva-pe-perioada-fiscala.md)):** perioadele TVA au ușă și cer
-> înregistrare; registrele de livrări și procurări se citesc pe `VatPeriod`, egale cu 5344 / 2252 —
-> măsurat —, cu ecran și export. **Urmează, tot din pasul 6:** declarația, când textul Ordinului IFPS
-> 1164/2012 e citit; proratarea; radierea cu ușă. *Antetul acesta a rămas în urmă de două ori — spunea
+> măsurat —, cu ecran și export. **Tot 02.09, în afara secvenței, prin instrucțiunea proprietarului
+> („mă aștept ca partea asta să fie setată în setările sistemului"):** consola platformei din ADR-076
+> există — gazda `admin.`, `platform_staff`, prima pagină: **parametrii fiscali** ca setări de
+> sistem, cu versiune nouă datată și activare de către operator
+> ([ADR-091](decisions/091-consola-scrie-referinta-din-procesul-web.md)). Cotele rămân `draft` până
+> când proprietarul le dă marginea — acum dintr-un ecran, nu dintr-un TOML. **Urmează, tot din pasul
+> 6:** declarația, când textul Ordinului IFPS 1164/2012 e citit; proratarea; radierea cu ușă. *Antetul acesta a rămas în urmă de două ori — spunea
 > „urmează pasul 2" până la 31.08 și „urmează trezoreria" până la 02.09, cu ambele livrate între timp.
 > Se rescrie la fiecare sesiune, nu doar „Ultima sesiune".*
 
 **Felia verticală merge cap-coadă: companie → plan de conturi → notă manuală → balanță echilibrată.**
 Un test de integrare o parcurge prin HTTP, sub rolul aplicației
-(`backend/tests/integration/test_vertical_slice.py`). Suita: **1.255 trec, 1 sărit** (2026-09-02, a doua felie; frontend 53).
+(`backend/tests/integration/test_vertical_slice.py`). Suita: **1.275 trec, 1 sărit** (2026-09-02, consola; frontend 59).
 
 - **A1** — planul SNC ca date: `accounting/coa/data/snc_2020.csv`, 476 de conturi (156 gradul I,
   320 gradul II), transcrise din extragerea proprie a actului; încărcător idempotent
@@ -193,6 +197,60 @@ sunt bifate în `08`** — închiderea F1 e declarația proprietarului, ca la F0
 ține modulele F2 pe loc.
 
 ## Ultima sesiune
+
+**2026-09-02 — Consola platformei există, și prima ei pagină sunt parametrii fiscali ca setări de sistem (`evidenta-82`).**
+
+**De unde a pornit:** proprietarul a întrebat unde înregistrează TVA standard și a primit un TOML și două
+comenzi de shell. Reacția, verbatim: *„i expect this part be setted in settings of the system… if vat
+get changed? what is wrong with you?"*, apoi alegerea explicită a locului: planul de control al
+platformei ([ADR-076](decisions/076-planul-de-control-al-platformei.md), acceptat la 31.08, neconstruit).
+
+**Livrat, în ordinea în care se poate deschide în browser** (`admin.evidenta.localhost:5173`, utilizatorul
+`dev@example.md` are rol `operator` pe baza de dezvoltare — acordat cu `grant_platform_staff`):
+
+- **Gazda `admin.`** — `is_console_host` în `tenancy/subdomain.py`, ramura de consolă în
+  `SubdomainTenantResolver`: fără context de tenant (`PlatformContext`, nou în `rls/context.py`),
+  servește doar `/api/v1/auth/` și `/api/v1/platform/` (`CONSOLE_PATH_PREFIXES`), restul `404
+  console.not_found` cu sau fără sesiune. O sesiune de consolă e refuzată pe gazdele de tenant și
+  reciproc. `whoami` întoarce `tenant_id: null` pe consolă.
+- **`platform_staff`** — `identity/0009` + `infra/migrations/0075`, declarată în `exceptions.toml`
+  (`self_row`, scriitor `evidenta_refdata`, fără DELETE; clasa (a) din ADR-072, confirmată prin ADR-076).
+  Trei roluri în `CHECK`. Autentificarea pe `admin.` emite sesiune doar unui rând viu, **după** ce
+  parola și al doilea factor au trecut (`401 auth.no_access_to_console`). `grant_platform_staff`
+  scrie primul rând sub rolul de instalare, ca `create_tenant`; acordarea din consolă e `OD-133`.
+- **Ușa fiscală** — `GET/POST /api/v1/platform/fiscal-parameters/`, `POST …/<id>/activate`
+  (`fiscal/parameters/console_views.py`): `IsPlatformOperator` pentru scriere, orice angajat pentru
+  citire; scrierea sub `privileged_run(P-4)` pe conexiunea `refdata`, cu `actor = "console:operator"`
+  și `actor_user_id` al persoanei. Regulile s-au mutat din comanda de încărcare în
+  `services/authoring.py` (`write_parameter`, `activate_row`) și le apelează **și** cele două comenzi,
+  **și** consola — o singură ușă. Câmpurile necunoscute se refuză și în serializatoarele imbricate.
+- **Ecranul** — `frontend/src/app/console/`: `ConsoleLayout` (o singură intrare în bara laterală,
+  fiindcă o singură pagină există; celelalte șapte din ADR-076 §4.3 nu se desenează),
+  `FiscalParametersScreen` (lista cu valoare, margine sau „fără margine", act, încredere, stare;
+  „Versiune nouă" cu actul în întregime și poziția din MO; „Activează" pe ciorne, doar operatorului).
+  `App.tsx` ramifică pe gazdă **deasupra** rutelor; `LoginScreen` primește `console` pentru textul de
+  deasupra formularului.
+- **[ADR-091](decisions/091-consola-scrie-referinta-din-procesul-web.md)** — de ce scrierea se face din
+  procesul web pe conexiunea de referință și nu prin funcție `SECURITY DEFINER` sau job: criteriul
+  „cine apelează" din Spec A §6.2 se precizează (utilizator al unui tenant vs. angajat al platformei),
+  iar propoziția din §6.1 despre proces e măsurată ca neadevărată deja (`DATABASES["refdata"]`
+  necondiționat) și primește declanșator de revenire. Spec A capătă §14 (consola) și nota de sub §6.2;
+  `OD-113` își pierde partea „nimic din cod nu refuză" și păstrează catalogul; `OD-133` deschisă.
+
+**Măsurat, și a schimbat codul:** testul de graniță (ADR-076 §5 b) a răspuns la prima rulare „zero
+rânduri" pe `tenant` și **niciun refuz** din `app.current_tenant_id()` sub contextul de consolă. Cauza nu
+era politica: `SET LOCAL` supraviețuiește savepoint-ului, iar `_apply` **sărea** cheile nesetate, deci un
+context deschis după altul în aceeași tranzacție moștenea `app.tenant_id` (și `actor_firm_id`,
+`company_id`) de la precedentul. Acum le **golește** (`set_config(cheie, '', true)`), iar sub contextul
+de consolă orice politică de tenant ridică `lipseste contextul de tenant` — ramura „eroare" a lui R4,
+nu ramura „zero rânduri". Secvența „membru, apoi consolă" e păstrată în test ca regresie.
+
+**Suita:** **1.275 trec, 1 sărit** (2026-09-02, poarta completă `GATE: PASS`, cu munca necomisă a sesiunilor vecine în arbore); frontend 59, dintre care 4 ale consolei.
+
+**Rămân:** marginile celor 22 de parametri `draft` — acum se scriu din ecran, dar tot proprietarul
+citește articolele finale; `OD-133` (acordarea din consolă); celelalte pagini ale consolei, pe măsură
+ce au server; declanșatorul din ADR-091 §6 (credențiale separate web / worker). Nerezolvat din sesiunea
+precedentă: ADR-085 §4 vs. cod (derivarea companiei titularului), fără răspuns de la proprietar.
 
 **2026-09-02 — Pasul 6, a doua felie: registrele TVA pe perioada fiscală, egale cu registrul contabil
 ([ADR-090](decisions/090-registrele-tva-pe-perioada-fiscala.md)).**

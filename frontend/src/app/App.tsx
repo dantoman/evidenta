@@ -1,7 +1,10 @@
-import { BrowserRouter, Route, Routes } from 'react-router'
+import { BrowserRouter, Navigate, Route, Routes } from 'react-router'
 
 import { t } from '@/locales'
 import { ApiError } from '@/shared/api/client'
+import { isConsoleHost } from '@/shared/workspace'
+import { ConsoleLayout } from './console/ConsoleLayout'
+import { FiscalParametersScreen } from './console/FiscalParametersScreen'
 import { LoginScreen } from './auth/LoginScreen'
 import { useIdentity } from './auth/useIdentity'
 import { AccountLedgerScreen } from './accounting/AccountLedgerScreen'
@@ -52,9 +55,17 @@ import { Landing } from './layout/Landing'
  * Authentication gates the router rather than living inside it. A route guard
  * that ran per route would let a screen mount for a frame before redirecting,
  * and in an accounting product that frame can show somebody else's numbers.
+ *
+ * **The console is a different host, so it is a different tree** (ADR-076).
+ * `admin.` carries no tenant, the server refuses every tenant route on it, and
+ * the same session cookie cannot cross between the two. Branching on the host
+ * above the routes -- rather than adding console routes to the tenant tree --
+ * keeps that structural: nothing in the tenant tree can link into the console
+ * and nothing in the console can name a company.
  */
 export function App() {
   const identity = useIdentity()
+  const onConsole = isConsoleHost()
 
   if (identity.isPending) {
     return <p className="p-6 text-sm text-ink-muted">{t.app.loading}</p>
@@ -81,13 +92,27 @@ export function App() {
   }
 
   if (!identity.data) {
-    return <LoginScreen />
+    return <LoginScreen console={onConsole} />
+  }
+
+  if (onConsole) {
+    return (
+      <BrowserRouter>
+        <Routes>
+          <Route element={<ConsoleLayout />}>
+            {/* One page exists (ADR-076 §4.3 lists eight); `/` goes to it. */}
+            <Route index element={<Navigate to="/parametri-fiscali" replace />} />
+            <Route path="parametri-fiscali" element={<FiscalParametersScreen />} />
+          </Route>
+        </Routes>
+      </BrowserRouter>
+    )
   }
 
   return (
     <BrowserRouter>
       <Routes>
-        <Route element={<AppLayout tenantId={identity.data.tenant_id} />}>
+        <Route element={<AppLayout tenantId={identity.data.tenant_id ?? ''} />}>
           {/* One canonical address per screen. `/` redirects rather than
               rendering the list a second time under a second URL -- and it
               redirects into the account holder's books when there are any

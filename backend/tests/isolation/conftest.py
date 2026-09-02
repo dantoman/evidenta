@@ -103,6 +103,9 @@ SEEDED_TABLES = (
     "feature_flag",
     "capability_activation",
     "user_session",
+    # ADR-076. Points at `user` twice (the employee and who granted them), so it
+    # goes before it; nothing points at it.
+    "platform_staff",
     "mfa_backup_code",
     "mfa_method",
     "role_permission",

@@ -21,13 +21,16 @@ before this was written: every shipped file after `OD-92` (`tva.toml`,
 this command read `entry["valid_from"]` unconditionally -- a `KeyError` on the
 first entry, which the test never met because it wrote its own file in the older
 shape.
+
+The activation itself is `services/authoring.activate_row`, shared with the
+console (ADR-076); what stays here is the file: finding the row the file names,
+and refusing when the file says a different value from the one stored.
 """
 
 from __future__ import annotations
 
 import tomllib
 import uuid
-from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -37,7 +40,8 @@ from evidenta.fiscal.parameters.management.commands.load_fiscal_parameters impor
     DATA_DIR,
     SCHEMA_VERSION,
 )
-from evidenta.fiscal.parameters.models import FiscalParameter, ParameterScope, ParameterStatus
+from evidenta.fiscal.parameters.models import FiscalParameter, ParameterScope
+from evidenta.fiscal.parameters.services.authoring import AuthoringError, activate_row
 from evidenta.fiscal.registry.services import versions as logic_versions
 from evidenta.platform.audit.services.privileged import (
     REFDATA_ALIAS,
@@ -100,36 +104,19 @@ class Command(BaseCommand):
                         f"parameter {entry['key']!r} (valid from {margin or 'nowhere'}) is not "
                         f"loaded; run load_fiscal_parameters first"
                     )
-                if margin is None:
-                    raise CommandError(
-                        f"parameter {entry['key']!r} has no margin: the file carries "
-                        f"`observed_in`, not `valid_from`, because the article that sets the "
-                        f"date has not been read (OD-92). Activating it would approve a value "
-                        f"the resolver can never select -- an approval that approves nothing. "
-                        f"Read the final article of the modifying act, write `valid_from` with "
-                        f"`margin_basis` and `margin_reference`, reload, then activate."
-                    )
                 if row.value != entry["value"]:
                     raise CommandError(
                         f"parameter {entry['key']!r}: the database holds {row.value!r}, the file "
                         f"says {entry['value']!r}; approving the file would approve something else"
                     )
-                if row.status == ParameterStatus.ACTIVE:
+                try:
+                    outcome = activate_row(row, approver=approver, using=db)
+                except AuthoringError as error:
+                    raise CommandError(str(error)) from error
+                if outcome.outcome == "already_active":
                     already += 1
-                    continue
-                if row.status != ParameterStatus.DRAFT:
-                    raise CommandError(
-                        f"parameter {entry['key']!r} is {row.status}; only a draft is "
-                        f"activated here"
-                    )
-                row.status = ParameterStatus.ACTIVE
-                row.approved_by_user_id = approver
-                row.approved_at = datetime.now(tz=UTC)
-                row.save(
-                    using=db,
-                    update_fields=["status", "approved_by_user_id", "approved_at", "updated_at"],
-                )
-                activated += 1
+                else:
+                    activated += 1
             for entry in document.get("logic", []):
                 version = logic_versions.find_version(
                     entry["logic_key"], str(entry["version"]), using=db
