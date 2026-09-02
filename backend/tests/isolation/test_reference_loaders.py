@@ -100,9 +100,24 @@ def test_the_owner_connection_is_refused_now() -> None:
 
 
 def write_file(
-    tmp_path: Path, *, value: int = 1, effective: bool = True, logic: str = "half_up"
+    tmp_path: Path,
+    *,
+    value: int = 1,
+    effective: bool = True,
+    logic: str = "half_up",
+    margin: bool = True,
 ) -> Path:
+    """A fictitious file. ``margin=False`` writes the shape every shipped file has
+    had since `OD-92`: the value with the date it was *observed* in, and no
+    ``valid_from`` -- because the article that would set one was never read."""
     effective_line = "effective_from = 2000-01-01" if effective else ""
+    margin_lines = (
+        "valid_from = 2000-01-01\n"
+        'margin_basis = "act"\n'
+        'margin_reference = "art. 1 — clauza de intrare în vigoare"'
+        if margin
+        else 'observed_in = "Observat în act la 2000-01-01; articolul final necitit (OD-92)."'
+    )
     path = tmp_path / "fictitious.toml"
     path.write_text(
         f"""
@@ -126,9 +141,7 @@ key = "test.loader.alpha"
 act = "test-act"
 value_type = "integer"
 value = {value}
-valid_from = 2000-01-01
-margin_basis = "act"
-margin_reference = "art. 1 — clauza de intrare în vigoare"
+{margin_lines}
 confidence = "provisional"
 provisional_reason = "test: fictitious"
 
@@ -280,3 +293,54 @@ def test_activation_is_the_approvers_act_and_is_logged_with_their_identity(
 
     version = FiscalLogicVersion.objects.using(REFDATA_ALIAS).get(logic_key="test.loader.rounding")
     assert version.status == LogicStatus.ACTIVE and version.approved_by_user_id == approver
+
+
+def test_a_parameter_without_a_margin_cannot_be_activated(tmp_path: Path) -> None:
+    """The shape every shipped file has had since `OD-92`, met at last.
+
+    `tva.toml`, `cnas_cnam.toml` and `impozit_pe_venit.toml` carry `observed_in`
+    and no `valid_from`: their margins were never read. The loader accepts that as
+    the honest state and writes `valid_from = NULL`. The activation command used to
+    read `entry["valid_from"]` and raise `KeyError` on the first entry -- and this
+    suite never saw it, because `write_file` wrote the older shape.
+
+    Two things are asserted. The refusal is **by name**, saying what is missing
+    and where it comes from. And the row stays `draft`: an activated value with no
+    margin would be one the resolver (`valid_from <= date`) could never select,
+    an approval that approves nothing while reading as done.
+    """
+    load_parameters(write_file(tmp_path, margin=False))
+    row = FiscalParameter.objects.using(REFDATA_ALIAS).get(parameter_key="test.loader.alpha")
+    assert row.valid_from is None and row.status == ParameterStatus.DRAFT
+
+    with pytest.raises(CommandError, match=r"no margin.*OD-92"):
+        call_command(
+            "activate_fiscal_parameters",
+            str(write_file(tmp_path, margin=False)),
+            approver=str(uuid.uuid4()),
+            actor="test:loader",
+            stdout=io.StringIO(),
+        )
+
+    row.refresh_from_db(using=REFDATA_ALIAS)
+    assert row.status == ParameterStatus.DRAFT
+
+
+def test_the_shipped_vat_file_is_refused_the_same_way(tmp_path: Path) -> None:
+    """Not a fictitious file: the one the repository ships. Loading it works,
+    activating it refuses on its first parameter by name -- the exact run the owner
+    would make, met here first instead of in the terminal."""
+    load_parameters(Path("tva.toml"))
+    with pytest.raises(CommandError, match=r"'vat\.regimes' has no margin"):
+        call_command(
+            "activate_fiscal_parameters",
+            "tva.toml",
+            approver=str(uuid.uuid4()),
+            actor="test:loader",
+            stdout=io.StringIO(),
+        )
+    assert not (
+        FiscalParameter.objects.using(REFDATA_ALIAS)
+        .filter(parameter_key__startswith="vat.", status=ParameterStatus.ACTIVE)
+        .exists()
+    )

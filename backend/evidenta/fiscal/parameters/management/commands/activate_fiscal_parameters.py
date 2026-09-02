@@ -10,6 +10,17 @@ actor's identity, not just the OS login.
 It activates only rows that are `draft` and match the file; a row already active
 is left alone and counted, a row whose value differs from the file is refused --
 approving the file must not approve something else.
+
+**A row without a margin is refused by name, not activated.** `OD-92` split the
+observation from the margin: a value whose final article was never read is loaded
+with `observed_in` and `valid_from = NULL`. The resolver filters
+`valid_from <= effective_date`, so such a row can never be found -- activating it
+would be an approval that approves nothing, and it would read as done. Measured
+before this was written: every shipped file after `OD-92` (`tva.toml`,
+`cnas_cnam.toml`, `impozit_pe_venit.toml`) carried no `valid_from` key at all, and
+this command read `entry["valid_from"]` unconditionally -- a `KeyError` on the
+first entry, which the test never met because it wrote its own file in the older
+shape.
 """
 
 from __future__ import annotations
@@ -69,6 +80,9 @@ class Command(BaseCommand):
             using=db,
         ) as run:
             for entry in document.get("parameter", []):
+                # Keyed exactly as the loader keys it -- `valid_from` absent means
+                # NULL, not an error -- so the row found is the row that was loaded.
+                margin = entry.get("valid_from")
                 row = (
                     FiscalParameter.objects.using(db)
                     .filter(
@@ -77,14 +91,23 @@ class Command(BaseCommand):
                         scope_ref=(
                             uuid.UUID(str(entry["scope_ref"])) if entry.get("scope_ref") else None
                         ),
-                        valid_from=entry["valid_from"],
+                        valid_from=margin,
                     )
                     .first()
                 )
                 if row is None:
                     raise CommandError(
-                        f"parameter {entry['key']!r} valid from {entry['valid_from']} is not "
+                        f"parameter {entry['key']!r} (valid from {margin or 'nowhere'}) is not "
                         f"loaded; run load_fiscal_parameters first"
+                    )
+                if margin is None:
+                    raise CommandError(
+                        f"parameter {entry['key']!r} has no margin: the file carries "
+                        f"`observed_in`, not `valid_from`, because the article that sets the "
+                        f"date has not been read (OD-92). Activating it would approve a value "
+                        f"the resolver can never select -- an approval that approves nothing. "
+                        f"Read the final article of the modifying act, write `valid_from` with "
+                        f"`margin_basis` and `margin_reference`, reload, then activate."
                     )
                 if row.value != entry["value"]:
                     raise CommandError(
