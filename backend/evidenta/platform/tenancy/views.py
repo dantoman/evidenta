@@ -21,6 +21,7 @@ reaches across the module graph.
 from __future__ import annotations
 
 import uuid
+from datetime import date
 from typing import Any
 
 from django.http import Http404
@@ -29,6 +30,7 @@ from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from evidenta.platform.api.errors import ApiError
 from evidenta.platform.engagement.services.directory import delegations_for_client
 from evidenta.platform.identity.services.access import (
     RoleView,
@@ -42,6 +44,11 @@ from evidenta.platform.tenancy.services.companies import (
     update_company,
 )
 from evidenta.platform.tenancy.services.provisioning import provision_company
+from evidenta.platform.tenancy.services.tax_status import tax_status_at
+from evidenta.platform.tenancy.services.vat_registration import (
+    register_for_vat,
+    vat_registrations_of,
+)
 
 
 def _rendered(company: Company) -> dict[str, Any]:
@@ -267,3 +274,79 @@ class CompanyCloseView(APIView):
         payload.is_valid(raise_exception=True)
         company = close_company(company_id, reason=str(payload.validated_data["reason"]))
         return Response(_rendered(company))
+
+
+class DateRequiredError(ApiError):
+    code = "tenancy.date_required"
+    status = 400
+
+
+class VatRegistrationSerializer(serializers.Serializer[dict[str, Any]]):
+    vat_code = serializers.CharField(max_length=64)
+    valid_from = serializers.DateField()
+    #: The last day it applies, inclusive. Given only when already known.
+    valid_to = serializers.DateField(required=False, allow_null=True)
+    # `source` is also an attribute of every DRF field, which is why the stub
+    # objects; the wire name is the column's name, as `opening/views.py` does.
+    source = serializers.CharField(  # type: ignore[assignment]
+        required=False, allow_blank=True, allow_null=True
+    )
+
+
+def _registration_rendered(row: Any) -> dict[str, Any]:
+    return {
+        "id": str(row.id),
+        "vat_code": row.vat_code,
+        "valid_from": str(row.valid_from),
+        "valid_to": None if row.valid_to is None else str(row.valid_to),
+        "source": row.source,
+    }
+
+
+class CompanyVatRegistrationsView(APIView):
+    """The company's VAT registrations: read them, or record one -- ADR-089.
+
+    A sub-resource rather than a field on the card, because a registration is a
+    dated fact with its own history (ADR-088): the card shows *whether* the
+    company is a payer today, this list shows *since when*, and *until when* for
+    the ones that ended.
+    """
+
+    def get(self, request: Request, company_id: uuid.UUID) -> Response:
+        if not Company.objects.filter(id=company_id).exists():
+            raise Http404
+        return Response([_registration_rendered(r) for r in vat_registrations_of(company_id)])
+
+    def post(self, request: Request, company_id: uuid.UUID) -> Response:
+        payload = VatRegistrationSerializer(data=request.data)
+        payload.is_valid(raise_exception=True)
+        data = dict(payload.validated_data)
+        registration = register_for_vat(
+            company_id,
+            vat_code=str(data["vat_code"]),
+            valid_from=data["valid_from"],
+            valid_to=data.get("valid_to"),
+            source=data.get("source"),
+        )
+        return Response(_registration_rendered(registration), status=201)
+
+
+class CompanyTaxStatusView(APIView):
+    """What was true about the company's fiscal standing on a date -- ADR-088.
+
+    ``on`` is required. The question a document screen asks is "may this
+    company charge VAT on an invoice dated the 20th", and a default of today
+    would answer about the wrong day for every back-dated document (ADR-044).
+    """
+
+    def get(self, request: Request, company_id: uuid.UUID) -> Response:
+        if not Company.objects.filter(id=company_id).exists():
+            raise Http404
+        raw = request.query_params.get("on")
+        if not raw:
+            raise DateRequiredError("`on` is required: the status is the one in force on a date")
+        try:
+            on = date.fromisoformat(str(raw))
+        except ValueError as exc:
+            raise DateRequiredError(f"`on` is {raw!r}, not a date") from exc
+        return Response(tax_status_at(company_id, on))

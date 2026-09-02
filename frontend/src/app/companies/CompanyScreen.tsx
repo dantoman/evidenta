@@ -12,6 +12,11 @@
  * against the answer instead of failing on save.
  *
  * `legal_name` is what appears, never an internal name (C39).
+ *
+ * **The VAT registration is a fourth zone** (ADR-088, ADR-089): a dated fact
+ * with a history, shown as such -- since when, until when -- and recorded under
+ * the same key that corrects the card. It is not a checkbox, because a checkbox
+ * cannot say what was true in January.
  */
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -22,12 +27,16 @@ import { t } from '@/locales'
 import {
   closeCompany,
   getCompany,
+  listVatRegistrations,
+  registerForVat,
+  taxStatus,
   updateCompany,
   type Company,
   type EditableCompany,
 } from '@/shared/api/companies'
 import { workspace } from '@/shared/api/workspace'
 import { Failure } from '@/shared/Failure'
+import { date, today } from '@/shared/format'
 import { Badge, Button, Card, Field, Input, PageHeader } from '@/shared/ui'
 
 const STATUS_LABEL: Record<string, string> = {
@@ -93,6 +102,8 @@ export function CompanyScreen() {
       />
 
       <FixedZone company={row} />
+
+      <VatZone companyId={companyId} allowed={may('company.edit') && open} />
 
       {open && (
         <CloseZone
@@ -271,6 +282,137 @@ function CloseZone({
       </div>
       {!allowed && <p className="mt-3 text-sm text-ink-muted">{t.companies.noCloseRight}</p>}
       {close.isError && <Failure error={close.error} />}
+    </Card>
+  )
+}
+
+
+/** Registered for VAT, since when, and the door to say so -- ADR-089. */
+function VatZone({ companyId, allowed }: { companyId: string; allowed: boolean }) {
+  const queryClient = useQueryClient()
+  // Today is read once at mount and kept, as the dashboard does: the day is part
+  // of the key, and a clock crossing midnight must not refetch under the reader.
+  const [asOf] = useState(today)
+  const status = useQuery({
+    queryKey: ['tax-status', companyId, asOf],
+    queryFn: () => taxStatus(companyId, asOf),
+  })
+  const registrations = useQuery({
+    queryKey: ['vat-registrations', companyId],
+    queryFn: () => listVatRegistrations(companyId),
+  })
+
+  const [vatCode, setVatCode] = useState('')
+  const [validFrom, setValidFrom] = useState('')
+  const [source, setSource] = useState('')
+
+  const register = useMutation({
+    mutationFn: () =>
+      registerForVat(companyId, {
+        vat_code: vatCode.trim(),
+        valid_from: validFrom,
+        source: source.trim() || null,
+      }),
+    onSuccess: () => {
+      setVatCode('')
+      setValidFrom('')
+      setSource('')
+      void queryClient.invalidateQueries({ queryKey: ['vat-registrations', companyId] })
+      void queryClient.invalidateQueries({ queryKey: ['tax-status', companyId] })
+    },
+  })
+
+  const complete = vatCode.trim() !== '' && validFrom !== ''
+
+  return (
+    <Card>
+      <h2 className="type-title-sm mb-1">{t.companies.vat}</h2>
+      <p className="mb-4 text-sm text-ink-muted">{t.companies.vatLead}</p>
+
+      {status.isError && <Failure error={status.error} />}
+      {status.data && (
+        <p className="mb-4 text-sm">
+          <Badge tone={status.data.vat.registered ? 'credit' : 'neutral'}>
+            {status.data.vat.registered
+              ? t.companies.vatRegisteredToday
+              : t.companies.vatNotRegisteredToday}
+          </Badge>
+          {status.data.vat.registered && (
+            <span className="ml-2 font-mono">{status.data.vat.code}</span>
+          )}
+        </p>
+      )}
+
+      {registrations.isError && <Failure error={registrations.error} />}
+      {registrations.data && registrations.data.length === 0 && (
+        <p className="mb-4 text-sm text-ink-muted">{t.companies.vatNone}</p>
+      )}
+      {registrations.data && registrations.data.length > 0 && (
+        <table className="mb-4 text-sm">
+          <thead>
+            <tr className="text-left text-ink-muted">
+              <th className="pr-6 font-normal">{t.companies.vatCode}</th>
+              <th className="pr-6 font-normal">{t.companies.vatValidFrom}</th>
+              <th className="pr-6 font-normal">{t.companies.vatValidTo}</th>
+              <th className="pr-6 font-normal">{t.companies.vatSource}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {registrations.data.map((row) => (
+              <tr key={row.id}>
+                <td className="pr-6 py-1 font-mono">{row.vat_code}</td>
+                <td className="pr-6 py-1">{date(row.valid_from)}</td>
+                <td className="pr-6 py-1">
+                  {row.valid_to === null ? t.companies.vatOpen : date(row.valid_to)}
+                </td>
+                <td className="pr-6 py-1 text-ink-muted">{row.source ?? t.common.none}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+
+      <form
+        className="flex flex-wrap items-end gap-4"
+        onSubmit={(event: FormEvent) => {
+          event.preventDefault()
+          register.mutate()
+        }}
+      >
+        <Field label={t.companies.vatCode}>
+          <Input
+            value={vatCode}
+            onChange={(event) => setVatCode(event.target.value)}
+            maxLength={64}
+            disabled={!allowed}
+            className="w-40 font-mono"
+          />
+        </Field>
+        <Field label={t.companies.vatValidFrom}>
+          <Input
+            type="date"
+            value={validFrom}
+            onChange={(event) => setValidFrom(event.target.value)}
+            disabled={!allowed}
+            className="w-40"
+          />
+        </Field>
+        <Field label={t.companies.vatSource}>
+          <Input
+            value={source}
+            onChange={(event) => setSource(event.target.value)}
+            maxLength={255}
+            disabled={!allowed}
+            title={t.companies.vatSourceHint}
+            className="w-72"
+          />
+        </Field>
+        <Button variant="primary" type="submit" disabled={!allowed || !complete || register.isPending}>
+          {register.isPending ? t.companies.vatRegistering : t.companies.vatRegister}
+        </Button>
+      </form>
+      {!allowed && <p className="mt-3 text-sm text-ink-muted">{t.companies.vatNoRight}</p>}
+      {register.isError && <Failure error={register.error} />}
     </Card>
   )
 }

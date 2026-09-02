@@ -9,11 +9,18 @@ than derived -- ADR-073 §2, on the pattern ADR-057 fixed for settlement.
 roles; `bind_roles` turns them into accounts through the company's own bindings at
 the posting's date, or refuses with the binding's code.
 
-**No VAT.** One treatment is registered, and it is the one for a sale without VAT.
-The treatment with VAT cannot be registered yet: the engine selects on
-capabilities, and the VAT status of a company is not one (`OD-83`, open). Adding a
-second treatment before that is decided would mean choosing between them by
-something the registry does not read.
+**VAT, since ADR-089, and still one treatment per event.** The fact carries the
+document's net, its VAT and the VAT split by rate; the handler posts the net
+against revenue or cost and each VAT share against the VAT account, with the
+rate stamped on the formula (ADR-048). What is *not* here is a second treatment
+selected by the company's fiscal status: how a dated status reaches handler
+selection is `OD-130`, deferred to the third case, and this -- the second -- takes
+the reversible form instead. The status decides upstream: whether a sale may
+carry VAT at all is the document layer's refusal on the document's date, and
+whether a purchase's VAT is deductible is a discriminator on the fact, derived by
+the purchases module from the status on the accounting date and checked here
+against the stamp `emit` wrote (ADR-088). A handler reads amounts and booleans;
+it never asks who the company is.
 
 **Goods and finished products are refused, with a code.** Their revenue is
 recognised the same way, but the entry has a second half -- the stock leaving --
@@ -24,7 +31,7 @@ margin equals its turnover: balanced, plausible, false.
 from __future__ import annotations
 
 import uuid
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from datetime import UTC, date, datetime
 from decimal import Decimal
@@ -46,6 +53,7 @@ from evidenta.accounting.posting.invariants import Origin
 from evidenta.accounting.posting.resolution import selected_treatment
 from evidenta.accounting.posting.services.formulas import post_formulas
 from evidenta.platform.api.errors import ApiError
+from evidenta.platform.documents.services.lines import VatSlice
 from evidenta.platform.numbering.services.allocation import NumberingError
 
 SOURCE_MODULE = "sales"
@@ -60,10 +68,16 @@ ROLE_VENIT_SERVICII = "VENIT_SERVICII"
 ROLE_VENIT_MARFURI = "VENIT_MARFURI"
 ROLE_VENIT_PRODUSE = "VENIT_PRODUSE"
 
+#: 5344, „Datorii privind taxa pe valoarea adăugată" -- the VAT collected on a
+#: sale, and reduced by a return. In the catalogue since ADR-048; asked for
+#: since ADR-089.
+ROLE_TVA_COLECTATA = "TVA_COLECTATA"
+
 SALE_ROLES = (
     ROLE_CREANTE_TARA,
     ROLE_CREANTE_STRAINATATE,
     ROLE_VENIT_SERVICII,
+    ROLE_TVA_COLECTATA,
 )
 
 EVENT_RETURN = "sales.return_issued"
@@ -79,6 +93,7 @@ RETURN_ROLES = (
     ROLE_CREANTE_TARA,
     ROLE_CREANTE_STRAINATATE,
     ROLE_RETUR_REDUCERI,
+    ROLE_TVA_COLECTATA,
 )
 
 #: What is sold, and the role that recognises it. Enumerated in code: the value
@@ -95,6 +110,9 @@ NEEDS_INVENTORY = ("goods", "products")
 PAYLOAD_FIELDS = (
     "document_id",
     "total",
+    "net",
+    "vat",
+    "vat_by_rate",
     "currency",
     "revenue_kind",
     "partner_resident",
@@ -130,6 +148,52 @@ class CostSideRequiresInventoryError(ApiError):
 
 
 @dataclass(frozen=True, slots=True)
+class VatShare:
+    """The part of a document's VAT that was calculated at one rate.
+
+    ``rate_key`` is the parameter the rate was resolved under (`R18`), and may be
+    absent for a document whose amounts arrived from elsewhere -- a rate without
+    a key is an import, a key without a rate is nothing. The share becomes one
+    formula against the VAT account, with the rate stamped on it (ADR-048), so
+    the ledger of 5344 can be read by rate without going back to the documents.
+    """
+
+    rate_key: str | None
+    rate: Decimal
+    net: Decimal
+    vat: Decimal
+
+    def as_payload(self) -> dict[str, Any]:
+        return {
+            "rate_key": self.rate_key,
+            "rate": str(self.rate),
+            "net": str(self.net),
+            "vat": str(self.vat),
+        }
+
+
+def vat_shares(slices: Iterable[VatSlice]) -> tuple[VatShare, ...]:
+    """Fold the document core's per-regime slices into per-rate shares.
+
+    Two exempt regimes at zero are one share of zero; two taxable regimes that
+    happen to resolve through the same key at the same rate are one share. The
+    ledger cares about the rate, the register about the regime, and the fact
+    carries what the ledger consumes.
+    """
+    folded: dict[tuple[str | None, Decimal], VatShare] = {}
+    for piece in slices:
+        key = (piece.vat_rate_key, piece.vat_rate)
+        current = folded.get(key)
+        folded[key] = VatShare(
+            rate_key=piece.vat_rate_key,
+            rate=piece.vat_rate,
+            net=(current.net if current else Decimal(0)) + piece.net,
+            vat=(current.vat if current else Decimal(0)) + piece.vat,
+        )
+    return tuple(folded.values())
+
+
+@dataclass(frozen=True, slots=True)
 class SalesInvoiceFact:
     """What the ledger needs to know about an issued invoice.
 
@@ -137,6 +201,10 @@ class SalesInvoiceFact:
     seam `SettlementFact` draws, and for the same reason: a signature that named
     `SalesDocument` would make the shape of another module's table part of this
     one's contract.
+
+    ``total`` is ``net + vat`` and all three are carried rather than two derived:
+    the handler checks the identity, and a fact that only stated two of them
+    would let a rounding on the way in pass as a document that adds up.
     """
 
     document_id: uuid.UUID
@@ -144,16 +212,22 @@ class SalesInvoiceFact:
     accounting_date: date
     document_date: date
     total: Decimal
+    net: Decimal
+    vat: Decimal
     currency: str
     revenue_kind: str
     partner_resident: bool
     description: str
+    vat_by_rate: tuple[VatShare, ...] = ()
 
     def as_payload(self) -> dict[str, Any]:
         return {
             "document_id": str(self.document_id),
             "partner_id": str(self.partner_id),
             "total": str(self.total),
+            "net": str(self.net),
+            "vat": str(self.vat),
+            "vat_by_rate": [share.as_payload() for share in self.vat_by_rate],
             "currency": self.currency,
             "revenue_kind": self.revenue_kind,
             "partner_resident": self.partner_resident,
@@ -206,11 +280,9 @@ def recognise_sale(
             "is asked for rather than assumed (ADR-073 §2)"
         )
 
-    total = _decimal(payload.get("total"), "total")
-    if total <= 0:
-        raise SalesPostingError(
-            "a sale is posted for a positive total; a return is its own document"
-        )
+    net, shares = _amounts(payload, SalesPostingError)
+    if net <= 0:
+        raise SalesPostingError("a sale is posted for a positive net; a return is its own document")
 
     currency = payload.get("currency")
     if currency != functional_currency:
@@ -219,19 +291,43 @@ def recognise_sale(
             f"{functional_currency} is posted here so far"
         )
 
-    return (
+    receivable = ROLE_CREANTE_TARA if resident else ROLE_CREANTE_STRAINATATE
+    document_date = date.fromisoformat(str(payload["document_date"]))
+    formulas = [
         RoleFormula(
-            debit_role=ROLE_CREANTE_TARA if resident else ROLE_CREANTE_STRAINATATE,
+            debit_role=receivable,
             credit_role=REVENUE_ROLES[kind],
-            amount=total,
+            amount=net,
             currency=functional_currency,
-            amount_currency=total,
+            amount_currency=net,
             exchange_rate=Decimal(1),
             rate_date=accounting_date,
-            document_date=date.fromisoformat(str(payload["document_date"])),
+            document_date=document_date,
             description="Venit din prestarea serviciilor",
-        ),
-    )
+        )
+    ]
+    # One formula per rate, the receivable growing by each: the customer owes
+    # the total, the revenue is the net, and the difference is owed onward to
+    # the budget through 5344. The rate rides on the formula (ADR-048).
+    for share in shares:
+        if share.vat == 0:
+            continue
+        formulas.append(
+            RoleFormula(
+                debit_role=receivable,
+                credit_role=ROLE_TVA_COLECTATA,
+                amount=share.vat,
+                currency=functional_currency,
+                amount_currency=share.vat,
+                exchange_rate=Decimal(1),
+                rate_date=accounting_date,
+                document_date=document_date,
+                vat_rate=share.rate,
+                vat_rate_key=share.rate_key,
+                description="TVA aferentă livrării",
+            )
+        )
+    return tuple(formulas)
 
 
 def recognise_return(
@@ -275,10 +371,10 @@ def recognise_return(
             "receivable it reduces differs by that (ADR-073 §2)"
         )
 
-    total = _decimal(payload.get("total"), "total")
-    if total <= 0:
+    net, shares = _amounts(payload, SalesPostingError)
+    if net <= 0:
         raise SalesPostingError(
-            "a return is posted for a positive total; the direction is the "
+            "a return is posted for a positive net; the direction is the "
             "document's nature, never the sign"
         )
 
@@ -289,30 +385,96 @@ def recognise_return(
             f"{functional_currency} is posted here so far"
         )
 
-    return (
+    receivable = ROLE_CREANTE_TARA if resident else ROLE_CREANTE_STRAINATATE
+    document_date = date.fromisoformat(str(payload["document_date"]))
+    formulas = [
         RoleFormula(
             debit_role=ROLE_RETUR_REDUCERI,
-            credit_role=ROLE_CREANTE_TARA if resident else ROLE_CREANTE_STRAINATATE,
-            amount=total,
+            credit_role=receivable,
+            amount=net,
             currency=functional_currency,
-            amount_currency=total,
+            amount_currency=net,
             exchange_rate=Decimal(1),
             rate_date=accounting_date,
-            document_date=date.fromisoformat(str(payload["document_date"])),
+            document_date=document_date,
             description="Retur de la client",
-        ),
-    )
+        )
+    ]
+    # The VAT collected on the delivery comes back down: 5344 is debited, the
+    # receivable credited, one formula per rate like the sale it answers.
+    for share in shares:
+        if share.vat == 0:
+            continue
+        formulas.append(
+            RoleFormula(
+                debit_role=ROLE_TVA_COLECTATA,
+                credit_role=receivable,
+                amount=share.vat,
+                currency=functional_currency,
+                amount_currency=share.vat,
+                exchange_rate=Decimal(1),
+                rate_date=accounting_date,
+                document_date=document_date,
+                vat_rate=share.rate,
+                vat_rate_key=share.rate_key,
+                description="TVA aferentă returului",
+            )
+        )
+    return tuple(formulas)
 
 
-def _decimal(value: Any, field: str) -> Decimal:
+def _decimal(value: Any, field: str, error: type[ApiError] = SalesPostingError) -> Decimal:
     if isinstance(value, Decimal):
         return value
     if isinstance(value, str):
         try:
             return Decimal(value)
-        except ArithmeticError as error:
-            raise SalesPostingError(f"{field} is {value!r}") from error
-    raise SalesPostingError(f"{field} must be a Decimal or its string, never a float")
+        except ArithmeticError as failure:
+            raise error(f"{field} is {value!r}") from failure
+    raise error(f"{field} must be a Decimal or its string, never a float")
+
+
+def _amounts(
+    payload: dict[str, Any], error: type[ApiError]
+) -> tuple[Decimal, tuple[VatShare, ...]]:
+    """The net and the VAT shares, checked against each other and against the total.
+
+    Three identities, refused rather than repaired: ``total = net + vat``, the
+    shares add up to ``vat``, and the shares' nets add up to ``net``. A fact that
+    failed any of them was assembled from two different readings of one document,
+    and posting the one that balances would hide which.
+    """
+    total = _decimal(payload.get("total"), "total", error)
+    net = _decimal(payload.get("net"), "net", error)
+    vat = _decimal(payload.get("vat"), "vat", error)
+    if vat < 0:
+        raise error("VAT is not negative; a return is its own document")
+    if net + vat != total:
+        raise error(f"total {total} is not net {net} plus VAT {vat}")
+
+    raw = payload.get("vat_by_rate")
+    if not isinstance(raw, list):
+        raise error("vat_by_rate is missing; a document with VAT says at which rates")
+    shares: list[VatShare] = []
+    for item in raw:
+        if not isinstance(item, dict):
+            raise error("a VAT share is a mapping of rate_key, rate, net and vat")
+        rate_key = item.get("rate_key")
+        if rate_key is not None and not isinstance(rate_key, str):
+            raise error(f"rate_key is {rate_key!r}, not a parameter key")
+        rate = _decimal(item.get("rate"), "rate", error)
+        share_net = _decimal(item.get("net"), "net", error)
+        share_vat = _decimal(item.get("vat"), "vat", error)
+        if rate < 0 or share_net < 0 or share_vat < 0:
+            raise error("a VAT share carries no negative figure")
+        if share_vat > 0 and rate == 0:
+            raise error(f"a VAT of {share_vat} at a rate of zero is a share that cannot exist")
+        shares.append(VatShare(rate_key=rate_key, rate=rate, net=share_net, vat=share_vat))
+    if sum((share.vat for share in shares), Decimal(0)) != vat:
+        raise error(f"the VAT shares do not add up to the document's VAT {vat}")
+    if sum((share.net for share in shares), Decimal(0)) != net:
+        raise error(f"the VAT shares' nets do not add up to the document's net {net}")
+    return net, tuple(shares)
 
 
 HANDLERS[HANDLER_SALE] = recognise_sale
@@ -353,6 +515,11 @@ ROLE_ALTE_CHELTUIELI_DISTRIBUIRE = "ALTE_CHELTUIELI_DISTRIBUIRE"
 ROLE_PRODUCTIE_DE_BAZA = "PRODUCTIE_DE_BAZA"
 ROLE_COSTURI_INDIRECTE = "COSTURI_INDIRECTE_PRODUCTIE"
 
+#: 2252, „Creanțe ale bugetului privind taxa pe valoarea adăugată" -- the VAT a
+#: registered buyer may deduct. A buyer that is not registered bears the VAT as
+#: part of the cost, and this role is not asked for.
+ROLE_TVA_DEDUCTIBILA = "TVA_DEDUCTIBILA"
+
 #: Where the cost lands, and the role that carries it -- ADR-073 §4, verbatim.
 #:
 #: The destination selects **which role is asked for**; it never conditions which
@@ -370,11 +537,16 @@ PURCHASE_ROLES = (
     ROLE_DATORII_TARA,
     ROLE_DATORII_STRAINATATE,
     *COST_ROLES.values(),
+    ROLE_TVA_DEDUCTIBILA,
 )
 
 PURCHASE_PAYLOAD_FIELDS = (
     "document_id",
     "total",
+    "net",
+    "vat",
+    "vat_by_rate",
+    "vat_deductible",
     "currency",
     "cost_destination",
     "partner_resident",
@@ -394,6 +566,20 @@ class PurchaseDiscriminatorMissingError(ApiError):
     status = 422
 
 
+class PurchaseVatStatusMismatchError(ApiError):
+    """The fact claims a deductibility the stamp on the event contradicts.
+
+    The purchases module derives `vat_deductible` from the company's status on
+    the accounting date; `emit` stamps that same status on the event (ADR-088).
+    The two are one fact read twice, and a disagreement means one reading is
+    wrong -- refused, because posting either would put a number in 2252 or in
+    cost that the other reading says is not there.
+    """
+
+    code = "purchases.vat_status_mismatch"
+    status = 409
+
+
 @dataclass(frozen=True, slots=True)
 class PurchaseInvoiceFact:
     """What the ledger needs to know about a recorded supplier invoice.
@@ -408,16 +594,29 @@ class PurchaseInvoiceFact:
     accounting_date: date
     document_date: date
     total: Decimal
+    net: Decimal
+    vat: Decimal
     currency: str
     cost_destination: str
     partner_resident: bool
+    #: Whether *we* may deduct the VAT the supplier charged: true for a company
+    #: registered on the accounting date, false otherwise. A discriminator on the
+    #: fact, on the pattern of `partner_resident` (ADR-073 §2) -- derived by the
+    #: purchases module from the dated status, never assumed here, and checked
+    #: at posting against the stamp the event carries.
+    vat_deductible: bool
     description: str
+    vat_by_rate: tuple[VatShare, ...] = ()
 
     def as_payload(self) -> dict[str, Any]:
         return {
             "document_id": str(self.document_id),
             "partner_id": str(self.partner_id),
             "total": str(self.total),
+            "net": str(self.net),
+            "vat": str(self.vat),
+            "vat_by_rate": [share.as_payload() for share in self.vat_by_rate],
+            "vat_deductible": self.vat_deductible,
             "currency": self.currency,
             "cost_destination": self.cost_destination,
             "partner_resident": self.partner_resident,
@@ -433,12 +632,14 @@ def recognise_purchase(
     functional_currency: str,
     payload: dict[str, Any],
 ) -> tuple[RoleFormula, ...]:
-    """The pure treatment: one formula, the cost against the payable.
+    """The pure treatment: the cost against the payable, and the VAT where it belongs.
 
-    **No VAT**, and for exactly the reason the sales half gives: the engine selects
-    a treatment on capabilities, and a company's VAT status is not one (`OD-83`).
-    A second treatment registered before that is decided would be chosen by
-    something the registry does not read.
+    **Deductible or borne, and the fact says which.** A registered buyer takes the
+    VAT to 2252, one formula per rate; a buyer that is not registered has no
+    right of deduction, and the VAT the supplier charged is part of what the
+    service cost -- one formula, for the total, to the cost account. The boolean
+    is read, never inferred from the amounts: an invoice with VAT on it says
+    nothing about whether *we* may deduct it.
 
     **Stock cannot be bought through here**, and that is structural rather than a
     refusal with a code: none of the four destinations is an asset, so goods for
@@ -462,10 +663,19 @@ def recognise_purchase(
             "is asked for rather than assumed (ADR-073 §2)"
         )
 
-    total = _decimal(payload.get("total"), "total")
-    if total <= 0:
+    deductible = payload.get("vat_deductible")
+    if not isinstance(deductible, bool):
+        raise PurchaseDiscriminatorMissingError(
+            "the invoice does not say whether its VAT is deductible; that follows "
+            "from the company's registration on the accounting date, which the "
+            "purchases module reads and this handler does not (ADR-089)"
+        )
+
+    net, shares = _amounts(payload, PurchasePostingError)
+    total = _decimal(payload.get("total"), "total", PurchasePostingError)
+    if net <= 0:
         raise PurchasePostingError(
-            "a purchase is posted for a positive total; a credit note is its own document"
+            "a purchase is posted for a positive net; a credit note is its own document"
         )
 
     currency = payload.get("currency")
@@ -475,22 +685,63 @@ def recognise_purchase(
             f"{functional_currency} is posted here so far"
         )
 
-    return (
+    payable = ROLE_DATORII_TARA if resident else ROLE_DATORII_STRAINATATE
+    document_date = date.fromisoformat(str(payload["document_date"]))
+    # One description for four destinations: what happened is the same -- a
+    # service was received -- and what differs is the account it lands on, which
+    # the line already says.
+    description = "Servicii primite de la furnizor"
+
+    if not deductible:
+        # No right of deduction: the VAT is what the service cost, and it lands
+        # with the rest of the cost. One formula for the total, no rate stamped
+        # -- the rate belongs to a VAT formula, and there is none.
+        return (
+            RoleFormula(
+                debit_role=COST_ROLES[destination],
+                credit_role=payable,
+                amount=total,
+                currency=functional_currency,
+                amount_currency=total,
+                exchange_rate=Decimal(1),
+                rate_date=accounting_date,
+                document_date=document_date,
+                description=description,
+            ),
+        )
+
+    formulas = [
         RoleFormula(
             debit_role=COST_ROLES[destination],
-            credit_role=ROLE_DATORII_TARA if resident else ROLE_DATORII_STRAINATATE,
-            amount=total,
+            credit_role=payable,
+            amount=net,
             currency=functional_currency,
-            amount_currency=total,
+            amount_currency=net,
             exchange_rate=Decimal(1),
             rate_date=accounting_date,
-            document_date=date.fromisoformat(str(payload["document_date"])),
-            # One description for four destinations: what happened is the same --
-            # a service was received -- and what differs is the account it lands
-            # on, which the line already says.
-            description="Servicii primite de la furnizor",
-        ),
-    )
+            document_date=document_date,
+            description=description,
+        )
+    ]
+    for share in shares:
+        if share.vat == 0:
+            continue
+        formulas.append(
+            RoleFormula(
+                debit_role=ROLE_TVA_DEDUCTIBILA,
+                credit_role=payable,
+                amount=share.vat,
+                currency=functional_currency,
+                amount_currency=share.vat,
+                exchange_rate=Decimal(1),
+                rate_date=accounting_date,
+                document_date=document_date,
+                vat_rate=share.rate,
+                vat_rate_key=share.rate_key,
+                description="TVA deductibilă",
+            )
+        )
+    return tuple(formulas)
 
 
 HANDLERS[HANDLER_PURCHASE] = recognise_purchase
@@ -956,6 +1207,20 @@ def post_purchase_invoice(
         posted = entry_id_of_event(event.id)
         if posted is not None or event.status == "posted":
             return PurchasePostingResult(event.id, posted, 0, posted_now=False)
+
+    # The fact's deductibility against the stamp `emit` just wrote from the same
+    # date (ADR-088). Not a selection -- the handler still reads the fact -- but
+    # a check that the fact was read from the status the event records, so a
+    # recalculation (`R18`) and an audit see one answer, not two.
+    stamp = event.tax_status_snapshot
+    if isinstance(stamp, dict):
+        registered = stamp.get("vat", {}).get("registered")
+        if isinstance(registered, bool) and registered != fact.vat_deductible:
+            raise PurchaseVatStatusMismatchError(
+                f"the fact says vat_deductible={fact.vat_deductible} and the event's "
+                f"stamp says registered={registered} on {fact.accounting_date}; one of "
+                f"them read the status wrong, and neither is posted"
+            )
 
     treatment = selected_treatment(EVENT_PURCHASE, fact.accounting_date, capability_snapshot)
     produced = treatment.handler(

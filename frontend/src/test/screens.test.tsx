@@ -126,6 +126,15 @@ describe('ecranele', () => {
   // n-ar avea cum să deducă dacă i-a lipsit dreptul sau i-a picat rețeaua.
   function companyCard(permissions: string[]) {
     return {
+      // The two VAT routes first: the stub matches by prefix and the card's own
+      // key is a prefix of both. A company with no registration, which is what
+      // the card shows for most of them.
+      [`/api/v1/companies/${COMPANY}/vat-registrations`]: [],
+      [`/api/v1/companies/${COMPANY}/tax-status`]: {
+        version: 1,
+        on: '2026-09-02',
+        vat: { registered: false },
+      },
       [`/api/v1/companies/${COMPANY}`]: {
         ...COMPANIES[0],
         accounting_start_date: '2026-01-01',
@@ -166,6 +175,37 @@ describe('ecranele', () => {
     expect(await screen.findByText('Date care nu se schimbă de aici')).toBeInTheDocument()
     expect(screen.getByText('1013600012345')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Salvează' })).toBeEnabled()
+  })
+
+  it('fișa companiei arată înregistrarea în scopuri de TVA, cu data ei', async () => {
+    // The specific routes first: the stub matches by prefix, and the card's own
+    // key is a prefix of both.
+    stubFetch({
+      ...companyCard(['company.edit', 'company.close']),
+      [`/api/v1/companies/${COMPANY}/vat-registrations`]: [
+        {
+          id: 'r1',
+          vat_code: '0301234',
+          valid_from: '2026-01-15',
+          valid_to: null,
+          source: 'certificat nr. 7',
+        },
+      ],
+      [`/api/v1/companies/${COMPANY}/tax-status`]: {
+        version: 1,
+        on: '2026-09-02',
+        vat: { registered: true, code: '0301234', valid_from: '2026-01-15', valid_to: null },
+      },
+    })
+    renderScreen(<CompanyScreen />, { path: '/companii/:companyId', route: `/companii/${COMPANY}` })
+
+    expect(await screen.findByText('Înregistrarea în scopuri de TVA')).toBeInTheDocument()
+    expect(await screen.findByText('Înregistrată în scopuri de TVA astăzi')).toBeInTheDocument()
+    // The registration is a dated row, not a checkbox: since when, and still open.
+    expect(await screen.findByText('15.01.2026')).toBeInTheDocument()
+    expect(screen.getByText('în vigoare')).toBeInTheDocument()
+    expect(screen.getByText('certificat nr. 7')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Înregistrează' })).toBeDisabled()
   })
 
   it('fără cheia de editare, formularul este dezactivat și spune de ce', async () => {
@@ -1417,7 +1457,9 @@ describe('ecranele', () => {
 
     expect(await screen.findByText('FV-0001-2026')).toBeInTheDocument()
     // Formatted ro-MD from the string the server sent, never parsed to a float.
-    expect(screen.getByText('5.000,00')).toBeInTheDocument()
+    // Twice since ADR-089: the net and the total are two columns, and with no
+    // VAT they carry the same figure.
+    expect(screen.getAllByText('5.000,00')).toHaveLength(2)
     // The discriminator that chooses the receivable account, shown as such.
     expect(screen.getByText('Servicii')).toBeInTheDocument()
     // And the nature, which changes what the total means: this row is money owed
@@ -1426,6 +1468,38 @@ describe('ecranele', () => {
     expect(screen.getByText('Nu')).toBeInTheDocument()
     // Already posted, so the row offers no second posting.
     expect(screen.queryByRole('button', { name: /Validează/ })).not.toBeInTheDocument()
+  })
+
+  it('facturile emise arată TVA-ul serverului pe rând, lângă total', async () => {
+    stubFetch({
+      [`/api/v1/sales/companies/${COMPANY}/invoices`]: [
+        {
+          id: 'i2',
+          formatted_number: 'FV-0002-2026',
+          document_date: '2026-01-20',
+          accounting_date: '2026-01-20',
+          state: 'posted',
+          partner_id: 'p1',
+          currency: 'MDL',
+          nature: 'delivery',
+          revenue_kind: 'services',
+          partner_resident: true,
+          totals: { net: '1000.00', vat: '200.00', total: '1200.00' },
+        },
+      ],
+      '/api/v1/masterdata/partners/': [],
+    })
+    renderScreen(<SalesScreen />, {
+      path: '/companii/:companyId/facturi',
+      route: `/companii/${COMPANY}/facturi`,
+    })
+
+    expect(await screen.findByText('FV-0002-2026')).toBeInTheDocument()
+    // Three figures from the server, none derived here (`C19`): the VAT column
+    // is what step 6 added to the register.
+    expect(screen.getByText('1.000,00')).toBeInTheDocument()
+    expect(screen.getByText('200,00')).toBeInTheDocument()
+    expect(screen.getByText('1.200,00')).toBeInTheDocument()
   })
 
   it('fără sesiune, aplicația arată ecranul de autentificare', async () => {

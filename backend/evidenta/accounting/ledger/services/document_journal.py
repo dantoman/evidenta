@@ -8,10 +8,12 @@ building against an empty table.
 **What it is, and what it deliberately is not.** This lists a company's documents
 of one family over a window, with the amounts the documents carry and the totals
 computed on the server (`C19`). It is **not** the statutory VAT register: that has
-a prescribed form in an act nobody here has read, and the columns it needs do not
-exist while no document carries VAT (`OD-83` keeps the treatment unregistered).
-Calling this one *Registrul de livrări* would produce exactly the non-conforming
-artefact `C33` is about.
+a prescribed form in an act nobody here has read (`F2.X2 (c)`) and lives on the
+VAT fiscal period, not on the accounting one. Since ADR-089 the VAT column here is
+what the lines carry -- and, per month, it equals the turnover of the collected-VAT
+account, which is the first half of the `F2.A6` done criterion. Calling this one
+*Registrul de livrări* would still produce exactly the non-conforming artefact
+`C33` is about.
 
 **It reads no operations table.** The family is named by its *owner module*, and
 `platform.documents.registry` answers which type codes that is -- so `accounting`

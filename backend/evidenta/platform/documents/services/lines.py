@@ -250,6 +250,53 @@ def totals_of(document_id: uuid.UUID) -> DocumentTotals:
     return DocumentTotals(net=net, vat=vat, total=net + vat)
 
 
+@dataclass(frozen=True, slots=True)
+class VatSlice:
+    """The document's positions that share one VAT treatment, added exactly.
+
+    Grouped by the regime **and** the rate it resolved to, because the two can
+    part ways over time: the same regime code priced in March and in June may
+    carry different rates, and a posting that stamps a rate on a formula (ADR-048)
+    has to say which one.
+    """
+
+    vat_regime_code: str
+    vat_rate_key: str | None
+    vat_rate: Decimal
+    net: Decimal
+    vat: Decimal
+
+
+def vat_breakdown(document_id: uuid.UUID) -> tuple[VatSlice, ...]:
+    """`totals_of`, split by VAT treatment -- what a posting with VAT consumes.
+
+    Addition only, like `totals_of`: the rate is read off the lines, never
+    re-applied, so the slices add up to exactly what the lines carry. A document
+    whose positions all share one treatment comes back as one slice; a document
+    with no positions comes back empty.
+
+    Ordered by rate, highest first, then by regime code -- a stable order so the
+    formulas a handler derives from it are numbered the same way every time the
+    same document is posted.
+    """
+    rows = (
+        DocumentLine.objects.filter(document_id=document_id)
+        .values("vat_regime_code", "vat_rate_key", "vat_rate")
+        .annotate(net=Sum("net_amount"), vat=Sum("vat_amount"))
+        .order_by("-vat_rate", "vat_regime_code")
+    )
+    return tuple(
+        VatSlice(
+            vat_regime_code=str(row["vat_regime_code"]),
+            vat_rate_key=row["vat_rate_key"],
+            vat_rate=Decimal(row["vat_rate"]),
+            net=Decimal(row["net"]),
+            vat=Decimal(row["vat"]),
+        )
+        for row in rows
+    )
+
+
 def totals_of_many(document_ids: Iterable[uuid.UUID]) -> dict[uuid.UUID, DocumentTotals]:
     """`totals_of` for a list: one grouped query instead of one per row.
 

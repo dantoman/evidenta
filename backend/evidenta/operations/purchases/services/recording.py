@@ -28,6 +28,7 @@ from evidenta.accounting.posting.services.commercial import (
     PurchaseInvoiceFact,
     PurchasePostingResult,
     post_purchase_invoice,
+    vat_shares,
 )
 from evidenta.operations.purchases.models import PurchaseDocument
 from evidenta.platform.api.errors import ApiError
@@ -36,8 +37,9 @@ from evidenta.platform.documents.services.lifecycle import (
     mark_posted,
     validate,
 )
-from evidenta.platform.documents.services.lines import totals_of
+from evidenta.platform.documents.services.lines import totals_of, vat_breakdown
 from evidenta.platform.tenancy.services.companies import functional_currency
+from evidenta.platform.tenancy.services.tax_status import tax_status_at
 
 
 class PurchaseNotRecordableError(ApiError):
@@ -79,6 +81,17 @@ def record_and_post(
             "invoice is a draft somebody abandoned, not a document"
         )
 
+    # Whether the VAT the supplier charged is ours to deduct follows from our
+    # registration on the **accounting** date -- the day the invoice enters the
+    # books and the day the event is stamped with the same status (ADR-088), so
+    # the engine can hold the two against each other. Read here, in the module
+    # that owns the document, and handed to the engine as a discriminator on the
+    # pattern of `partner_resident`; how a status is meant to reach treatment
+    # selection stays `OD-130` (ADR-089).
+    deductible = bool(
+        tax_status_at(document.company_id, document.accounting_date)["vat"]["registered"]
+    )
+
     result = post_purchase_invoice(
         tenant_id=document.tenant_id,
         company_id=document.company_id,
@@ -89,6 +102,10 @@ def record_and_post(
             accounting_date=document.accounting_date,
             document_date=document.document_date,
             total=totals.total,
+            net=totals.net,
+            vat=totals.vat,
+            vat_by_rate=vat_shares(vat_breakdown(document_id)),
+            vat_deductible=deductible,
             currency=document.currency,
             cost_destination=extension.cost_destination,
             partner_resident=extension.partner_resident,

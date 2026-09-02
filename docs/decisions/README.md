@@ -157,6 +157,10 @@ Acte normative, secțiuni din documentele de intrare, benchmark-uri, discuții.
 | [083](083-editarea-companiei.md) | Editarea companiei: două chei, la nivel de companie, și prima impunere reală | Acceptat — produs, proprietar | 2026-08-31 | — *(deschide `OD-121`, `OD-122`; nu închide `OD-108`)* |
 | [084](084-rolul-la-provizionare.md) | Rolul scris la provizionare e de nivel companie, altfel nicio cheie de companie nu se poate ține | Acceptat — proprietar, pe recomandarea sesiunii | 2026-08-31 | `OD-124` |
 | [085](085-spatiul-apartine-unui-utilizator.md) | Spațiul de lucru aparține unui utilizator, nu unei companii; „compania titularului" e adevărată doar pentru un holding | Acceptat — produs, proprietar | 2026-08-31 | „cum se înregistrează antreprenorul cu mai multe companii" *(restrânge ADR-075; corectează ADR-081 §3.4; deschide `OD-125`)* |
+| [086](086-facturarea-pe-companie.md) | Câte o factură pe companie; firma de contabilitate primește una singură, pentru companiile pe care le plătește | Acceptat — produs, proprietar | 2026-08-31 | `OD-107`, partea de destinatar |
+| [087](087-decontarea-e-o-alocare.md) | Decontarea e o alocare, nu o postare; un singur modul cu coloană de parte; evenimentul aparține diferenței | Acceptat — tehnic; latura contabilă rămâne | 2026-08-31 | plasarea din `F2.A3` *(deschide `OD-127`, `OD-128`)* |
+| [088](088-statutul-fiscal-e-datat-si-stampilat.md) | Statutul fiscal e datat, iar evenimentul poartă ștampila lui — calculată în `emit()`, nu cerută apelantului | Acceptat — proprietar | 2026-08-31 | restrânge `OD-83` *(deschide `OD-130`)* |
+| [089](089-tva-pe-documentele-comerciale.md) | TVA pe documentele comerciale: o formulă pe cotă contra 5344 / 2252, cota din nomenclator, statutul decide în amonte; `OD-130` rămâne deschisă | Acceptat — tehnic, varianta reversibilă | 2026-09-02 | prima jumătate a `F2.A6`; rezerva G din ADR-073 §9 *(deschide `OD-131`)* |
 
 *Indexul se actualizează la fiecare ADR nou. Un ADR care nu apare aici este invizibil.*
 

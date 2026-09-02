@@ -97,3 +97,19 @@ function monthOf(isoDate: string): Date | null {
   if (!year || !monthNumber || !day) return null
   return new Date(year, monthNumber - 1, day)
 }
+
+/**
+ * Today, as the server spells a date.
+ *
+ * Local parts, never `toISOString()`: that converts to UTC first, so anywhere
+ * east of Greenwich the first hours of a day report the previous one -- and on
+ * the first of a month that is a panel reporting the wrong month. Here rather
+ * than in a screen, because the second screen that needed it would otherwise
+ * have written it a second way.
+ */
+export function today(): string {
+  const now = new Date()
+  const month = `${now.getMonth() + 1}`.padStart(2, '0')
+  const day = `${now.getDate()}`.padStart(2, '0')
+  return `${now.getFullYear()}-${month}-${day}`
+}

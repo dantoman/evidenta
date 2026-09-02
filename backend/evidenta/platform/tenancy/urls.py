@@ -25,6 +25,18 @@ urlpatterns = [
         views.CompanyCloseView.as_view(),
         name="company-close",
     ),
+    # A dated fact with its own history, so a sub-resource rather than a field
+    # (ADR-088, ADR-089). The status endpoint answers for one day, and needs it.
+    path(
+        "companies/<uuid:company_id>/vat-registrations",
+        views.CompanyVatRegistrationsView.as_view(),
+        name="company-vat-registrations",
+    ),
+    path(
+        "companies/<uuid:company_id>/tax-status",
+        views.CompanyTaxStatusView.as_view(),
+        name="company-tax-status",
+    ),
     # The workspace has no identifier in the path for the same reason: it is the
     # host the browser is already on.
     path("workspace", views.WorkspaceView.as_view(), name="workspace"),

@@ -152,7 +152,7 @@ tip, nu aceeași cheie cu alt sufix.
 | **D** | discriminatorul de rezidență | **cerut pe fapt, refuzat dacă lipsește** | un câmp de rezidență pe `partner`, care ar face derivarea legitimă (`OD-111`) |
 | **E** | avansul | **nu se postează încă** (§6) | `F2.A3`, decontarea |
 | **F** | returul | document de vânzare cu natură retur (§7) | schema e-Factura (`OD-110`) |
-| **G** | TVA | **fără**, un singur tratament înregistrat | `OD-83`, pe ce se selectează statutul TVA |
+| **G** | TVA | **fără**, un singur tratament înregistrat — **revizuit 2026-09-02 de [ADR-089](089-tva-pe-documentele-comerciale.md):** tot un singur tratament, cu TVA pe fapt; statutul decide în amonte | `OD-83`, pe ce se selectează statutul TVA — restrânsă de ADR-088, forma rămâne `OD-130` |
 
 ## 10. Consecințe
 

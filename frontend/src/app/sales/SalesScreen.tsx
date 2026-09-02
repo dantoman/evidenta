@@ -15,8 +15,12 @@
  * back from the server, which derives them with the versioned rounding rule --
  * one implementation of it, not two that agree until one is edited.
  *
- * **No VAT.** Every line is issued under the `fara_tva` regime; the treatment with
- * VAT is a later step, and a column here that showed a rate would imply one exists.
+ * **VAT, since ADR-089, and the screen decides nothing about it.** It asks the
+ * server whether the company is a VAT payer on the invoice's date (ADR-088) and
+ * which regimes exist on that date; a payer states a regime on every line, a
+ * non-payer's lines go out under `fara_tva`, and the server refuses whatever
+ * does not match the status on that day. No regime is preselected: the standard
+ * rate is the usual answer and still an answer somebody has to give.
  *
  * Built on `shared/ui` since 31.08. It was the last screen carrying its own
  * `FIELD` and `BUTTON` constants -- written while ADR-074 was moving the other
@@ -29,6 +33,8 @@ import { useState, type FormEvent } from 'react'
 import { Link, useParams } from 'react-router'
 
 import { t } from '@/locales'
+import { taxStatus } from '@/shared/api/companies'
+import { vatRegimes } from '@/shared/api/fiscal'
 import { listPartners } from '@/shared/api/partners'
 import {
   createInvoice,
@@ -44,12 +50,21 @@ import { Failure } from '@/shared/Failure'
 import { amount } from '@/shared/format'
 import { Button, Card, Field, Input, PageHeader, Select } from '@/shared/ui'
 
+const NO_VAT = 'fara_tva'
+
 const STATE_LABELS: Record<string, string> = {
   draft: t.sales.draft,
   confirmed: t.sales.confirmed,
   posted: t.sales.posted,
   cancelled: t.sales.cancelled,
 }
+
+const emptyLine = (): SalesLineInput => ({
+  description: '',
+  quantity: '1',
+  unit_price: '',
+  vat_regime_code: '',
+})
 
 export function SalesScreen() {
   const { companyId = '' } = useParams()
@@ -101,6 +116,20 @@ export function SalesScreen() {
       header: t.sales.resident,
       cell: (row) => (row.partner_resident ? t.common.yes : t.common.no),
       width: '9rem',
+    },
+    {
+      key: 'net',
+      header: t.sales.net,
+      cell: (row) => amount(row.totals.net),
+      numeric: true,
+      width: '9rem',
+    },
+    {
+      key: 'vat',
+      header: t.sales.vat,
+      cell: (row) => amount(row.totals.vat),
+      numeric: true,
+      width: '8rem',
     },
     {
       key: 'total',
@@ -194,9 +223,21 @@ function NewInvoiceForm({
   const [nature, setNature] = useState<SaleNature>('delivery')
   const [revenueKind, setRevenueKind] = useState<RevenueKind>('services')
   const [resident, setResident] = useState(true)
-  const [lines, setLines] = useState<SalesLineInput[]>([
-    { description: '', quantity: '1', unit_price: '' },
-  ])
+  const [lines, setLines] = useState<SalesLineInput[]>([emptyLine()])
+
+  // Both for the invoice's date, never for today: a back-dated invoice is priced
+  // under the status and the vocabulary of the day it bears (ADR-044).
+  const status = useQuery({
+    queryKey: ['tax-status', companyId, documentDate],
+    queryFn: () => taxStatus(companyId, documentDate),
+    enabled: documentDate !== '',
+  })
+  const registered = status.data?.vat.registered === true
+  const regimes = useQuery({
+    queryKey: ['vat-regimes', documentDate],
+    queryFn: () => vatRegimes(documentDate),
+    enabled: registered,
+  })
 
   const create = useMutation({
     mutationFn: () =>
@@ -206,7 +247,12 @@ function NewInvoiceForm({
         nature,
         revenue_kind: revenueKind,
         partner_resident: resident,
-        lines,
+        // A non-payer's lines carry the one code it may state; a payer's carry
+        // what was chosen on each line.
+        lines: lines.map((line) => ({
+          ...line,
+          vat_regime_code: registered ? line.vat_regime_code : NO_VAT,
+        })),
       }),
     onSuccess: onCreated,
   })
@@ -218,8 +264,14 @@ function NewInvoiceForm({
   const complete =
     partnerId !== '' &&
     documentDate !== '' &&
+    status.data !== undefined &&
     lines.length > 0 &&
-    lines.every((line) => line.description.trim() !== '' && line.unit_price !== '')
+    lines.every(
+      (line) =>
+        line.description.trim() !== '' &&
+        line.unit_price !== '' &&
+        (!registered || line.vat_regime_code !== ''),
+    )
 
   return (
     <Card>
@@ -290,12 +342,25 @@ function NewInvoiceForm({
         </label>
       </div>
 
+      <p className="text-sm text-ink-muted">
+        {documentDate === ''
+          ? t.sales.statusNeedsDate
+          : status.data === undefined
+            ? t.app.loading
+            : registered
+              ? t.sales.registeredOnDate
+              : t.sales.notRegisteredOnDate}
+      </p>
+      {status.isError && <Failure error={status.error} />}
+      {regimes.isError && <Failure error={regimes.error} />}
+
       <table className="text-sm">
         <thead>
           <tr className="text-left text-ink-muted">
             <th className="pr-4 font-normal">{t.sales.lineDescription}</th>
             <th className="pr-4 font-normal">{t.sales.quantity}</th>
             <th className="pr-4 font-normal">{t.sales.unitPrice}</th>
+            {registered && <th className="pr-4 font-normal">{t.sales.vatRegime}</th>}
           </tr>
         </thead>
         <tbody>
@@ -324,17 +389,35 @@ function NewInvoiceForm({
                   className="w-32 text-right tabular-nums"
                 />
               </td>
+              {registered && (
+                <td className="pr-4 py-1">
+                  <Select
+                    value={line.vat_regime_code}
+                    onChange={(event) => change(index, 'vat_regime_code', event.target.value)}
+                    className="w-64"
+                  >
+                    <option value="">{t.sales.chooseRegime}</option>
+                    {(regimes.data?.regimes ?? []).map((regime) => (
+                      <option
+                        key={regime.code}
+                        value={regime.code}
+                        disabled={regime.unavailable !== null}
+                        title={regime.unavailable !== null ? t.vat.rateUnavailable : undefined}
+                      >
+                        {t.vat.regimes[regime.code] ?? regime.code}
+                        {regime.rate !== null ? ` (${regime.rate}%)` : ''}
+                      </option>
+                    ))}
+                  </Select>
+                </td>
+              )}
             </tr>
           ))}
         </tbody>
       </table>
 
       <div className="flex items-center gap-3">
-        <Button
-          onClick={() => setLines([...lines, { description: '', quantity: '1', unit_price: '' }])}
-        >
-          {t.sales.addLine}
-        </Button>
+        <Button onClick={() => setLines([...lines, emptyLine()])}>{t.sales.addLine}</Button>
         <Button variant="primary" type="submit" disabled={!complete || create.isPending}>
           {t.sales.create}
         </Button>

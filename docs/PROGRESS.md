@@ -21,14 +21,19 @@
 >
 > **Livrate din secvență:** `F2.B0` (ADR-065), `C1(b)` (ADR-071, ADR-072), **pasul 1** — persoană,
 > contract, act adițional, ordin, pontaj —, **pașii 2, 3 și 4** (scutiri, calcul lunar și fluturaș,
-> IPC), fiecare cu ecranul lui, și **pasul 5 pe jumătate**: factura emisă și factura primită merg
-> cap-coadă. **Urmează, tot din pasul 5:** încasarea și plata (modul nou `operations/treasury`,
-> ADR-073 §5) și nota de credit (§7). *Antetul acesta spunea „urmează pasul 2" până la 31.08, cu trei
-> pași livrați între timp — starea se scria în „Ultima sesiune" și antetul rămânea în urmă.*
+> IPC), fiecare cu ecranul lui, **pasul 5 complet** (factura emisă, factura primită, încasarea și plata,
+> nota de credit — ADR-073 —, decontarea — ADR-087, 31.08) și **pasul 6 început** (02.09,
+> [ADR-089](decisions/089-tva-pe-documentele-comerciale.md)): TVA pe document ajunge în registru —
+> 5344 / 2252, cota din nomenclator, înregistrarea companiei cu ușă și ecran; cotele rămân `draft`
+> (`OD-22`), deci pe baza de dezvoltare calculul refuză numind cheia. **Urmează, tot din pasul 6:**
+> perioadele TVA la înregistrare, registrele de livrări și procurări pe `VatPeriod`, declarația când
+> textul Ordinului IFPS 1164/2012 e citit. *Antetul acesta a rămas în urmă de două ori — spunea
+> „urmează pasul 2" până la 31.08 și „urmează trezoreria" până la 02.09, cu ambele livrate între timp.
+> Se rescrie la fiecare sesiune, nu doar „Ultima sesiune".*
 
 **Felia verticală merge cap-coadă: companie → plan de conturi → notă manuală → balanță echilibrată.**
 Un test de integrare o parcurge prin HTTP, sub rolul aplicației
-(`backend/tests/integration/test_vertical_slice.py`). Suita: **1.072 trec, 1 sărit** (2026-08-30).
+(`backend/tests/integration/test_vertical_slice.py`). Suita: **1.246 trec, 1 sărit** (2026-09-02; frontend 52).
 
 - **A1** — planul SNC ca date: `accounting/coa/data/snc_2020.csv`, 476 de conturi (156 gradul I,
   320 gradul II), transcrise din extragerea proprie a actului; încărcător idempotent
@@ -187,6 +192,67 @@ sunt bifate în `08`** — închiderea F1 e declarația proprietarului, ca la F0
 
 ## Ultima sesiune
 
+**2026-09-02 — Pasul 6 a început: TVA pe document ajunge în registru
+([ADR-089](decisions/089-tva-pe-documentele-comerciale.md)).**
+
+**Măsurat înainte de a construi:** `document_line` purta deja `vat_regime_code`, `vat_rate_key`,
+`vat_rate`, `vat_amount` și CHECK-ul `total = net + vat`; `line_amounts` (rotunjirea pe linie, decisă
+de proprietar) exista și **nu avea apelant** — `service_line` înmulțea și rotunjea pe cont propriu, cu
+cota zero; `TVA_COLECTATA` → 5344 și `TVA_DEDUCTIBILA` → 2252 erau în catalog și nelegate de niciun
+handler; `journal_formula.vat_rate` exista și nimic nu-l scria; `company_vat_registration` exista din
+F0 **fără ușă** — nicio companie creată prin produs n-a putut fi vreodată plătitor; `vat.*` toate
+`draft`; `fiscal.assert_regime` scris și nechemat de nimeni. Deci felia a fost mai mult **legare** decât
+construcție, și asta e ce spune ADR-089.
+
+**Livrat:**
+- **Forma postării cu TVA**, un singur `HandlerVersion` per eveniment, ca înainte: faptul poartă
+  `net`, `vat`, `total` și `vat_by_rate`; handlerul verifică trei identități și emite **o formulă pe
+  cotă** contra 5344 (vânzare: creanța debitată de fiecare; retur: 5344 debitat) sau 2252 (achiziție
+  deductibilă), cu `vat_rate` și `vat_rate_key` pe formulă (ADR-048). Cumpărătorul neînregistrat duce
+  TVA-ul **în cost**, o formulă pe total.
+- **Statutul decide în amonte, nu în motor** — `OD-130` rămâne deschisă, deliberat: stratul documentar
+  refuză regimul după statutul **la data documentului** (neînregistrat → doar `fara_tva`; înregistrat →
+  `fara_tva` refuzat, fiindcă e statut, nu tratament); emiterea verifică din nou, la validare;
+  achizițiile pun `vat_deductible` pe fapt din statutul **la data contabilă**, iar motorul îl confruntă
+  cu ștampila lui `emit()` (ADR-088) — dezacordul e refuz, `purchases.vat_status_mismatch`.
+- **Cota vine din nomenclator:** `vat.regimes` primește `rates` (regim → cheia parametrului), `fiscal.
+  regime_rate(code, on)` rezolvă în doi pași și refuză numind cheia; **prima ușă HTTP a lui `fiscal`**,
+  `GET /api/v1/fiscal/vat/regimes?on=`, cu `unavailable` pe cota care nu se rezolvă. `line_amounts` e
+  acum singura aritmetică, pentru toate regimurile, cu cota zero pentru `fara_tva`; `vat_breakdown` în
+  nucleul documentelor. Măsurat în test: trei linii de 33,33 la 20% dau **20,01**, nu 20,00.
+- **Înregistrarea în scopuri de TVA:** `tenancy.services.vat_registration` (suprapunere refuzată,
+  cheia `company.edit`), `POST/GET /api/v1/companies/<id>/vat-registrations`,
+  `GET .../tax-status?on=`, zona *Înregistrarea în scopuri de TVA* pe fișa companiei — istoric, nu
+  bifă. Radierea (art. 114 alin. (2)) nu e aici: perioada finală e a lui `accounting/periods`.
+- **Ecranele:** regimul pe linie la facturi emise (coloana apare doar când compania e înregistrată la
+  data facturii; fără implicit — nici standardul) și la facturi primite (întotdeauna, plus `fara_tva`:
+  descrie hârtia furnizorului); coloanele *Valoare* / *TVA* / *Total* în ambele registre.
+- **15 teste de izolare** + 2 de frontend. Cel principal pentru achiziții e aceeași factură datată pe
+  10 și pe 20 ianuarie, peste înregistrarea din 15: 2252 într-un caz, cost 1 200 în celălalt. Cel de
+  jurnal: coloana de TVA a jurnalului documentelor egală cu rulajul lui 5344 pe lună — primul punct
+  din criteriul `F2.A6`.
+- `seed_documents` primește a șaptesprezecea situație — vânzare cu `taxable_standard` — ca să fie
+  refuzată pe nume: niciuna dintre companiile demo nu e înregistrată.
+
+**Trei lucruri pe care le-a prins rularea, nu citirea:** `FiscalResolutionError` nu e `ApiError`,
+deci o cotă `draft` ar fi ieșit ca 500 — tradusă în `sales.vat_unavailable` / `purchases.vat_unavailable`
+cu codul fiscal în context; ruta liniilor e `PUT`, nu `POST` (testul a spus-o cu 405); iar fișa
+companiei cere acum două rute pe care stub-ul de test le potrivea pe prefix cu fișa însăși — rutele
+specifice se listează înaintea celei generale.
+
+**Rămân, cu rând scris:** `OD-131` — data la care se citește dreptul de deducere (aleasă: data
+contabilă, ziua ștampilei) și forma TVA-ului nerecuperabil la servicii (în cost, prin analogie cu SNC
+„Stocuri" pct. 15), ambele fără textul art. 102. Perioadele TVA nu se deschid la înregistrare — n-au
+consumator până la registre, felia următoare.
+
+**Proces:** sesiunea paralelă `evidenta-82` a confirmat numerele libere (ADR-089, OD-131) și a cerut
+alinierea celor două apeluri din seeder — făcută aici, cu regimul explicit. Antetul acestui fișier a
+rămas în urmă a doua oară; șase commituri ale sesiunii `evidenta-16` din 01.09 (seederele) **nu erau
+consemnate deloc** — rândul lor e mai jos, scris din mesajele de commit. `README.md` al deciziilor
+lipsea 086–088, a patra recurență a lui `OD-126`; completat, împreună cu 089.
+
+## Sesiuni mai vechi
+
 **2026-09-01 — Registrele de facturi emise și primite arată totalul pe fiecare rând.**
 
 Ecranele randau `totals.total` și nimic altceva (`C19`), dar endpoint-urile de listă
@@ -253,6 +319,36 @@ nepostate vin prin serviciu public, nu prin citirea tabelei altcuiva (`D6`).
 **Rămâne întrebare deschisă, cu declanșator:** dacă *Creanțe scadente* trebuie să arate creanțele
 **deschise** (`settlements` le știe, fără scadență) în loc să rămână gol — se decide împreună cu
 termenul de plată pe document, fiindcă abia acela face cuvântul „scadent" adevărat.
+
+**2026-09-01 — Datele de demonstrație trec prin reguli (sesiunea `evidenta-16`; șase commituri,
+`abef0db`…`c277861`, consemnate aici la 02.09, din mesajele de commit).**
+
+Ecranele contabile erau goale pe baza de dezvoltare: trei companii, plan complet, zero înregistrări.
+`seed_demo` postează prin `post_manual_entry` și creează parteneri prin `create_partner` (`R9`: rânduri
+scrise direct în `journal_entry` ar fi umplut ecranele și n-ar fi învățat nimic); `seed_documents` — în
+`operations`, singurul strat care vede vânzări, achiziții și trezorerie, gardianul de dependențe a
+decis plasarea — încearcă șaisprezece situații per companie, fiecare refuz prins și numit;
+`seed_payroll` — patru persoane, cele trei tipuri de raport din ADR-071, o lună de pontaj și o rulare.
+
+**Ce a găsit rulându-le, nu raționând:**
+- două companii cu planul instanțiat **fără legări de roluri** (`II Tomsa Dan`, `Tominter DS`) — prima
+  vânzare refuzată pe `CREANTE_COMERCIALE_TARA`, corect: postarea ar fi trebuit să aleagă un cont, iar
+  unul greșit se echilibrează la fel de bine; seeder-ul instalează implicitele de la data de început;
+- serii de numerotare valabile din august, deci notele din ianuarie refuzate la mijloc — luna de bază se
+  caută înainte, nu se presupune ianuarie;
+- avansul și vânzarea de mărfuri **refuzate prin proiect** (ADR-073 §6, §3): paisprezece din
+  șaisprezece postează, iar un seeder oprit la primul refuz le-ar fi ascuns pe celelalte;
+- rularea de salarii calculează patru persoane și raportează **douăsprezece componente nerezolvate**:
+  `cnas.*`, `cnam.*`, `income_tax.*` sunt `draft` — starea onestă a build-ului (ADR-064), nu un defect;
+  sărbătorile nu se scot din lună, calendarul fiind date fiscale pe care repository-ul nu le are;
+- cifre identice pe trei companii făceau ca schimbarea companiei să arate același lucru ca o scurgere
+  — verificarea pe care o face un om nu valora nimic; fiecare companie își trage un profil dintr-un hash
+  stabil al id-ului; o persoană e deliberat în toate trei, contabilul, fiindcă `employee_idnp_unique` e
+  `(company_id, idnp)`; numărul contractului derivă din persoană, nu dintr-un contor al reușitelor;
+- **fără TVA, ca afirmație despre sistem:** `vat.standard` e `draft`, deci 20% în note ar fi pus în
+  registru un număr pe care registrul refuză să-l confirme. *(Corectat parțial la 02.09, ADR-089: regimul
+  e acum explicit pe fiecare linie, tot `fara_tva`, iar a șaptesprezecea situație cere TVA ca să fie
+  refuzată pe nume.)*
 
 **2026-08-31 — statutul fiscal e datat și ștampilat pe eveniment
 ([ADR-088](decisions/088-statutul-fiscal-e-datat-si-stampilat.md)); `OD-83` restrânsă, pasul 6

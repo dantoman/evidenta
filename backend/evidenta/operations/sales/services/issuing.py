@@ -31,6 +31,7 @@ from evidenta.accounting.posting.services.commercial import (
     SalesInvoiceFact,
     SalesPostingResult,
     post_sales_invoice,
+    vat_shares,
 )
 from evidenta.operations.sales.models import SalesDocument
 from evidenta.platform.api.errors import ApiError
@@ -39,12 +40,26 @@ from evidenta.platform.documents.services.lifecycle import (
     mark_posted,
     validate,
 )
-from evidenta.platform.documents.services.lines import totals_of
+from evidenta.platform.documents.services.lines import totals_of, vat_breakdown
 from evidenta.platform.tenancy.services.companies import functional_currency
+from evidenta.platform.tenancy.services.tax_status import tax_status_at
 
 
 class SaleNotIssuableError(ApiError):
     code = "sales.not_issuable"
+    status = 409
+
+
+class VatWithoutRegistrationError(ApiError):
+    """An invoice carrying VAT, from a company that is not a payer on its date.
+
+    The line layer refuses this at entry; this is the same rule at the moment
+    the document becomes legal, because the registration can be corrected
+    between the two -- shortened, or entered with the wrong day -- and a VAT
+    invoice from a non-payer is not a document the issuer is allowed to have.
+    """
+
+    code = "sales.vat_without_registration"
     status = 409
 
 
@@ -100,6 +115,16 @@ def issue_and_post(
             "(ADR-073 §6)"
         )
 
+    # On the document's date, not the accounting date: the invoice is the legal
+    # document, and what it may print is decided by the day it bears (ADR-089).
+    if totals.vat > 0:
+        status = tax_status_at(document.company_id, document.document_date)
+        if not status["vat"]["registered"]:
+            raise VatWithoutRegistrationError(
+                f"the document carries VAT of {totals.vat} and the company is not "
+                f"registered for VAT on {document.document_date}"
+            )
+
     result = post_sales_invoice(
         nature=str(extension.nature),
         tenant_id=document.tenant_id,
@@ -111,6 +136,9 @@ def issue_and_post(
             accounting_date=document.accounting_date,
             document_date=document.document_date,
             total=totals.total,
+            net=totals.net,
+            vat=totals.vat,
+            vat_by_rate=vat_shares(vat_breakdown(document_id)),
             currency=document.currency,
             revenue_kind=extension.revenue_kind,
             partner_resident=extension.partner_resident,

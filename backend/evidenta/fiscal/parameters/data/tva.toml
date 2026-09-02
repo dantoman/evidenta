@@ -27,6 +27,12 @@
 # art. 104 (scutite cu drept de deducere — fosta „cotă zero", eliminată ca literă a art. 96 la o dată
 # neconfirmată). `vat.py` citește cheia `vat.regimes` ca tabel de coduri; `F2.A0`/`F2.A6` pot lărgi
 # lista (livrări care nu sunt obiect impozabil, taxare inversă) cu articolul citit.
+#
+# `rates` (pasul 6, ADR-089) leagă un regim de PARAMETRUL de cotă pe care îl rezolvă, nu de o
+# valoare: `taxable_standard` → `vat.standard`, iar cota vine din rândul acela, la data faptului.
+# Un regim absent din `rates` nu poartă cotă — TVA zero pe linie, fără cheie — și asta e tot ce spune
+# lipsa lui: dreptul de deducere al scutirilor (art. 103 vs art. 104) nu se citește de aici, e al
+# registrelor și al proratării.
 
 schema_version = 1
 
@@ -60,7 +66,7 @@ published_at = 2026-02-26
 key = "vat.regimes"
 act = "cod-fiscal-titlul-iii"
 value_type = "table"
-value = { codes = ["taxable_standard", "taxable_reduced", "exempt_without_deduction", "exempt_with_deduction"] }
+value = { codes = ["taxable_standard", "taxable_reduced", "exempt_without_deduction", "exempt_with_deduction"], rates = { taxable_standard = "vat.standard", taxable_reduced = "vat.reduced" } }
 observed_in = "Valoarea apare în actul citat cu data 2024-01-01; articolul final care stabilește marginea nu a fost citit (OD-92). Data păstrată ca observație, nu ca margine."
 confidence = "provisional"
 provisional_reason = "Convenție de platformă peste categoriile Codului fiscal: art. 96 lit. a) (cota standard), art. 96 lit. b) (cota redusă), art. 103 (scutite fără drept de deducere), art. 104 (scutite cu drept de deducere) — od-22-tva.md §1–§4. Codurile sunt ale platformei; categoriile, ale actului, citite din reproducerea SFS. Fereastra începe la perioada cercetată (2024), nu pretinde istoric."

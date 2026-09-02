@@ -21,8 +21,10 @@ declaring it.
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal
+from typing import Any
 
 from evidenta.fiscal.parameters.models import FiscalParameter, ValueType
 from evidenta.fiscal.parameters.services.resolution import (
@@ -83,30 +85,19 @@ def vat_regimes(on: date) -> tuple[str, ...]:
     an empty vocabulary would make every regime look invalid, which reads as a
     data-entry error rather than as a missing nomenclature.
     """
-    parameter = resolve_parameter(VAT_REGIMES_KEY, on)
-    if parameter.value_type != ValueType.TABLE:
-        raise NotAVatParameterError(
-            f"{VAT_REGIMES_KEY!r} is registered as {parameter.value_type}; the "
-            f"regime vocabulary is a table of codes"
-        )
-    value = parameter.value
-    codes = value.get("codes") if isinstance(value, dict) else value
-    if not isinstance(codes, list):
-        raise NotAVatParameterError(
-            f"{VAT_REGIMES_KEY!r} holds {type(codes).__name__}, not a list of codes"
-        )
-    return tuple(str(code) for code in codes)
+    codes, _ = _regimes_table(on)
+    return codes
 
 
 def assert_regime(regime_code: str, on: date) -> None:
     """Refuse a regime the nomenclature does not list.
 
-    **Not called by the document layer today**, and the reason is written down
-    rather than left to be discovered: the vocabulary is not loaded (`OD-22`), so
-    calling it would refuse every document ever entered -- a guard that blocks
-    everything gets worked around, and a worked-around guard guards nothing. It
-    is wired the moment the nomenclature lands, and the document layer meanwhile
-    enforces only that a regime was stated at all.
+    Called by the document layer through `regime_rate` since step 6 (ADR-089):
+    a line that states a regime other than *no VAT* is priced from the
+    nomenclature, and a regime the nomenclature does not list cannot be priced.
+    While the vocabulary is `draft` (`OD-22`) that refusal is the honest state --
+    a company that is registered for VAT cannot issue a VAT invoice until the
+    rates it would print are activated from a citable act.
     """
     valid = vat_regimes(on)
     if regime_code not in valid:
@@ -114,6 +105,79 @@ def assert_regime(regime_code: str, on: date) -> None:
             f"{regime_code!r} is not a VAT regime in force on {on}; the "
             f"nomenclature lists {list(valid)}"
         )
+
+
+@dataclass(frozen=True, slots=True)
+class RegimeRate:
+    """What a regime resolves to on a date: the rate, and the key it came from.
+
+    ``rate_key`` is ``None`` for a regime that carries no rate -- the exempt
+    categories -- and the rate is then zero. Kept beside the rate rather than
+    dropped, because a document line stores both (`R18`): recalculating the line
+    later must reach the same parameter row, not merely the same number.
+    """
+
+    regime_code: str
+    rate_key: str | None
+    rate: Decimal
+
+
+def regime_rate(regime_code: str, on: date) -> RegimeRate:
+    """The rate a regime applies on ``on``, resolved from the nomenclature.
+
+    Two lookups, both data: the ``vat.regimes`` table says which regimes exist
+    and which **parameter key** each taxable one resolves through; the key then
+    resolves to the percentage in force on the date. Nothing here knows that the
+    standard rate is twenty: it knows that ``taxable_standard`` reads
+    ``vat.standard``, and that is form, not a value.
+
+    A regime the table lists without a key carries no rate -- zero, no key. That
+    is all the absence says: whether an exempt supply gives a right of deduction
+    (art. 103 against art. 104) is not read from here.
+    """
+    codes, rates = _regimes_table(on)
+    if regime_code not in codes:
+        raise VatRegimeUnknownError(
+            f"{regime_code!r} is not a VAT regime in force on {on}; the "
+            f"nomenclature lists {list(codes)}"
+        )
+    rate_key = rates.get(regime_code)
+    if rate_key is None:
+        return RegimeRate(regime_code=regime_code, rate_key=None, rate=Decimal(0))
+    return RegimeRate(regime_code=regime_code, rate_key=rate_key, rate=vat_rate(rate_key, on))
+
+
+def _regimes_table(on: date) -> tuple[tuple[str, ...], dict[str, str]]:
+    """The vocabulary as stored: the codes, and the rate key of each taxable one."""
+    parameter = resolve_parameter(VAT_REGIMES_KEY, on)
+    if parameter.value_type != ValueType.TABLE:
+        raise NotAVatParameterError(
+            f"{VAT_REGIMES_KEY!r} is registered as {parameter.value_type}; the "
+            f"regime vocabulary is a table of codes"
+        )
+    value: Any = parameter.value
+    codes = value.get("codes") if isinstance(value, dict) else value
+    if not isinstance(codes, list):
+        raise NotAVatParameterError(
+            f"{VAT_REGIMES_KEY!r} holds {type(codes).__name__}, not a list of codes"
+        )
+    rates = value.get("rates", {}) if isinstance(value, dict) else {}
+    if not isinstance(rates, dict):
+        raise NotAVatParameterError(
+            f"{VAT_REGIMES_KEY!r} holds {type(rates).__name__} under 'rates', not a "
+            f"map from regime code to rate key"
+        )
+    for code, key in rates.items():
+        if code not in codes:
+            raise NotAVatParameterError(
+                f"{VAT_REGIMES_KEY!r} names a rate for {code!r}, which is not a listed regime"
+            )
+        if not isinstance(key, str) or not key.startswith(VAT_NAMESPACE):
+            raise NotAVatParameterError(
+                f"{VAT_REGIMES_KEY!r} resolves {code!r} through {key!r}, which is not a "
+                f"VAT parameter key"
+            )
+    return tuple(str(code) for code in codes), {str(c): str(k) for c, k in rates.items()}
 
 
 def _as_decimal(parameter: FiscalParameter) -> Decimal:

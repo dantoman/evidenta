@@ -14,10 +14,14 @@
  * **Nothing here adds anything up** (`C19`). Line amounts and totals come back
  * from the server, which derives them with the versioned rounding rule.
  *
- * **No VAT and no stock.** Every line is recorded under the `fara_tva` regime --
- * the treatment with VAT is step 6 -- and none of the four destinations buys an
- * asset: goods and materials go on the balance sheet, and that entry's second
- * half is F4.
+ * **VAT as the paper states it, since ADR-089.** Every line says under which
+ * regime the supplier invoiced it, from the vocabulary the server serves for the
+ * document's date -- and whether that VAT is ours to deduct or is part of the
+ * cost is not asked here: it follows from the company's registration on the
+ * accounting date, and the server decides it at posting (ADR-088).
+ *
+ * **No stock.** None of the four destinations buys an asset: goods and materials
+ * go on the balance sheet, and that entry's second half is F4.
  */
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -25,6 +29,7 @@ import { useState, type FormEvent } from 'react'
 import { Link, useParams } from 'react-router'
 
 import { t } from '@/locales'
+import { vatRegimes } from '@/shared/api/fiscal'
 import { listPartners } from '@/shared/api/partners'
 import {
   createPurchase,
@@ -52,6 +57,15 @@ const DESTINATION_LABELS: Record<CostDestination, string> = {
   production_direct: t.purchases.productionDirect,
   production_indirect: t.purchases.productionIndirect,
 }
+
+const NO_VAT = 'fara_tva'
+
+const emptyLine = (): PurchaseLineInput => ({
+  description: '',
+  quantity: '1',
+  unit_price: '',
+  vat_regime_code: '',
+})
 
 export function PurchasesScreen() {
   const { companyId = '' } = useParams()
@@ -99,6 +113,13 @@ export function PurchasesScreen() {
       key: 'resident',
       header: t.purchases.resident,
       cell: (row) => (row.partner_resident ? t.common.yes : t.common.no),
+      width: '8rem',
+    },
+    {
+      key: 'vat',
+      header: t.purchases.vat,
+      cell: (row) => amount(row.totals.vat),
+      numeric: true,
       width: '8rem',
     },
     {
@@ -193,9 +214,15 @@ function NewPurchaseForm({
   const [supplierDate, setSupplierDate] = useState('')
   const [destination, setDestination] = useState<CostDestination>('administrative')
   const [resident, setResident] = useState(true)
-  const [lines, setLines] = useState<PurchaseLineInput[]>([
-    { description: '', quantity: '1', unit_price: '' },
-  ])
+  const [lines, setLines] = useState<PurchaseLineInput[]>([emptyLine()])
+
+  // The vocabulary of the document's date, plus the one code that is not in
+  // it: a supplier who is not a VAT payer invoices without VAT.
+  const regimes = useQuery({
+    queryKey: ['vat-regimes', documentDate],
+    queryFn: () => vatRegimes(documentDate),
+    enabled: documentDate !== '',
+  })
 
   const create = useMutation({
     mutationFn: () =>
@@ -221,7 +248,10 @@ function NewPurchaseForm({
     supplierNumber.trim() !== '' &&
     supplierDate !== '' &&
     lines.length > 0 &&
-    lines.every((line) => line.description.trim() !== '' && line.unit_price !== '')
+    lines.every(
+      (line) =>
+        line.description.trim() !== '' && line.unit_price !== '' && line.vat_regime_code !== '',
+    )
 
   return (
     <Card>
@@ -300,12 +330,18 @@ function NewPurchaseForm({
           </label>
         </div>
 
+        <p className="text-sm text-ink-muted">
+          {documentDate === '' ? t.purchases.regimesNeedDate : t.purchases.vatRegimeHint}
+        </p>
+        {regimes.isError && <Failure error={regimes.error} />}
+
         <table className="text-sm">
           <thead>
             <tr className="text-left text-ink-muted">
               <th className="pr-4 font-normal">{t.purchases.lineDescription}</th>
               <th className="pr-4 font-normal">{t.purchases.quantity}</th>
               <th className="pr-4 font-normal">{t.purchases.unitPrice}</th>
+              <th className="pr-4 font-normal">{t.purchases.vatRegime}</th>
             </tr>
           </thead>
           <tbody>
@@ -334,17 +370,35 @@ function NewPurchaseForm({
                     className="w-32 text-right tabular-nums"
                   />
                 </td>
+                <td className="pr-4 py-1">
+                  <Select
+                    value={line.vat_regime_code}
+                    onChange={(event) => change(index, 'vat_regime_code', event.target.value)}
+                    disabled={documentDate === ''}
+                    className="w-64"
+                  >
+                    <option value="">{t.purchases.chooseRegime}</option>
+                    <option value={NO_VAT}>{t.vat.regimes[NO_VAT]}</option>
+                    {(regimes.data?.regimes ?? []).map((regime) => (
+                      <option
+                        key={regime.code}
+                        value={regime.code}
+                        disabled={regime.unavailable !== null}
+                        title={regime.unavailable !== null ? t.vat.rateUnavailable : undefined}
+                      >
+                        {t.vat.regimes[regime.code] ?? regime.code}
+                        {regime.rate !== null ? ` (${regime.rate}%)` : ''}
+                      </option>
+                    ))}
+                  </Select>
+                </td>
               </tr>
             ))}
           </tbody>
         </table>
 
         <div className="flex items-center gap-3">
-          <Button
-            onClick={() => setLines([...lines, { description: '', quantity: '1', unit_price: '' }])}
-          >
-            {t.purchases.addLine}
-          </Button>
+          <Button onClick={() => setLines([...lines, emptyLine()])}>{t.purchases.addLine}</Button>
           <Button variant="primary" type="submit" disabled={!complete || create.isPending}>
             {t.purchases.create}
           </Button>

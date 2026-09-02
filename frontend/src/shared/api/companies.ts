@@ -124,3 +124,53 @@ export function listFiscalYears(companyId: string): Promise<FiscalYear[]> {
     `/api/v1/accounting/periods/companies/${companyId}/fiscal-years`,
   )
 }
+
+/**
+ * The company's VAT registrations -- a dated fact with a history, never a
+ * toggle (ADR-088, ADR-089).
+ *
+ * `valid_to` is the last day the registration applies, inclusive, and is null
+ * for one still open. The status endpoint answers for **one day**, and asks for
+ * it: which regimes an invoice may state is a question about the invoice's date,
+ * not about today (ADR-044).
+ */
+export interface VatRegistration {
+  id: string
+  vat_code: string
+  valid_from: string
+  valid_to: string | null
+  source: string | null
+}
+
+export interface NewVatRegistration {
+  vat_code: string
+  valid_from: string
+  valid_to?: string | null
+  source?: string | null
+}
+
+export interface TaxStatus {
+  version: number
+  on: string
+  vat:
+    | { registered: false }
+    | { registered: true; code: string; valid_from: string; valid_to: string | null }
+}
+
+export function listVatRegistrations(companyId: string): Promise<VatRegistration[]> {
+  return request<VatRegistration[]>(`/api/v1/companies/${companyId}/vat-registrations`)
+}
+
+export function registerForVat(
+  companyId: string,
+  registration: NewVatRegistration,
+): Promise<VatRegistration> {
+  return request<VatRegistration>(`/api/v1/companies/${companyId}/vat-registrations`, {
+    method: 'POST',
+    body: registration,
+  })
+}
+
+export function taxStatus(companyId: string, on: string): Promise<TaxStatus> {
+  return request<TaxStatus>(`/api/v1/companies/${companyId}/tax-status?on=${on}`)
+}

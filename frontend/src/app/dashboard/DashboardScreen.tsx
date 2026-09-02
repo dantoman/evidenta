@@ -34,7 +34,7 @@ import { getCompany } from '@/shared/api/companies'
 import { overview, type DocumentWork, type PanelEntry, type Turnover } from '@/shared/api/overview'
 import { DataGrid, type Column } from '@/shared/DataGrid'
 import { Failure } from '@/shared/Failure'
-import { amount, date, month, monthShort } from '@/shared/format'
+import { amount, date, month, monthShort, today } from '@/shared/format'
 import {
   Badge,
   Button,
@@ -54,20 +54,6 @@ import {
  * today, so the ordinary address stays the short one.
  */
 const DAY_PARAM = 'la'
-
-/**
- * Today, as the server spells a date.
- *
- * Local parts, never `toISOString()`: that converts to UTC first, so anywhere
- * east of Greenwich the first hours of a day report the previous one -- and on
- * the first of a month that is the panel reporting the wrong month.
- */
-function today(): string {
-  const now = new Date()
-  const month = `${now.getMonth() + 1}`.padStart(2, '0')
-  const day = `${now.getDate()}`.padStart(2, '0')
-  return `${now.getFullYear()}-${month}-${day}`
-}
 
 export function DashboardScreen() {
   const { companyId = '' } = useParams()

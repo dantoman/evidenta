@@ -18,7 +18,9 @@
 > soldul unei facturi **fără TVA**, fiindcă acela e singurul fel de factură pe care produsul îl emite.
 > Când pasul 6 aduce tratamentul cu TVA, soldul deschis rămâne totalul documentului — decontarea nu se
 > schimbă —, dar ajustarea bazei din `OD-128` se declanșează tot de aici. Rezerva iese odată cu
-> `OD-83`, nu cu acest ADR.
+> `OD-83`, nu cu acest ADR. *(2026-09-02: ADR-089 aduce facturile cu TVA; soldul deschis rămâne
+> totalul documentului, exact cum spune rândul acesta, și decontarea nu s-a atins. `OD-128` rămâne.
+> Numit fără legătură, deliberat: gardianul rezervelor citește o legătură din antet ca dependență.)*
 
 > **REZERVĂ NEATINSĂ (`OD-85`):** acest ADR se sprijină pe
 > [ADR-057](057-diferentele-realizate-la-decontare.md) pentru forma faptului și pentru cele trei

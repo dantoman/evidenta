@@ -317,6 +317,24 @@ export const ro = {
     noCloseRight: 'Nu aveți dreptul de a închide această companie.',
     openChart: 'Plan de conturi',
     openPeople: 'Angajați',
+    // Inregistrarea in scopuri de TVA (ADR-088, ADR-089): stare cu data
+    // efectiva, cu istoric, nu bifa. Radierea nu se face de aici: perioada
+    // fiscala finala (art. 114 alin. (2)) e a contabilitatii.
+    vat: 'Înregistrarea în scopuri de TVA',
+    vatLead:
+      'Stare cu dată efectivă, nu bifă: ce poate purta o factură se decide după înregistrarea valabilă la data ei.',
+    vatRegisteredToday: 'Înregistrată în scopuri de TVA astăzi',
+    vatNotRegisteredToday: 'Neînregistrată în scopuri de TVA astăzi',
+    vatCode: 'Cod TVA',
+    vatValidFrom: 'Din',
+    vatValidTo: 'Până la',
+    vatOpen: 'în vigoare',
+    vatSource: 'Sursa',
+    vatSourceHint: 'Numărul și data certificatului de înregistrare, ca să existe ce cita.',
+    vatRegister: 'Înregistrează',
+    vatRegistering: 'Se înregistrează…',
+    vatNone: 'Nicio înregistrare. Compania emite fără TVA.',
+    vatNoRight: 'Nu aveți dreptul de a înregistra această companie în scopuri de TVA.',
   },
   partners: {
     // Partenerul e al spatiului de lucru, nu al unei companii: aceeasi entitate
@@ -1001,7 +1019,15 @@ export const ro = {
     quantity: 'Cantitate',
     unitPrice: 'Preț unitar',
     addLine: 'Adaugă linie',
+    // Regimul de pe factura furnizorului, oricare ar fi statutul nostru: un
+    // neplatitor primeste facturi cu TVA si le inregistreaza asa cum sunt.
+    vatRegime: 'Regim TVA',
+    vatRegimeHint:
+      'Regimul de pe factura furnizorului. Dacă TVA se deduce sau intră în cost se decide la contabilizare, după înregistrarea companiei la data contabilă.',
+    chooseRegime: '—',
+    regimesNeedDate: 'Alege data înregistrării ca să se știe ce regimuri se pot aplica.',
     create: 'Înregistrează documentul',
+    vat: 'TVA',
     total: 'Total',
     state: 'Stare',
     draft: 'În lucru',
@@ -1014,8 +1040,8 @@ export const ro = {
     totalsFromServer: 'Totalurile vin de la server, din aceeași sursă ca registrul.',
   },
   sales: {
-    // Factura emisa. Fara TVA la pasul 5 — regimul e `fara_tva` pe fiecare linie,
-    // iar tratamentul cu TVA e al pasului 6.
+    // Factura emisa. De la pasul 6 (ADR-089) fiecare linie spune regimul de TVA;
+    // ce poate spune depinde de inregistrarea companiei la data documentului.
     title: 'Facturi emise',
     lead: 'Documentul emis de noi, cu numărul din seria proprie.',
     // Nota de credit e tot un document de vanzare, cu natura retur (ADR-073 §7):
@@ -1049,7 +1075,17 @@ export const ro = {
     unitPrice: 'Preț unitar',
     addLine: 'Adaugă linie',
     net: 'Valoare',
+    vat: 'TVA',
     total: 'Total',
+    // Regimul de TVA pe linie. Serverul refuza ce nu e admisibil la data
+    // documentului; ecranul doar nu ofera ce n-are sens.
+    vatRegime: 'Regim TVA',
+    chooseRegime: '—',
+    registeredOnDate:
+      'Compania este înregistrată în scopuri de TVA la data facturii: fiecare linie spune regimul.',
+    notRegisteredOnDate:
+      'Compania nu este înregistrată în scopuri de TVA la data facturii: liniile se emit fără TVA.',
+    statusNeedsDate: 'Alege data facturii ca să se știe ce regimuri se pot aplica.',
     create: 'Creează factura',
     issue: 'Validează și contabilizează',
     issued: 'Contabilizată',
@@ -1057,6 +1093,18 @@ export const ro = {
     empty: 'Nicio factură.',
     // Serverul calculeaza randul si totalurile; ecranul nu aduna nimic (C19).
     totalsFromServer: 'Totalurile vin de la server.',
+  },
+  vat: {
+    // Codurile sunt ale platformei (parametrul `vat.regimes`), etichetele ale
+    // interfetei. Un cod fara eticheta se afiseaza ca atare, nu se ascunde.
+    regimes: {
+      fara_tva: 'Fără TVA',
+      taxable_standard: 'Cota standard',
+      taxable_reduced: 'Cota redusă',
+      exempt_without_deduction: 'Scutită fără drept de deducere',
+      exempt_with_deduction: 'Scutită cu drept de deducere',
+    } as Record<string, string>,
+    rateUnavailable: 'Cota nu este activată din act; linia nu se poate calcula.',
   },
   errors: {
     // Keyed by the stable code from C10, never by the server's message. A client
@@ -1245,6 +1293,27 @@ export const ro = {
     'sales.cost_side_requires_inventory':
       'Vânzarea de mărfuri cere și descărcarea de gestiune, care vine cu stocurile.',
     'sales.posting_payload_invalid': 'Factura nu se poate contabiliza în forma aceasta.',
+    // Pasul 6 (ADR-089): regimul de TVA pe linie si inregistrarea companiei.
+    'sales.vat_regime_unknown': 'Regimul de TVA nu există în nomenclator la data facturii.',
+    'sales.vat_unavailable':
+      'Cota de TVA nu este activată din act pentru această dată; linia nu se poate calcula.',
+    'sales.vat_regime_requires_registration':
+      'Compania nu este înregistrată în scopuri de TVA la data facturii, deci nu poate emite cu TVA.',
+    'sales.vat_regime_required':
+      'Compania este înregistrată în scopuri de TVA la data facturii: fiecare linie spune regimul.',
+    'sales.vat_without_registration':
+      'Factura poartă TVA, iar compania nu este înregistrată în scopuri de TVA la data ei.',
+    'purchases.vat_regime_unknown': 'Regimul de TVA nu există în nomenclator la data documentului.',
+    'purchases.vat_unavailable':
+      'Cota de TVA nu este activată din act pentru această dată; linia nu se poate calcula.',
+    'purchases.vat_status_mismatch':
+      'Deductibilitatea din document nu se potrivește cu statutul companiei la data contabilă.',
+    'tenancy.vat_registration_malformed': 'Înregistrarea în scopuri de TVA nu are forma cerută.',
+    'tenancy.vat_registration_overlap':
+      'Există deja o înregistrare în scopuri de TVA care acoperă aceste zile.',
+    'tenancy.date_required': 'Lipsește data pentru care se cere situația.',
+    'fiscal.date_required': 'Lipsește data pentru care se cere nomenclatorul.',
+    'fiscal.vat_regimes_unavailable': 'Nomenclatorul regimurilor de TVA nu este activat pentru această dată.',
     'ledger.entry_already_reversed': 'Înregistrarea a fost deja stornată.',
     'ledger.entry_not_posted': 'Înregistrarea nu este postată, deci nu are ce anula.',
     'posting.reversal_payload_invalid': 'Stornarea are nevoie de un motiv.',

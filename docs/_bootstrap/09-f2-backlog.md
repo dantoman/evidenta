@@ -248,6 +248,15 @@ pe date reale la primul pilot.
 
 ### F2.A6 — TVA: registre, declarație, corecții
 
+> **Livrată pe jumătate, 2026-09-02, și jumătatea e numită** ([ADR-089](../decisions/089-tva-pe-documentele-comerciale.md)):
+> TVA pe document ajunge în registru — regimul pe linie din `vat.regimes`, cota din parametrul lui,
+> calculul pe linie prin `line_amounts`, o formulă pe cotă contra 5344 / 2252, TVA nedeductibilă în
+> cost, înregistrarea companiei cu ușă și ecran, statutul decis în amonte (`OD-130` deschisă). Primul
+> punct al criteriului de mai jos e bifat în test pentru jurnalul documentelor. **Ce a rămas aici:**
+> perioadele TVA la înregistrare, registrele pe `VatPeriod`, `vat.calculate_output` / `_input` ca
+> versiuni în registru, proratarea, declarația (textul necitit), rectificativa (ADR-007). Cotele sunt
+> `draft`: până la activare, o companie înregistrată **refuză** să emită cu TVA, numind cheia.
+
 - **Obiectiv:** `operations/tax` (numit deja în `D4`; `tax/codes`, `tax/vat`, `tax/declarations` pe
   hartă). Registrele TVA se construiesc din liniile de document validate/postate, **pe perioada
   fiscală TVA** (`VatPeriod` — luna, neregulată la radiere, ADR-039 §7), nu pe perioada contabilă;

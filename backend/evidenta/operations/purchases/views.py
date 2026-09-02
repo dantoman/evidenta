@@ -28,13 +28,12 @@ from rest_framework.views import APIView
 
 from evidenta.operations.purchases.models import CostDestination, PurchaseDocument
 from evidenta.operations.purchases.services.documents import open_purchase
-from evidenta.operations.purchases.services.lines import service_line
+from evidenta.operations.purchases.services.lines import Position, write_lines
 from evidenta.operations.purchases.services.recording import record_and_post
 from evidenta.platform.capabilities.services.profile import active_profile
 from evidenta.platform.documents.services.lifecycle import get_document
 from evidenta.platform.documents.services.lines import (
     DocumentTotals,
-    replace_lines,
     totals_of,
     totals_of_many,
 )
@@ -45,6 +44,10 @@ class LineSerializer(serializers.Serializer[dict[str, Any]]):
     description = serializers.CharField()
     quantity = serializers.DecimalField(max_digits=20, decimal_places=6)
     unit_price = serializers.DecimalField(max_digits=20, decimal_places=4)
+    #: Stated on every line, never defaulted (ADR-089): a line issued under a
+    #: treatment nobody chose is a VAT amount nobody chose. The service decides
+    #: whether the company may state it on the document's date.
+    vat_regime_code = serializers.CharField(max_length=64)
 
 
 class PurchaseSerializer(serializers.Serializer[dict[str, Any]]):
@@ -93,7 +96,7 @@ class PurchaseListView(APIView):
             partner_resident=data["partner_resident"],
             notes=data.get("notes") or None,
         )
-        _write_lines(document_id, data["lines"], data["document_date"])
+        _write_lines(document_id, data["lines"])
         return Response(_detail(document_id), status=201)
 
 
@@ -106,8 +109,7 @@ class PurchaseLinesView(APIView):
     def put(self, request: Request, document_id: uuid.UUID) -> Response:
         payload = LinesSerializer(data=request.data)
         payload.is_valid(raise_exception=True)
-        document = get_document(document_id)
-        _write_lines(document_id, list(payload.validated_data["lines"]), document.document_date)
+        _write_lines(document_id, list(payload.validated_data["lines"]))
         return Response(_detail(document_id))
 
 
@@ -134,15 +136,15 @@ class PurchaseRecordingView(APIView):
         return Response(payload)
 
 
-def _write_lines(document_id: uuid.UUID, lines: list[dict[str, Any]], on: Any) -> None:
-    replace_lines(
+def _write_lines(document_id: uuid.UUID, lines: list[dict[str, Any]]) -> None:
+    write_lines(
         document_id,
         [
-            service_line(
+            Position(
                 description=line["description"],
                 quantity=Decimal(line["quantity"]),
                 unit_price=Decimal(line["unit_price"]),
-                on=on,
+                vat_regime_code=line["vat_regime_code"],
             )
             for line in lines
         ],

@@ -37,7 +37,8 @@ from evidenta.operations.purchases.services.documents import (
     open_purchase,
     open_supplier_order,
 )
-from evidenta.operations.purchases.services.lines import service_line as purchase_line
+from evidenta.operations.purchases.services.lines import Position as PurchasePosition
+from evidenta.operations.purchases.services.lines import write_lines as write_purchase_lines
 from evidenta.operations.purchases.services.recording import record_and_post as record_purchase
 from evidenta.operations.sales.models import SalesDocument
 from evidenta.operations.sales.services.documents import (
@@ -47,13 +48,13 @@ from evidenta.operations.sales.services.documents import (
     open_sale,
 )
 from evidenta.operations.sales.services.issuing import issue_and_post
-from evidenta.operations.sales.services.lines import service_line as sale_line
+from evidenta.operations.sales.services.lines import Position as SalePosition
+from evidenta.operations.sales.services.lines import write_lines as write_sale_lines
 from evidenta.operations.settlements.services.allocation import allocate
 from evidenta.operations.treasury.services.documents import open_payment, open_receipt
 from evidenta.operations.treasury.services.recording import record_and_post as record_movement
 from evidenta.platform.capabilities.services.profile import active_profile
 from evidenta.platform.documents.services.lifecycle import validate
-from evidenta.platform.documents.services.lines import replace_lines
 from evidenta.platform.numbering.services.allocation import resolve_template
 from evidenta.platform.rls.context import TenantContext, tenant_context
 from evidenta.platform.tenancy.services.companies import accounting_start_date
@@ -226,15 +227,25 @@ class Command(BaseCommand):
         def day(number: int) -> date:
             return date(base.year, base.month, min(number, 28))
 
-        def issue(document_id: uuid.UUID, description: str, amount: str, on: date) -> None:
-            replace_lines(
+        def issue(
+            document_id: uuid.UUID,
+            description: str,
+            amount: str,
+            on: date,
+            regime: str = "fara_tva",
+        ) -> None:
+            # The regime is stated, and it is the one a company that is not a VAT
+            # payer may state (ADR-089). None of the demo companies is
+            # registered, and the attempt below that says `taxable_standard`
+            # is there to be refused by name.
+            write_sale_lines(
                 document_id,
                 [
-                    sale_line(
+                    SalePosition(
                         description=description,
                         quantity=Decimal("1"),
                         unit_price=_amount(amount, scale),
-                        on=on,
+                        vat_regime_code=regime,
                     )
                 ],
             )
@@ -246,14 +257,14 @@ class Command(BaseCommand):
             )
 
         def record(document_id: uuid.UUID, description: str, amount: str, on: date) -> None:
-            replace_lines(
+            write_purchase_lines(
                 document_id,
                 [
-                    purchase_line(
+                    PurchasePosition(
                         description=description,
                         quantity=Decimal("1"),
                         unit_price=_amount(amount, scale),
-                        on=on,
+                        vat_regime_code="fara_tva",
                     )
                 ],
             )
@@ -341,17 +352,34 @@ class Command(BaseCommand):
             issue(document_id, "Mărfuri vândute", "18000.00", on)
             return "vânzare · mărfuri"
 
+        def sale_with_vat() -> str:
+            # Refused by name on a company that is not registered for VAT on the
+            # day (ADR-089): the demo companies carry no registration, and the
+            # refusal says which door -- the company card -- opens this one.
+            on = day(12)
+            document_id = open_sale(
+                company_id=company_id,
+                partner_id=customer,
+                document_date=on,
+                revenue_kind="services",
+                partner_resident=True,
+            )
+            issue(
+                document_id, "Servicii de consultanță, cu TVA", "10000.00", on, "taxable_standard"
+            )
+            return "vânzare · cu TVA · cota standard"
+
         def proforma_converted() -> str:
             on = day(11)
             source = open_proforma(company_id=company_id, partner_id=customer, document_date=on)
-            replace_lines(
+            write_sale_lines(
                 source,
                 [
-                    sale_line(
+                    SalePosition(
                         description="Ofertă servicii",
                         quantity=Decimal("1"),
                         unit_price=_amount("9000.00", scale),
-                        on=on,
+                        vat_regime_code="fara_tva",
                     )
                 ],
             )
@@ -378,14 +406,14 @@ class Command(BaseCommand):
             source = open_customer_order(
                 company_id=company_id, partner_id=customer, document_date=on
             )
-            replace_lines(
+            write_sale_lines(
                 source,
                 [
-                    sale_line(
+                    SalePosition(
                         description="Comandă servicii",
                         quantity=Decimal("1"),
                         unit_price=_amount("7500.00", scale),
-                        on=on,
+                        vat_regime_code="fara_tva",
                     )
                 ],
             )
@@ -428,14 +456,14 @@ class Command(BaseCommand):
             source = open_supplier_order(
                 company_id=company_id, partner_id=supplier, document_date=on
             )
-            replace_lines(
+            write_purchase_lines(
                 source,
                 [
-                    purchase_line(
+                    PurchasePosition(
                         description="Comandă consumabile",
                         quantity=Decimal("1"),
                         unit_price=_amount("3400.00", scale),
-                        on=on,
+                        vat_regime_code="fara_tva",
                     )
                 ],
             )
@@ -499,6 +527,7 @@ class Command(BaseCommand):
             sale_advance,
             sale_return,
             sale_goods,
+            sale_with_vat,
             proforma_converted,
             order_converted,
             lambda: purchase("administrative", "Chirie spațiu", "12000.00", 0),

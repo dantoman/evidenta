@@ -196,7 +196,7 @@ def update_company(company_id: uuid.UUID, **fields: Any) -> Company:
         if company is None:
             raise CompanyNotVisibleError(f"company {company_id} is not visible in this context")
 
-        _require(context.user_id, company_id, "company.edit")
+        require_permission_on(context.user_id, company_id, "company.edit")
 
         if company.status != CompanyStatus.ACTIVE:
             raise CompanyNotActiveError(f"company {company_id} is {company.status}")
@@ -243,7 +243,7 @@ def close_company(company_id: uuid.UUID, reason: str) -> Company:
         if company is None:
             raise CompanyNotVisibleError(f"company {company_id} is not visible in this context")
 
-        _require(context.user_id, company_id, "company.close")
+        require_permission_on(context.user_id, company_id, "company.close")
 
         if company.status == CompanyStatus.CLOSED:
             return company
@@ -267,7 +267,7 @@ def _audited(fields: dict[str, Any]) -> dict[str, Any]:
     return {name: None if value is None else str(value) for name, value in fields.items()}
 
 
-def _require(user_id: uuid.UUID, company_id: uuid.UUID, permission_key: str) -> None:
+def require_permission_on(user_id: uuid.UUID, company_id: uuid.UUID, permission_key: str) -> None:
     """The permission check, with its refusal translated and nothing else caught.
 
     Only ``PERMISSION_DENIED`` becomes a 403. ``PERMISSION_CHECK_NOT_SELF`` is a

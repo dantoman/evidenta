@@ -36,6 +36,12 @@ export interface SalesLineInput {
   description: string
   quantity: string
   unit_price: string
+  /**
+   * Stated on every line, never defaulted (ADR-089). `fara_tva` is what a
+   * company that is not a VAT payer on the document's date sends; a payer sends
+   * a code from the vocabulary `fiscal.vatRegimes` served for that date.
+   */
+  vat_regime_code: string
 }
 
 export interface SalesInvoice {
