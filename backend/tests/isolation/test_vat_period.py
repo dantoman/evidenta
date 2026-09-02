@@ -32,6 +32,7 @@ from evidenta.accounting.periods.errors import (
     PeriodNotFoundError,
     VatPeriodNotFoundError,
     VatPeriodOverlapsError,
+    VatPeriodWithoutRegistrationError,
     VatRegistrationAlreadyClosedError,
 )
 from evidenta.accounting.periods.models import PeriodStatus, VatPeriod, VatPeriodKind
@@ -55,13 +56,60 @@ def context(world: dict[str, uuid.UUID]) -> TenantContext:
 
 @pytest.fixture
 def company(
+    seed: Callable[..., None],
     world: dict[str, uuid.UUID],
     company_of: Callable[..., uuid.UUID],
     grant_company: Callable[..., uuid.UUID],
 ) -> uuid.UUID:
+    """A company registered for VAT since before every date these tests use.
+
+    Since ADR-090 a VAT period refuses a month outside a registration, so the
+    fixture carries one -- open-ended, from 2020 -- and the one test about a
+    company without a registration seeds its own company without it.
+    """
     company_id = company_of(world["tenant_a"], "1002600000201", "Alpha TVA")
     grant_company(world["tenant_a"], company_id, world["user_a"], world["user_a"])
+    seed(
+        "INSERT INTO company_vat_registration (id, tenant_id, company_id, vat_code,"
+        " valid_from, valid_to, created_at) VALUES (%s, %s, %s, '0300201', DATE '2020-01-01',"
+        " NULL, now())",
+        [uuid.uuid4(), world["tenant_a"], company_id],
+    )
     return company_id
+
+
+def test_a_period_outside_the_registration_is_refused(
+    seed: Callable[..., None],
+    world: dict[str, uuid.UUID],
+    context: TenantContext,
+    company_of: Callable[..., uuid.UUID],
+    grant_company: Callable[..., uuid.UUID],
+) -> None:
+    """ADR-090: a VAT fiscal period is a month the company declares on.
+
+    Registered from the 15th of March to the end of June: March counts (a single
+    day as a payer makes the month a declared one -- overlap, not containment),
+    July does not, and a company with no registration at all gets no period.
+    """
+    unregistered = company_of(world["tenant_a"], "1002600000202", "Beta Fără TVA")
+    grant_company(world["tenant_a"], unregistered, world["user_a"], world["user_a"])
+    spring = company_of(world["tenant_a"], "1002600000203", "Gamma Primăvară")
+    grant_company(world["tenant_a"], spring, world["user_a"], world["user_a"])
+    seed(
+        "INSERT INTO company_vat_registration (id, tenant_id, company_id, vat_code,"
+        " valid_from, valid_to, created_at) VALUES (%s, %s, %s, '0300203', DATE '2026-03-15',"
+        " DATE '2026-06-30', now())",
+        [uuid.uuid4(), world["tenant_a"], spring],
+    )
+    with tenant_context(context):
+        with pytest.raises(VatPeriodWithoutRegistrationError):
+            open_vat_periods(unregistered, date(2026, 1, 1), date(2026, 1, 31))
+        opened = open_vat_periods(spring, date(2026, 3, 1), date(2026, 6, 30))
+        assert [p.start_date.month for p in opened] == [3, 4, 5, 6]
+        with pytest.raises(VatPeriodWithoutRegistrationError):
+            open_vat_periods(spring, date(2026, 7, 1), date(2026, 7, 31))
+        # Nothing of a refused window is written: the refusal came before the insert.
+        assert VatPeriod.objects.filter(company_id=spring).count() == 4
 
 
 def open_2026(company_id: uuid.UUID) -> list[VatPeriod]:

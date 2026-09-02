@@ -174,3 +174,33 @@ export function registerForVat(
 export function taxStatus(companyId: string, on: string): Promise<TaxStatus> {
   return request<TaxStatus>(`/api/v1/companies/${companyId}/tax-status?on=${on}`)
 }
+
+/**
+ * The VAT fiscal periods -- ADR-039 §7, with a door since ADR-090.
+ *
+ * Opened as a second call after the registration, for the reason the exercise
+ * is: `platform` records the registration and does not import `accounting`,
+ * where the period lives. The server refuses a month the registration does not
+ * cover, so the client names the months and does not derive the answer.
+ */
+export interface VatPeriod {
+  id: string
+  start_date: string
+  /** The last day, inclusive. Longer than a month only for the final period. */
+  end_date: string
+  kind: 'monthly' | 'final'
+}
+
+export function listVatPeriods(companyId: string): Promise<VatPeriod[]> {
+  return request<VatPeriod[]>(`/api/v1/accounting/periods/companies/${companyId}/vat-periods`)
+}
+
+export function openVatPeriods(
+  companyId: string,
+  window: { first_month: string; through: string },
+): Promise<VatPeriod[]> {
+  return request<VatPeriod[]>(`/api/v1/accounting/periods/companies/${companyId}/vat-periods`, {
+    method: 'POST',
+    body: window,
+  })
+}

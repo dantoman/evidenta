@@ -27,12 +27,15 @@ import { t } from '@/locales'
 import {
   closeCompany,
   getCompany,
+  listVatPeriods,
   listVatRegistrations,
+  openVatPeriods,
   registerForVat,
   taxStatus,
   updateCompany,
   type Company,
   type EditableCompany,
+  type VatRegistration,
 } from '@/shared/api/companies'
 import { workspace } from '@/shared/api/workspace'
 import { Failure } from '@/shared/Failure'
@@ -413,6 +416,94 @@ function VatZone({ companyId, allowed }: { companyId: string; allowed: boolean }
       </form>
       {!allowed && <p className="mt-3 text-sm text-ink-muted">{t.companies.vatNoRight}</p>}
       {register.isError && <Failure error={register.error} />}
+
+      {registrations.data && registrations.data.length > 0 && (
+        <VatPeriods companyId={companyId} allowed={allowed} registrations={registrations.data} />
+      )}
     </Card>
+  )
+}
+
+/**
+ * The VAT fiscal periods, opened as the second call after the registration --
+ * the exercise's pattern (ADR-090). The registers are built on them, so a
+ * registered company with none has a card that says so.
+ */
+function VatPeriods({
+  companyId,
+  allowed,
+  registrations,
+}: {
+  companyId: string
+  allowed: boolean
+  registrations: VatRegistration[]
+}) {
+  const queryClient = useQueryClient()
+  const periods = useQuery({
+    queryKey: ['vat-periods', companyId],
+    queryFn: () => listVatPeriods(companyId),
+  })
+  const [year, setYear] = useState(today().slice(0, 4))
+
+  // The earliest registration bounds the first month: a year that starts before
+  // it is opened from the registration's month, and the server refuses a month
+  // it does not cover -- the client names months, it does not derive the answer.
+  const earliest = registrations[0]?.valid_from ?? ''
+  const firstMonth = () => {
+    const januaryFirst = `${year}-01-01`
+    const registrationMonth = `${earliest.slice(0, 7)}-01`
+    return registrationMonth > januaryFirst ? registrationMonth : januaryFirst
+  }
+
+  const open = useMutation({
+    mutationFn: () =>
+      openVatPeriods(companyId, { first_month: firstMonth(), through: `${year}-12-31` }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['vat-periods', companyId] })
+    },
+  })
+
+  const rows = periods.data ?? []
+  const first = rows[0]
+  const last = rows[rows.length - 1]
+
+  return (
+    <div className="mt-6 border-t border-border pt-4">
+      <h3 className="type-title-sm mb-1">{t.companies.vatPeriods}</h3>
+      <p className="mb-3 text-sm text-ink-muted">{t.companies.vatPeriodsLead}</p>
+      {periods.isError && <Failure error={periods.error} />}
+      {periods.data && rows.length === 0 && (
+        <p className="mb-3 text-sm text-ink-muted">{t.companies.vatPeriodsNone}</p>
+      )}
+      {first && last && (
+        <p className="mb-3 text-sm">
+          {date(first.start_date)} – {date(last.end_date)}
+          <span className="ml-2 text-ink-muted">
+            ({rows.length} {t.companies.vatPeriodsCount}
+            {last.kind === 'final' ? `, ${t.companies.vatPeriodFinal}` : ''})
+          </span>
+        </p>
+      )}
+      <div className="flex flex-wrap items-end gap-4">
+        <Field label={t.companies.vatPeriodsYear}>
+          <Input
+            type="number"
+            value={year}
+            onChange={(event) => setYear(event.target.value)}
+            min={2000}
+            max={2100}
+            disabled={!allowed}
+            className="w-28 font-mono"
+          />
+        </Field>
+        <Button
+          onClick={() => open.mutate()}
+          disabled={!allowed || year.length !== 4 || open.isPending}
+        >
+          {open.isPending ? t.companies.vatPeriodsOpening : t.companies.vatPeriodsOpen}
+        </Button>
+      </div>
+      {open.isError && <Failure error={open.error} />}
+    </div>
   )
 }

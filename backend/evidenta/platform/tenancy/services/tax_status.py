@@ -53,3 +53,18 @@ def tax_status_at(company_id: uuid.UUID, on: date) -> dict[str, Any]:
         }
 
     return {"version": SNAPSHOT_VERSION, "on": str(on), "vat": vat}
+
+
+def registered_for_vat_over(company_id: uuid.UUID, start: date, end: date) -> bool:
+    """Whether any registration touches the days ``start``..``end``, inclusive.
+
+    The question a VAT fiscal period asks before it is opened: art. 114 makes the
+    period the month, and a month in which the company was a payer for a single
+    day is a month it declares. A registration that begins on the 15th therefore
+    covers January -- overlap, not containment.
+    """
+    return (
+        CompanyVatRegistration.objects.filter(company_id=company_id, valid_from__lte=end)
+        .exclude(valid_to__lt=start)
+        .exists()
+    )

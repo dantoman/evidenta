@@ -24,10 +24,12 @@ coupling `D6` stops would have arrived through a service.
 from __future__ import annotations
 
 import uuid
+from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import date, datetime
+from typing import Any
 
-from evidenta.accounting.events.models import AccountingEvent
+from evidenta.accounting.events.models import AccountingEvent, EventStatus
 
 
 @dataclass(frozen=True, slots=True)
@@ -97,6 +99,39 @@ def event_ids_of_document(document_type: str, document_id: uuid.UUID) -> list[uu
         .order_by("occurred_at", "created_at")
         .values_list("id", flat=True)
     )
+
+
+def posted_payloads_of(
+    document_type: str, document_ids: Iterable[uuid.UUID]
+) -> dict[uuid.UUID, dict[str, Any]]:
+    """The fact each posted document was posted from -- its event's payload.
+
+    For a reader that needs what the engine *recorded* rather than what it would
+    derive again: the VAT register asks whether a purchase's VAT was deductible,
+    and the answer is on the event (`vat_deductible`, ADR-089), stamped beside
+    the status it was read from. Re-deriving it from today's registration table
+    would be a second implementation of the rule, and one that changes when the
+    registration is corrected -- exactly what ADR-088 built the stamp to prevent.
+
+    Only **posted** events, and the latest per document if there are several: a
+    failed attempt's payload describes a posting that never happened. Documents
+    without a posted event are absent from the answer.
+    """
+    ids = list(document_ids)
+    found: dict[uuid.UUID, dict[str, Any]] = {}
+    rows = (
+        AccountingEvent.objects.filter(
+            source_document_type=document_type,
+            source_document_id__in=ids,
+            status=EventStatus.POSTED,
+        )
+        .order_by("source_document_id", "occurred_at", "created_at")
+        .values("source_document_id", "payload")
+    )
+    for row in rows:
+        payload = row["payload"]
+        found[row["source_document_id"]] = dict(payload) if isinstance(payload, dict) else {}
+    return found
 
 
 def event_ids_of_request(request_id: str) -> list[uuid.UUID]:

@@ -335,6 +335,18 @@ export const ro = {
     vatRegistering: 'Se înregistrează…',
     vatNone: 'Nicio înregistrare. Compania emite fără TVA.',
     vatNoRight: 'Nu aveți dreptul de a înregistra această companie în scopuri de TVA.',
+    // Perioadele fiscale TVA (ADR-039 §7): luna, pentru toti, neregulata doar la
+    // radiere. Se deschid de aici, ca al doilea apel dupa inregistrare, fiindca
+    // stau in contabilitate, pe care platforma n-o importa.
+    vatPeriods: 'Perioade fiscale TVA',
+    vatPeriodsLead:
+      'Registrele TVA se construiesc pe ele. Se deschid pe lunile în care compania este înregistrată; o lună din afara înregistrării este refuzată.',
+    vatPeriodsNone: 'Nicio perioadă fiscală TVA deschisă.',
+    vatPeriodsCount: 'perioade',
+    vatPeriodFinal: 'perioadă finală',
+    vatPeriodsYear: 'Anul',
+    vatPeriodsOpen: 'Deschide lunile anului',
+    vatPeriodsOpening: 'Se deschid…',
   },
   partners: {
     // Partenerul e al spatiului de lucru, nu al unei companii: aceeasi entitate
@@ -1094,6 +1106,41 @@ export const ro = {
     // Serverul calculeaza randul si totalurile; ecranul nu aduna nimic (C19).
     totalsFromServer: 'Totalurile vin de la server.',
   },
+  vatRegisters: {
+    // Registrele TVA pe perioada fiscala (ADR-090). NU forma prescrisa a
+    // registrului de livrari / procurari (art. 118): aceea nu s-a citit. Ecranul
+    // o spune, ca sa nu fie depus ca altceva.
+    title: 'Registrele TVA',
+    lead: 'Documentele contabilizate ale perioadei fiscale TVA, cu TVA-ul pe regimuri. Nu este forma prescrisă a registrului de livrări sau de procurări — aceea se citește din act; cifrele sunt cele pe care le cere.',
+    side: 'Registrul',
+    sales: 'Livrări',
+    purchases: 'Procurări',
+    month: 'Luna',
+    period: 'Perioada fiscală',
+    finalPeriod: 'perioadă finală',
+    documentDate: 'Data documentului',
+    number: 'Număr',
+    partner: 'Contraparte',
+    kind: 'Fel',
+    invoice: 'Factură',
+    creditNote: 'Notă de credit',
+    supplierInvoice: 'Factură primită',
+    supplierNumber: 'Nr. furnizor',
+    supplierDate: 'Data furnizor',
+    deductible: 'Deductibil',
+    regime: 'Regim TVA',
+    net: 'Fără TVA',
+    vat: 'TVA',
+    total: 'Total',
+    byRegime: 'Totaluri pe regim (fără TVA / TVA)',
+    nonDeductible: 'TVA în cost (nedeductibilă)',
+    // Validate, dar necontabilizate: registrul e egal cu registrul contabil, iar
+    // numarul spune ca sertarul mai are documente emise.
+    unposted: 'Documente validate, necontabilizate încă în această perioadă',
+    empty: 'Niciun document contabilizat în perioada fiscală aleasă.',
+    exportCsv: 'Export CSV',
+    totalsFromServer: 'Totalurile vin de la server, din aceeași sursă ca exportul.',
+  },
   vat: {
     // Codurile sunt ale platformei (parametrul `vat.regimes`), etichetele ale
     // interfetei. Un cod fara eticheta se afiseaza ca atare, nu se ascunde.
@@ -1314,6 +1361,18 @@ export const ro = {
     'tenancy.date_required': 'Lipsește data pentru care se cere situația.',
     'fiscal.date_required': 'Lipsește data pentru care se cere nomenclatorul.',
     'fiscal.vat_regimes_unavailable': 'Nomenclatorul regimurilor de TVA nu este activat pentru această dată.',
+    // Perioadele fiscale TVA si registrele (ADR-090).
+    'periods.vat_period_not_found':
+      'Nu există perioadă fiscală TVA pentru ziua aleasă. Perioadele se deschid din fișa companiei.',
+    'periods.vat_period_overlaps': 'Există deja o perioadă fiscală TVA peste aceste luni.',
+    'periods.invalid_vat_period_window':
+      'Perioadele fiscale TVA se deschid pe luni întregi: din prima zi a unei luni până în ultima zi a alteia.',
+    'periods.vat_registration_already_closed':
+      'Înregistrarea în scopuri de TVA este deja închisă printr-o perioadă finală.',
+    'periods.vat_period_without_registration':
+      'Compania nu este înregistrată în scopuri de TVA în una dintre lunile cerute. Înregistrarea se face din fișa companiei.',
+    'tax.date_required': 'Lipsește ziua pentru care se cere registrul.',
+    'tax.unknown_register_side': 'Registrul cerut nu există: livrări sau procurări.',
     'ledger.entry_already_reversed': 'Înregistrarea a fost deja stornată.',
     'ledger.entry_not_posted': 'Înregistrarea nu este postată, deci nu are ce anula.',
     'posting.reversal_payload_invalid': 'Stornarea are nevoie de un motiv.',

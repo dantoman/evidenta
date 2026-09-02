@@ -18,8 +18,9 @@ from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from evidenta.accounting.periods.models import FiscalYear, Period
+from evidenta.accounting.periods.models import FiscalYear, Period, VatPeriod
 from evidenta.accounting.periods.services.opening import open_fiscal_year
+from evidenta.accounting.periods.services.vat import open_vat_periods
 
 
 class OpenFiscalYearSerializer(serializers.Serializer[dict[str, Any]]):
@@ -65,3 +66,42 @@ class FiscalYearView(APIView):
 
         opened = open_fiscal_year(company_id, code, start, end)
         return Response(_rendered(opened), status=201)
+
+
+class OpenVatPeriodsSerializer(serializers.Serializer[dict[str, Any]]):
+    """The months to open, both stated. No default to the calendar year here:
+    the sequence starts in the month the registration did, and only the caller
+    knows which -- the service refuses anything that is not a month edge."""
+
+    first_month = serializers.DateField()
+    through = serializers.DateField()
+
+
+def _vat_period_rendered(period: VatPeriod) -> dict[str, Any]:
+    return {
+        "id": str(period.id),
+        "start_date": str(period.start_date),
+        "end_date": str(period.end_date),
+        "kind": period.kind,
+    }
+
+
+class VatPeriodView(APIView):
+    """The VAT fiscal periods of a company -- ADR-039 §7, with a door since ADR-090.
+
+    Separate from the registration for the reason the exercise is separate from
+    the company: `platform` records the registration and does not import
+    `accounting`, where the period lives. Two calls, and the second refuses a
+    month the registration does not cover.
+    """
+
+    def get(self, request: Request, company_id: uuid.UUID) -> Response:
+        rows = VatPeriod.objects.filter(company_id=company_id).order_by("start_date")
+        return Response([_vat_period_rendered(period) for period in rows])
+
+    def post(self, request: Request, company_id: uuid.UUID) -> Response:
+        payload = OpenVatPeriodsSerializer(data=request.data)
+        payload.is_valid(raise_exception=True)
+        data = dict(payload.validated_data)
+        opened = open_vat_periods(company_id, data["first_month"], data["through"])
+        return Response([_vat_period_rendered(period) for period in opened], status=201)

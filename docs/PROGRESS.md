@@ -25,15 +25,17 @@
 > nota de credit — ADR-073 —, decontarea — ADR-087, 31.08) și **pasul 6 început** (02.09,
 > [ADR-089](decisions/089-tva-pe-documentele-comerciale.md)): TVA pe document ajunge în registru —
 > 5344 / 2252, cota din nomenclator, înregistrarea companiei cu ușă și ecran; cotele rămân `draft`
-> (`OD-22`), deci pe baza de dezvoltare calculul refuză numind cheia. **Urmează, tot din pasul 6:**
-> perioadele TVA la înregistrare, registrele de livrări și procurări pe `VatPeriod`, declarația când
-> textul Ordinului IFPS 1164/2012 e citit. *Antetul acesta a rămas în urmă de două ori — spunea
+> (`OD-22`), deci pe baza de dezvoltare calculul refuză numind cheia. **A doua felie, tot 02.09
+> ([ADR-090](decisions/090-registrele-tva-pe-perioada-fiscala.md)):** perioadele TVA au ușă și cer
+> înregistrare; registrele de livrări și procurări se citesc pe `VatPeriod`, egale cu 5344 / 2252 —
+> măsurat —, cu ecran și export. **Urmează, tot din pasul 6:** declarația, când textul Ordinului IFPS
+> 1164/2012 e citit; proratarea; radierea cu ușă. *Antetul acesta a rămas în urmă de două ori — spunea
 > „urmează pasul 2" până la 31.08 și „urmează trezoreria" până la 02.09, cu ambele livrate între timp.
 > Se rescrie la fiecare sesiune, nu doar „Ultima sesiune".*
 
 **Felia verticală merge cap-coadă: companie → plan de conturi → notă manuală → balanță echilibrată.**
 Un test de integrare o parcurge prin HTTP, sub rolul aplicației
-(`backend/tests/integration/test_vertical_slice.py`). Suita: **1.246 trec, 1 sărit** (2026-09-02; frontend 52).
+(`backend/tests/integration/test_vertical_slice.py`). Suita: **1.255 trec, 1 sărit** (2026-09-02, a doua felie; frontend 53).
 
 - **A1** — planul SNC ca date: `accounting/coa/data/snc_2020.csv`, 476 de conturi (156 gradul I,
   320 gradul II), transcrise din extragerea proprie a actului; încărcător idempotent
@@ -191,6 +193,56 @@ sunt bifate în `08`** — închiderea F1 e declarația proprietarului, ca la F0
 ține modulele F2 pe loc.
 
 ## Ultima sesiune
+
+**2026-09-02 — Pasul 6, a doua felie: registrele TVA pe perioada fiscală, egale cu registrul contabil
+([ADR-090](decisions/090-registrele-tva-pe-perioada-fiscala.md)).**
+
+**Măsurat înainte de a construi:** `VatPeriod` și cele trei servicii ale lui (deschidere, radiere cu
+perioada finală, căutare pe zi) existau din F1.5.3 **fără ușă** și fără să poată verifica
+înregistrarea — docstring-ul o spunea, fiindcă `tenancy` nu publica niciun accesor de TVA la vremea aceea;
+`accounting.events` nu expunea payload-ul niciunui eveniment; `sales`/`purchases` expuneau doar
+`residence_of`, câte un document; scriitorul CSV stătea în `accounting/ledger`, unde `operations/tax`
+nu ajunge (`D3`). Din nou mai mult legare decât construcție.
+
+**Livrat:**
+- **Perioadele TVA cer înregistrare și au ușă:** `open_vat_periods` refuză luna pe care nicio
+  înregistrare n-o **atinge** (suprapunere, nu includere — luna cu o zi ca plătitor se declară),
+  `periods.vat_period_without_registration`; `GET/POST .../periods/companies/<id>/vat-periods`, ambele
+  margini numite de apelant. Fișa companiei deschide lunile unui an, de la luna înregistrării.
+- **Registrele TVA** (`operations/tax/services/vat_register.py`, `GET /api/v1/tax/vat/companies/<id>/
+  registers/<side>?on=`): documentele **postate** ale familiei, plasate după **data documentului** în
+  perioada fiscală găsită din zi; nota de credit **cu semn negativ**; feliile pe `(regim, cheie,
+  cotă)`; la procurări, numărul și data furnizorului și **deductibilitatea din evenimentul postat**
+  (`vat_deductible`, ADR-089), nu re-derivată; totaluri pe regim, total, TVA nedeductibilă, și
+  **numărul documentelor validate-nepostate** din perioadă. Export CSV, o linie per document și cotă.
+- **Criteriul `F2.A6`, bifat în test pentru ambele părți:** total TVA livrări = rulaj net 5344; total
+  TVA procurări − nedeductibil = rulaj 2252 — cu notă de credit și cu o achiziție de dinaintea
+  înregistrării în același registru.
+- **Patru servicii publice noi, fiindcă registrul nu citește tabela nimănui:** `confirmed_of_types` și
+  `vat_breakdown_of_many` în nucleul documentelor, `details_of` în vânzări și în achiziții,
+  `posted_payloads_of` în `accounting.events`, `registered_for_vat_over` în `tenancy`.
+- **Scriitorul CSV a coborât** în `platform/documents/services/csv.py`; `ledger/services/export.py`
+  păstrează doar forma rapoartelor. O singură implementare pentru ambele straturi (`C20`).
+- **Ecranul *Registrele TVA*** (`registre-tva`, în grupul comercial — intrarea din `sections.ts` e și ce
+  ține adresa la schimbarea companiei, cum a explicat sesiunea paralelă): partea, luna, perioada
+  găsită, rândurile cu semn, totalurile pe regim, avertismentul cu nepostatele, subtitlul care spune că
+  **nu e forma prescrisă** a registrului de livrări / procurări (art. 118, necitit).
+- **6 teste de izolare** noi + 1 în `test_vat_period.py` (refuzul fără înregistrare) + 1 de frontend.
+  `test_vat_period.py` primește înregistrarea în fixture: testele lui deschideau perioade pentru o
+  companie care n-a fost niciodată plătitor, ceea ce de azi e refuz.
+
+**Ce a prins rularea:** exportul din `ledger` pierduse două importuri la mutare (`date_ro`, `Sequence`)
+— prinse de ruff și mypy, nu de teste, fiindcă adnotarea locală nu se evaluează la rulare; mypy a
+refuzat o variabilă refolosită între cele două ramuri ale registrului cu tipuri diferite, corect.
+Rularea completă pe arborele viu a căzut o dată pe gardianul de dependențe — `D6`, în
+`sales/views.py`, o editare **necomisă a sesiunii paralele** (`evidenta-85`), nu a acestui commit;
+i s-a spus. Tot din arborele partajat: două hunk-uri ale ei din `ro.ts` intraseră în index prin
+`git add` pe fișier; indexul s-a reconstruit din HEAD plus cele trei blocuri ale mele, verificat cu
+`tsc` înainte de `update-index` — regula din memorie, plătită încă o dată.
+
+**Rămân, cu rând scris:** `OD-132` — data pe care un document intră în perioada fiscală (aleasă: data
+documentului; art. 108 necitit). Declarația, proratarea, forma prescrisă — la textele lor. Radierea are
+serviciu și n-are ușă: consumatorul ei e declarația finală.
 
 **2026-09-02 — Pasul 6 a început: TVA pe document ajunge în registru
 ([ADR-089](decisions/089-tva-pe-documentele-comerciale.md)).**

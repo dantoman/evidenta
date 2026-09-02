@@ -39,15 +39,16 @@ coincide would keep the mistake invisible for years.
   period, the schema has to change -- which is visible now instead of buried in
   a rounding rule here.
 
-**What this module cannot check, and nothing else checks either.** A VAT period
+**What this module checks since ADR-090, and what it still cannot.** A VAT period
 is meaningful only while the company is registered, and the registration lives in
-``company_vat_registration``, in ``platform/tenancy``. `D6` sends a service
-through another module's public surface, and `tenancy` publishes no VAT accessor
-(``services/access.py`` answers visibility and nothing else). So the dates come
-from the caller, and nothing here refuses a VAT period for a company that never
-registered -- nor a fresh monthly period after a final one, which is legitimate
-after re-registration and indistinguishable from a mistake without that table.
-Stated here rather than answered with a query this module may not make.
+``company_vat_registration``, in ``platform/tenancy``. Until ADR-088 `tenancy`
+published no VAT accessor, so the dates came from the caller unchecked. It does
+now -- `tax_status.registered_for_vat_over` -- and every month opened here has to
+touch a registration, or it is refused with its own code. What is still not
+checked: a fresh monthly period after a final one, which is legitimate after
+re-registration and indistinguishable from a mistake without reading the
+registration's own end date against the final period's. Stated rather than
+guessed.
 """
 
 from __future__ import annotations
@@ -62,6 +63,7 @@ from evidenta.accounting.periods.errors import (
     InvalidVatPeriodWindowError,
     VatPeriodNotFoundError,
     VatPeriodOverlapsError,
+    VatPeriodWithoutRegistrationError,
     VatRegistrationAlreadyClosedError,
 )
 from evidenta.accounting.periods.models import VatPeriod, VatPeriodKind
@@ -73,6 +75,7 @@ from evidenta.accounting.periods.services.months import (
 from evidenta.platform.audit.services.recording import record
 from evidenta.platform.rls.context import MissingTenantContextError, current_context
 from evidenta.platform.tenancy.services.access import company_visible_in_context
+from evidenta.platform.tenancy.services.tax_status import registered_for_vat_over
 
 
 def _context_tenant() -> uuid.UUID:
@@ -143,12 +146,21 @@ def open_vat_periods(company_id: uuid.UUID, first_month: date, through: date) ->
     periods = []
     month_start = first_month
     while month_start <= through:
+        month_end = last_day_of_month(month_start)
+        # Every month, not only the edges: a registration that ends in March
+        # makes an April period a declaration for a month nothing was owed in.
+        if not registered_for_vat_over(company_id, month_start, month_end):
+            raise VatPeriodWithoutRegistrationError(
+                f"the company is not registered for VAT during {month_start:%Y-%m}; a VAT "
+                f"fiscal period is a month the company declares on, and the registration "
+                f"is recorded on the company card"
+            )
         periods.append(
             VatPeriod(
                 tenant_id=tenant_id,
                 company_id=company_id,
                 start_date=month_start,
-                end_date=last_day_of_month(month_start),
+                end_date=month_end,
                 kind=VatPeriodKind.MONTHLY,
             )
         )

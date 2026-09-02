@@ -31,6 +31,7 @@ import { IpcScreen } from './payroll/IpcScreen'
 import { PayrollRunScreen } from './payroll/PayrollRunScreen'
 import { PeopleScreen } from './payroll/PeopleScreen'
 import { TimesheetScreen } from './payroll/TimesheetScreen'
+import { VatRegisterScreen } from './tax/VatRegisterScreen'
 import { AppLayout } from './layout/AppLayout'
 import { Landing } from './layout/Landing'
 
@@ -138,6 +139,7 @@ export function App() {
             path="companii/:companyId/solduri-deschise"
             element={<SettlementsScreen />}
           />
+          <Route path="companii/:companyId/registre-tva" element={<VatRegisterScreen />} />
           <Route path="companii/:companyId/sabloane" element={<OperationTemplatesScreen />} />
           {/* With and without a batch: the batch id is in the path so a draft
               survives a reload -- the server has no way to list a company's

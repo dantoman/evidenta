@@ -39,6 +39,7 @@ import { PartnersScreen } from '@/app/partners/PartnersScreen'
 import { PurchasesScreen } from '@/app/purchases/PurchasesScreen'
 import { SalesScreen } from '@/app/sales/SalesScreen'
 import { SettlementsScreen } from '@/app/settlements/SettlementsScreen'
+import { VatRegisterScreen } from '@/app/tax/VatRegisterScreen'
 import { TreasuryScreen } from '@/app/treasury/TreasuryScreen'
 import { ContractsScreen } from '@/app/payroll/ContractsScreen'
 import { ExemptionsScreen } from '@/app/payroll/ExemptionsScreen'
@@ -135,6 +136,7 @@ describe('ecranele', () => {
         on: '2026-09-02',
         vat: { registered: false },
       },
+      [`/api/v1/accounting/periods/companies/${COMPANY}/vat-periods`]: [],
       [`/api/v1/companies/${COMPANY}`]: {
         ...COMPANIES[0],
         accounting_start_date: '2026-01-01',
@@ -1500,6 +1502,68 @@ describe('ecranele', () => {
     expect(screen.getByText('1.000,00')).toBeInTheDocument()
     expect(screen.getByText('200,00')).toBeInTheDocument()
     expect(screen.getByText('1.200,00')).toBeInTheDocument()
+  })
+
+  it('registrul TVA arată perioada fiscală, rândurile cu semn și totalurile pe regim', async () => {
+    stubFetch({
+      [`/api/v1/tax/vat/companies/${COMPANY}/registers/sales`]: {
+        side: 'sales',
+        period: { id: 'vp1', start_date: '2026-01-01', end_date: '2026-01-31', kind: 'monthly' },
+        rows: [
+          {
+            document_id: 'r1',
+            document_type: 'sales.document',
+            formatted_number: 'FV-0003-2026',
+            document_date: '2026-01-20',
+            accounting_date: '2026-01-20',
+            partner_id: 'p1',
+            partner_name: 'Societatea Comercială "Beta" SRL',
+            kind: 'credit_note',
+            supplier_document_number: null,
+            supplier_document_date: null,
+            deductible: null,
+            slices: [
+              {
+                vat_regime_code: 'taxable_standard',
+                vat_rate_key: 'vat.standard',
+                vat_rate: '20',
+                net: '-500.00',
+                vat: '-100.00',
+              },
+            ],
+            net: '-500.00',
+            vat: '-100.00',
+            total: '-600.00',
+          },
+        ],
+        by_regime: [
+          {
+            vat_regime_code: 'taxable_standard',
+            vat_rate_key: 'vat.standard',
+            vat_rate: '20',
+            net: '-500.00',
+            vat: '-100.00',
+          },
+        ],
+        totals: { net: '-500.00', vat: '-100.00', total: '-600.00', non_deductible_vat: '0' },
+        unposted: 2,
+      },
+    })
+    renderScreen(<VatRegisterScreen />, {
+      path: '/companii/:companyId/registre-tva',
+      route: `/companii/${COMPANY}/registre-tva`,
+    })
+
+    expect(await screen.findByText('FV-0003-2026')).toBeInTheDocument()
+    // The legal name (C39), the kind that explains the sign, the sign itself.
+    expect(screen.getByText('Societatea Comercială "Beta" SRL')).toBeInTheDocument()
+    expect(screen.getByText('Notă de credit')).toBeInTheDocument()
+    expect(screen.getAllByText('-100,00').length).toBeGreaterThan(0)
+    // The period is the server's, and the drawer's count is said.
+    expect(screen.getByText(/01\.01\.2026 – 31\.01\.2026/)).toBeInTheDocument()
+    expect(screen.getByText(/necontabilizate încă în această perioadă: 2/)).toBeInTheDocument()
+    // And the sentence that keeps it from being filed as the statutory register.
+    expect(screen.getByText(/Nu este forma prescrisă/)).toBeInTheDocument()
   })
 
   it('fără sesiune, aplicația arată ecranul de autentificare', async () => {

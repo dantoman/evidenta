@@ -51,6 +51,7 @@ export const COMMERCIAL: Section[] = [
   { path: 'facturi-primite', label: t.purchases.title, icon: 'import' },
   { path: 'trezorerie', label: t.treasury.title, icon: 'coins' },
   { path: 'solduri-deschise', label: t.settlements.title, icon: 'arrow-down-up' },
+  { path: 'registre-tva', label: t.vatRegisters.title, icon: 'receipt' },
 ]
 
 export const PAYROLL: Section[] = [

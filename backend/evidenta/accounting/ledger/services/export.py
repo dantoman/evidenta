@@ -10,12 +10,13 @@ context explicitly on entry and formats through `platform.documents.formatting`,
 which reads no active language. `tests/architecture/test_document_language.py`
 renders one of these with `ru` active and requires the same bytes.
 
-**The shape is the one a Moldovan spreadsheet opens without a dialog:** UTF-8
-with a byte-order mark (Excel otherwise guesses a code page and mangles every
-diacritic), `;` as the field separator (the decimal comma makes `,` unusable),
-`CRLF` line ends. Column labels are Romanian and live here: they are part of the
-document, not interface strings (`C32` is about the client; ADR-033 puts
-"registrele" in the layer that is exclusively Romanian).
+**The writer lives in the document core since ADR-090**
+(`platform.documents.services.csv`): the VAT register in `operations/tax` may
+not import this module (`D3`), and two writers that agree until one is edited is
+the defect `C20` names. What stays here is the shape of each report. Column
+labels are Romanian and live here: they are part of the document, not interface
+strings (`C32` is about the client; ADR-033 puts "registrele" in the layer that
+is exclusively Romanian).
 
 What is deliberately absent: Excel and PDF. Both need a library or a rendering
 pipeline nobody has chosen, and choosing one in passing is what `OD-74` exists
@@ -24,52 +25,27 @@ to prevent. CSV needs neither.
 
 from __future__ import annotations
 
-import csv
-import io
-from collections.abc import Iterable, Sequence
-from datetime import date
-from decimal import Decimal
-
-from django.utils import translation
+from collections.abc import Sequence
 
 from evidenta.accounting.ledger.services.account_ledger import AccountLedger
 from evidenta.accounting.ledger.services.correspondence import Correspondence
 from evidenta.accounting.ledger.services.document_journal import DocumentJournal
 from evidenta.accounting.ledger.services.general_ledger import GeneralLedger
 from evidenta.accounting.ledger.services.trial_balance import TrialBalance
-from evidenta.platform.documents.formatting import date_ro, decimal_ro
+from evidenta.platform.documents.formatting import date_ro
+from evidenta.platform.documents.services.csv import DELIMITER, ENCODING, csv_document
 
-#: What the jurisdiction's spreadsheets read: BOM, semicolon, CRLF.
-ENCODING = "utf-8-sig"
-DELIMITER = ";"
+__all__ = [
+    "DELIMITER",
+    "ENCODING",
+    "account_ledger_csv",
+    "correspondence_csv",
+    "document_journal_csv",
+    "general_ledger_csv",
+    "trial_balance_csv",
+]
 
-
-def _document(headers: Sequence[str], rows: Iterable[Sequence[object]]) -> bytes:
-    """Write one table, in the Romanian context, whatever was active before.
-
-    `translation.override("ro")` is the explicit entry ADR-033 asks for. The
-    formatter below reads no language at all, so the override changes nothing
-    today -- which is exactly the state the guard pins: the day something in this
-    path consults the active language, the override is what keeps the register
-    Romanian.
-    """
-    with translation.override("ro"):
-        buffer = io.StringIO()
-        writer = csv.writer(buffer, delimiter=DELIMITER, lineterminator="\r\n")
-        writer.writerow(headers)
-        for row in rows:
-            writer.writerow([_cell(value) for value in row])
-        return buffer.getvalue().encode(ENCODING)
-
-
-def _cell(value: object) -> str:
-    if isinstance(value, Decimal):
-        return decimal_ro(value)
-    if isinstance(value, date):
-        return date_ro(value)
-    if value is None:
-        return ""
-    return str(value)
+_document = csv_document
 
 
 def trial_balance_csv(balance: TrialBalance) -> bytes:

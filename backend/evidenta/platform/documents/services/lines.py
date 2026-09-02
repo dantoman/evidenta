@@ -297,6 +297,36 @@ def vat_breakdown(document_id: uuid.UUID) -> tuple[VatSlice, ...]:
     )
 
 
+def vat_breakdown_of_many(
+    document_ids: Iterable[uuid.UUID],
+) -> dict[uuid.UUID, tuple[VatSlice, ...]]:
+    """`vat_breakdown` for a list: one grouped query instead of one per document.
+
+    Every id asked for is in the result; a document with no positions comes back
+    with an empty tuple. The same grouping and the same order as the single
+    version, so a register and the document it opens into split the same way.
+    """
+    ids = list(document_ids)
+    slices: dict[uuid.UUID, list[VatSlice]] = {document_id: [] for document_id in ids}
+    rows = (
+        DocumentLine.objects.filter(document_id__in=ids)
+        .values("document_id", "vat_regime_code", "vat_rate_key", "vat_rate")
+        .annotate(net=Sum("net_amount"), vat=Sum("vat_amount"))
+        .order_by("document_id", "-vat_rate", "vat_regime_code")
+    )
+    for row in rows:
+        slices[row["document_id"]].append(
+            VatSlice(
+                vat_regime_code=str(row["vat_regime_code"]),
+                vat_rate_key=row["vat_rate_key"],
+                vat_rate=Decimal(row["vat_rate"]),
+                net=Decimal(row["net"]),
+                vat=Decimal(row["vat"]),
+            )
+        )
+    return {document_id: tuple(found) for document_id, found in slices.items()}
+
+
 def totals_of_many(document_ids: Iterable[uuid.UUID]) -> dict[uuid.UUID, DocumentTotals]:
     """`totals_of` for a list: one grouped query instead of one per row.
 

@@ -40,4 +40,11 @@ urlpatterns = [
         views.IpcReconciliationView.as_view(),
         name="ipc-reconciliation",
     ),
+    # The VAT segment, beside IPC as promised above. The side is a path segment
+    # because the two registers are two documents, not one with a filter.
+    path(
+        "vat/companies/<uuid:company_id>/registers/<slug:side>",
+        views.VatRegisterView.as_view(),
+        name="vat-register",
+    ),
 ]

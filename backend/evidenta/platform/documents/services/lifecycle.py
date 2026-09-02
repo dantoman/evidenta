@@ -99,11 +99,28 @@ def posted_of_types(company_id: uuid.UUID, document_types: Sequence[str]) -> lis
     Ordered by the document's own date, then by creation, so a list does not
     reshuffle itself when two documents share a date.
     """
+    return _of_types(company_id, document_types, DocumentState.POSTED)
+
+
+@transaction.atomic
+def confirmed_of_types(company_id: uuid.UUID, document_types: Sequence[str]) -> list[Document]:
+    """Validated documents of the given types that have not reached the ledger.
+
+    The VAT register lists what is posted and **counts** these beside it: a
+    validated invoice is a numbered legal document whether or not its posting
+    succeeded, and a register that silently omitted it would agree with the
+    ledger and disagree with the drawer of issued invoices. Listed rather than
+    counted, so the caller can window them by date the way it windows the rest.
+    """
+    return _of_types(company_id, document_types, DocumentState.CONFIRMED)
+
+
+def _of_types(company_id: uuid.UUID, document_types: Sequence[str], state: str) -> list[Document]:
     return list(
         Document.objects.filter(
             company_id=company_id,
             document_type__in=tuple(document_types),
-            state=DocumentState.POSTED,
+            state=state,
         ).order_by("document_date", "created_at")
     )
 

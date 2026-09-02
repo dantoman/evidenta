@@ -15,6 +15,8 @@ like any other document's.
 from __future__ import annotations
 
 import uuid
+from collections.abc import Iterable
+from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal
 
@@ -238,6 +240,41 @@ def _supplier_of(partner_id: uuid.UUID | None) -> uuid.UUID:
             "supplier the deduplication key has nothing to agree with"
         )
     return partner_id
+
+
+@dataclass(frozen=True, slots=True)
+class PurchaseView:
+    """What another module may know about a purchase without reading its table."""
+
+    supplier_document_number: str
+    supplier_document_date: date
+    cost_destination: str
+    partner_resident: bool
+
+
+def details_of(document_ids: Iterable[uuid.UUID]) -> dict[uuid.UUID, PurchaseView]:
+    """The purchase-side facts of many documents at once, for a register.
+
+    The supplier's number and date are what the register of purchases carries
+    beside our own number: the paper the person holds is identified by them.
+    Batched for a month, absent for ids that are not purchases.
+    """
+    rows = PurchaseDocument.objects.filter(document_id__in=list(document_ids)).values(
+        "document_id",
+        "supplier_document_number",
+        "supplier_document_date",
+        "cost_destination",
+        "partner_resident",
+    )
+    return {
+        row["document_id"]: PurchaseView(
+            supplier_document_number=str(row["supplier_document_number"]),
+            supplier_document_date=row["supplier_document_date"],
+            cost_destination=str(row["cost_destination"]),
+            partner_resident=bool(row["partner_resident"]),
+        )
+        for row in rows
+    }
 
 
 def residence_of(document_id: uuid.UUID) -> bool:

@@ -161,6 +161,7 @@ Acte normative, secțiuni din documentele de intrare, benchmark-uri, discuții.
 | [087](087-decontarea-e-o-alocare.md) | Decontarea e o alocare, nu o postare; un singur modul cu coloană de parte; evenimentul aparține diferenței | Acceptat — tehnic; latura contabilă rămâne | 2026-08-31 | plasarea din `F2.A3` *(deschide `OD-127`, `OD-128`)* |
 | [088](088-statutul-fiscal-e-datat-si-stampilat.md) | Statutul fiscal e datat, iar evenimentul poartă ștampila lui — calculată în `emit()`, nu cerută apelantului | Acceptat — proprietar | 2026-08-31 | restrânge `OD-83` *(deschide `OD-130`)* |
 | [089](089-tva-pe-documentele-comerciale.md) | TVA pe documentele comerciale: o formulă pe cotă contra 5344 / 2252, cota din nomenclator, statutul decide în amonte; `OD-130` rămâne deschisă | Acceptat — tehnic, varianta reversibilă | 2026-09-02 | prima jumătate a `F2.A6`; rezerva G din ADR-073 §9 *(deschide `OD-131`)* |
+| [090](090-registrele-tva-pe-perioada-fiscala.md) | Registrele TVA se citesc pe perioada fiscală și sunt egale cu registrul contabil; perioada cere înregistrare; scriitorul CSV coboară în nucleul documentelor | Acceptat — tehnic, varianta reversibilă | 2026-09-02 | partea structurală a registrelor din `F2.A6` *(deschide `OD-132`)* |
 
 *Indexul se actualizează la fiecare ADR nou. Un ADR care nu apare aici este invizibil.*
 

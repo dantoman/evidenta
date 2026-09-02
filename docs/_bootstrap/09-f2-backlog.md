@@ -252,10 +252,13 @@ pe date reale la primul pilot.
 > TVA pe document ajunge în registru — regimul pe linie din `vat.regimes`, cota din parametrul lui,
 > calculul pe linie prin `line_amounts`, o formulă pe cotă contra 5344 / 2252, TVA nedeductibilă în
 > cost, înregistrarea companiei cu ușă și ecran, statutul decis în amonte (`OD-130` deschisă). Primul
-> punct al criteriului de mai jos e bifat în test pentru jurnalul documentelor. **Ce a rămas aici:**
-> perioadele TVA la înregistrare, registrele pe `VatPeriod`, `vat.calculate_output` / `_input` ca
-> versiuni în registru, proratarea, declarația (textul necitit), rectificativa (ADR-007). Cotele sunt
-> `draft`: până la activare, o companie înregistrată **refuză** să emită cu TVA, numind cheia.
+> punct al criteriului de mai jos e bifat în test pentru jurnalul documentelor. **A doua felie, tot
+> 02.09 ([ADR-090](../decisions/090-registrele-tva-pe-perioada-fiscala.md)):** perioadele TVA cer
+> înregistrare și au ușă; registrele de livrări și procurări pe `VatPeriod`, cu ecran și export, egale
+> cu fișa lui 5344 / 2252 — primul punct al criteriului, bifat pentru ambele părți. **Ce a rămas aici:**
+> `vat.calculate_output` / `_input` ca versiuni în registru, proratarea, declarația (textul necitit),
+> rectificativa (ADR-007), radierea cu ușă. Cotele sunt `draft`: până la activare, o companie
+> înregistrată **refuză** să emită cu TVA, numind cheia.
 
 - **Obiectiv:** `operations/tax` (numit deja în `D4`; `tax/codes`, `tax/vat`, `tax/declarations` pe
   hartă). Registrele TVA se construiesc din liniile de document validate/postate, **pe perioada

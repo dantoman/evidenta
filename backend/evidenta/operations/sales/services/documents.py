@@ -19,6 +19,8 @@ what having the class lets you do next.
 from __future__ import annotations
 
 import uuid
+from collections.abc import Iterable
+from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal
 
@@ -201,6 +203,36 @@ def convert_to_sale(
         partner_resident=partner_resident,
     )
     return sale.id
+
+
+@dataclass(frozen=True, slots=True)
+class SaleView:
+    """What another module may know about a sale without reading its table."""
+
+    nature: str
+    revenue_kind: str
+    partner_resident: bool
+
+
+def details_of(document_ids: Iterable[uuid.UUID]) -> dict[uuid.UUID, SaleView]:
+    """The sales-side facts of many documents at once, for a register.
+
+    Public for the reason `residence_of` is, and batched because a register
+    lists a month: one query for the window, not one per row. Ids that are not
+    sales are absent from the answer rather than refused -- a register asks
+    about a family and reads what the family has.
+    """
+    rows = SalesDocument.objects.filter(document_id__in=list(document_ids)).values(
+        "document_id", "nature", "revenue_kind", "partner_resident"
+    )
+    return {
+        row["document_id"]: SaleView(
+            nature=str(row["nature"]),
+            revenue_kind=str(row["revenue_kind"]),
+            partner_resident=bool(row["partner_resident"]),
+        )
+        for row in rows
+    }
 
 
 def residence_of(document_id: uuid.UUID) -> bool:

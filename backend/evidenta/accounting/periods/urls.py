@@ -12,4 +12,9 @@ urlpatterns = [
         views.FiscalYearView.as_view(),
         name="fiscal-years",
     ),
+    path(
+        "companies/<uuid:company_id>/vat-periods",
+        views.VatPeriodView.as_view(),
+        name="vat-periods",
+    ),
 ]

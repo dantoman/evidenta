@@ -161,6 +161,19 @@ class InvalidVatPeriodWindowError(ApiError):
     status = 400
 
 
+class VatPeriodWithoutRegistrationError(ApiError):
+    """A VAT fiscal period over a month in which the company was not a payer.
+
+    A period is meaningful only while the company is registered; one opened
+    outside a registration would be a declaration for a month nothing was owed
+    in. Refused with its own code because the remedy is on the company card --
+    record the registration -- not in the window.
+    """
+
+    code = "periods.vat_period_without_registration"
+    status = 409
+
+
 class VatRegistrationAlreadyClosedError(ApiError):
     """A final period already covers these months.
 
