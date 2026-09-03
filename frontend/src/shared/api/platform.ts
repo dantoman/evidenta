@@ -116,3 +116,151 @@ export function activateFiscalParameter(id: string): Promise<WriteOutcome> {
     method: 'POST',
   })
 }
+
+// --- the rest of the console (ADR-076 §4.3) ---------------------------------
+
+export interface Space {
+  id: string
+  subdomain: string
+  legal_name: string
+  legal_form: string | null
+  idno: string | null
+  status: 'active' | 'suspended' | 'offboarding' | 'archived' | string
+  claimed_at: string | null
+  suspended_at: string | null
+  offboarding_started_at: string | null
+  archived_at: string | null
+  created_at: string | null
+  company_count: number
+  member_count: number
+}
+
+export function listSpaces(): Promise<{ spaces: Space[] }> {
+  return request<{ spaces: Space[] }>('/api/v1/platform/spaces/')
+}
+
+export interface StaffRow {
+  user_id: string
+  email: string
+  full_name: string
+  staff_role: StaffRole
+  granted_by_email: string
+  granted_at: string
+  revoked_at: string | null
+}
+
+export function listStaff(): Promise<{ staff: StaffRow[] }> {
+  return request<{ staff: StaffRow[] }>('/api/v1/platform/staff/')
+}
+
+/** `P-12`, the admin's: one role per person, a change is revoke then grant. */
+export function grantStaff(email: string, role: StaffRole): Promise<{ user_id: string }> {
+  return request<{ user_id: string }>('/api/v1/platform/staff/', {
+    method: 'POST',
+    body: { email, staff_role: role },
+  })
+}
+
+export function revokeStaff(userId: string): Promise<{ user_id: string; revoked: boolean }> {
+  return request<{ user_id: string; revoked: boolean }>(
+    `/api/v1/platform/staff/${userId}/revoke`,
+    { method: 'POST' },
+  )
+}
+
+export interface LogRow {
+  id: number
+  occurred_at: string
+  path_code: string
+  actor: string
+  actor_user_id: string | null
+  actor_email: string | null
+  subject_tenant_id: string | null
+  subject_subdomain: string | null
+  tenant_count: number | null
+  request_id: string
+  justification: string | null
+  payload: Record<string, unknown> | null
+}
+
+export interface PrivilegedLog {
+  paths: { code: string; label: string }[]
+  rows: LogRow[]
+}
+
+export function privilegedLog(filter: {
+  path?: string
+  space?: string
+  limit?: number
+}): Promise<PrivilegedLog> {
+  const params = new URLSearchParams()
+  if (filter.path) params.set('path', filter.path)
+  if (filter.space) params.set('space', filter.space)
+  if (filter.limit) params.set('limit', String(filter.limit))
+  const query = params.toString()
+  return request<PrivilegedLog>(`/api/v1/platform/privileged-log/${query ? `?${query}` : ''}`)
+}
+
+export interface Activation {
+  id: string
+  subdomain: string
+  legal_name: string
+  company_id: string | null
+  company_legal_name: string | null
+  company_idno: string | null
+  capability_key: string
+  effective_from: string
+  effective_to: string | null
+  initialisation_state: string
+  source: string
+  activated_at: string
+}
+
+export function listActivations(): Promise<{ activations: Activation[] }> {
+  return request<{ activations: Activation[] }>('/api/v1/platform/capabilities/')
+}
+
+export interface FlagsPage {
+  flags: { key: string; description: string; default_state: boolean; is_compliance: boolean }[]
+  rings: { code: string; description: string; sequence: number }[]
+  ring_assignments: {
+    subdomain: string
+    legal_name: string
+    ring_code: string
+    assigned_at: string
+    assigned_by_email: string | null
+  }[]
+  overrides: {
+    id: string
+    subdomain: string
+    legal_name: string
+    flag_key: string
+    state: boolean
+    reason: string
+    expires_at: string
+    created_at: string
+    created_by_email: string | null
+  }[]
+}
+
+export function flagsPage(): Promise<FlagsPage> {
+  return request<FlagsPage>('/api/v1/platform/flags/')
+}
+
+export interface ChartTemplate {
+  id: string
+  code: string
+  version: string
+  status: string
+  valid_from: string | null
+  valid_to: string | null
+  published_at: string | null
+  source_act: string
+  source_reference: string | null
+  act: ActRef | null
+  account_count: number
+}
+
+export function listChartTemplates(): Promise<{ templates: ChartTemplate[] }> {
+  return request<{ templates: ChartTemplate[] }>('/api/v1/platform/coa-templates/')
+}

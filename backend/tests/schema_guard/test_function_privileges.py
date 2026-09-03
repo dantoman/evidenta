@@ -67,6 +67,17 @@ GRANTED_TO_APP = frozenset(
         "create_notification",
         "create_notification_delivery",
         "notify_tenant_members",
+        # The console's metadata reads (ADR-076 §4.3, ADR-092, Spec A §14):
+        # staff-gated inside, refused under a tenant context. `console_caller_role`
+        # is their internal guard and is deliberately absent -- it runs as
+        # evidenta_rls from within the others.
+        "console_tenants",
+        "console_staff",
+        "console_user_by_email",
+        "console_privileged_log",
+        "console_capabilities",
+        "console_release_rings",
+        "console_flag_overrides",
     }
 )
 

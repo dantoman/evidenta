@@ -39,6 +39,11 @@ urlpatterns: list[URLPattern | URLResolver] = [
     # runs one way (platform imports nothing above it), so the console's
     # reference-data screens are mounted by the module that owns the data.
     path("api/v1/platform/staff/", include("evidenta.platform.identity.platform_urls")),
+    path("api/v1/platform/spaces/", include("evidenta.platform.tenancy.console_urls")),
+    path("api/v1/platform/privileged-log/", include("evidenta.platform.audit.console_urls")),
+    path("api/v1/platform/capabilities/", include("evidenta.platform.capabilities.console_urls")),
+    path("api/v1/platform/flags/", include("evidenta.platform.flags.console_urls")),
+    path("api/v1/platform/coa-templates/", include("evidenta.accounting.coa.console_urls")),
     path(
         "api/v1/platform/fiscal-parameters/",
         include("evidenta.fiscal.parameters.console_urls"),

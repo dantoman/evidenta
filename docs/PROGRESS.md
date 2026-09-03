@@ -27,12 +27,17 @@
 > 5344 / 2252, cota din nomenclator, înregistrarea companiei cu ușă și ecran; cotele rămân `draft`
 > (`OD-22`), deci pe baza de dezvoltare calculul refuză numind cheia. **A doua felie, tot 02.09
 > ([ADR-090](decisions/090-registrele-tva-pe-perioada-fiscala.md)):** perioadele TVA au ușă și cer
+> înregistrare; registrele de livrări și procurări se citesc pe `VatPeriod`, egale cu 5344 / 2252 —
 > măsurat —, cu ecran și export. **Tot 02.09, în afara secvenței, prin instrucțiunea proprietarului
 > („mă aștept ca partea asta să fie setată în setările sistemului"):** consola platformei din ADR-076
 > există — gazda `admin.`, `platform_staff`, prima pagină: **parametrii fiscali** ca setări de
 > sistem, cu versiune nouă datată și activare de către operator
 > ([ADR-091](decisions/091-consola-scrie-referinta-din-procesul-web.md)). Cotele rămân `draft` până
-> când proprietarul le dă marginea — acum dintr-un ecran, nu dintr-un TOML. **Urmează, tot din pasul
+> când proprietarul le dă marginea — acum dintr-un ecran, nu dintr-un TOML. **03.09:** restul
+> consolei — spații, angajați, jurnalul căilor privilegiate, capabilități, ringuri și flaguri, planuri
+> de conturi — prin funcții de citire enumerate și `P-12`
+> ([ADR-092](decisions/092-consola-citeste-metadate-si-administreaza-personalul.md)); abonamentele,
+> granturile de suport și incidentele n-au server și nu se desenează. **Urmează, tot din pasul
 > 6:** declarația, când textul Ordinului IFPS 1164/2012 e citit; proratarea; radierea cu ușă. *Antetul acesta a rămas în urmă de două ori — spunea
 > „urmează pasul 2" până la 31.08 și „urmează trezoreria" până la 02.09, cu ambele livrate între timp.
 > Se rescrie la fiecare sesiune, nu doar „Ultima sesiune".*
@@ -247,9 +252,38 @@ nu ramura „zero rânduri". Secvența „membru, apoi consolă" e păstrată î
 
 **Suita:** **1.275 trec, 1 sărit** (2026-09-02, poarta completă `GATE: PASS`, cu munca necomisă a sesiunilor vecine în arbore); frontend 59, dintre care 4 ale consolei.
 
+**A doua parte, 03.09 — restul paginilor** (întrebarea proprietarului: *„consola platformei va fi și
+backofisul administratorului?"* — da, și a cerut restul; [ADR-092](decisions/092-consola-citeste-metadate-si-administreaza-personalul.md)):
+
+- **Măsurat înainte:** din cele nouă obiecte din ADR-076 §4.3, trei n-au server — `plan`,
+  `subscription`, `billing_account` nu există ca modele (facturarea e decizie, nu cod), grantul de
+  suport (ADR-077) n-are tabelă, incidentele n-au stare de citit. Nu se desenează; interfața spune de ce.
+- **Funcțiile de citire ale consolei** (`infra/migrations/0076`, `identity/0010`): șapte funcții
+  `rls.console_*`, `SECURITY DEFINER`, deținute de `evidenta_rls`, cu paznicul `rls.console_caller_role()`
+  care refuză sub context de tenant și refuză un apelant fără rând viu în `platform_staff`. Sunt căile
+  enumerate pe care `R7` le cere pentru interogări cross-tenant; lista stă în Spec A §14 și în
+  `test_function_privileges.py`.
+- **`P-12`** — administrarea personalului din consolă: `admin` acordă și retrage prin
+  `privileged_run` pe conexiunea de referință; o persoană poartă un rol; un admin nu se retrage pe
+  sine; primul admin rămâne al shell-ului. `PrivilegedPath` primește `P-11` (ADR-081, fără apelant) și
+  `P-12`; `audit/0004` lărgește CHECK-ul jurnalului. Închide `OD-133`, deschide `OD-134` (o persoană
+  cu două roluri — proprietarul e singurul om al platformei).
+- **Paginile:** Spații (rândul din `tenant`, numărul de companii și de membri, marcaj „nerevendicat";
+  fără acțiuni, cu motivul scris), Angajații platformei (listă cu istoric, acordare, retragere),
+  Jurnalul căilor privilegiate (filtru pe cale și spațiu; citit prin aplicație pentru prima dată),
+  Capabilități, Ringuri și flaguri, Planuri de conturi — toate doar citire. Bara laterală are trei
+  grupe: Platformă, Date de referință, Audit. Rutele stau în `App.tsx`, sub ramura gazdei.
+- **Verificat:** `tests/isolation/test_console_pages.py` — refuzul funcțiilor sub context de tenant și
+  pentru ne-angajați, numărătorile fără conținut, `P-12` cu rândul lui de jurnal, un rol per persoană,
+  auto-retragerea refuzată, 403 pe gazda unui tenant; patru teste de ecran în `console.test.tsx`.
+
+**Suita:** **1.286 trec, 1 sărit** (2026-09-03, poarta completă `GATE: PASS`); frontend 63, dintre care 8 ale consolei.
+
 **Rămân:** marginile celor 22 de parametri `draft` — acum se scriu din ecran, dar tot proprietarul
-citește articolele finale; `OD-133` (acordarea din consolă); celelalte pagini ale consolei, pe măsură
-ce au server; declanșatorul din ADR-091 §6 (credențiale separate web / worker). Nerezolvat din sesiunea
+citește articolele finale; `OD-134` (două roluri pentru o persoană — azi două conturi); paginile fără
+server (abonamente, granturi de suport, incidente), fiecare cu modulul ei; scrierile de platformă care
+lipsesc (creare de spații prin `P-9`+`P-11`, atribuire de ringuri, suprascrieri de flaguri), fiecare
+cu calea ei; declanșatorul din ADR-091 §6 (credențiale separate web / worker). Nerezolvat din sesiunea
 precedentă: ADR-085 §4 vs. cod (derivarea companiei titularului), fără răspuns de la proprietar.
 
 **2026-09-02 — Pasul 6, a doua felie: registrele TVA pe perioada fiscală, egale cu registrul contabil
@@ -360,8 +394,6 @@ alinierea celor două apeluri din seeder — făcută aici, cu regimul explicit.
 rămas în urmă a doua oară; șase commituri ale sesiunii `evidenta-16` din 01.09 (seederele) **nu erau
 consemnate deloc** — rândul lor e mai jos, scris din mesajele de commit. `README.md` al deciziilor
 lipsea 086–088, a patra recurență a lui `OD-126`; completat, împreună cu 089.
-
-## Sesiuni mai vechi
 
 **2026-09-01 — Registrele de facturi emise și primite arată totalul pe fiecare rând.**
 

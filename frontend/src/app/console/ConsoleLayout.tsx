@@ -14,12 +14,13 @@
  */
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import type { ReactNode } from 'react'
 import { NavLink, Outlet } from 'react-router'
 
 import { t } from '@/locales'
 import { logout } from '@/shared/api/auth'
 import { staffMe } from '@/shared/api/platform'
-import { Icon, IconButton } from '@/shared/ui'
+import { Icon, IconButton, type IconName } from '@/shared/ui'
 import { IDENTITY_KEY } from '../auth/useIdentity'
 import { navItem } from '../layout/CompanyNav'
 
@@ -55,15 +56,27 @@ export function ConsoleLayout() {
         </div>
 
         <nav className="flex flex-1 flex-col gap-0.5 overflow-y-auto px-2.5 py-3">
-          <NavLink to="/parametri-fiscali" className={({ isActive }) => navItem(isActive)}>
-            <Icon name="scale" size={20} />
-            <span>{t.console.fiscal.title}</span>
-          </NavLink>
+          {/* Three groups, from ADR-076 §4.3: the platform's objects, the
+              reference data everybody reads, and the audit of who touched what.
+              Pages with no server behind them are not drawn -- see the footer. */}
+          <Group label={t.console.navPlatform}>
+            <Entry to="/spatii" icon="building-2" label={t.console.spaces.title} />
+            <Entry to="/capabilitati" icon="layout-dashboard" label={t.console.capabilities.title} />
+            <Entry to="/ringuri-si-flaguri" icon="copy" label={t.console.flags.title} />
+            <Entry to="/angajati" icon="users" label={t.console.staff.title} />
+          </Group>
+          <Group label={t.console.navReference}>
+            <Entry to="/parametri-fiscali" icon="scale" label={t.console.fiscal.title} />
+            <Entry to="/planuri-de-conturi" icon="list-tree" label={t.console.chart.title} />
+          </Group>
+          <Group label={t.console.navAudit}>
+            <Entry to="/jurnal-privilegiat" icon="book-open" label={t.console.log.title} />
+          </Group>
         </nav>
 
         <div className="border-t border-[rgba(198,161,91,.22)] px-4.5 py-3.5">
           <div className="type-caption text-navy-300">{t.console.title}</div>
-          <div className="mt-1 type-caption text-navy-300">{t.console.onlyFiscal}</div>
+          <div className="mt-1 type-caption text-navy-300">{t.console.notBuilt}</div>
         </div>
       </aside>
 
@@ -123,5 +136,24 @@ function StaffSignedInAs() {
         </span>
       </span>
     </span>
+  )
+}
+
+/** The condensed caps that separate one run of entries from the next. */
+function Group({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <>
+      <div className="px-3 pt-4 pb-1.5 type-eyebrow text-navy-300">{label}</div>
+      {children}
+    </>
+  )
+}
+
+function Entry({ to, icon, label }: { to: string; icon: IconName; label: string }) {
+  return (
+    <NavLink to={to} className={({ isActive }) => navItem(isActive)}>
+      <Icon name={icon} size={20} />
+      <span>{label}</span>
+    </NavLink>
   )
 }

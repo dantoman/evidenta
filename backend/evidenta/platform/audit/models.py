@@ -109,7 +109,7 @@ class AuditEvent(models.Model):
 
 
 class PrivilegedPath(models.TextChoices):
-    """Spec A section 6.2, plus P-10 from ADR-049.
+    """Spec A section 6.2, plus P-10 from ADR-049, P-11 from ADR-081 and P-12 from ADR-092.
 
     The codes are data on the log row, not a hint: a compliance report groups by
     them, and a path that never appears is either dead or uninstrumented.
@@ -125,6 +125,11 @@ class PrivilegedPath(models.TextChoices):
     P8_OFFBOARDING_EXPORT = "P-8"
     P9_PROVISIONING = "P-9"
     P10_CHART_OF_ACCOUNTS = "P-10"
+    #: Claiming an unclaimed tenant (ADR-081). Enumerated in Spec A §6.2; no
+    #: caller yet -- a row with this code would be the claim path arriving.
+    P11_CLAIM = "P-11"
+    #: Granting and revoking platform staff roles from the console (ADR-092).
+    P12_PLATFORM_STAFF = "P-12"
 
 
 class PrivilegedAccessLog(models.Model):

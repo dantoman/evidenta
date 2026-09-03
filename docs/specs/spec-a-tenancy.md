@@ -962,6 +962,7 @@ iar o greșeală de configurare dă acces la tot.
 | **P-9** | Provizionarea unui tenant sau a unei companii | Creează rândul rădăcină și acordă accesul creatorului, în aceeași tranzacție | Crearea precede contextul: `tenant` e rădăcina contextului, iar politica pe `company` cere `has_company_access(id)` și în `WITH CHECK` — o companie nu poate avea acces la ea însăși înainte să existe | rând per creare, cu creatorul și subdomeniul sau IDNO-ul |
 | **P-10** | Încărcarea planului de conturi | Scrie o versiune publicată a planului general de conturi (`coa_template`, `coa_template_account`) și actul ei | Scriere globală; act **contabil**, nu parametru fiscal, deci nu e `P-4` (`OD-56`) | rând per rulare, cu versiunea și numărul de conturi scrise |
 | **P-11** | Revendicarea unui tenant | Acordă un `membership` de administrare celui care dovedește că reprezintă IDNO-ul tenantului, și scrie `claimed_at` | Revendicarea precede orice apartenență: cine revendică nu e încă membru al nimic | rând per revendicare, cu `justification` și referința probei |
+| **P-12** | Administrarea angajaților platformei | Acordă și retrage roluri în `platform_staff`, din consolă, de către un `admin` ([ADR-092](../decisions/092-consola-citeste-metadate-si-administreaza-personalul.md)) | Tabela e globală și nu a nimănui; scriitorul ei e `evidenta_refdata`, iar apelantul e angajat al platformei, pe o gazdă fără tenant | rând per operațiune, cu cine a acordat sau retras, cui, ce rol |
 
 *`P-3`, `P-4`, `P-5` și `P-10` rulează sub rolul `evidenta_refdata` (§2.2), prin
 `platform.audit.services.privileged.privileged_run`, care scrie rândul din §6.3 în aceeași
@@ -1916,15 +1917,31 @@ apare în niciun predicat de acces și nu deschide nicio politică. Primul rând
 `grant_platform_staff`, sub rolul de instalare (ca `create_tenant`); acordarea din consolă e `OD-133`.
 
 **Cine apelează ce.** `operator` — `P-3`, `P-4`, `P-5`, `P-10`; `support` — cererea grantului din
-`P-7` (ADR-077); `admin` — `platform_staff`. Verificat în cod la fiecare ușă
-(`platform/api/permissions.py`), nu doar afirmat; catalogul acțiunilor rămâne `OD-113`.
+`P-7` (ADR-077); `admin` — `P-12`, `platform_staff`. Orice angajat viu citește paginile. Verificat în
+cod la fiecare ușă (`platform/api/permissions.py`), nu doar afirmat; catalogul acțiunilor rămâne
+`OD-113`.
 
-**Paginile** (ADR-076 §4.3) și starea lor la 2026-09-02: **Parametri fiscali — construită**
-(listă, versiune nouă datată cu act și margine, activare de către operator ca aprobator, sub `P-4`);
-spații, abonamente, capabilități, ringuri și flaguri, versiuni de plan de conturi, jurnalul căilor
-privilegiate, granturi de suport, incidente — **neconstruite**, și nedesenate în interfață până când
-au server în spate. Ce nu apare niciodată: registre, documente, solduri, salarii, declarații,
-atașamente, denumiri de parteneri, sume.
+**Funcțiile de citire ale consolei** ([ADR-092](../decisions/092-consola-citeste-metadate-si-administreaza-personalul.md),
+`infra/migrations/0076`). Paginile consolei sunt interogări cross-tenant prin definiție, iar `R7` le
+permite doar în read models și în căile enumerate aici. Enumerare **limitativă**, ținută și în
+`tests/schema_guard/test_function_privileges.py`: `rls.console_tenants()`, `rls.console_staff()`,
+`rls.console_user_by_email(text)`, `rls.console_privileged_log(text, text, integer)`,
+`rls.console_capabilities()`, `rls.console_release_rings()`, `rls.console_flag_overrides()`. Toate
+încep cu paznicul intern `rls.console_caller_role()`, care refuză când există context de tenant și
+refuză un apelant fără rând viu în `platform_staff`, și toate întorc doar coloanele din ADR-076 §4.3.
+Nu lasă rând în `privileged_access_log`: sunt citiri de metadate ale platformei, aceeași clasă ca
+`rls.resolve_tenant_by_subdomain` și `rls.auth_*`.
+
+**Paginile** (ADR-076 §4.3) și starea lor la 2026-09-03. **Construite:** Spații (rândul din `tenant`,
+cu numărul de companii și de membri; fără creare, suspendare sau arhivare — vezi ADR-092 §4),
+Capabilități (doar citire), Ringuri și flaguri (doar citire; nimic din produs nu scrie încă o
+atribuire), Angajații platformei (citire pentru toți, acordare și retragere prin `P-12` pentru
+`admin`), Parametri fiscali (versiune nouă datată și activare prin `P-4`, ADR-091), Planuri de
+conturi (doar citire; încărcarea e `P-10` din fișier), Jurnalul căilor privilegiate (filtrabil pe cale
+și pe spațiu). **Neconstruite, cu motivul:** Abonamente și planuri (modulul de facturare nu există),
+Granturi de suport (ADR-077 acceptat, neconstruit), Incidente (nu există stare de joburi de citit).
+Nedesenate în interfață până când au server; interfața spune de ce. Ce nu apare niciodată: registre,
+documente, solduri, salarii, declarații, atașamente, denumiri de parteneri, sume.
 
 ## 15. Ce urmează după această specificație
 

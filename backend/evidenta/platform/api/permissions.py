@@ -55,3 +55,9 @@ class IsPlatformOperator(PlatformStaffPermission):
     """The reference-data paths -- `P-3`, `P-4`, `P-5`, `P-10` (ADR-076 §4.1)."""
 
     roles = frozenset({"operator"})
+
+
+class IsPlatformAdmin(PlatformStaffPermission):
+    """Administers `platform_staff` itself, and nothing else (ADR-076 §4.1)."""
+
+    roles = frozenset({"admin"})

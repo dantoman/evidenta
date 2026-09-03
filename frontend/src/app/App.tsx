@@ -3,8 +3,14 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router'
 import { t } from '@/locales'
 import { ApiError } from '@/shared/api/client'
 import { isConsoleHost } from '@/shared/workspace'
+import { CapabilitiesScreen } from './console/CapabilitiesScreen'
+import { ChartTemplatesScreen } from './console/ChartTemplatesScreen'
 import { ConsoleLayout } from './console/ConsoleLayout'
 import { FiscalParametersScreen } from './console/FiscalParametersScreen'
+import { FlagsScreen } from './console/FlagsScreen'
+import { PrivilegedLogScreen } from './console/PrivilegedLogScreen'
+import { SpacesScreen } from './console/SpacesScreen'
+import { StaffScreen } from './console/StaffScreen'
 import { LoginScreen } from './auth/LoginScreen'
 import { useIdentity } from './auth/useIdentity'
 import { AccountLedgerScreen } from './accounting/AccountLedgerScreen'
@@ -100,9 +106,17 @@ export function App() {
       <BrowserRouter>
         <Routes>
           <Route element={<ConsoleLayout />}>
-            {/* One page exists (ADR-076 §4.3 lists eight); `/` goes to it. */}
-            <Route index element={<Navigate to="/parametri-fiscali" replace />} />
+            {/* The platform's objects (ADR-076 §4.3), one address each. `/`
+                lands on the spaces: the first thing an operator looks for is
+                which client, and nothing here names a company. */}
+            <Route index element={<Navigate to="/spatii" replace />} />
+            <Route path="spatii" element={<SpacesScreen />} />
+            <Route path="capabilitati" element={<CapabilitiesScreen />} />
+            <Route path="ringuri-si-flaguri" element={<FlagsScreen />} />
+            <Route path="angajati" element={<StaffScreen />} />
             <Route path="parametri-fiscali" element={<FiscalParametersScreen />} />
+            <Route path="planuri-de-conturi" element={<ChartTemplatesScreen />} />
+            <Route path="jurnal-privilegiat" element={<PrivilegedLogScreen />} />
           </Route>
         </Routes>
       </BrowserRouter>

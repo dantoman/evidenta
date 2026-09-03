@@ -163,6 +163,7 @@ Acte normative, secțiuni din documentele de intrare, benchmark-uri, discuții.
 | [089](089-tva-pe-documentele-comerciale.md) | TVA pe documentele comerciale: o formulă pe cotă contra 5344 / 2252, cota din nomenclator, statutul decide în amonte; `OD-130` rămâne deschisă | Acceptat — tehnic, varianta reversibilă | 2026-09-02 | prima jumătate a `F2.A6`; rezerva G din ADR-073 §9 *(deschide `OD-131`)* |
 | [090](090-registrele-tva-pe-perioada-fiscala.md) | Registrele TVA se citesc pe perioada fiscală și sunt egale cu registrul contabil; perioada cere înregistrare; scriitorul CSV coboară în nucleul documentelor | Acceptat — tehnic, varianta reversibilă | 2026-09-02 | partea structurală a registrelor din `F2.A6` *(deschide `OD-132`)* |
 | [091](091-consola-scrie-referinta-din-procesul-web.md) | Consola scrie datele de referință din procesul web, pe conexiunea rolului de referință, cu apelantul verificat în `platform_staff` | Acceptat — tehnic | 2026-09-02 | — *(deschide `OD-133`)* |
+| [092](092-consola-citeste-metadate-si-administreaza-personalul.md) | Consola citește metadatele platformei prin funcții enumerate (`rls.console_*`) și își administrează personalul prin `P-12` | Acceptat — tehnic | 2026-09-03 | OD-133 *(deschide `OD-134`)* |
 
 *Indexul se actualizează la fiecare ADR nou. Un ADR care nu apare aici este invizibil.*
 

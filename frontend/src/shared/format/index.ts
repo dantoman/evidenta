@@ -113,3 +113,22 @@ export function today(): string {
   const day = `${now.getDate()}`.padStart(2, '0')
   return `${now.getFullYear()}-${month}-${day}`
 }
+
+const dateAndTime = new Intl.DateTimeFormat(LOCALE, {
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+  hour: '2-digit',
+  minute: '2-digit',
+})
+
+/**
+ * An instant the server sent as ISO 8601 with its offset -- an audit row's
+ * `occurred_at`. Unlike `date`, this one *is* parsed by the platform: the string
+ * names a moment, not a calendar day, so the viewer's zone is the right zone to
+ * show it in. Here rather than in the log screen for the same reason as `today`.
+ */
+export function dateTime(iso: string): string {
+  const instant = new Date(iso)
+  return Number.isNaN(instant.getTime()) ? iso : dateAndTime.format(instant)
+}

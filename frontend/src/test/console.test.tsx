@@ -11,6 +11,9 @@ import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { FiscalParametersScreen } from '@/app/console/FiscalParametersScreen'
+import { PrivilegedLogScreen } from '@/app/console/PrivilegedLogScreen'
+import { SpacesScreen } from '@/app/console/SpacesScreen'
+import { StaffScreen } from '@/app/console/StaffScreen'
 import { isConsoleHost } from '@/shared/workspace'
 import { renderScreen } from './render'
 
@@ -201,6 +204,164 @@ describe('consola platformei', () => {
       expect(body.value).toBe(20)
       expect(body.valid_from).toBeNull()
       expect((body.act as Record<string, unknown>).act_number).toBe('1163-XIII')
+    })
+  })
+
+  it('spațiile: rândul din tenant, cu numărători, fără conținut', async () => {
+    stubFetch({
+      '/api/v1/platform/spaces/': {
+        spaces: [
+          {
+            id: 's1',
+            subdomain: 'alpha',
+            legal_name: 'Alpha SRL',
+            legal_form: 'SRL',
+            idno: '1013600012345',
+            status: 'active',
+            claimed_at: '2026-08-01T00:00:00Z',
+            suspended_at: null,
+            offboarding_started_at: null,
+            archived_at: null,
+            created_at: '2026-08-01T00:00:00Z',
+            company_count: 3,
+            member_count: 2,
+          },
+          {
+            id: 's2',
+            subdomain: 'beta',
+            legal_name: 'Beta SRL',
+            legal_form: null,
+            idno: null,
+            status: 'active',
+            claimed_at: null,
+            suspended_at: null,
+            offboarding_started_at: null,
+            archived_at: null,
+            created_at: '2026-08-02T00:00:00Z',
+            company_count: 0,
+            member_count: 0,
+          },
+        ],
+      },
+    })
+    renderScreen(<SpacesScreen />)
+
+    // Inside `waitFor`, queried fresh each time: the grid may re-render its rows
+    // once more after the first paint, and a node found before that is detached.
+    await waitFor(() => {
+      expect(screen.getByText('alpha')).toBeInTheDocument()
+      expect(screen.getByText('Alpha SRL')).toBeInTheDocument()
+      expect(screen.getByText('3')).toBeInTheDocument()
+      // Nerevendicat: spațiul creat pentru cineva care încă n-a venit (ADR-081).
+      expect(screen.getByText('Nerevendicat')).toBeInTheDocument()
+    })
+  })
+
+  it('angajații: un administrator acordă un rol; ceilalți doar citesc', async () => {
+    const staffRows = {
+      staff: [
+        {
+          user_id: ME.user_id,
+          email: ME.email,
+          full_name: ME.full_name,
+          staff_role: 'admin',
+          granted_by_email: ME.email,
+          granted_at: '2026-09-02T00:00:00Z',
+          revoked_at: null,
+        },
+        {
+          user_id: '22222222-2222-2222-2222-222222222222',
+          email: 'suport@platform.md',
+          full_name: 'Suport',
+          staff_role: 'support',
+          granted_by_email: ME.email,
+          granted_at: '2026-09-02T00:00:00Z',
+          revoked_at: null,
+        },
+      ],
+    }
+    const fetcher = stubFetch({
+      '/api/v1/platform/staff/me': { ...ME, staff_role: 'admin' },
+      '/api/v1/platform/staff/': staffRows,
+    })
+    renderScreen(<StaffScreen />)
+
+    expect(await screen.findByText('suport@platform.md')).toBeInTheDocument()
+    // The admin's own row has no revoke button; the other one does.
+    const revoke = await screen.findAllByRole('button', { name: 'Retrage' })
+    expect(revoke).toHaveLength(1)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Acordă rol' }))
+    fireEvent.change(screen.getByLabelText('E-mail'), {
+      target: { value: 'nou@platform.md' },
+    })
+    fireEvent.change(screen.getByLabelText(/^Rol/), { target: { value: 'operator' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Acordă' }))
+
+    await waitFor(() => {
+      const post = fetcher.mock.calls.find(
+        ([input, init]) =>
+          String(input) === '/api/v1/platform/staff/' && init?.method === 'POST',
+      )
+      expect(post).toBeDefined()
+      expect(JSON.parse(String(post![1]?.body))).toEqual({
+        email: 'nou@platform.md',
+        staff_role: 'operator',
+      })
+    })
+  })
+
+  it('angajații: un operator vede lista fără formular și fără retragere', async () => {
+    stubFetch({
+      '/api/v1/platform/staff/me': ME,
+      '/api/v1/platform/staff/': { staff: [] },
+    })
+    renderScreen(<StaffScreen />)
+
+    expect(
+      await screen.findByText('Doar un administrator acordă și retrage roluri.'),
+    ).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Acordă rol' })).not.toBeInTheDocument()
+  })
+
+  it('jurnalul: filtrul pe cale ajunge în cerere, rândul arată calea și parametrii', async () => {
+    const fetcher = stubFetch({
+      '/api/v1/platform/privileged-log/': {
+        paths: [
+          { code: 'P-4', label: 'P4 Fiscal Rules' },
+          { code: 'P-12', label: 'P12 Platform Staff' },
+        ],
+        rows: [
+          {
+            id: 1,
+            occurred_at: '2026-09-02T10:00:00+00:00',
+            path_code: 'P-4',
+            actor: 'console:operator',
+            actor_user_id: ME.user_id,
+            actor_email: ME.email,
+            subject_tenant_id: null,
+            subject_subdomain: null,
+            tenant_count: null,
+            request_id: 'r1',
+            justification: null,
+            payload: { operation: 'activate', key: 'vat.standard' },
+          },
+        ],
+      },
+    })
+    renderScreen(<PrivilegedLogScreen />)
+
+    // The code appears twice on purpose -- once in the filter's options, once in
+    // the row -- so the row is the one asked for.
+    await waitFor(() => {
+      expect(screen.getByText('P-4', { selector: 'span' })).toBeInTheDocument()
+      expect(screen.getByText(/"operation":"activate"/)).toBeInTheDocument()
+    })
+
+    fireEvent.change(screen.getByLabelText('Cale'), { target: { value: 'P-12' } })
+    await waitFor(() => {
+      const urls = fetcher.mock.calls.map(([input]) => String(input))
+      expect(urls).toContain('/api/v1/platform/privileged-log/?path=P-12&limit=100')
     })
   })
 })
