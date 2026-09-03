@@ -36,6 +36,8 @@ from evidenta.platform.audit.services.recording import record
 from evidenta.platform.documents.errors import (
     CancelAfterPostingError,
     CancellationReasonRequiredError,
+    ContractDenominationInvalidError,
+    ContractDenominationRequiredError,
     CurrencyMismatchError,
     DocumentNotEditableError,
     DocumentNotFoundError,
@@ -49,6 +51,7 @@ from evidenta.platform.documents.errors import (
 from evidenta.platform.documents.models import (
     DOCUMENT_TRANSITIONS,
     EDITABLE_STATES,
+    ContractDenomination,
     Document,
     DocumentState,
     RateTerm,
@@ -138,7 +141,13 @@ class UnpostedWork:
     confirmed: int
 
 
-def unposted_work(company_id: uuid.UUID, document_types: Sequence[str]) -> tuple[UnpostedWork, ...]:
+def unposted_work(
+    company_id: uuid.UUID,
+    document_types: Sequence[str],
+    *,
+    start: date | None = None,
+    end: date | None = None,
+) -> tuple[UnpostedWork, ...]:
     """How much of each type is still on its way in, counted in the database.
 
     Beside `posted_of_types`, and here for the same reason: the table is this
@@ -150,16 +159,23 @@ def unposted_work(company_id: uuid.UUID, document_types: Sequence[str]) -> tuple
     Types with nothing open are absent from the answer rather than present with
     zeros: the caller asks about a family, and a family with no work is a family
     the panel says nothing about.
+
+    ``start`` and ``end`` narrow the count to documents whose ``accounting_date``
+    falls in ``[start, end]``, both inclusive -- the window a period's closing
+    asks about. The accounting date and never the document date: which month a
+    document belongs to is decided by the first (ADR-039 section 9). Without a
+    window the count is the company's whole backlog, as the panel reads it.
     """
-    rows = (
-        Document.objects.filter(
-            company_id=company_id,
-            document_type__in=tuple(document_types),
-            state__in=(DocumentState.DRAFT, DocumentState.CONFIRMED),
-        )
-        .values("document_type", "state")
-        .annotate(total=Count("id"))
+    query = Document.objects.filter(
+        company_id=company_id,
+        document_type__in=tuple(document_types),
+        state__in=(DocumentState.DRAFT, DocumentState.CONFIRMED),
     )
+    if start is not None:
+        query = query.filter(accounting_date__gte=start)
+    if end is not None:
+        query = query.filter(accounting_date__lte=end)
+    rows = query.values("document_type", "state").annotate(total=Count("id"))
 
     counted: dict[str, dict[str, int]] = {}
     for row in rows:
@@ -188,6 +204,7 @@ def open_draft(
     source_document_id: uuid.UUID | None = None,
     notes: str | None = None,
     rate_term: str = RateTerm.PAYMENT_DATE,
+    contract_denomination: str | None = None,
 ) -> Document:
     """Start a document. Nothing is committed to by opening one.
 
@@ -203,6 +220,11 @@ def open_draft(
     Art. 97 alin. (6) names a date that is neither the document's nor the
     posting's, and which date that is remains open (ADR-039, `DN-04`); picking
     one would close the decision from the least entitled layer.
+
+    ``contract_denomination`` is required when the currency is not the company's
+    own and refused when it is (ADR-097): foreign currency or conventional units
+    is what a contract not in lei says about itself, and it chooses accounts at
+    settlement -- so it is asked for, never assumed.
     """
     context = require_context()
     spec = spec_for(document_type)
@@ -210,6 +232,7 @@ def open_draft(
     own_currency = functional_currency(company_id)
     currency = currency or own_currency
     rate = _resolve_rate(currency, own_currency, exchange_rate)
+    denomination = _resolve_denomination(currency, own_currency, contract_denomination)
     if rate_term not in RateTerm.values:
         raise RateTermUnknownError(
             f"rate_term {rate_term!r} is not one of {list(RateTerm.values)}: pct. 19 names "
@@ -243,6 +266,7 @@ def open_draft(
         created_by_id=context.user_id,
         notes=notes,
         rate_term=rate_term,
+        contract_denomination=denomination,
     )
 
     record_event(
@@ -471,6 +495,28 @@ def _assert_complete(document: Document, spec: DocumentTypeSpec) -> None:
         )
     if spec.carries_lines and spec.requires_lines and not document.lines.exists():
         raise NoLinesError(f"a {document.document_type} with no positions has no content")
+
+
+def _resolve_denomination(currency: str, own_currency: str, supplied: str | None) -> str | None:
+    if currency == own_currency:
+        if supplied is not None:
+            raise ContractDenominationInvalidError(
+                f"a document in {own_currency} has no contract denomination; foreign "
+                f"currency and conventional units are what a contract not in lei says"
+            )
+        return None
+    if supplied is None:
+        raise ContractDenominationRequiredError(
+            f"a document in {currency} says what its contract is denominated in -- "
+            f"{', '.join(ContractDenomination.values)}; the pair of accounts a "
+            f"settlement difference lands on depends on it (ADR-057), and it is "
+            f"not assumed"
+        )
+    if supplied not in ContractDenomination.values:
+        raise ContractDenominationInvalidError(
+            f"contract_denomination {supplied!r} is not one of {list(ContractDenomination.values)}"
+        )
+    return supplied
 
 
 def _resolve_rate(currency: str, own_currency: str, supplied: Decimal | None) -> Decimal:

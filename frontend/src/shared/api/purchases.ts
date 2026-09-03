@@ -48,6 +48,9 @@ export interface PurchaseInvoice {
   state: string
   partner_id: string | null
   currency: string
+  /** The header's rate, eight decimals; `1` on a lei document (ADR-097). */
+  exchange_rate: string
+  contract_denomination: 'foreign_currency' | 'conventional_units' | null
   cost_destination: CostDestination
   partner_resident: boolean
   /** On every row, list and detail alike: the register shows the total (`C19`). */
@@ -67,6 +70,9 @@ export interface NewPurchaseInvoice {
   supplier_document_date: string
   cost_destination: CostDestination
   partner_resident: boolean
+  /** As on the sale: the company's own when absent (ADR-097). */
+  currency?: string | null
+  contract_denomination?: 'foreign_currency' | 'conventional_units' | null
   notes?: string | null
   lines: PurchaseLineInput[]
 }

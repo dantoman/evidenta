@@ -18,7 +18,8 @@ from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal
 
-from django.db.models import Sum
+from django.db.models import F, Sum
+from django.db.models.functions import Coalesce
 
 from evidenta.operations.settlements.models import Settlement
 from evidenta.operations.settlements.services.allocation import (
@@ -40,6 +41,9 @@ class OpenItem:
     document_date: date
     partner_id: uuid.UUID | None
     side: str
+    #: The figures below are in this currency: a document's in its own, a
+    #: movement's in the functional one. What is open on a EUR invoice is EUR.
+    currency: str
     total: Decimal
     allocated: Decimal
 
@@ -55,10 +59,20 @@ def _allocations(field: str, document_ids: list[uuid.UUID]) -> dict[uuid.UUID, D
     this product where the number of documents is not small, and a per-row query
     there is how a screen becomes slow before anybody has entered a year of data.
     """
+    # In the settled document's currency when the settlement crossed currencies
+    # (ADR-097): `amount` is the movement's lei, `amount_currency` what they
+    # settled of a EUR invoice, and it is the latter that counts the invoice down.
+    # A movement's own allocations are always in its currency, so the same
+    # expression is right from either side.
+    measure = (
+        Coalesce(F("amount_currency"), F("amount"))
+        if field == "settled_document_id"
+        else F("amount")
+    )
     rows = (
         Settlement.objects.filter(**{f"{field}__in": document_ids})
         .values(field)
-        .annotate(total=Sum("amount"))
+        .annotate(total=Sum(measure))
     )
     return {row[field]: Decimal(row["total"]) for row in rows}
 
@@ -77,6 +91,7 @@ def open_documents(company_id: uuid.UUID) -> tuple[OpenItem, ...]:
             document_date=document.document_date,
             partner_id=document.partner_id,
             side=str(SIDE_OF[document.document_type]),
+            currency=document.currency,
             total=totals_of(document.id).total,
             allocated=allocated.get(document.id, Decimal(0)),
         )
@@ -101,6 +116,7 @@ def open_movements(company_id: uuid.UUID) -> tuple[OpenItem, ...]:
             document_date=document.document_date,
             partner_id=document.partner_id,
             side="receivable" if movement.direction == "receipt" else "payable",
+            currency=document.currency,
             total=movement.amount,
             allocated=allocated.get(document.id, Decimal(0)),
         )

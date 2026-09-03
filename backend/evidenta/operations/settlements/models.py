@@ -23,7 +23,7 @@ import uuid
 
 from django.db import models
 
-from evidenta.platform.amounts import AMOUNT_DIGITS, CURRENCY_SCALE
+from evidenta.platform.amounts import AMOUNT_DIGITS, CURRENCY_SCALE, RATE_DIGITS, RATE_SCALE
 from evidenta.platform.documents.models import Document
 from evidenta.platform.tenancy.models import Company, Tenant
 
@@ -64,14 +64,44 @@ class Settlement(models.Model):
         related_name="settlements_given",
     )
 
+    #: What the movement gave, in the functional currency -- the movement's own
+    #: figure, which is what `unallocated` counts down.
     amount = models.DecimalField(max_digits=AMOUNT_DIGITS, decimal_places=CURRENCY_SCALE)
     settlement_date = models.DateField()
+
+    #: The three columns of a settlement across currencies (ADR-097, `OD-127`):
+    #: the settled document's currency, how much of it this settled, and the
+    #: official rate of the settlement day that turned one into the other. All
+    #: three null on a settlement inside the functional currency, where the
+    #: movement's amount is the whole story; all three set otherwise -- the CHECK
+    #: refuses the halfway state. Open balances are counted in the document's
+    #: currency through `COALESCE(amount_currency, amount)`.
+    currency = models.CharField(max_length=3, null=True, blank=True)
+    amount_currency = models.DecimalField(
+        max_digits=AMOUNT_DIGITS, decimal_places=CURRENCY_SCALE, null=True, blank=True
+    )
+    settlement_rate = models.DecimalField(
+        max_digits=RATE_DIGITS, decimal_places=RATE_SCALE, null=True, blank=True
+    )
+
+    #: The caller's `Idempotency-Key` (C9), kept on the row so a retry finds its
+    #: first arrival instead of allocating again (R19). Two settlements of the
+    #: same pair are legitimate (two partial payments); two arrivals of the same
+    #: request are one settlement -- the key is what tells them apart. Nullable
+    #: for the rows written before the column and for service callers that
+    #: state none.
+    idempotency_key = models.TextField(null=True, blank=True)
 
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         db_table = "settlement"
         constraints = [
+            models.UniqueConstraint(
+                fields=["company", "idempotency_key"],
+                condition=models.Q(idempotency_key__isnull=False),
+                name="settlement_idempotency_key_unique",
+            ),
             models.CheckConstraint(
                 condition=models.Q(side__in=Side.values),
                 name="settlement_side_valid",
@@ -86,6 +116,19 @@ class Settlement(models.Model):
             models.CheckConstraint(
                 condition=~models.Q(settled_document=models.F("movement_document")),
                 name="settlement_two_documents",
+            ),
+            models.CheckConstraint(
+                condition=(
+                    models.Q(currency__isnull=True)
+                    & models.Q(amount_currency__isnull=True)
+                    & models.Q(settlement_rate__isnull=True)
+                )
+                | (
+                    models.Q(currency__isnull=False)
+                    & models.Q(amount_currency__gt=0)
+                    & models.Q(settlement_rate__gt=0)
+                ),
+                name="settlement_currency_complete",
             ),
         ]
         indexes = [

@@ -67,7 +67,7 @@ from __future__ import annotations
 import uuid
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 from typing import Any
 
@@ -87,6 +87,7 @@ from evidenta.accounting.ledger.services.writing import entry_id_of_event
 from evidenta.accounting.periods.errors import (
     FiscalYearClosedError,
     LastPeriodNotOpenError,
+    PeriodsMissingError,
     PeriodsStillOpenError,
     ResultAccountsCarryOpeningBalanceError,
 )
@@ -372,7 +373,27 @@ def close_year(
     if year.status != "open":
         raise FiscalYearClosedError(f"exercise {year.code} is already closed")
     if not periods:
-        raise LastPeriodNotOpenError(f"exercise {year.code} has no periods to close")
+        raise PeriodsMissingError(
+            f"exercise {year.code} has no periods; an exercise is opened with its months "
+            f"(`open_fiscal_year`), and one without them has nothing to close"
+        )
+    # The months have to tile the exercise: a gap would be closed over silently,
+    # and the chain would declare an exercise finished with a month nobody kept.
+    # Unreachable through `open_fiscal_year`, which writes every month at once;
+    # asserted anyway, because an import path that skips it would not say so.
+    expected = year.start_date
+    for period in periods:
+        if period.start_date != expected:
+            raise PeriodsMissingError(
+                f"exercise {year.code} has a gap before {period.start_date:%Y-%m}: its "
+                f"months do not cover the exercise, so it cannot be closed as a whole"
+            )
+        expected = period.end_date + timedelta(days=1)
+    if expected != year.end_date + timedelta(days=1):
+        raise PeriodsMissingError(
+            f"exercise {year.code} ends {year.end_date:%d.%m.%Y} but its last month ends "
+            f"{periods[-1].end_date:%d.%m.%Y}; the months do not cover the exercise"
+        )
     last = periods[-1]
     still_open = [p.period_no for p in periods[:-1] if p.status == "open"]
     if still_open:

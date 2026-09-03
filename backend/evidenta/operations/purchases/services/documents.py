@@ -22,6 +22,7 @@ from decimal import Decimal
 
 from django.db import IntegrityError, transaction
 
+from evidenta.accounting.currency.services.rates import rate_on
 from evidenta.operations.purchases.models import (
     CostDestination,
     PurchaseDocument,
@@ -32,6 +33,7 @@ from evidenta.platform.api.errors import ApiError
 from evidenta.platform.documents.errors import PartnerRequiredError
 from evidenta.platform.documents.services.conversion import convert
 from evidenta.platform.documents.services.lifecycle import open_draft
+from evidenta.platform.tenancy.services.companies import functional_currency
 
 
 class SupplierReferenceRequiredError(ApiError):
@@ -91,7 +93,14 @@ def open_purchase(
     exchange_rate: Decimal | None = None,
     notes: str | None = None,
     rate_term: str = "payment_date",
+    contract_denomination: str | None = None,
 ) -> uuid.UUID:
+    """Start a purchase as a draft.
+
+    In another currency the document carries its denomination and a rate; the
+    rate, when none is given, is the official rate of the document's date, as on
+    the sale (ADR-039 section 3.2, ADR-097).
+    """
     destination = _destination(cost_destination)
     reference = (supplier_document_number or "").strip()
     if not reference:
@@ -107,9 +116,10 @@ def open_purchase(
         accounting_date=accounting_date,
         partner_id=partner_id,
         currency=currency,
-        exchange_rate=exchange_rate,
+        exchange_rate=rate_of_the_day(company_id, currency, document_date, exchange_rate),
         notes=notes,
         rate_term=rate_term,
+        contract_denomination=contract_denomination,
     )
     try:
         PurchaseDocument.objects.create(
@@ -133,6 +143,16 @@ def open_purchase(
             ) from clash
         raise
     return document.id
+
+
+def rate_of_the_day(
+    company_id: uuid.UUID, currency: str | None, on: date, supplied: Decimal | None
+) -> Decimal | None:
+    """The caller's rate, or the official rate of the document's day -- the
+    sales twin of this helper says why it lives here and not in the core."""
+    if supplied is not None or currency is None or currency == functional_currency(company_id):
+        return supplied
+    return rate_on(currency, on)
 
 
 @transaction.atomic

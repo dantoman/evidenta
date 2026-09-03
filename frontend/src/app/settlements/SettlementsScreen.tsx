@@ -45,14 +45,21 @@ export function SettlementsScreen() {
     queryFn: () => listOpenItems(companyId),
   })
 
+  // One key per attempt: a retry of the same allocation finds its first arrival
+  // on the server (R19); a new allocation gets a new key once this one landed.
+  const [idempotencyKey, setKey] = useState(() => crypto.randomUUID())
   const match = useMutation({
     mutationFn: () =>
-      allocate({
-        settled_document_id: document?.document_id ?? '',
-        movement_document_id: movement?.document_id ?? '',
-        amount: value.replace(',', '.'),
-      }),
+      allocate(
+        {
+          settled_document_id: document?.document_id ?? '',
+          movement_document_id: movement?.document_id ?? '',
+          amount: value.replace(',', '.'),
+        },
+        idempotencyKey,
+      ),
     onSuccess: async () => {
+      setKey(crypto.randomUUID())
       setDocument(null)
       setMovement(null)
       setValue('')

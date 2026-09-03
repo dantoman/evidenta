@@ -156,3 +156,25 @@ class RateTermUnknownError(ApiError):
 
     code = "documents.rate_term_unknown"
     status = 400
+
+
+class ContractDenominationRequiredError(ApiError):
+    """A document in another currency without saying what the contract is
+    denominated in -- foreign currency or conventional units (ADR-057 §2.2).
+
+    Refused rather than defaulted: the value selects the pair of accounts a
+    settlement difference lands on and whether the balance is revalued at the
+    reporting date, and a default would be the silent choice that looks
+    reasonable.
+    """
+
+    code = "documents.contract_denomination_required"
+    status = 422
+
+
+class ContractDenominationInvalidError(ApiError):
+    """A denomination on a document in the functional currency, or one outside
+    the two values the standard names. A contract in lei has no denomination."""
+
+    code = "documents.contract_denomination_invalid"
+    status = 422

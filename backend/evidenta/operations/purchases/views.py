@@ -61,6 +61,18 @@ class PurchaseSerializer(serializers.Serializer[dict[str, Any]]):
     #: No default on either: each selects an account, and neither is derivable.
     cost_destination = serializers.ChoiceField(choices=CostDestination.values)
     partner_resident = serializers.BooleanField()
+    #: As on the sale (ADR-097): the company's currency when absent; in another
+    #: currency the denomination is required and the rate is the official rate
+    #: of the document's date.
+    currency = serializers.CharField(
+        max_length=3, required=False, allow_blank=True, allow_null=True
+    )
+    contract_denomination = serializers.ChoiceField(
+        choices=["foreign_currency", "conventional_units"],
+        required=False,
+        allow_blank=True,
+        allow_null=True,
+    )
     notes = serializers.CharField(required=False, allow_blank=True, allow_null=True)
     lines = LineSerializer(many=True)
 
@@ -102,6 +114,8 @@ class PurchaseListView(APIView):
                 cost_destination=data["cost_destination"],
                 partner_resident=data["partner_resident"],
                 notes=data.get("notes") or None,
+                currency=(data.get("currency") or "").strip().upper() or None,
+                contract_denomination=data.get("contract_denomination") or None,
             )
             _write_lines(document_id, data["lines"])
         return Response(_detail(document_id), status=201)
@@ -182,6 +196,8 @@ def _rendered(row: PurchaseDocument, totals: DocumentTotals) -> dict[str, Any]:
         "state": document.state,
         "partner_id": str(document.partner_id) if document.partner_id else None,
         "currency": document.currency,
+        "exchange_rate": str(document.exchange_rate),
+        "contract_denomination": document.contract_denomination,
         "cost_destination": row.cost_destination,
         "partner_resident": row.partner_resident,
         "totals": {

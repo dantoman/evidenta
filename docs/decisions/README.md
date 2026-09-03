@@ -166,6 +166,8 @@ Acte normative, secțiuni din documentele de intrare, benchmark-uri, discuții.
 | [092](092-consola-citeste-metadate-si-administreaza-personalul.md) | Consola citește metadatele platformei prin funcții enumerate (`rls.console_*`) și își administrează personalul prin `P-12` | Acceptat — tehnic | 2026-09-03 | OD-133 *(deschide `OD-134`)* |
 | [093](093-paginile-fara-server-se-deseneaza.md) | Paginile consolei fără server se desenează, ca pagini „de implementat": ce vor face, ce lipsește, de ce decizie depind | Acceptat — produs, proprietar | 2026-09-03 | — *(restrânge ADR-092 §4)* |
 | [094](094-sesiunea-de-suport-e-doar-citire-la-nivel-de-tranzactie.md) | Sesiunea de suport e doar-citire la nivel de tranzacție; grantul călătorește cu sesiunea; ADR-077 construit | Acceptat — tehnic | 2026-09-03 | — *(construiește ADR-077 / `DN-18`)* |
+| [095](095-pipeline-ul-de-tipar-si-biblioteca-pdf.md) | Pipeline-ul de documente tipărite: ReportLab, font propriu, ieșire identică byte-cu-byte; factura fiscală după OMF 118/2017 și fluturașul după art. 142 | Acceptat — tehnic, varianta reversibilă | 2026-09-03 | `OD-74`, jumătatea PDF *(Excel rămâne, fără rând nou)* |
+| [097](097-valuta-cursul-decontarea-reevaluarea.md) | Valuta: ușa cursului (`P-3`), denominarea pe document, decontarea în lei a documentului în valută emite faptul, reevaluarea la data raportării ca handler (SNC pct. 11, 15, 22) | Acceptat — tehnic, decizie de domeniu pe forma reevaluării | 2026-09-03 | `OD-127`; construiește `F2.A9` (fără BNM) și `A10` |
 
 *Indexul se actualizează la fiecare ADR nou. Un ADR care nu apare aici este invizibil.*
 

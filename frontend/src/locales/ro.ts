@@ -566,6 +566,73 @@ export const ro = {
       addPayable: 'Adaugă datorie',
       analyticalHint:
         'Detaliul pe parteneri trebuie să se potrivească cu soldul contului de control din rândurile de mai sus.',
+      // Stocuri, active si cumulative de salarii -- G3. Articolul, unitatea si
+      // activul sunt identitati ale sistemului din care vin: nu exista inca un
+      // nomenclator de articole cu ruta HTTP si nici registru de active, iar
+      // ecranul o spune in loc sa lase impresia ca exista.
+      inventory: 'Stocuri',
+      assets: 'Active imobilizate',
+      payrollCumulatives: 'Cumulative de salarii',
+      reference: 'Referință',
+      generate: 'Generează',
+      itemReference: 'Referința articolului',
+      itemReferenceHint:
+        'Articolele nu au încă nomenclator aici. Identificatorul e al sistemului din care vin stocurile și se va atașa articolului când acesta va exista.',
+      uomReference: 'Referința unității de măsură',
+      quantity: 'Cantitate',
+      unitCost: 'Cost unitar',
+      totalCost: 'Cost total',
+      lot: 'Lot',
+      addInventory: 'Adaugă stoc',
+      assetReference: 'Referința activului',
+      assetReferenceHint:
+        'Registrul activelor nu există încă. Identificatorul e al sistemului din care vine activul; compania îl va atașa activului la pasul următor.',
+      costAccount: 'Cont de cost',
+      depreciationAccount: 'Cont de amortizare',
+      entryCost: 'Cost de intrare',
+      accumulatedDepreciation: 'Amortizare cumulată',
+      inServiceDate: 'Pus în funcțiune la',
+      remainingMonths: 'Luni rămase',
+      addAsset: 'Adaugă activ',
+      employee: 'Angajat',
+      employeeNone: 'Compania nu are încă angajați.',
+      cumulativeCode: 'Ce poartă',
+      // Cele trei chei ale metodei cumulative (ADR-061), etichetate.
+      cumulativeTaxableIncome: 'Venit impozabil cumulat',
+      cumulativeExemptionsGranted: 'Scutiri acordate cumulat',
+      cumulativeWithheld: 'Impozit reținut cumulat',
+      amount: 'Sumă',
+      fromDate: 'De la',
+      fromDateHint:
+        'De la 1 ianuarie, sau de la data angajării pentru cine s-a angajat în cursul anului. Sumele sunt mărimi, niciodată negative: ce înseamnă fiecare o spune tipul, nu semnul.',
+      addCumulative: 'Adaugă cumulativ',
+      cumulativesNote:
+        'Cumulativele nu se postează. Sunt baza de la care continuă calculul impozitului când salarizarea pornește în cursul anului.',
+    },
+    // Conturile de sistem: ce cont inseamna fiecare rol al motorului de postare
+    // pentru companie, si de cand (ADR-036, R28). Cheile rolurilor se afiseaza
+    // cum le numeste motorul -- sunt vocabularul pe care il citeaza un refuz.
+    roleBindings: {
+      title: 'Conturi de sistem',
+      lead:
+        'Fiecare operațiune automată cere un cont după rolul lui — casa, TVA colectată, creanțele comerciale. Aici se vede ce cont înseamnă fiecare rol pentru companie și de când.',
+      on: 'La data de',
+      role: 'Rol',
+      defaultCode: 'Cont din plan',
+      account: 'Cont legat',
+      validFrom: 'De la',
+      source: 'Proveniență',
+      sourceCompany: 'Compania',
+      unbound: 'Nelegat',
+      change: 'Schimbă',
+      bind: 'Leagă',
+      save: 'Salvează',
+      cancel: 'Renunță',
+      newAccount: 'Contul nou pentru',
+      newFrom: 'De la data, pentru',
+      sameClassHint:
+        'Se pot alege doar conturi din aceeași clasă cu cel impus de plan, în care se poate înregistra la data aleasă. Schimbarea nu rescrie istoricul: postările de dinaintea datei rămân pe contul vechi.',
+      empty: 'Compania nu are încă un plan de conturi.',
     },
     // `templates` era luat de versiunile publicate ale planului de conturi, iar
     // ciocnirea a fost prinsa de typecheck, nu de citire. Numele lung e cel corect
@@ -716,6 +783,58 @@ export const ro = {
       balanced: 'Balanța este echilibrată.',
       unbalanced: 'Balanța NU este echilibrată.',
     },
+    closing: {
+      // Ușa de închidere (G1). Verificările sunt calculate pe server; ecranul
+      // le numește. Codurile din `checks` sunt cele din
+      // `periods/services/checks.py`, stabile ca și codurile de eroare.
+      title: 'Închiderea perioadelor',
+      lead: 'Lunile exercițiului, cu starea lor. Verificările dinaintea închiderii sunt calculate pe server; refuzurile sunt ale motorului.',
+      exercise: 'Exercițiu',
+      exerciseStates: { open: 'deschis', closed: 'închis' },
+      noExercise: 'Compania nu are niciun exercițiu. Se deschide din fișa companiei.',
+      number: 'Nr.',
+      month: 'Luna',
+      from: 'De la',
+      to: 'Până la',
+      status: 'Stare',
+      closedAt: 'Închisă la',
+      reopened: 'Redeschideri',
+      empty: 'Exercițiul nu are luni.',
+      states: { open: 'Deschisă', closed: 'Închisă', locked: 'Blocată' },
+      pick: 'Alegeți o lună din listă ca să vedeți verificările și acțiunile ei.',
+      checksTitle: 'Verificări înaintea închiderii',
+      checks: {
+        documents_confirmed_not_posted: 'Documente validate, necontabilizate',
+        documents_draft: 'Documente în ciornă',
+        journal_entries_draft: 'Note contabile în ciornă',
+        events_not_posted: 'Evenimente contabile necontabilizate',
+        management_accounts_unsettled: 'Conturi din clasa 8 cu sold la sfârșitul lunii',
+      },
+      blocking: 'Blochează',
+      warning: 'De verificat',
+      checksHint:
+        'Nu se numără încă aici: salariile aprobate și necontabilizate, rolurile nelegate, extrasul bancar nepotrivit.',
+      closeMonth: 'Închide luna',
+      closeMonthBlocked:
+        'O verificare blocantă are rezultat nenul; luna nu se închide până nu este rezolvată.',
+      monthClosed: 'Luna a fost închisă. Nicio înregistrare nu mai intră în ea.',
+      reason: 'Motivul redeschiderii',
+      reasonHint: 'Obligatoriu. Rămâne în jurnalul de audit, la fiecare redeschidere.',
+      reopenMonth: 'Redeschide luna',
+      monthReopened: 'Luna a fost redeschisă.',
+      locked:
+        'Luna este blocată: exercițiul ei este închis. Corecția se face prin storno, într-o lună deschisă.',
+      closeYearTitle: 'Închiderea exercițiului',
+      closeYearLead:
+        'Ultima lună rămâne deschisă: lanțul 6/7 → 351 → 333 se înregistrează în ea, cu data ultimei zile a exercițiului; apoi luna și exercițiul se închid, iar toate lunile devin blocate. Nu se mai redeschide nimic.',
+      closeYear: 'Închide exercițiul',
+      confirmYear: 'Operațiunea este ireversibilă. Confirmați închiderea exercițiului',
+      confirmYearAction: 'Confirmă închiderea',
+      cancel: 'Renunță',
+      yearClosed: 'Exercițiul a fost închis, cu înregistrarea de închidere în registru.',
+      yearClosedNoEntry:
+        'Exercițiul a fost închis. Nu a avut ce închide: niciun cont de rezultat cu sold.',
+    },
     account: {
       title: 'Fișa contului',
       code: 'Cod',
@@ -748,6 +867,31 @@ export const ro = {
         'Dimensiunile obligatorii nu se aleg aici: subcontul pornește fără niciuna, ca pe server.',
       saved: 'Modificarea a fost salvată.',
       created: 'Subcontul a fost creat.',
+    },
+    revaluation: {
+      // Reevaluarea elementelor monetare in valuta (A10, ADR-097): creante si
+      // datorii in valuta la cursul oficial al zilei de raportare. O singura
+      // data pe companie si zi; a doua rulare intoarce prima.
+      title: 'Reevaluare valutară',
+      lead: 'Creanțele și datoriile în valută, recalculate la cursul oficial al zilei de raportare. Contractele între rezidenți nu se recalculează.',
+      asOf: 'Data raportării',
+      run: 'Reevaluează',
+      alreadyRun: 'Pentru această dată reevaluarea există deja; s-a afișat cea făcută.',
+      entry: 'Înregistrarea',
+      noEntry: 'Nimic de înregistrat',
+      reversed: 'Stornată',
+      items: 'Solduri reevaluate',
+      side: 'Fel',
+      receivable: 'Creanță',
+      payable: 'Datorie',
+      amount: 'Suma în valută',
+      rateBefore: 'Cursul purtat',
+      rateAfter: 'Cursul zilei',
+      difference: 'Diferența, lei',
+      empty: 'Nicio reevaluare încă.',
+      noItems: 'Nimic deschis în valută la această dată.',
+      cashNote:
+        'Casa și banca în valută nu intră încă: trezoreria mișcă doar lei. Vin odată cu instrumentele de trezorerie în valută.',
     },
   },
   payroll: {
@@ -793,6 +937,15 @@ export const ro = {
     position: 'Funcția',
     salary: 'Salariu de bază',
     weeklyHours: 'Ore pe săptămână',
+    costDestination: 'Destinația costului',
+    costDestinationHint:
+      'Contul de cheltuială la contabilizarea salariului: administrativ, comercial sau producție. Se alege, nu se presupune.',
+    costDestinations: {
+      administrative: 'Administrativ',
+      commercial: 'Comercial',
+      production_direct: 'Producție de bază',
+      production_indirect: 'Costuri indirecte de producție',
+    },
     casPoint: 'Categoria de plătitor',
     casPointHint: 'Punctul din anexa nr. 1 la Legea nr. 489/1999. Este al raportului, nu al companiei.',
     noContracts: 'Niciun contract.',
@@ -890,15 +1043,46 @@ export const ro = {
     unresolvedCount: 'sume necalculate',
     incompleteHint: 'Luna nu se poate aproba cât timp există sume necalculate.',
     noRuns: 'Nicio lună calculată.',
+    posted: 'Contabilizată',
+    postedHint:
+      'Aprobarea a produs înregistrarea contabilă: salariul brut și contribuțiile pe cheltuieli, reținerile pe datorii.',
+    seeRegister: 'Vezi registrul',
     payslip: 'Fluturaș',
     // Documentul e generat pe server, in romana, cu conventii `ro-MD` fixe.
     // Ecranul afiseaza ce a trimis serverul; nu formateaza nimic el insusi.
     payslipTitle: 'Fluturaș de salariu',
+    payslipPdf: 'PDF',
     basis: 'Bază',
     rate: 'Cotă',
     parameter: 'Parametru',
     budgetFunded: 'Angajator bugetar',
     budgetFundedHint: 'Anexa nr. 1 pct. 1.1: 29% bugetar, 24% privat. Alege cota, deci se cere.',
+
+    // Plata salariilor: ce a lasat contabilizarea pe datoria salariala, per
+    // persoana, iese prin casa sau prin cont. Documentul e al calculului
+    // salarial; contul de trezorerie e al instrumentului (ADR-073 §5).
+    iban: 'IBAN',
+    ibanHint: 'Contul în care se virează salariul. Se citește în lista de plată pentru bancă.',
+    payments: 'Plăți',
+    paySalaries: 'Plătește salariile',
+    paidOn: 'Data plății',
+    paidFrom: 'De unde se plătește',
+    bankList: 'Lista de plată (CSV)',
+    bankListHint: 'Nume, IDNP, IBAN și suma, un rând de persoană. Formatul băncii este un adaptor.',
+    paymentDraft: 'Plată în lucru',
+    paymentPosted: 'Plată contabilizată',
+    postPayment: 'Contabilizează plata',
+    postPaymentHint:
+      'Debitează datoria salarială a fiecărei persoane și creditează casa sau contul curent.',
+    amountToPay: 'De plătit',
+    alreadyPaid: 'Plătit deja',
+    changeAmount: 'Modifică suma',
+    saveLines: 'Salvează liniile',
+    removeLine: 'Scoate',
+    noPayments: 'Nicio plată.',
+    paymentTotal: 'Total plată',
+    pickPerson: 'Alege persoana',
+    saveIban: 'Salvează IBAN',
 
     // Darea de seama unificata. Art. 5 alin. (1) din Legea nr. 489/1999: evidenta
     // nominala si calcularea CAS sunt PARTE COMPONENTA a dării de seamă — un
@@ -1077,6 +1261,16 @@ export const ro = {
     recorded: 'Contabilizată',
     empty: 'Nicio factură primită.',
     totalsFromServer: 'Totalurile vin de la server, din aceeași sursă ca registrul.',
+    currency: 'Valuta',
+    currencyHint: 'Valuta documentului furnizorului. Cursul e al zilei documentului.',
+    denomination: 'Contractul',
+    denominationHint:
+      'În valută străină sau în unități convenționale (contract între rezidenți, decontat în lei). Alege perechea de conturi la decontare.',
+    foreignCurrency: 'În valută străină',
+    conventionalUnits: 'În unități convenționale',
+    rateNeedsDate: 'Alege data înregistrării ca să se afle cursul zilei.',
+    rateOfTheDay: 'Cursul oficial al zilei:',
+    rateMissing: 'Nu există curs publicat pentru ziua aleasă. Cursul se încarcă, nu se ghicește.',
   },
   sales: {
     // Factura emisa. De la pasul 6 (ADR-089) fiecare linie spune regimul de TVA;
@@ -1126,12 +1320,34 @@ export const ro = {
       'Compania nu este înregistrată în scopuri de TVA la data facturii: liniile se emit fără TVA.',
     statusNeedsDate: 'Alege data facturii ca să se știe ce regimuri se pot aplica.',
     create: 'Creează factura',
+    // Ciorna se modifica si se sterge; de la validare incolo nu (numarul e
+    // alocat, corectia e storno). Serverul refuza oricum; ecranul doar nu ofera.
+    edit: 'Modifică',
+    editing: 'Modifici o factură în lucru. Se salvează fără număr; numărul vine la validare.',
+    save: 'Salvează factura',
+    delete: 'Șterge',
+    confirmDelete: 'Confirmă ștergerea',
     issue: 'Validează și contabilizează',
     issued: 'Contabilizată',
+    // Documentul tiparit, generat pe server (C22): un link, deschis de browser.
+    pdf: 'PDF',
     entry: 'Înregistrarea contabilă',
     empty: 'Nicio factură.',
     // Serverul calculeaza randul si totalurile; ecranul nu aduna nimic (C19).
     totalsFromServer: 'Totalurile vin de la server.',
+    // Valuta (ADR-097). Cursul e al zilei documentului si vine de la server;
+    // ecranul nu alege niciodata unul. Denominarea e discriminatorul din
+    // ADR-057: alege perechea de conturi la decontare.
+    currency: 'Valuta',
+    currencyHint: 'Se fixează la deschiderea facturii. O ciornă în altă valută se șterge și se reface.',
+    denomination: 'Contractul',
+    denominationHint:
+      'În valută străină sau în unități convenționale (contract între rezidenți, decontat în lei). Alege perechea de conturi la decontare.',
+    foreignCurrency: 'În valută străină',
+    conventionalUnits: 'În unități convenționale',
+    rateNeedsDate: 'Alege data facturii ca să se afle cursul zilei.',
+    rateOfTheDay: 'Cursul oficial al zilei:',
+    rateMissing: 'Nu există curs publicat pentru ziua aleasă. Cursul se încarcă, nu se ghicește.',
   },
   vatRegisters: {
     // Registrele TVA pe perioada fiscala (ADR-090). NU forma prescrisa a
@@ -1612,6 +1828,15 @@ export const ro = {
     'periods.period_not_open': 'Perioada este închisă. Corecția se face prin storno.',
     'periods.period_not_found': 'Nu există o perioadă contabilă pentru această dată.',
     'periods.period_locked': 'Perioada este blocată.',
+    // Ușa de închidere (G1), din `periods/errors.py`.
+    'periods.periods_still_open':
+      'Exercițiul are luni deschise. Fiecare lună se închide înaintea exercițiului.',
+    'periods.class8_not_settled':
+      'Un cont din clasa 8 are sold la sfârșitul lunii. Se decontează prin înregistrări obișnuite, nu prin închidere.',
+    'periods.result_accounts_not_at_zero':
+      'Conturile de rezultat intră în exercițiu cu sold: exercițiul precedent nu a fost închis aici.',
+    'periods.last_period_not_open':
+      'Ultima lună a exercițiului nu este deschisă. Redeschideți-o, cu motiv, apoi închideți exercițiul.',
     'periods.fiscal_year_closed': 'Exercițiul este închis.',
     'periods.fiscal_year_code_taken': 'Compania are deja un exercițiu cu acest cod.',
     'periods.fiscal_year_overlaps': 'Exercițiul se suprapune cu altul existent.',
@@ -1636,6 +1861,18 @@ export const ro = {
       'Soldurile în valută nu se pot introduce încă.',
     'opening.start_period_fixed': 'Data soldurilor inițiale este deja fixată.',
     'opening.batch_already_posted': 'Lotul a fost deja postat.',
+    // Conturile de sistem. Codurile sunt culese din `slots/services/binding.py`
+    // si `slots/views.py`.
+    'slots.role_unknown': 'Rolul nu există în catalog.',
+    'slots.role_not_bound': 'Rolul nu are un cont legat la data cerută.',
+    'slots.role_account_missing': 'Planul companiei nu conține subcontul cerut de rol.',
+    'slots.account_not_postable':
+      'În contul ales nu se poate înregistra la data aleasă: lipsește din plan, e închis sau e blocat.',
+    'slots.account_class_mismatch':
+      'Contul ales e din altă clasă decât cea impusă de plan pentru acest rol.',
+    'slots.rebinding_before_current':
+      'Legarea nouă trebuie să înceapă după data legării în vigoare. Postările de dinainte rămân pe contul vechi.',
+    'slots.invalid_date': 'Data cerută nu are forma așteptată.',
     'partners.malformed': 'Datele partenerului nu au forma cerută.',
     'partners.idno_taken': 'Există deja un partener cu acest IDNO.',
     // Refuzul spune și ieșirea, fiindcă altfel omul rămâne blocat pe un ecran
@@ -1665,6 +1902,18 @@ export const ro = {
     'payroll.run_not_draft': 'Rularea este aprobată; liniile ei nu se mai schimbă.',
     'payroll.run_incomplete':
       'Rularea are sume necalculate. Se aprobă doar când e completă.',
+    'payroll.run_not_posted':
+      'Luna nu este contabilizată. Plata stinge ce a pus contabilizarea pe datoria salarială.',
+    'payroll.overpayment': 'Suma depășește ce a rămas de plătit persoanei pentru această lună.',
+    'payroll.payment_not_found': 'Plata nu a fost găsită.',
+    'payroll.run_not_approved':
+      'Fluturașul se tipărește dintr-o lună aprobată; în lucru, sumele se mai pot schimba.',
+    'payroll.payment_not_draft': 'Plata este contabilizată; liniile ei nu se mai schimbă.',
+    'payroll.payment_malformed': 'Datele plății nu au forma cerută.',
+    'payroll.payment_empty': 'Nu mai este nimic de plătit pentru această lună.',
+    'payroll.payment_posting_malformed': 'Plata nu a putut fi contabilizată: datele ei nu au forma cerută.',
+    'payroll.treasury_account_missing': 'Alegeți de unde se plătește: casă sau cont curent.',
+    'payroll.iban_invalid': 'IBAN-ul nu este valid. Verificați cifrele de control.',
     'tax.ipc_malformed': 'Datele dării de seamă nu au forma cerută.',
     'tax.ipc_exists':
       'Luna are deja o dare de seamă primară. O schimbare se face prin dare de seamă corectată.',
@@ -1696,6 +1945,7 @@ export const ro = {
     'settlements.over_allocated':
       'Suma depășește ce a rămas de stins pe document sau ce a rămas nealocat din mișcare.',
     'sales.not_issuable': 'Factura nu poate fi contabilizată în starea aceasta.',
+    'sales.not_printable': 'Factura nu se poate tipări cât timp este în lucru: numărul vine la validare.',
     'sales.discriminator_missing':
       'Factura nu spune ce se vinde sau dacă clientul e rezident. Ambele aleg un cont.',
     'sales.cost_side_requires_inventory':
@@ -1711,6 +1961,9 @@ export const ro = {
       'Compania este înregistrată în scopuri de TVA la data facturii: fiecare linie spune regimul.',
     'sales.vat_without_registration':
       'Factura poartă TVA, iar compania nu este înregistrată în scopuri de TVA la data ei.',
+    'documents.not_found': 'Documentul nu există sau nu este vizibil aici.',
+    'documents.not_editable':
+      'Documentul este validat și nu se mai modifică: corecția se face prin storno și document nou.',
     'purchases.vat_regime_unknown': 'Regimul de TVA nu există în nomenclator la data documentului.',
     'purchases.vat_unavailable':
       'Cota de TVA nu este activată din act pentru această dată; linia nu se poate calcula.',

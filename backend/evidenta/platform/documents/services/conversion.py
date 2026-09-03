@@ -99,6 +99,9 @@ def convert(
         partner_id=source.partner_id,
         currency=source.currency,
         exchange_rate=exchange_rate,
+        # The denomination is the contract's, and the contract is the same one:
+        # what was offered in conventional units is invoiced in them.
+        contract_denomination=source.contract_denomination,
         source_document_id=source.id,
     )
     if copy_positions:

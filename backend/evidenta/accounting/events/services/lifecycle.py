@@ -22,7 +22,7 @@ person who can fix it.
 from __future__ import annotations
 
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from typing import Any
 
 from django.db import transaction
@@ -186,3 +186,16 @@ def blocked_queue(company_id: uuid.UUID) -> Any:
     itself.
     """
     return _queue(company_id).filter(posting_error__code__in=list(BLOCKING_CODES))
+
+
+def unposted_between(company_id: uuid.UUID, start: date, end: date) -> int:
+    """How many events dated in ``[start, end]`` have not reached the ledger.
+
+    Both queues together, counted: the closing checks ask whether the month
+    still has postings in flight, and a failed posting waiting on a person is as
+    much in flight as a pending one waiting on a retry. Inclusive at both ends
+    because the window is a period's, whose ``end_date`` is its last day.
+    """
+    return int(
+        _queue(company_id).filter(accounting_date__gte=start, accounting_date__lte=end).count()
+    )

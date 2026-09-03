@@ -25,8 +25,11 @@ import { ChartSetupScreen } from '@/app/accounting/ChartSetupScreen'
 import { JournalScreen } from '@/app/accounting/JournalScreen'
 import { ManualEntryScreen } from '@/app/accounting/ManualEntryScreen'
 import { OpeningBalancesScreen } from '@/app/accounting/OpeningBalancesScreen'
+import { RevaluationScreen } from '@/app/accounting/RevaluationScreen'
 import { OperationTemplatesScreen } from '@/app/accounting/OperationTemplatesScreen'
 import { RegisterScreen } from '@/app/accounting/RegisterScreen'
+import { RoleBindingsScreen } from '@/app/accounting/RoleBindingsScreen'
+import { ClosingScreen } from '@/app/accounting/ClosingScreen'
 import { TrialBalanceScreen } from '@/app/accounting/TrialBalanceScreen'
 import { CompaniesScreen } from '@/app/companies/CompaniesScreen'
 import { CompanyScreen } from '@/app/companies/CompanyScreen'
@@ -503,11 +506,22 @@ describe('ecranele', () => {
           is_customer: true, is_supplier: false, is_active: true,
         },
       ],
+      [`/api/v1/payroll/companies/${COMPANY}/employees`]: [
+        {
+          id: 'e1', last_name: 'Popescu', first_name: 'Ana', idnp: null,
+          identity_document_type: null, identity_document_number: null,
+          tax_residency: 'resident', social_insurance_code: null,
+        },
+      ],
       [`/api/v1/accounting/opening-balances/${BATCH}`]: {
         id: BATCH, company_id: COMPANY, as_of_date: '2026-01-01', source: 'onec_import',
         status: 'draft', counterpart_account_id: ACCOUNT,
         gl: [{ account_id: ACCOUNT, debit: '5000.0000', credit: '0', currency: null }],
-        receivables: [], payables: [], decomposition: {},
+        receivables: [], payables: [], inventory: [], assets: [],
+        payroll_cumulatives: [
+          { employee_id: 'e1', code: 'income_tax.withheld', amount: '1234.5000', from_date: '2026-01-01' },
+        ],
+        decomposition: {},
       },
     })
     renderScreen(<OpeningBalancesScreen />, {
@@ -525,6 +539,63 @@ describe('ecranele', () => {
     expect(screen.getByText('Creanțe')).toBeInTheDocument()
     expect(screen.getByText('Datorii')).toBeInTheDocument()
     expect(await screen.findByRole('option', { name: /Client SRL/ })).toBeInTheDocument()
+    // Cele trei seturi care lipseau (G3): stocuri, active, cumulative de
+    // salarii. Angajatul se alege din lista companiei; articolul și activul
+    // sunt referințe ale sistemului sursă, iar ecranul o spune.
+    expect(screen.getByText('Stocuri')).toBeInTheDocument()
+    expect(screen.getByText('Active imobilizate')).toBeInTheDocument()
+    expect(screen.getAllByText('Cumulative de salarii').length).toBeGreaterThan(0)
+    expect(screen.getByText(/Registrul activelor nu există încă/)).toBeInTheDocument()
+    expect(await screen.findByRole('option', { name: 'Popescu Ana' })).toBeInTheDocument()
+    // Cumulativul salvat se citește înapoi, cu eticheta cheii și suma serverului.
+    // Eticheta apare de două ori: o dată ca opțiune în formular, o dată în rând.
+    expect(screen.getAllByText('Impozit reținut cumulat')).toHaveLength(2)
+    expect(screen.getByText('1.234,50')).toBeInTheDocument()
+  })
+
+  it('conturile de sistem arată rolul cu contul din plan, iar legarea oferă doar aceeași clasă', async () => {
+    stubFetch({
+      [`/api/v1/accounting/coa/companies/${COMPANY}/accounts`]: [
+        ...ACCOUNTS,
+        {
+          ...ACCOUNTS[0], id: ACCOUNT_B, account_code: '5211',
+          name_ro: 'Datorii comerciale în țară', account_class: 'liability', normal_balance: 'credit',
+        },
+      ],
+      [`/api/v1/accounting/slots/companies/${COMPANY}/role-bindings`]: [
+        {
+          role: 'CASA_MDL', default_code: '2411', dimension_slots: [],
+          account_id: null, account_code: null, name_ro: null, valid_from: null, source: null,
+        },
+        {
+          role: 'DATORII_COMERCIALE_TARA', default_code: '5211', dimension_slots: [],
+          account_id: ACCOUNT_B, account_code: '5211', name_ro: 'Datorii comerciale în țară',
+          valid_from: '2026-01-01', source: 'Plan general de conturi',
+        },
+      ],
+    })
+    renderScreen(<RoleBindingsScreen />, {
+      path: '/companii/:companyId/conturi-de-sistem',
+      route: `/companii/${COMPANY}/conturi-de-sistem`,
+    })
+
+    expect(await screen.findByText('CASA_MDL')).toBeInTheDocument()
+    // Rolul nelegat e un rând, cu contul din plan lângă legarea goală: pentru
+    // el există ecranul.
+    expect(screen.getByText('Nelegat')).toBeInTheDocument()
+    expect(screen.getByText('2411')).toBeInTheDocument()
+    expect(screen.getByText('Plan general de conturi')).toBeInTheDocument()
+
+    // Casa e clasa 2: se oferă 242, nu 5211. Serverul refuză oricum
+    // (`slots.account_class_mismatch`); a oferi greșeala ar fi a o oferi.
+    fireEvent.click(screen.getByRole('button', { name: 'Leagă' }))
+    expect(
+      await screen.findByRole('combobox', { name: 'Contul nou pentru CASA_MDL' }),
+    ).toBeInTheDocument()
+    // Interogat pe document, nu pe nodul reținut: grila redă rândul din nou când
+    // sosesc conturile, iar un `within(select)` ar citi un nod detașat.
+    expect(await screen.findByRole('option', { name: /242/ })).toBeInTheDocument()
+    expect(screen.queryByRole('option', { name: /5211/ })).toBeNull()
   })
 
   it('registrul arată înregistrarea cu rândurile ei și spune dacă e stornată', async () => {
@@ -592,6 +663,61 @@ describe('ecranele', () => {
     expect(await screen.findByText('Balanța este echilibrată.')).toBeInTheDocument()
     // Formatted ro-MD, from the string the server sent -- never parsed to a float.
     expect(screen.getAllByText('5.000,00').length).toBeGreaterThan(0)
+  })
+
+  it('închiderea arată lunile cu starea lor și verificările serverului pentru luna aleasă', async () => {
+    const YEAR = '44444444-4444-4444-4444-444444444444'
+    const JANUARY = '55555555-5555-5555-5555-555555555555'
+    const fetcher = stubFetch({
+      // The months before the exercises: `stubFetch` matches by prefix, and the
+      // list of exercises is a prefix of the list of months.
+      [`/api/v1/accounting/periods/companies/${COMPANY}/fiscal-years/${YEAR}/periods`]: [
+        {
+          id: JANUARY, period_no: 1, start_date: '2026-01-01', end_date: '2026-01-31',
+          status: 'open', closed_at: null, reopened_count: 0,
+        },
+        {
+          id: '66666666-6666-6666-6666-666666666666', period_no: 2,
+          start_date: '2026-02-01', end_date: '2026-02-28',
+          status: 'closed', closed_at: '2026-03-02T10:00:00Z', reopened_count: 1,
+        },
+      ],
+      [`/api/v1/accounting/periods/companies/${COMPANY}/fiscal-years`]: [
+        { id: YEAR, code: '2026', start_date: '2026-01-01', end_date: '2026-12-31', status: 'open', periods: 2 },
+      ],
+      // The server's checks, in its shape: a count and whether it blocks.
+      [`/api/v1/accounting/periods/periods/${JANUARY}/closing-checks`]: [
+        { code: 'documents_confirmed_not_posted', count: 2, blocking: false },
+        { code: 'documents_draft', count: 0, blocking: false },
+        { code: 'journal_entries_draft', count: 0, blocking: false },
+        { code: 'events_not_posted', count: 0, blocking: false },
+        { code: 'management_accounts_unsettled', count: 0, blocking: true },
+      ],
+    })
+    renderScreen(<ClosingScreen />, {
+      path: '/companii/:companyId/inchidere',
+      route: `/companii/${COMPANY}/inchidere`,
+    })
+
+    // The months, with the state as a word, never only as a colour.
+    expect(await screen.findByText('ianuarie 2026')).toBeInTheDocument()
+    expect(screen.getByText('Închisă')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByText('ianuarie 2026'))
+    const check = (await screen.findByText('Documente validate, necontabilizate')).closest('li')
+    expect(check).not.toBeNull()
+    expect(within(check as HTMLElement).getByText('2')).toBeInTheDocument()
+    expect(within(check as HTMLElement).getByText('De verificat')).toBeInTheDocument()
+    // Nothing blocks, so the month may be closed -- the server's word, not a sum here.
+    expect(screen.getByRole('button', { name: 'Închide luna' })).toBeEnabled()
+    // The checks were asked of the server, for that month.
+    expect(
+      fetcher.mock.calls.some(([input]) =>
+        String(input).endsWith(`/periods/${JANUARY}/closing-checks`),
+      ),
+    ).toBe(true)
+    // Not the last month: the exercise does not close from here.
+    expect(screen.queryByRole('button', { name: 'Închide exercițiul' })).not.toBeInTheDocument()
   })
 
   it('panoul arată cifrele serverului și spune, acolo unde nu are sursă, de ce nu are', async () => {
@@ -737,6 +863,7 @@ describe('ecranele', () => {
           base_salary: '9000.0000',
           weekly_hours: '40.00',
           cas_payer_point: '1.1',
+          cost_destination: 'administrative',
         },
       ],
     })
@@ -873,12 +1000,132 @@ describe('ecranele', () => {
 
     fireEvent.click(await screen.findByRole('button', { name: /2026-03/ }))
     expect(await screen.findByText('Rusu Ion')).toBeInTheDocument()
+    // No printed payslip while the month is a draft: the server refuses one, so
+    // the screen offers none (`C22`, ADR-095; art. 142 alin. (3) is the approved run's).
+    expect(screen.queryByRole('link', { name: 'PDF' })).not.toBeInTheDocument()
     // The reason the server gave, shown where a zero would have been.
     expect(
       screen.getByText(/cnas.employer_rate: fiscal.no_parameter pe 2026-03-31/),
     ).toBeInTheDocument()
     // And approval is out of reach while it is open.
     expect(screen.getByRole('button', { name: 'Aprobă' })).toBeDisabled()
+  })
+
+  it('o lună aprobată spune că e contabilizată și duce la registru', async () => {
+    stubFetch({
+      [`/api/v1/payroll/companies/${COMPANY}/runs`]: [
+        { id: 'r2', year: 2026, month: 1, accrual_date: '2026-01-28', status: 'approved' },
+      ],
+      // Sub-routes before the parent key: the stub matches by prefix.
+      '/api/v1/payroll/runs/r2/payments': [],
+      '/api/v1/payroll/runs/r2': {
+        id: 'r2',
+        year: 2026,
+        month: 1,
+        accrual_date: '2026-01-28',
+        status: 'approved',
+        unresolved: 0,
+        complete: true,
+        totals: { gross: '10000.00', withheld: '2500.00', employer_charges: '2400.00', net: '7500.00' },
+        lines: [
+          {
+            employee_id: 'e1',
+            employee_name: 'Rusu Ion',
+            contract_number: 'CIM-001',
+            gross: '10000.00',
+            withheld: '2500.00',
+            employer_charges: '2400.00',
+            net: '7500.00',
+            complete: true,
+            components: [],
+          },
+        ],
+        // The server's answer, from the event the engine keeps current -- the
+        // screen never infers "posted" from "approved".
+        posting: { accounting_event_id: 'ev1', status: 'posted', posted_at: '2026-01-28T10:00:00Z' },
+      },
+    })
+    renderScreen(<PayrollRunScreen />, {
+      path: '/companii/:companyId/salarii',
+      route: `/companii/${COMPANY}/salarii`,
+    })
+
+    fireEvent.click(await screen.findByRole('button', { name: /2026-01/ }))
+    expect(await screen.findByText('Contabilizată')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Vezi registrul' })).toHaveAttribute(
+      'href',
+      `/companii/${COMPANY}/registru`,
+    )
+    // Nothing left to approve.
+    expect(screen.queryByRole('button', { name: 'Aprobă' })).not.toBeInTheDocument()
+    // And the written payslip prints from the row: a link the browser opens (`C22`, ADR-095).
+    expect(await screen.findByText('Rusu Ion')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'PDF' })).toHaveAttribute(
+      'href',
+      '/api/v1/payroll/runs/r2/payslips/e1/pdf',
+    )
+  })
+
+  it('o lună contabilizată oferă plata salariilor, lista de plată și liniile plății', async () => {
+    stubFetch({
+      [`/api/v1/payroll/companies/${COMPANY}/runs`]: [
+        { id: 'r3', year: 2026, month: 3, accrual_date: '2026-03-31', status: 'approved' },
+      ],
+      // Sub-routes before the parent key: the stub matches by prefix.
+      '/api/v1/payroll/runs/r3/payments': [
+        {
+          id: 'p1', run_id: 'r3', paid_on: '2026-04-05', treasury_account: 'bank',
+          status: 'draft', posted_at: null, total: '7500.00', lines_count: 1, posting: null,
+        },
+      ],
+      '/api/v1/payroll/payments/p1': {
+        id: 'p1', run_id: 'r3', paid_on: '2026-04-05', treasury_account: 'bank',
+        status: 'draft', posted_at: null, total: '7500.00', lines_count: 1, posting: null,
+        year: 2026, month: 3,
+        lines: [
+          {
+            employee_id: 'e1', employee_name: 'Rusu Ion', idnp: '2001111111150',
+            bank_iban: 'MD24AG000225100013104168', net: '7500.00', already_paid: '0',
+            amount: '7500.00',
+          },
+        ],
+        totals: { amount: '7500.00' },
+      },
+      '/api/v1/payroll/runs/r3': {
+        id: 'r3',
+        year: 2026,
+        month: 3,
+        accrual_date: '2026-03-31',
+        status: 'approved',
+        unresolved: 0,
+        complete: true,
+        totals: { gross: '10000.00', withheld: '2500.00', employer_charges: '2400.00', net: '7500.00' },
+        lines: [],
+        posting: { accounting_event_id: 'ev3', status: 'posted', posted_at: '2026-03-31T10:00:00Z' },
+      },
+    })
+    renderScreen(<PayrollRunScreen />, {
+      path: '/companii/:companyId/salarii',
+      route: `/companii/${COMPANY}/salarii`,
+    })
+
+    fireEvent.click(await screen.findByRole('button', { name: /2026-03/ }))
+    // The payment is offered only because the server said the run is posted.
+    expect(await screen.findByRole('button', { name: 'Plătește salariile' })).toBeInTheDocument()
+    // The list is a file the server builds; the link points at it.
+    expect(screen.getByRole('link', { name: 'Lista de plată (CSV)' })).toHaveAttribute(
+      'href',
+      '/api/v1/payroll/runs/r3/bank-list.csv',
+    )
+
+    fireEvent.click(await screen.findByRole('button', { name: /2026-04-05/ }))
+    expect((await screen.findAllByText('Rusu Ion')).length).toBeGreaterThan(0)
+    expect(screen.getByText('MD24AG000225100013104168')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Contabilizează plata' })).toBeEnabled()
+    expect(screen.getAllByRole('link', { name: 'Lista de plată (CSV)' })[1]).toHaveAttribute(
+      'href',
+      '/api/v1/payroll/runs/r3/bank-list.csv?payment=p1',
+    )
   })
 
   it('spațiul de lucru numește PERSOANA ca titular și nu arată nimic de companie', async () => {
@@ -1476,6 +1723,123 @@ describe('ecranele', () => {
     expect(screen.getByText('Nu')).toBeInTheDocument()
     // Already posted, so the row offers no second posting.
     expect(screen.queryByRole('button', { name: /Validează/ })).not.toBeInTheDocument()
+    // And it prints: a link the browser opens, not a fetch (`C22`, ADR-095).
+    expect(screen.getByRole('link', { name: 'PDF' })).toHaveAttribute(
+      'href',
+      '/api/v1/sales/invoices/i1/pdf',
+    )
+  })
+
+  it('o factură în lucru se modifică din registru și se salvează pe același document', async () => {
+    const draft = {
+      id: 'd1',
+      formatted_number: null,
+      document_date: '2026-01-20',
+      accounting_date: '2026-01-20',
+      state: 'draft',
+      partner_id: 'p1',
+      currency: 'MDL',
+      nature: 'delivery',
+      revenue_kind: 'services',
+      partner_resident: true,
+      totals: { net: '5000.00', vat: '0', total: '5000.00' },
+    }
+    const fetcher = stubFetch({
+      [`/api/v1/sales/companies/${COMPANY}/invoices`]: [draft],
+      // The positions travel only with the detail, at the scale they were typed.
+      '/api/v1/sales/invoices/d1': {
+        ...draft,
+        lines: [
+          {
+            line_no: 1,
+            description: 'Servicii de contabilitate',
+            quantity: '1',
+            unit_price: '5000',
+            vat_regime_code: 'fara_tva',
+            net_amount: '5000.00',
+            vat_amount: '0',
+            total_amount: '5000.00',
+          },
+        ],
+      },
+      [`/api/v1/companies/${COMPANY}/tax-status`]: {
+        version: 1,
+        on: '2026-01-20',
+        vat: { registered: false },
+      },
+      '/api/v1/masterdata/partners/': [{ id: 'p1', display_name: 'SRL "Client"' }],
+    })
+    renderScreen(<SalesScreen />, {
+      path: '/companii/:companyId/facturi',
+      route: `/companii/${COMPANY}/facturi`,
+    })
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Modifică' }))
+    // Filled from the detail, not from the row: the positions are only there.
+    const description = await screen.findByDisplayValue('Servicii de contabilitate')
+    fireEvent.change(description, { target: { value: 'Servicii de audit' } })
+    const save = screen.getByRole('button', { name: 'Salvează factura' })
+    await waitFor(() => expect(save).toBeEnabled())
+    fireEvent.click(save)
+
+    // The rewrite goes to the document itself, whole: header and positions in
+    // one body, the body creation takes.
+    await waitFor(() =>
+      expect(fetcher).toHaveBeenCalledWith(
+        '/api/v1/sales/invoices/d1',
+        expect.objectContaining({ method: 'PUT' }),
+      ),
+    )
+    const calls = fetcher.mock.calls as unknown as [string, RequestInit][]
+    const put = calls.find(([url, init]) => url === '/api/v1/sales/invoices/d1' && init.method === 'PUT')
+    const body = JSON.parse(String(put?.[1].body))
+    expect(body.partner_id).toBe('p1')
+    expect(body.revenue_kind).toBe('services')
+    expect(body.lines).toEqual([
+      // A non-payer's line goes out under the one code it may state.
+      { description: 'Servicii de audit', quantity: '1', unit_price: '5000', vat_regime_code: 'fara_tva' },
+    ])
+  })
+
+  it('o factură în lucru se șterge din registru la a doua apăsare, cea contabilizată nu', async () => {
+    const row = {
+      document_date: '2026-01-20',
+      accounting_date: '2026-01-20',
+      currency: 'MDL',
+      nature: 'delivery',
+      revenue_kind: 'services',
+      partner_resident: true,
+      partner_id: 'p1',
+      totals: { net: '0', vat: '0', total: '0' },
+    }
+    const fetcher = stubFetch({
+      [`/api/v1/sales/companies/${COMPANY}/invoices`]: [
+        { ...row, id: 'd1', formatted_number: null, state: 'draft' },
+        { ...row, id: 'i9', formatted_number: 'FV-0009-2026', state: 'posted' },
+      ],
+      '/api/v1/sales/invoices/d1': {},
+      '/api/v1/masterdata/partners/': [],
+    })
+    renderScreen(<SalesScreen />, {
+      path: '/companii/:companyId/facturi',
+      route: `/companii/${COMPANY}/facturi`,
+    })
+
+    // Only the draft offers either: the posted row has its number out, and its
+    // correction is a credit note.
+    expect(await screen.findAllByRole('button', { name: 'Șterge' })).toHaveLength(1)
+    expect(screen.getAllByRole('button', { name: 'Modifică' })).toHaveLength(1)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Șterge' }))
+    // The first click asks; nothing has left yet.
+    expect(fetcher.mock.calls.some(([url]) => String(url) === '/api/v1/sales/invoices/d1')).toBe(false)
+    fireEvent.click(screen.getByRole('button', { name: 'Confirmă ștergerea' }))
+    await waitFor(() =>
+      expect(fetcher).toHaveBeenCalledWith(
+        '/api/v1/sales/invoices/d1',
+        expect.objectContaining({ method: 'DELETE' }),
+      ),
+    )
   })
 
   it('facturile emise arată TVA-ul serverului pe rând, lângă total', async () => {
@@ -1570,6 +1934,52 @@ describe('ecranele', () => {
     expect(screen.getByText(/necontabilizate încă în această perioadă: 2/)).toBeInTheDocument()
     // And the sentence that keeps it from being filed as the statutory register.
     expect(screen.getByText(/Nu este forma prescrisă/)).toBeInTheDocument()
+  })
+
+  it('reevaluarea valutară arată soldurile restatate cu ambele cursuri și spune ce nu intră', async () => {
+    stubFetch({
+      [`/api/v1/accounting/currency/companies/${COMPANY}/revaluations`]: [
+        {
+          id: 'r1',
+          as_of: '2026-01-31',
+          accounting_event_id: 'e1',
+          journal_entry_id: 'aaaaaaaa-0000-0000-0000-000000000001',
+          reversed_by: null,
+          items: [
+            {
+              document_id: 'd1',
+              side: 'receivable',
+              partner_id: 'p1',
+              currency: 'EUR',
+              amount_currency: '500.0000',
+              rate_before: '19.50000000',
+              rate_after: '19.70000000',
+              difference: '100.0000',
+            },
+          ],
+        },
+      ],
+    })
+    renderScreen(<RevaluationScreen />, {
+      path: '/companii/:companyId/reevaluare',
+      route: `/companii/${COMPANY}/reevaluare`,
+    })
+
+    // The date, formatted ro-MD; both rates, as the server sent them; the
+    // difference from the server, never recomputed here (C19).
+    expect(await screen.findByText('31.01.2026')).toBeInTheDocument()
+    expect(screen.getByText('19.50000000')).toBeInTheDocument()
+    expect(screen.getByText('19.70000000')).toBeInTheDocument()
+    expect(screen.getByText('100,00')).toBeInTheDocument()
+    expect(screen.getByText('Creanță')).toBeInTheDocument()
+    // The entry is a link into the register.
+    expect(screen.getByRole('link', { name: 'aaaaaaaa' })).toHaveAttribute(
+      'href',
+      `/companii/${COMPANY}/registru?entry=aaaaaaaa-0000-0000-0000-000000000001`,
+    )
+    // And what the revaluation does not cover is said on the screen.
+    expect(screen.getByText(/Casa și banca în valută nu intră încă/)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Reevaluează' })).toBeDisabled()
   })
 
   it('fără sesiune, aplicația arată ecranul de autentificare', async () => {

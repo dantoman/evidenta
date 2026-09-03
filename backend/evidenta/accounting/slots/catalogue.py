@@ -35,6 +35,13 @@ class RoleDefault:
     account_code: str
     valid_from: date
     source: str
+    #: Dimensions the bound account has to carry -- ADR-048 section 3.1, and
+    #: ADR-065 section 8.4 for the case that made it necessary: `employee` on
+    #: 5311 and the two personnel-cost accounts. Declared with the role because
+    #: the role is what knows its postings will set the value; an account bound
+    #: without the slot drops the value silently at placement, and the entry
+    #: balances all the same.
+    dimension_slots: tuple[str, ...] = ()
 
 
 def _load() -> tuple[RoleDefault, ...]:
@@ -45,6 +52,9 @@ def _load() -> tuple[RoleDefault, ...]:
                 account_code=row["account_code"],
                 valid_from=date.fromisoformat(row["valid_from"]),
                 source=row["source"],
+                dimension_slots=tuple(
+                    slot for slot in (row.get("dimension_slots") or "").split(";") if slot
+                ),
             )
             for row in csv.DictReader(handle)
         )

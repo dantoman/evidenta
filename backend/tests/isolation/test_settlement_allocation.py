@@ -305,3 +305,27 @@ def test_nothing_is_emitted_where_no_difference_can_arise(
     # Two events for the two documents, and not a third for the match.
     assert after_documents == before + 2
     assert after_allocation == after_documents
+
+
+def test_the_same_request_twice_allocates_once(matched_world: dict[str, Any]) -> None:
+    """R19 on the allocation door: the first arrival answers the second. One row,
+    the same id, the outstanding moved once -- a retry of a timed-out POST does not
+    settle the invoice twice."""
+    with tenant_context(matched_world["context"]):
+        invoice = an_invoice(matched_world)
+        receipt = a_receipt(matched_world)
+        first = allocate(
+            settled_document_id=invoice,
+            movement_document_id=receipt,
+            amount=Decimal("1000.00"),
+            idempotency_key="allocation-retry-1",
+        )
+        again = allocate(
+            settled_document_id=invoice,
+            movement_document_id=receipt,
+            amount=Decimal("1000.00"),
+            idempotency_key="allocation-retry-1",
+        )
+        assert again.settlement_id == first.settlement_id
+        assert Settlement.objects.filter(settled_document_id=invoice).count() == 1
+        assert outstanding(invoice) == first.outstanding_after == again.outstanding_after

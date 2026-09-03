@@ -23,6 +23,7 @@ event, so a retry after a timeout cannot produce a second entry.
 from __future__ import annotations
 
 import uuid
+from decimal import Decimal
 from typing import Any
 
 from django.db import transaction
@@ -140,6 +141,10 @@ def issue_and_post(
             vat=totals.vat,
             vat_by_rate=vat_shares(vat_breakdown(document_id)),
             currency=document.currency,
+            # The header's rate, taken for the document's date (ADR-039 section
+            # 3.2): 1 on a lei document, where the engine converts nothing.
+            exchange_rate=Decimal(document.exchange_rate),
+            rate_date=document.document_date,
             revenue_kind=extension.revenue_kind,
             partner_resident=extension.partner_resident,
             # In Romanian, and from this module: it lands in the register, which

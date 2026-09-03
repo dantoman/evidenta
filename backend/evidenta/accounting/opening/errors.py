@@ -172,3 +172,26 @@ class EntryMissingForPostedEventError(OpeningBalanceError):
     """
 
     code = "opening.entry_missing_for_posted_event"
+
+
+class OpeningAlreadyPostedError(ApiError):
+    """A second batch at the start date while the first entry still stands.
+
+    Two live opening entries double every balance and the counterpart still nets
+    to zero on each, so nothing downstream would notice (`R20`). The correction
+    path stays open: reverse the posted entry, then post the new batch.
+    """
+
+    code = "opening.already_posted"
+    status = 409
+
+
+class OpeningQuantityTooFineError(ApiError):
+    """A stock quantity with more decimals than its unit allows (ADR-055).
+
+    Refused, not rounded: a rounded quantity is a stock count that never
+    happened, and the unit's precision freezes once the line is posted.
+    """
+
+    code = "opening.quantity_too_fine"
+    status = 422

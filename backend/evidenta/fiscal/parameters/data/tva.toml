@@ -68,6 +68,9 @@ act = "cod-fiscal-titlul-iii"
 value_type = "table"
 value = { codes = ["taxable_standard", "taxable_reduced", "exempt_without_deduction", "exempt_with_deduction"], rates = { taxable_standard = "vat.standard", taxable_reduced = "vat.reduced" } }
 observed_in = "Valoarea apare în actul citat cu data 2024-01-01; articolul final care stabilește marginea nu a fost citit (OD-92). Data păstrată ca observație, nu ca margine."
+valid_from = 2024-01-01
+margin_basis = "act"
+margin_reference = "Convenție de platformă peste categoriile Codului fiscal; marginea = data observației, prin decizia proprietarului din 2026-09-03 (delegată sesiunii); articolul final necitit — OD-92"
 confidence = "provisional"
 provisional_reason = "Convenție de platformă peste categoriile Codului fiscal: art. 96 lit. a) (cota standard), art. 96 lit. b) (cota redusă), art. 103 (scutite fără drept de deducere), art. 104 (scutite cu drept de deducere) — od-22-tva.md §1–§4. Codurile sunt ale platformei; categoriile, ale actului, citite din reproducerea SFS. Fereastra începe la perioada cercetată (2024), nu pretinde istoric."
 
@@ -79,6 +82,9 @@ act = "cod-fiscal-titlul-iii"
 value_type = "percentage"
 value = 20
 observed_in = "Valoarea apare în actul citat cu data 2024-01-01; articolul final care stabilește marginea nu a fost citit (OD-92). Data păstrată ca observație, nu ca margine."
+valid_from = 2024-01-01
+margin_basis = "act"
+margin_reference = "Art. 96 lit. a); marginea = data observației, prin decizia proprietarului din 2026-09-03 (delegată sesiunii); articolul final necitit — OD-92"
 confidence = "provisional"
 provisional_reason = "Art. 96 lit. a) — 20%, „neschimbată în perioada cercetată” (od-22-tva.md §1; BGPF, Ordin SFS nr. 66 din 05.02.2026). Citat din reproducerea SFS, nu din MO. valid_from e începutul ferestrei cercetate, nu data reală a cotei."
 
@@ -88,6 +94,9 @@ act = "cod-fiscal-titlul-iii"
 value_type = "percentage"
 value = 8
 observed_in = "Valoarea apare în actul citat cu data 2024-01-01; articolul final care stabilește marginea nu a fost citit (OD-92). Data păstrată ca observație, nu ca margine."
+valid_from = 2024-01-01
+margin_basis = "act"
+margin_reference = "Art. 96 lit. b); marginea = data observației, prin decizia proprietarului din 2026-09-03 (delegată sesiunii); articolul final necitit — OD-92"
 confidence = "provisional"
 provisional_reason = "Art. 96 lit. b) — 8%, cota redusă unică (od-22-tva.md §1–§2). Sfera ei s-a lărgit în fereastră (HoReCa de la 31.12.2023, igiena feminină 01.01.2025, dispozitive medicale 2026), dar valoarea nu s-a schimbat; sfera nu e parametru scalar și nu e aici."
 
@@ -100,6 +109,9 @@ value_type = "money"
 value = 1700000
 unit = "MDL"
 observed_in = "Valoarea apare în actul citat cu data 2026-03-01; articolul final care stabilește marginea nu a fost citit (OD-92). Data păstrată ca observație, nu ca margine."
+valid_from = 2026-03-01
+margin_basis = "act"
+margin_reference = "Art. 112 alin; marginea = data observației, prin decizia proprietarului din 2026-09-03 (delegată sesiunii); articolul final necitit — OD-92"
 confidence = "provisional"
 provisional_reason = "Art. 112 alin. (1) — 1 700 000 lei în oricare 12 luni consecutive, din 01.03.2026 prin Legea nr. 12/2026 (od-22-tva.md §5, BGPF 28.1, Ordin SFS nr. 118 din 03.03.2026). Valorile anterioare (1 500 000 din 01.01.2026; 1 200 000 până la 31.12.2025) nu sunt încărcate: actele lor nu sunt identificate cu certitudine."
 
@@ -111,5 +123,8 @@ act = "cod-fiscal-titlul-iii"
 value_type = "integer"
 value = 25
 observed_in = "Valoarea apare în actul citat cu data 2018-01-01; articolul final care stabilește marginea nu a fost citit (OD-92). Data păstrată ca observație, nu ca margine."
+valid_from = 2018-01-01
+margin_basis = "act"
+margin_reference = "Art. 115 alin; marginea = data observației, prin decizia proprietarului din 2026-09-03 (delegată sesiunii); articolul final necitit — OD-92"
 confidence = "provisional"
 provisional_reason = "Art. 115 alin. (1) — declarația se prezintă „nu mai tîrziu de data de 25 a lunii care urmează după încheierea perioadei fiscale”, din 01.01.2018 (anterior: ultima zi a lunii) — od-22-tva.md §6, BGPF. Actul modificator din 2018 nu e identificat; ADR-039 §7.1 cere termenul ca parametru versionat, de aceea data e cea afirmată de SFS."

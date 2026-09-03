@@ -115,6 +115,7 @@ def create_reversal(
         accounting_date=accounting_date,
         partner_id=original.partner_id,
         currency=original.currency,
+        contract_denomination=original.contract_denomination,
         exchange_rate=(
             original.exchange_rate
             if original.currency != functional_currency(original.company_id)

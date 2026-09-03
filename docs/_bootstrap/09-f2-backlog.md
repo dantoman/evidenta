@@ -1079,7 +1079,7 @@ declarație rectificativă).
 | F2.C3 | `OD-25` | extern (CNAS, CNAM, BNS) |
 | ~~F2.C4, F2.P2~~ | ~~`OD-71`~~ | **deblocate 2026-08-30** — [ADR-062](../decisions/062-aprobatorul-din-productie.md); termenul devine *înainte de prima activare în producție* |
 | F2.C5 | F1.10 — **convenția e fixată** (evidenta-04, 2026-08-30): `tests/corpus/`, `case(*sets, cites=...)` ca unică ușă, `corpus/<logic_key>/<versiune>`, gardian peste fiecare `regression_case_set` din `fiscal/parameters/data/*.toml`, `-m fiscal_regression` | al F1; F2 moștenește |
-| F2.P1 | `OD-74` (biblioteca, pipeline-ul — se închide în sarcină, cu ADR); `OD-52` (arhivarea) | ADR; providerul de stocare nu blochează generarea |
+| F2.P1 | ~~`OD-74`~~ **închisă 2026-09-03** pe jumătatea PDF — [ADR-095](../decisions/095-pipeline-ul-de-tipar-si-biblioteca-pdf.md) (pipeline-ul, factura, fluturașul livrate; ordinul de plată și casa rămân); `OD-52` (arhivarea) | providerul de stocare nu blochează generarea |
 | ~~F2.P3~~ | ~~`DN-10`~~ | **deblocată 2026-08-30** — [ADR-060](../decisions/060-vocabularul-capabilitatilor.md) |
 | F2.X1 (activarea) | `OD-22` | extern; încărcarea ca `draft` nu așteaptă |
 

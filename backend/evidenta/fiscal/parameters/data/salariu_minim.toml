@@ -1,0 +1,48 @@
+# Salariul minim pe țară — `labour.minimum_wage_monthly` — încărcat și activat pe delegarea
+# proprietarului din 2026-09-03 („if needed my decision... just do it on my behalf").
+#
+#     manage.py load_fiscal_parameters salariu_minim.toml
+#     manage.py activate_fiscal_parameters salariu_minim.toml --approver <user id>
+#
+# DE CE EXISTĂ: `13-lista-de-deblocare.md` §C12 — parametrul lipsea cu totul, iar art. 22 alin. (1)
+# din Legea 489/1999 cere ca baza CAS să nu fie sub salariul minim, proporţional timpului lucrat
+# (`payroll/services/runs.py`, `_minimum_base`). Fără el linia CAS iese fără sumă şi rularea nu se
+# poate aproba.
+#
+# SURSA: proiectul HG „Privind stabilirea cuantumului salariului minim pe ţară pentru anul 2026"
+# (NU-915-MMPS-2025, gov.md, şedinţa din 17.12.2025), citit din PDF-ul redactat: pct. 1 —
+# „Se stabileşte, începând cu 1 ianuarie 2026, salariul minim pe ţară în cuantum de 6300 de lei
+# lunar pentru un program complet de lucru de 169 de ore (în medie pe lună), ceea ce reprezintă
+# 37,28 lei pe oră."; pct. 2 — „Prezenta hotărâre intră în vigoare la data de 1 ianuarie 2026."
+# Temeiul: art. 3 din Legea nr. 1432/2000. Identitatea actului adoptat — HG nr. 771 din
+# 17.12.2025, publicată în MO la 18.12.2025 — vine din indexul legis.md (doc_id=152064) şi din
+# monitorul.fisc.md; textul adoptat nu s-a citit (legis.md 403), de aceea `provisional`, iar
+# numărul şi poziţia din MO nu sunt afirmate.
+#
+# CE NU E AICI: cuantumul pentru 2025 (5500 lei, afirmat de comunicatul gov.md) — actul lui nu e
+# identificat; norma lunară de 169 de ore nu e parametru scalar aici, `Timesheet.norm_hours` o
+# poartă per lună.
+
+schema_version = 1
+
+[[act]]
+ref = "hg-771-2025"
+act_type = "hotarare_guvern"
+act_number = "771"
+act_date = 2025-12-17
+title = "Hotărârea Guvernului nr. 771 din 17.12.2025 privind stabilirea cuantumului salariului minim pe țară pentru anul 2026"
+effective_from = 2026-01-01
+notes = "Pct. 2: „Prezenta hotărâre intră în vigoare la data de 1 ianuarie 2026.” — citit din proiectul redactat (NU-915-MMPS-2025, gov.md). Numărul şi data: indexul legis.md (HG771/2025, doc_id=152064) şi monitorul.fisc.md (publicată în MO la 18.12.2025). Textul adoptat nu s-a citit."
+
+[[parameter]]
+key = "labour.minimum_wage_monthly"
+act = "hg-771-2025"
+value_type = "money"
+value = 6300
+unit = "MDL"
+valid_from = 2026-01-01
+margin_basis = "act"
+margin_reference = "pct. 1 şi pct. 2 — „începând cu 1 ianuarie 2026”; citit din proiectul redactat, nu din textul adoptat"
+observed_in = "Proiectul redactat NU-915-MMPS-2025 (gov.md), pct. 1: 6300 lei lunar, 169 ore, 37,28 lei/oră, de la 2026-01-01; comunicatul gov.md din 17.12.2025 („va creşte de la 5500 la 6300 de lei lunar”)."
+confidence = "provisional"
+provisional_reason = "Valoarea şi marginea sunt citite din proiectul redactat al hotărârii, nu din textul adoptat (legis.md refuză accesul); numărul HG 771/2025 şi publicarea în MO din 18.12.2025 vin din index, nu din text. Activat pe delegarea proprietarului din 2026-09-03."

@@ -1,5 +1,6 @@
 /**
- * Issued invoices -- create one, price it, issue it.
+ * Issued invoices -- create one, price it, issue it; and while it is still a
+ * draft, rewrite it or throw it away.
  *
  * **The two discriminators are on the form, with their reason next to them.**
  * What is sold and whether the customer is a resident each select an account when
@@ -10,6 +11,15 @@
  *
  * **Issuing is one button** because it is one step: validating without posting
  * leaves a numbered document with no accounting effect.
+ *
+ * **A draft is edited as a whole** (the owner's instruction, 2026-09-02: an
+ * invoice may sit as a draft, be edited, and be issued later). The row offers
+ * *Modifică* and *Șterge* only while the state is `draft`; the form is the one
+ * that creates, filled from the detail, and it saves through `PUT` on the same
+ * document -- header and positions in one request, so a refused line leaves the
+ * draft as it was. Past draft the server refuses both with
+ * `documents.not_editable`, and the screen simply does not offer them: the number
+ * is allocated at validation, and from there a correction is a credit note.
  *
  * **Nothing here adds anything up** (`C19`). The line amounts and the totals come
  * back from the server, which derives them with the versioned rounding rule --
@@ -34,12 +44,18 @@ import { Link, useParams } from 'react-router'
 
 import { t } from '@/locales'
 import { taxStatus } from '@/shared/api/companies'
+import { CURRENCIES, rateOn, type ContractDenomination } from '@/shared/api/currency'
 import { vatRegimes } from '@/shared/api/fiscal'
 import { listPartners } from '@/shared/api/partners'
 import {
   createInvoice,
+  deleteInvoice,
+  getInvoice,
+  invoicePdfUrl,
   issueInvoice,
   listInvoices,
+  replaceInvoice,
+  type NewSalesInvoice,
   type RevenueKind,
   type SaleNature,
   type SalesInvoice,
@@ -66,21 +82,85 @@ const emptyLine = (): SalesLineInput => ({
   vat_regime_code: '',
 })
 
+/** What the form holds -- for a new invoice, or a draft read back from the server. */
+interface FormValues {
+  partnerId: string
+  documentDate: string
+  nature: SaleNature
+  revenueKind: RevenueKind
+  resident: boolean
+  currency: string
+  denomination: ContractDenomination
+  lines: SalesLineInput[]
+}
+
+const blank = (): FormValues => ({
+  partnerId: '',
+  documentDate: '',
+  nature: 'delivery',
+  revenueKind: 'services',
+  resident: true,
+  currency: 'MDL',
+  denomination: 'foreign_currency',
+  lines: [emptyLine()],
+})
+
+/**
+ * The draft as the form holds it. The positions come only with the detail, at
+ * the scale they were typed; a draft that has none (abandoned before its first
+ * line) opens with one empty line rather than with no way to add one.
+ */
+const fromInvoice = (invoice: SalesInvoice): FormValues => {
+  const lines = (invoice.lines ?? []).map((line) => ({
+    description: line.description,
+    quantity: line.quantity,
+    unit_price: line.unit_price,
+    vat_regime_code: line.vat_regime_code,
+  }))
+  return {
+    partnerId: invoice.partner_id ?? '',
+    documentDate: invoice.document_date,
+    nature: invoice.nature as SaleNature,
+    revenueKind: invoice.revenue_kind,
+    resident: invoice.partner_resident,
+    currency: invoice.currency,
+    denomination: invoice.contract_denomination ?? 'foreign_currency',
+    lines: lines.length > 0 ? lines : [emptyLine()],
+  }
+}
+
 export function SalesScreen() {
   const { companyId = '' } = useParams()
   const queryClient = useQueryClient()
   const [adding, setAdding] = useState(false)
+  const [editing, setEditing] = useState<SalesInvoice | null>(null)
+  /** The draft whose deletion awaits a second click, by id. */
+  const [deleting, setDeleting] = useState<string | null>(null)
 
   const invoices = useQuery({
     queryKey: ['sales-invoices', companyId],
     queryFn: () => listInvoices(companyId),
   })
 
-  const refresh = () => queryClient.invalidateQueries({ queryKey: ['sales-invoices'] })
+  // Both the register and any detail already opened: a draft saved and reopened
+  // must show what was saved, not what the cache remembers.
+  const refresh = () =>
+    Promise.all([
+      queryClient.invalidateQueries({ queryKey: ['sales-invoices'] }),
+      queryClient.invalidateQueries({ queryKey: ['sales-invoice'] }),
+    ])
 
   const issue = useMutation({
     mutationFn: (documentId: string) => issueInvoice(documentId),
     onSuccess: refresh,
+  })
+
+  const remove = useMutation({
+    mutationFn: (documentId: string) => deleteInvoice(documentId),
+    onSuccess: async () => {
+      setDeleting(null)
+      await refresh()
+    },
   })
 
   const columns: Column<SalesInvoice>[] = [
@@ -148,15 +228,73 @@ export function SalesScreen() {
     {
       key: 'action',
       header: '',
-      cell: (row) =>
-        row.state === 'posted' ? (
-          <span className="text-ink-muted">{t.sales.issued}</span>
-        ) : (
-          <button type="button" className="text-accent" onClick={() => issue.mutate(row.id)}>
-            {t.sales.issue}
-          </button>
-        ),
-      width: '16rem',
+      cell: (row) => {
+        // Past validation the document has its number and prints (`C22`,
+        // ADR-095): a link the browser opens, never a fetch from here.
+        const pdf = (
+          <a
+            href={invoicePdfUrl(row.id)}
+            target="_blank"
+            rel="noopener"
+            className="text-accent"
+          >
+            {t.sales.pdf}
+          </a>
+        )
+        if (row.state === 'posted') {
+          return (
+            <span className="flex flex-wrap gap-x-4 gap-y-1">
+              <span className="text-ink-muted">{t.sales.issued}</span>
+              {pdf}
+            </span>
+          )
+        }
+        return (
+          <span className="flex flex-wrap gap-x-4 gap-y-1">
+            {row.state === 'confirmed' && pdf}
+            {/* Only a draft: past it the number is out and the server refuses
+                anyway. Deleting asks twice, on the row, with nothing modal. */}
+            {row.state === 'draft' && (
+              <>
+                <button
+                  type="button"
+                  className="text-accent"
+                  onClick={() => {
+                    setEditing(row)
+                    setAdding(false)
+                    setDeleting(null)
+                  }}
+                >
+                  {t.sales.edit}
+                </button>
+                {deleting === row.id ? (
+                  <>
+                    <button
+                      type="button"
+                      className="text-danger"
+                      disabled={remove.isPending}
+                      onClick={() => remove.mutate(row.id)}
+                    >
+                      {t.sales.confirmDelete}
+                    </button>
+                    <button type="button" className="text-accent" onClick={() => setDeleting(null)}>
+                      {t.companies.cancel}
+                    </button>
+                  </>
+                ) : (
+                  <button type="button" className="text-accent" onClick={() => setDeleting(row.id)}>
+                    {t.sales.delete}
+                  </button>
+                )}
+              </>
+            )}
+            <button type="button" className="text-accent" onClick={() => issue.mutate(row.id)}>
+              {t.sales.issue}
+            </button>
+          </span>
+        )
+      },
+      width: '24rem',
     },
   ]
 
@@ -170,18 +308,35 @@ export function SalesScreen() {
             <Link to={`/companii/${companyId}/registru`} className="text-sm text-accent">
               {t.accounting.register.title}
             </Link>
-            <Button icon="plus" onClick={() => setAdding((open) => !open)}>
-              {adding ? t.companies.cancel : t.sales.add}
+            <Button
+              icon="plus"
+              onClick={() => {
+                if (editing) setEditing(null)
+                else setAdding((open) => !open)
+              }}
+            >
+              {adding || editing ? t.companies.cancel : t.sales.add}
             </Button>
           </div>
         }
       />
 
       {adding && (
-        <NewInvoiceForm
+        <InvoiceForm
           companyId={companyId}
-          onCreated={async () => {
+          initial={blank()}
+          onDone={async () => {
             setAdding(false)
+            await refresh()
+          }}
+        />
+      )}
+      {editing && (
+        <EditInvoice
+          companyId={companyId}
+          invoice={editing}
+          onDone={async () => {
+            setEditing(null)
             await refresh()
           }}
         />
@@ -189,6 +344,7 @@ export function SalesScreen() {
 
       {invoices.isError && <Failure error={invoices.error} />}
       {issue.isError && <Failure error={issue.error} />}
+      {remove.isError && <Failure error={remove.error} />}
       {invoices.data && (
         <>
           <Card padding="none">
@@ -206,24 +362,75 @@ export function SalesScreen() {
   )
 }
 
-function NewInvoiceForm({
+/**
+ * The register row carries the header; the positions come only with the detail,
+ * so the form opens once that has arrived -- keyed by document, so switching
+ * from one draft to another starts the form over rather than carrying lines
+ * across.
+ */
+function EditInvoice({
   companyId,
-  onCreated,
+  invoice,
+  onDone,
 }: {
   companyId: string
-  onCreated: () => Promise<void> | void
+  invoice: SalesInvoice
+  onDone: () => Promise<void> | void
+}) {
+  const detail = useQuery({
+    queryKey: ['sales-invoice', invoice.id],
+    queryFn: () => getInvoice(invoice.id),
+  })
+  if (detail.isError) return <Failure error={detail.error} />
+  if (detail.data === undefined) {
+    return <p className="text-sm text-ink-muted">{t.app.loading}</p>
+  }
+  return (
+    <InvoiceForm
+      key={invoice.id}
+      companyId={companyId}
+      documentId={invoice.id}
+      initial={fromInvoice(detail.data)}
+      onDone={onDone}
+    />
+  )
+}
+
+function InvoiceForm({
+  companyId,
+  documentId,
+  initial,
+  onDone,
+}: {
+  companyId: string
+  /** Set when rewriting a draft; absent when creating. Same form, same body. */
+  documentId?: string
+  initial: FormValues
+  onDone: () => Promise<void> | void
 }) {
   const partners = useQuery({
     queryKey: ['partners-directory', '', false],
     queryFn: () => listPartners({ role: 'customer' }),
   })
 
-  const [partnerId, setPartnerId] = useState('')
-  const [documentDate, setDocumentDate] = useState('')
-  const [nature, setNature] = useState<SaleNature>('delivery')
-  const [revenueKind, setRevenueKind] = useState<RevenueKind>('services')
-  const [resident, setResident] = useState(true)
-  const [lines, setLines] = useState<SalesLineInput[]>([emptyLine()])
+  const [partnerId, setPartnerId] = useState(initial.partnerId)
+  const [documentDate, setDocumentDate] = useState(initial.documentDate)
+  const [nature, setNature] = useState<SaleNature>(initial.nature)
+  const [revenueKind, setRevenueKind] = useState<RevenueKind>(initial.revenueKind)
+  const [resident, setResident] = useState(initial.resident)
+  const [currency, setCurrency] = useState(initial.currency)
+  const [denomination, setDenomination] = useState<ContractDenomination>(initial.denomination)
+  const [lines, setLines] = useState<SalesLineInput[]>(initial.lines)
+
+  // The rate of the invoice's date, shown as the server will use it and never
+  // chosen here: a day with no published rate is a refusal the form shows
+  // (ADR-039 §3.2, ADR-097). The currency is fixed once the draft is opened.
+  const inCurrency = currency !== 'MDL'
+  const rate = useQuery({
+    queryKey: ['exchange-rate', currency, documentDate],
+    queryFn: () => rateOn(currency, documentDate),
+    enabled: inCurrency && documentDate !== '',
+  })
 
   // Both for the invoice's date, never for today: a back-dated invoice is priced
   // under the status and the vocabulary of the day it bears (ADR-044).
@@ -239,22 +446,29 @@ function NewInvoiceForm({
     enabled: registered,
   })
 
-  const create = useMutation({
-    mutationFn: () =>
-      createInvoice(companyId, {
+  const save = useMutation({
+    mutationFn: () => {
+      const body: NewSalesInvoice = {
         partner_id: partnerId,
         document_date: documentDate,
         nature,
         revenue_kind: revenueKind,
         partner_resident: resident,
+        currency,
+        contract_denomination: inCurrency ? denomination : null,
         // A non-payer's lines carry the one code it may state; a payer's carry
         // what was chosen on each line.
         lines: lines.map((line) => ({
           ...line,
           vat_regime_code: registered ? line.vat_regime_code : NO_VAT,
         })),
-      }),
-    onSuccess: onCreated,
+      }
+      // Rewriting goes to the document itself, with the body creation takes.
+      return documentId === undefined
+        ? createInvoice(companyId, body)
+        : replaceInvoice(documentId, body)
+    },
+    onSuccess: onDone,
   })
 
   const change = (index: number, field: keyof SalesLineInput, value: string) => {
@@ -279,9 +493,11 @@ function NewInvoiceForm({
         className="flex flex-col gap-4"
         onSubmit={(event: FormEvent) => {
           event.preventDefault()
-          create.mutate()
+          save.mutate()
         }}
       >
+      {documentId !== undefined && <p className="text-sm text-ink-muted">{t.sales.editing}</p>}
+
       <div className="flex flex-wrap items-end gap-4">
         <Field label={t.sales.nature}>
           <Select
@@ -340,7 +556,50 @@ function NewInvoiceForm({
           />
           <span className="text-ink-muted">{t.sales.resident}</span>
         </label>
+
+        <Field label={t.sales.currency}>
+          <Select
+            value={currency}
+            onChange={(event) => setCurrency(event.target.value)}
+            disabled={documentId !== undefined}
+            title={t.sales.currencyHint}
+            className="w-28"
+          >
+            {CURRENCIES.map((code) => (
+              <option key={code} value={code}>
+                {code}
+              </option>
+            ))}
+          </Select>
+        </Field>
+
+        {inCurrency && (
+          <Field label={t.sales.denomination}>
+            <Select
+              value={denomination}
+              onChange={(event) => setDenomination(event.target.value as ContractDenomination)}
+              disabled={documentId !== undefined}
+              title={t.sales.denominationHint}
+              className="w-52"
+            >
+              <option value="foreign_currency">{t.sales.foreignCurrency}</option>
+              <option value="conventional_units">{t.sales.conventionalUnits}</option>
+            </Select>
+          </Field>
+        )}
       </div>
+
+      {inCurrency && (
+        <p className="text-sm text-ink-muted">
+          {documentDate === ''
+            ? t.sales.rateNeedsDate
+            : rate.data !== undefined
+              ? `${t.sales.rateOfTheDay} ${rate.data.rate} MDL / ${currency}`
+              : rate.isError
+                ? t.sales.rateMissing
+                : t.app.loading}
+        </p>
+      )}
 
       <p className="text-sm text-ink-muted">
         {documentDate === ''
@@ -418,11 +677,11 @@ function NewInvoiceForm({
 
       <div className="flex items-center gap-3">
         <Button onClick={() => setLines([...lines, emptyLine()])}>{t.sales.addLine}</Button>
-        <Button variant="primary" type="submit" disabled={!complete || create.isPending}>
-          {t.sales.create}
+        <Button variant="primary" type="submit" disabled={!complete || save.isPending}>
+          {documentId === undefined ? t.sales.create : t.sales.save}
         </Button>
       </div>
-      {create.isError && <Failure error={create.error} />}
+      {save.isError && <Failure error={save.error} />}
       </form>
     </Card>
   )

@@ -90,3 +90,19 @@ def event_id_of_entry(entry_id: uuid.UUID) -> uuid.UUID | None:
         .values_list("accounting_event_id", flat=True)
         .first()
     )
+
+
+def reversal_of_entry(entry_id: uuid.UUID) -> uuid.UUID | None:
+    """The posted entry that cancels this one (R14), or None while it stands.
+
+    The other direction of ``reverses_entry``, asked as a service so that a module
+    which has to know whether an entry still counts -- a revaluation whose rate
+    carries forward only while its entry stands -- does not read the ledger's
+    table for it (`D6`). Visibility follows the policy, as everywhere here.
+    """
+    return (
+        JournalEntry.objects.filter(reverses_entry_id=entry_id, status="posted")
+        .order_by("-posted_at")
+        .values_list("id", flat=True)
+        .first()
+    )

@@ -37,6 +37,7 @@ export const PANEL: Section = { path: 'panou', label: t.dashboard.title, icon: '
 
 export const ACCOUNTING: Section[] = [
   { path: 'plan-de-conturi', label: t.accounting.chart.title, icon: 'list-tree' },
+  { path: 'conturi-de-sistem', label: t.accounting.roleBindings.title, icon: 'layers' },
   { path: 'note', label: t.accounting.entry.title, icon: 'file-plus' },
   { path: 'registru', label: t.accounting.register.title, icon: 'book-open' },
   { path: 'balanta', label: t.accounting.balance.title, icon: 'scale' },
@@ -44,6 +45,8 @@ export const ACCOUNTING: Section[] = [
   { path: 'jurnale', label: t.journals.title, icon: 'book-open' },
   { path: 'solduri-initiale', label: t.accounting.opening.title, icon: 'import' },
   { path: 'sabloane', label: t.accounting.operationTemplates.title, icon: 'copy' },
+  { path: 'inchidere', label: t.accounting.closing.title, icon: 'lock' },
+  { path: 'reevaluare', label: t.accounting.revaluation.title, icon: 'scale' },
 ]
 
 export const COMMERCIAL: Section[] = [

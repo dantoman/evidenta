@@ -41,6 +41,7 @@ se prinde la primul client real (F3).
 |---|---|---|
 | `test_c5_absorption.py` | repartizarea costurilor indirecte (ADR-058) | SNC „Stocuri" pct. 29–31, **Anexa 1** (exemplul numeric al actului), pct. 57; Plan 811, 821, 714, clasa 8 |
 | `test_c4_settlement.py` | diferențele la decontare (ADR-057) | SNC „Diferenţe de curs valutar şi de sumă" pct. 8–10, 17, 19–21, 23, **Exemplele 1, 2, 5**; Plan 221, 521, 612, 622, 714, 722, 242; nomenclatorul 6226/7224, 6227/7225, 6127/7147 |
+| `test_revaluation.py` | reevaluarea la data raportării (A10, ADR-097) | SNC „Diferenţe de curs valutar şi de sumă" pct. 11, 13–15, **Exemplul 3**; nomenclatorul 2211/2212, 6226/7224 |
 | `test_closing.py` | închiderea lunii și a exercițiului (ADR-056) | SNC „Capital propriu şi datorii" pct. 21, 23, **Exemplul 7**; Plan 611, 714, 731, 351, 333, clasa 8; ADR-050 §3.2, ADR-054 §4 |
 | `test_manual_note.py` | nota manuală | SNC „Venituri" pct. 17, **Exemplul 8**; Plan 221, 242, 216, 521, 534, 611, 711, 731 |
 | `test_opening_balances.py` | soldurile inițiale | Plan 216, 221, 242, 311, 521 („Soldul contului … este debitor/creditor"); cap. I, partida dublă |
@@ -91,8 +92,6 @@ Nu sunt eșecuri tolerate: fiecare are o decizie în spate și un caz care o afi
 
 ## Ce nu e aici
 
-- **Reevaluarea la data raportării** (SNC „Diferenţe de curs" pct. 11–15, Anexa 1 a acelui
-  standard) — handler neconstruit, deci fără caz.
 - **Reformarea bilanțului** (334, 333 → 332) — `OD-73`, în afara lanțului livrat.
 - **Impozitul pe venit ca sumă calculată** — cazurile îl *înregistrează* (Plan 731), nu îl
   calculează; cota e parametru (`R15`, `OD-22`). La fel TVA-ul: suma e a documentului.

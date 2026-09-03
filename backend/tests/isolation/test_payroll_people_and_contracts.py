@@ -123,6 +123,7 @@ def a_contract(
         weekly_hours=Decimal("40.00"),
         cas_payer_point="1.1",
         budget_funded_employer=False,
+        cost_destination="administrative",
     )
 
 

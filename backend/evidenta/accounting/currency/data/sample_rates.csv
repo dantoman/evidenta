@@ -1,0 +1,7 @@
+currency,rate_date,rate,rate_type,source
+EUR,2026-01-20,19.5000,bnm_official,fixture -- ADR-057 issue rate
+EUR,2026-01-25,19.6234,bnm_official,fixture -- ADR-057 settlement rate
+EUR,2026-01-31,19.7000,bnm_official,fixture -- reporting-date rate
+EUR,2026-02-10,19.8000,bnm_official,fixture -- second settlement
+USD,2026-01-20,17.5000,bnm_official,fixture
+USD,2026-01-31,17.6200,bnm_official,fixture

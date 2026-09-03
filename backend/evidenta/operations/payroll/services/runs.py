@@ -41,7 +41,14 @@ from django.db import transaction
 from django.db.models import Sum
 
 from evidenta.accounting.currency.money import rounding_for
+from evidenta.accounting.events.services.lineage import events_of_document
 from evidenta.accounting.opening.services.cumulatives import opening_cumulative
+from evidenta.accounting.posting.services.payroll import (
+    SOURCE_DOCUMENT_TYPE,
+    PayrollLineFact,
+    PayrollRunFact,
+    post_payroll_run,
+)
 from evidenta.fiscal.parameters.services.resolution import (
     FiscalResolutionError,
     resolve_parameter,
@@ -63,6 +70,8 @@ from evidenta.operations.payroll.services.contracts import clauses_in_force_on
 from evidenta.operations.payroll.services.exemptions import exemptions_in_force_on
 from evidenta.platform.api.errors import ApiError
 from evidenta.platform.audit.services.recording import record
+from evidenta.platform.capabilities.services.profile import active_profile
+from evidenta.platform.tenancy.services.companies import functional_currency
 
 #: The component keys this build produces. Codes, not labels -- what they are
 #: called in the interface lives in the resource files (`C32`).
@@ -256,14 +265,23 @@ def recompute(*, run_id: uuid.UUID) -> dict[str, Any]:
     return run_in_context(run.id)
 
 
-def approve(*, run_id: uuid.UUID, approver_user_id: uuid.UUID) -> dict[str, Any]:
-    """Freeze the run. Refused while any line has no amount.
+def approve(
+    *, run_id: uuid.UUID, approver_user_id: uuid.UUID, request_id: str = "payroll"
+) -> dict[str, Any]:
+    """Freeze the run and post it. Refused while any line has no amount.
 
     This is the point of the nullable amount: an incomplete calculation is
     perfectly fine as a draft -- it shows the gross, the hours and what is
     missing -- and must never become the basis of a declaration. The database
     holds the other half: after approval the trigger refuses every write to a
     line.
+
+    **Approval and posting are one transaction** (ADR-065 section 8, `R9`): the
+    run emits `payroll.run_approved` and the engine writes the entry, or the
+    refusal -- an unbound role, a closed month, a contract with no cost
+    destination -- rolls the approval back with it. A run that is approved but
+    not in the books would be a declaration without a ledger behind it, which is
+    the state this module exists to make impossible.
     """
     run = PayrollRun.objects.filter(id=run_id).first()
     if run is None:
@@ -279,19 +297,84 @@ def approve(*, run_id: uuid.UUID, approver_user_id: uuid.UUID) -> dict[str, Any]
             f"make a declaration out of what was not calculated"
         )
 
-    run.status = PayrollRunStatus.APPROVED
-    run.approved_by_user_id = approver_user_id
-    run.approved_at = datetime.now(UTC)
-    run.save(update_fields=["status", "approved_by_user_id", "approved_at"])
+    with transaction.atomic():
+        run.status = PayrollRunStatus.APPROVED
+        run.approved_by_user_id = approver_user_id
+        run.approved_at = datetime.now(UTC)
+        run.save(update_fields=["status", "approved_by_user_id", "approved_at"])
 
-    record(
-        action="payroll.run_approved",
-        entity_type="payroll_run",
-        entity_id=run.id,
-        company_id=run.company_id,
-        new_value={"year": run.year, "month": run.month},
-    )
+        record(
+            action="payroll.run_approved",
+            entity_type="payroll_run",
+            entity_id=run.id,
+            company_id=run.company_id,
+            new_value={"year": run.year, "month": run.month},
+        )
+        post_payroll_run(
+            tenant_id=run.tenant_id,
+            company_id=run.company_id,
+            functional_currency=functional_currency(run.company_id),
+            fact=_fact_of(run),
+            actor_user_id=approver_user_id,
+            request_id=request_id,
+            capability_snapshot=active_profile(run.company_id, run.accrual_date).as_snapshot(),
+        )
     return run_in_context(run.id)
+
+
+def _fact_of(run: PayrollRun) -> PayrollRunFact:
+    """What the run states to the engine: its lines, each with the contract's destination.
+
+    Every amount is present -- approval refused otherwise -- and the parameters
+    the lines stood on travel along, distinct, for the stamps of ADR-047.
+    """
+    start, end = _month_bounds(run.year, run.month)
+    lines = list(
+        run.lines.select_related("contract").order_by("employee_id", "contract_id", "component_key")
+    )
+    parameters = sorted(
+        {
+            (line.parameter_id, line.parameter_key)
+            for line in lines
+            if line.parameter_id is not None and line.parameter_key is not None
+        },
+        key=lambda item: (item[1], str(item[0])),
+    )
+    return PayrollRunFact(
+        run_id=run.id,
+        year=run.year,
+        month=run.month,
+        accrual_date=run.accrual_date,
+        work_period_start=start,
+        work_period_end=end,
+        lines=tuple(
+            PayrollLineFact(
+                employee_id=line.employee_id,
+                contract_id=line.contract_id,
+                contract_number=line.contract.contract_number,
+                component_key=line.component_key,
+                amount=line.amount,
+                cost_destination=line.contract.cost_destination,
+            )
+            for line in lines
+            if line.amount is not None
+        ),
+        parameters=tuple(parameters),
+        description=f"Salarii {run.year}-{run.month:02d}",
+    )
+
+
+def _posting_of(run: PayrollRun) -> dict[str, Any] | None:
+    """Whether the run reached the ledger, from the event the engine keeps current."""
+    events = events_of_document(SOURCE_DOCUMENT_TYPE, run.id)
+    if not events:
+        return None
+    last = events[-1]
+    return {
+        "accounting_event_id": str(last.id),
+        "status": last.status,
+        "posted_at": last.posted_at.isoformat() if last.posted_at else None,
+    }
 
 
 def _compute(run: PayrollRun) -> None:
@@ -718,4 +801,5 @@ def run_in_context(run_id: uuid.UUID) -> dict[str, Any]:
         },
         "unresolved": unresolved,
         "complete": unresolved == 0,
+        "posting": _posting_of(run),
     }

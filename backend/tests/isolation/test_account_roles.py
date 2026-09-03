@@ -93,8 +93,8 @@ def test_the_vocabulary_and_the_mapping_cannot_drift() -> None:
     it. This pins the count so that a role silently disappearing from the file is
     a failure here rather than a refusal at posting, months later.
     """
-    assert len(ROLES) == len(DEFAULTS) == 48
-    assert len({default.account_code for default in DEFAULTS}) == 48
+    assert len(ROLES) == len(DEFAULTS) == 53
+    assert len({default.account_code for default in DEFAULTS}) == 53
 
 
 def test_no_account_code_is_written_in_engine_code() -> None:
@@ -129,8 +129,8 @@ def test_every_role_resolves_once_the_company_is_bound(
         install_default_bindings(tenant_id=scene["tenant"], company_id=scene["company"], on_date=ON)
         resolved = {role: resolve_role(scene["company"], role, ON) for role in sorted(ROLES)}
 
-    assert len(resolved) == 48
-    assert len(set(resolved.values())) == 48
+    assert len(resolved) == 53
+    assert len(set(resolved.values())) == 53
 
 
 def test_the_role_reaches_the_subaccount_the_plan_imposes(
@@ -215,7 +215,7 @@ def test_installing_twice_adds_nothing(context: TenantContext, scene: dict[str, 
         total = AccountRoleBinding.objects.filter(company_id=scene["company"]).count()
 
     assert again == []
-    assert total == 48
+    assert total == 53
 
 
 def test_the_bindings_read_back_with_their_provenance(
@@ -226,7 +226,7 @@ def test_the_bindings_read_back_with_their_provenance(
         install_default_bindings(tenant_id=scene["tenant"], company_id=scene["company"], on_date=ON)
         rows = bindings_of(scene["company"], ON)
 
-    assert len(rows) == 48
+    assert len(rows) == 53
     assert all(row["source"] for row in rows)
     assert {row["role"] for row in rows} == ROLES
 

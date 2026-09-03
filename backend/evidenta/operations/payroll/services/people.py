@@ -32,6 +32,12 @@ from evidenta.platform.audit.services.recording import record
 #: serializers for a regular expression (`D6`).
 IDNP = re.compile(r"^\d{13}$")
 
+#: ISO 13616: two letters of country, two check digits, up to thirty of BBAN.
+#: The check digits are verified (mod 97), which is what catches a mistyped
+#: account before the bank's list carries it. Not verified: the length per
+#: country -- the registry is a table this build does not carry.
+IBAN = re.compile(r"^[A-Z]{2}\d{2}[A-Z0-9]{11,30}$")
+
 
 class EmployeeMalformedError(ApiError):
     code = "payroll.employee_malformed"
@@ -55,6 +61,29 @@ class EmployeeNotFoundError(ApiError):
     status = 404
 
 
+class IbanInvalidError(ApiError):
+    """An account number that is not one -- refused before a payment list carries it."""
+
+    code = "payroll.iban_invalid"
+    status = 422
+
+
+def checked_iban(raw: str | None) -> str | None:
+    """The IBAN without spaces, upper-cased, with its check digits verified; or none."""
+    value = "".join((raw or "").split()).upper()
+    if not value:
+        return None
+    if not IBAN.match(value):
+        raise IbanInvalidError(
+            "an IBAN is two letters, two check digits and the account (ISO 13616), "
+            "for example MD24AG000225100013104168"
+        )
+    rearranged = value[4:] + value[:4]
+    if int("".join(str(int(char, 36)) for char in rearranged)) % 97 != 1:
+        raise IbanInvalidError("the IBAN's check digits do not match; one character is wrong")
+    return value
+
+
 def create_employee(
     *,
     tenant_id: uuid.UUID,
@@ -66,6 +95,7 @@ def create_employee(
     identity_document_type: str | None = None,
     identity_document_number: str | None = None,
     social_insurance_code: str | None = None,
+    bank_iban: str | None = None,
 ) -> Employee:
     """Record a person. Exactly one identity, and it is not negotiable.
 
@@ -117,6 +147,7 @@ def create_employee(
                 identity_document_type=doc_type,
                 identity_document_number=doc_number,
                 social_insurance_code=(social_insurance_code or "").strip() or None,
+                bank_iban=checked_iban(bank_iban),
             )
     except IntegrityError as exc:
         raise EmployeeDuplicateError("this company already has a record for that person") from exc
@@ -165,6 +196,29 @@ def employee_in_context(employee_id: uuid.UUID) -> dict[str, Any]:
     return _as_dict(employee)
 
 
+def set_bank_iban(*, employee_id: uuid.UUID, bank_iban: str | None) -> dict[str, Any]:
+    """Where the net goes -- set or cleared on an existing person.
+
+    Its own write, not a general edit: the account is the one column of the
+    record that changes during employment, and the payment list reads it.
+    """
+    employee = Employee.objects.filter(id=employee_id).first()
+    if employee is None:
+        raise EmployeeNotFoundError("no such person in this context")
+    previous = employee.bank_iban
+    employee.bank_iban = checked_iban(bank_iban)
+    employee.save(update_fields=["bank_iban", "updated_at"])
+    record(
+        action="payroll.employee_bank_account_set",
+        entity_type="employee",
+        entity_id=employee.id,
+        company_id=employee.company_id,
+        old_value={"bank_iban": previous},
+        new_value={"bank_iban": employee.bank_iban},
+    )
+    return _as_dict(employee)
+
+
 def _as_dict(employee: Employee) -> dict[str, Any]:
     return {
         "id": str(employee.id),
@@ -179,4 +233,5 @@ def _as_dict(employee: Employee) -> dict[str, Any]:
         "identity_document_number": employee.identity_document_number,
         "tax_residency": employee.tax_residency,
         "social_insurance_code": employee.social_insurance_code,
+        "bank_iban": employee.bank_iban,
     }

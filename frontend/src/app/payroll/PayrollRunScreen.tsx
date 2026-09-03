@@ -28,16 +28,24 @@ import { Link, useParams } from 'react-router'
 import { t } from '@/locales'
 import {
   approveRun,
+  bankListUrl,
+  createPayment,
   createRun,
+  getPayment,
   getPayslip,
+  payslipPdfUrl,
   getRun,
+  listPayments,
   listRuns,
+  postPayment,
   recomputeRun,
+  updatePayment,
   type RunLine,
+  type SalaryPaymentLine,
 } from '@/shared/api/payroll'
 import { DataGrid, type Column } from '@/shared/DataGrid'
 import { Failure } from '@/shared/Failure'
-import { Button, Card, Field, Input } from '@/shared/ui'
+import { Button, Card, Field, Input, Select } from '@/shared/ui'
 
 export function PayrollRunScreen() {
   const { companyId = '' } = useParams()
@@ -159,6 +167,7 @@ function NewRunForm({
 
 function Register({ runId, onChanged }: { runId: string; onChanged: () => void }) {
   const queryClient = useQueryClient()
+  const { companyId } = useParams()
   const [payslipFor, setPayslipFor] = useState<string | null>(null)
 
   const run = useQuery({ queryKey: ['payroll-run', runId], queryFn: () => getRun(runId) })
@@ -207,15 +216,30 @@ function Register({ runId, onChanged }: { runId: string; onChanged: () => void }
       key: 'payslip',
       header: '',
       cell: (row) => (
-        <button
-          type="button"
-          className="text-accent"
-          onClick={() => setPayslipFor(payslipFor === row.employee_id ? null : row.employee_id)}
-        >
-          {t.payroll.payslip}
-        </button>
+        <span className="flex flex-wrap gap-x-4 gap-y-1">
+          <button
+            type="button"
+            className="text-accent"
+            onClick={() => setPayslipFor(payslipFor === row.employee_id ? null : row.employee_id)}
+          >
+            {t.payroll.payslip}
+          </button>
+          {/* The printed one (`C22`, ADR-095): a link the browser opens, not a fetch.
+              Only once the month is approved -- the server refuses a draft, and a
+              link that always fails is a broken control, not an honest one. */}
+          {run.data?.status === 'approved' && (
+            <a
+              href={payslipPdfUrl(runId, row.employee_id)}
+              target="_blank"
+              rel="noopener"
+              className="text-accent"
+            >
+              {t.payroll.payslipPdf}
+            </a>
+          )}
+        </span>
       ),
-      width: '8rem',
+      width: '11rem',
     },
   ]
 
@@ -229,6 +253,14 @@ function Register({ runId, onChanged }: { runId: string; onChanged: () => void }
               {run.data.year}-{String(run.data.month).padStart(2, '0')} ·{' '}
               {t.payroll.accrualDate}: {run.data.accrual_date}
             </h2>
+            {run.data.posting?.status === 'posted' && (
+              <p className="text-sm text-ink-muted" title={t.payroll.postedHint}>
+                <span className="font-medium text-ink">{t.payroll.posted}</span> ·{' '}
+                <Link to={`/companii/${companyId}/registru`} className="text-accent">
+                  {t.payroll.seeRegister}
+                </Link>
+              </p>
+            )}
             {run.data.status === 'draft' && (
               <div className="flex items-center gap-3">
                 <Button variant="secondary"
@@ -278,6 +310,12 @@ function Register({ runId, onChanged }: { runId: string; onChanged: () => void }
           </Card>
 
           <Reasons lines={run.data.lines ?? []} />
+
+          {/* Only once the run is in the books: a payment settles what the
+              accrual put on the salary payable, and before that there is
+              nothing on it to settle. The server says whether it is, from the
+              event; the screen never infers "posted" from "approved". */}
+          {run.data.posting?.status === 'posted' && <PaymentsPanel runId={runId} />}
 
           {payslipFor && <PayslipView runId={runId} employeeId={payslipFor} />}
         </>
@@ -361,6 +399,317 @@ function PayslipView({ runId, employeeId }: { runId: string; employeeId: string 
       <p className="tabular-nums">
         {t.payroll.net}: {slip.data.net_ro ?? t.payroll.notComputed}
       </p>
+    </article>
+  )
+}
+
+/**
+ * Paying what the accrual left, per person, from the till or the bank account.
+ *
+ * The document is the payroll module's; where the money leaves from is the
+ * instrument's (ADR-073 §5), so the form asks for it and defaults to nothing
+ * the server would not accept. The bank's list is a file the server builds
+ * from the same rows as the lines shown here (`C20`): the link points at the
+ * endpoint, and nothing here formats a row.
+ */
+function PaymentsPanel({ runId }: { runId: string }) {
+  const queryClient = useQueryClient()
+  const [where, setWhere] = useState<'cash' | 'bank'>('bank')
+  const [paidOn, setPaidOn] = useState('')
+  const [selected, setSelected] = useState<string | null>(null)
+
+  const payments = useQuery({
+    queryKey: ['payroll-payments', runId],
+    queryFn: () => listPayments(runId),
+  })
+
+  const refresh = () => queryClient.invalidateQueries({ queryKey: ['payroll-payments', runId] })
+
+  const create = useMutation({
+    mutationFn: () => createPayment(runId, { paid_on: paidOn, treasury_account: where }),
+    onSuccess: async (payment) => {
+      setSelected(payment.id)
+      await refresh()
+    },
+  })
+
+  return (
+    <section className="flex flex-col gap-3 rounded border border-border p-4">
+      <header className="flex flex-wrap items-center justify-between gap-4">
+        <h3 className="text-sm font-semibold">{t.payroll.payments}</h3>
+        <a
+          href={bankListUrl(runId)}
+          className="text-sm text-accent"
+          title={t.payroll.bankListHint}
+        >
+          {t.payroll.bankList}
+        </a>
+      </header>
+
+      <form
+        className="flex flex-wrap items-end gap-4"
+        onSubmit={(event: FormEvent) => {
+          event.preventDefault()
+          create.mutate()
+        }}
+      >
+        <Field label={t.payroll.paidOn}>
+          <Input
+            type="date"
+            value={paidOn}
+            onChange={(event) => setPaidOn(event.target.value)}
+            className="w-40"
+          />
+        </Field>
+        <Field label={t.payroll.paidFrom}>
+          <Select
+            value={where}
+            onChange={(event) => setWhere(event.target.value === 'cash' ? 'cash' : 'bank')}
+            className="w-40"
+          >
+            <option value="bank">{t.treasury.bank}</option>
+            <option value="cash">{t.treasury.cash}</option>
+          </Select>
+        </Field>
+        <Button variant="primary" type="submit" disabled={paidOn === '' || create.isPending}>
+          {t.payroll.paySalaries}
+        </Button>
+        {create.isError && <Failure error={create.error} />}
+      </form>
+
+      {payments.isError && <Failure error={payments.error} />}
+      {payments.data && (
+        <ul className="flex flex-wrap gap-3 text-sm">
+          {payments.data.length === 0 && (
+            <li className="text-ink-muted">{t.payroll.noPayments}</li>
+          )}
+          {payments.data.map((payment) => (
+            <li key={payment.id}>
+              <Button
+                variant="secondary"
+                type="button"
+                onClick={() => setSelected(selected === payment.id ? null : payment.id)}
+              >
+                {payment.paid_on} ·{' '}
+                {payment.treasury_account === 'cash' ? t.treasury.cash : t.treasury.bank} ·{' '}
+                <span className="tabular-nums">{payment.total}</span> ·{' '}
+                {payment.status === 'posted' ? t.payroll.paymentPosted : t.payroll.paymentDraft}
+              </Button>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {selected && <PaymentView paymentId={selected} runId={runId} onChanged={refresh} />}
+    </section>
+  )
+}
+
+/**
+ * One payment: its lines beside what the run left each person.
+ *
+ * **A line goes down or away, never up**: the amount is changed through the
+ * small form, a person is removed with the row's action, and the server refuses
+ * anything above what is left (`payroll.overpayment`). Edits are held here until
+ * saved; while any are pending the server's total is hidden rather than
+ * recomputed (`C19`), and posting waits for the save.
+ */
+function PaymentView({
+  paymentId,
+  runId,
+  onChanged,
+}: {
+  paymentId: string
+  runId: string
+  onChanged: () => Promise<unknown> | void
+}) {
+  const queryClient = useQueryClient()
+  const { companyId } = useParams()
+  const [pending, setPending] = useState<SalaryPaymentLine[] | null>(null)
+  const [who, setWho] = useState('')
+  const [amount, setAmount] = useState('')
+
+  const payment = useQuery({
+    queryKey: ['payroll-payment', paymentId],
+    queryFn: () => getPayment(paymentId),
+  })
+
+  const refresh = async () => {
+    setPending(null)
+    await queryClient.invalidateQueries({ queryKey: ['payroll-payment', paymentId] })
+    await onChanged()
+  }
+
+  const lines = pending ?? payment.data?.lines ?? []
+  const draft = payment.data?.status === 'draft'
+
+  const save = useMutation({
+    mutationFn: () =>
+      updatePayment(paymentId, {
+        lines: lines.map((line) => ({ employee_id: line.employee_id, amount: line.amount })),
+      }),
+    onSuccess: refresh,
+  })
+  const post = useMutation({
+    // The key is the document's, so a retry of this action is the same action.
+    mutationFn: () => postPayment(paymentId, `payroll.payment:${paymentId}`),
+    onSuccess: refresh,
+  })
+
+  const columns: Column<SalaryPaymentLine>[] = [
+    { key: 'employee', header: t.payroll.people, cell: (row) => row.employee_name },
+    {
+      key: 'idnp',
+      header: t.payroll.idnp,
+      cell: (row) => <span className="font-mono">{row.idnp ?? ''}</span>,
+      width: '10rem',
+    },
+    {
+      key: 'iban',
+      header: t.payroll.iban,
+      cell: (row) => <span className="font-mono">{row.bank_iban ?? ''}</span>,
+      width: '16rem',
+    },
+    { key: 'net', header: t.payroll.net, cell: (row) => row.net ?? '', numeric: true, width: '9rem' },
+    {
+      key: 'paid',
+      header: t.payroll.alreadyPaid,
+      cell: (row) => row.already_paid ?? '',
+      numeric: true,
+      width: '9rem',
+    },
+    {
+      key: 'amount',
+      header: t.payroll.amountToPay,
+      cell: (row) => row.amount,
+      numeric: true,
+      width: '9rem',
+    },
+  ]
+  if (draft) {
+    columns.push({
+      key: 'remove',
+      header: '',
+      cell: (row) => (
+        <button
+          type="button"
+          className="text-accent"
+          onClick={() => setPending(lines.filter((line) => line.employee_id !== row.employee_id))}
+        >
+          {t.payroll.removeLine}
+        </button>
+      ),
+      width: '6rem',
+    })
+  }
+
+  return (
+    <article className="flex flex-col gap-3">
+      {payment.isError && <Failure error={payment.error} />}
+      {payment.data && (
+        <>
+          <header className="flex flex-wrap items-center justify-between gap-4 text-sm">
+            <p>
+              <span className="font-medium">{payment.data.paid_on}</span> ·{' '}
+              {payment.data.treasury_account === 'cash' ? t.treasury.cash : t.treasury.bank} ·{' '}
+              {payment.data.status === 'posted' ? t.payroll.paymentPosted : t.payroll.paymentDraft}
+            </p>
+            <div className="flex flex-wrap items-center gap-4">
+              {payment.data.posting?.status === 'posted' && (
+                <Link to={`/companii/${companyId}/registru`} className="text-accent">
+                  {t.payroll.seeRegister}
+                </Link>
+              )}
+              <a href={bankListUrl(runId, paymentId)} className="text-accent">
+                {t.payroll.bankList}
+              </a>
+            </div>
+          </header>
+
+          <Card padding="none">
+            <DataGrid
+              columns={columns}
+              rows={lines}
+              rowKey={(row) => row.employee_id}
+              emptyMessage={t.payroll.noPayments}
+              serverTotals={
+                pending === null && payment.data.totals
+                  ? { amount: payment.data.totals.amount }
+                  : undefined
+              }
+            />
+          </Card>
+
+          {draft && (
+            <div className="flex flex-wrap items-end gap-4">
+              <form
+                className="flex flex-wrap items-end gap-3"
+                onSubmit={(event: FormEvent) => {
+                  event.preventDefault()
+                  // Both separators are the decimal separator (C40); the wire
+                  // carries the point.
+                  const value = amount.trim().replace(',', '.')
+                  setPending(
+                    lines.map((line) =>
+                      line.employee_id === who ? { ...line, amount: value } : line,
+                    ),
+                  )
+                  setAmount('')
+                }}
+              >
+                <Field label={t.payroll.people}>
+                  <Select
+                    value={who}
+                    onChange={(event) => setWho(event.target.value)}
+                    className="w-56"
+                  >
+                    <option value="">{t.payroll.pickPerson}</option>
+                    {lines.map((line) => (
+                      <option key={line.employee_id} value={line.employee_id}>
+                        {line.employee_name}
+                      </option>
+                    ))}
+                  </Select>
+                </Field>
+                <Field label={t.payroll.amountToPay}>
+                  <Input
+                    inputMode="decimal"
+                    value={amount}
+                    onChange={(event) => setAmount(event.target.value)}
+                    className="w-32 tabular-nums"
+                  />
+                </Field>
+                <Button
+                  variant="secondary"
+                  type="submit"
+                  disabled={who === '' || amount.trim() === ''}
+                >
+                  {t.payroll.changeAmount}
+                </Button>
+              </form>
+              <Button
+                variant="secondary"
+                type="button"
+                onClick={() => save.mutate()}
+                disabled={pending === null || save.isPending}
+              >
+                {t.payroll.saveLines}
+              </Button>
+              <Button
+                variant="primary"
+                type="button"
+                onClick={() => post.mutate()}
+                disabled={pending !== null || post.isPending}
+                title={t.payroll.postPaymentHint}
+              >
+                {t.payroll.postPayment}
+              </Button>
+            </div>
+          )}
+          {save.isError && <Failure error={save.error} />}
+          {post.isError && <Failure error={post.error} />}
+        </>
+      )}
     </article>
   )
 }

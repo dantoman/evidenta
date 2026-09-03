@@ -39,13 +39,17 @@ export function listOpenItems(companyId: string): Promise<OpenItems> {
   return request<OpenItems>(`/api/v1/settlements/companies/${companyId}/open`)
 }
 
-export function allocate(body: {
-  settled_document_id: string
-  movement_document_id: string
-  amount: string
-}): Promise<AllocationResult> {
+export function allocate(
+  body: {
+    settled_document_id: string
+    movement_document_id: string
+    amount: string
+  },
+  idempotencyKey: string,
+): Promise<AllocationResult> {
   return request<AllocationResult>('/api/v1/settlements/allocations', {
     method: 'POST',
     body,
+    idempotencyKey,
   })
 }

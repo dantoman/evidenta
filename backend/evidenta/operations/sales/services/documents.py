@@ -26,6 +26,7 @@ from decimal import Decimal
 
 from django.db import transaction
 
+from evidenta.accounting.currency.services.rates import rate_on
 from evidenta.operations.sales.models import (
     CustomerOrder,
     ProformaDocument,
@@ -35,8 +36,10 @@ from evidenta.operations.sales.models import (
 )
 from evidenta.operations.sales.types import CUSTOMER_ORDER, PROFORMA, SALES_DOCUMENT
 from evidenta.platform.api.errors import ApiError
+from evidenta.platform.documents.errors import DocumentNotFoundError
 from evidenta.platform.documents.services.conversion import convert
-from evidenta.platform.documents.services.lifecycle import open_draft
+from evidenta.platform.documents.services.lifecycle import delete_draft, open_draft, update_draft
+from evidenta.platform.tenancy.services.companies import functional_currency
 
 
 class SaleMalformedError(ApiError):
@@ -59,6 +62,7 @@ def open_sale(
     external_number: str | None = None,
     notes: str | None = None,
     rate_term: str = "payment_date",
+    contract_denomination: str | None = None,
 ) -> uuid.UUID:
     """Start a sale as a draft. Delivery or advance, one type either way.
 
@@ -68,17 +72,14 @@ def open_sale(
     is not a property of the counterparty. A default would answer both questions
     in the direction that looks harmless -- services, resident -- and be wrong
     silently.
+
+    A sale in another currency carries ``contract_denomination`` (foreign
+    currency or conventional units, ADR-057 section 2.2) and a rate. The rate,
+    when the caller gives none, is the official rate of the **document's date**
+    (ADR-039 section 3.2, ADR-097) -- asked of `rate_on`, which refuses a day
+    with no published rate rather than reaching for the nearest one.
     """
-    if revenue_kind not in RevenueKind.values:
-        raise SaleMalformedError(
-            f"{revenue_kind!r} is not what a sale can recognise; the three are "
-            f"{', '.join(RevenueKind.values)}"
-        )
-    if not isinstance(partner_resident, bool):
-        raise SaleMalformedError(
-            "a sale says whether the counterparty is a resident: the receivable "
-            "account differs, and nothing in the partner card answers it"
-        )
+    _assert_discriminators(revenue_kind, partner_resident)
     document = open_draft(
         company_id=company_id,
         document_type=SALES_DOCUMENT,
@@ -86,10 +87,11 @@ def open_sale(
         accounting_date=accounting_date,
         partner_id=partner_id,
         currency=currency,
-        exchange_rate=exchange_rate,
+        exchange_rate=rate_of_the_day(company_id, currency, document_date, exchange_rate),
         external_number=external_number,
         notes=notes,
         rate_term=rate_term,
+        contract_denomination=contract_denomination,
     )
     SalesDocument.objects.create(
         document=document,
@@ -100,6 +102,97 @@ def open_sale(
         partner_resident=partner_resident,
     )
     return document.id
+
+
+@transaction.atomic
+def replace_sale(
+    document_id: uuid.UUID,
+    *,
+    partner_id: uuid.UUID,
+    document_date: date,
+    revenue_kind: str,
+    partner_resident: bool,
+    nature: str = SaleNature.DELIVERY,
+    accounting_date: date | None = None,
+    external_number: str | None = None,
+    notes: str | None = None,
+) -> None:
+    """Rewrite a draft sale's header in full: the core's fields and the type's own.
+
+    Replace rather than patch, for the reason `replace_lines` gives: a draft is
+    edited as a whole on the screen that shows it, and a partial update would
+    have to say which of two discriminators the caller meant to keep. The
+    positions are not touched here -- the caller rewrites them next, on the new
+    date, because the header decides what a line may state (ADR-088) and what
+    it costs (ADR-044).
+
+    Editability is the core's rule, asked once through `update_draft`; the
+    type's row follows its document, and the trigger on `sales_document`
+    refuses the write past draft even if nothing here had asked. Nothing is
+    numbered by editing: the number is validation's, and a draft rewritten ten
+    times is still a draft.
+    """
+    _assert_discriminators(revenue_kind, partner_resident)
+    if nature not in SaleNature.values:
+        raise SaleMalformedError(
+            f"{nature!r} is not a nature a sale has; the three are {', '.join(SaleNature.values)}"
+        )
+    sale = _sale(document_id)
+    update_draft(
+        document_id,
+        partner_id=partner_id,
+        document_date=document_date,
+        accounting_date=accounting_date or document_date,
+        external_number=external_number,
+        notes=notes,
+    )
+    sale.nature = nature
+    sale.revenue_kind = revenue_kind
+    sale.partner_resident = partner_resident
+    sale.save(update_fields=["nature", "revenue_kind", "partner_resident"])
+
+
+def rate_of_the_day(
+    company_id: uuid.UUID, currency: str | None, on: date, supplied: Decimal | None
+) -> Decimal | None:
+    """The header's rate: the caller's, or the official rate of the document's day.
+
+    Resolved here and not in the document core, because the core is `platform`
+    and the rates are `accounting` (the graph runs one way). Nothing is looked
+    up for a document in the company's own currency, and a rate the caller
+    supplies is taken as given -- a contract can fix one (`rate_term = fixed`).
+    """
+    if supplied is not None or currency is None or currency == functional_currency(company_id):
+        return supplied
+    return rate_on(currency, on)
+
+
+def delete_sale(document_id: uuid.UUID) -> None:
+    """Throw a draft sale away. Whether it may be is the core's rule, and the
+    audit line the core writes survives it; the type's row goes with the header."""
+    _sale(document_id)
+    delete_draft(document_id)
+
+
+def _sale(document_id: uuid.UUID) -> SalesDocument:
+    """The sale, or 404: absent and not-visible are the same answer (IZ-04)."""
+    sale = SalesDocument.objects.filter(document_id=document_id).first()
+    if sale is None:
+        raise DocumentNotFoundError(f"document {document_id} is not a sale visible in this context")
+    return sale
+
+
+def _assert_discriminators(revenue_kind: str, partner_resident: bool) -> None:
+    if revenue_kind not in RevenueKind.values:
+        raise SaleMalformedError(
+            f"{revenue_kind!r} is not what a sale can recognise; the three are "
+            f"{', '.join(RevenueKind.values)}"
+        )
+    if not isinstance(partner_resident, bool):
+        raise SaleMalformedError(
+            "a sale says whether the counterparty is a resident: the receivable "
+            "account differs, and nothing in the partner card answers it"
+        )
 
 
 @transaction.atomic

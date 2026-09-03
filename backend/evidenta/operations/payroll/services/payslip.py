@@ -17,10 +17,12 @@ worker carries that activation into the next task. `decimal_ro` and `date_ro`
 cannot move, and the test for this module proves it by rendering a payslip with
 another language active.
 
-**No PDF.** `C22` says printed documents are produced by a server-side pipeline
-with an imposed format, and that pipeline is `OD-74`, open. What this produces is
-the payload and a plain-text rendering, which is honest about what exists: a
-screen showing these fields is displaying data, not rendering a printed document.
+**The PDF is next door.** `C22` says printed documents are produced by a
+server-side pipeline with an imposed format; since ADR-095 that pipeline exists
+(`platform/documents/printing`) and `payslip_pdf.py` feeds it **this** dict, so
+the JSON the screen shows, the text and the PDF come from one set of values
+(`C20`). A screen showing these fields is displaying data; the PDF is the
+document.
 """
 
 from __future__ import annotations
@@ -32,6 +34,7 @@ from typing import Any
 from evidenta.operations.payroll.models import LineNature, PayrollLine, PayrollRun
 from evidenta.operations.payroll.services.exemptions import exemptions_in_force_on
 from evidenta.operations.payroll.services.runs import GROSS, PayrollRunNotFoundError
+from evidenta.platform.audit.services.recording import record
 from evidenta.platform.documents.formatting import date_ro, decimal_ro
 
 #: The document's own words. Fixed, in Romanian, and deliberately not in the
@@ -90,6 +93,17 @@ def payslip(*, run_id: uuid.UUID, employee_id: uuid.UUID) -> dict[str, Any]:
 
     employee = lines[0].employee
     contract = lines[0].contract
+
+    # A payslip carries the person's IDNP and the whole salary detail; like every
+    # other read of personal data in this module (`F2.B1`, `employee_in_context`)
+    # it leaves a trace of who read whose, in JSON, text or PDF alike.
+    record(
+        action="payroll.payslip_read",
+        entity_type="employee",
+        entity_id=employee.id,
+        company_id=run.company_id,
+        new_value={"run_id": str(run.id)},
+    )
 
     gross = Decimal(0)
     withheld = Decimal(0)
@@ -152,10 +166,9 @@ def payslip(*, run_id: uuid.UUID, employee_id: uuid.UUID) -> dict[str, Any]:
 def render_text(slip: dict[str, Any]) -> str:
     """The payslip as plain text, in Romanian, at fixed `ro-MD` conventions.
 
-    Plain text rather than PDF because the printed-document pipeline is `OD-74`
-    and open. What this is *not* is a placeholder for it: a payslip handed over as
-    text is a real thing an accountant sends, and it is produced from the same
-    values the register shows, from the same source (`C20`).
+    Kept beside the PDF (`payslip_pdf.py`), not replaced by it: a payslip handed
+    over as text is a real thing an accountant sends, and it is produced from the
+    same values the register shows, from the same source (`C20`).
     """
     out = [
         slip["title"],

@@ -18,13 +18,19 @@ from datetime import date
 from decimal import Decimal
 from typing import Any
 
+from django.http import HttpResponse
 from rest_framework import serializers
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from evidenta.fiscal.registry.services.relationships import relationship_types
-from evidenta.operations.payroll.models import EMPLOYER_CAS_POINTS, TaxResidency
+from evidenta.operations.payroll.models import (
+    EMPLOYER_CAS_POINTS,
+    CostDestination,
+    SalaryTreasuryAccount,
+    TaxResidency,
+)
 from evidenta.operations.payroll.services.contracts import (
     add_amendment,
     as_dict,
@@ -33,6 +39,7 @@ from evidenta.operations.payroll.services.contracts import (
     contracts_of,
     create_contract,
     end_contract,
+    set_cost_destination,
 )
 from evidenta.operations.payroll.services.exemptions import (
     GrantRequest,
@@ -44,11 +51,21 @@ from evidenta.operations.payroll.services.exemptions import (
     month_after,
     withdraw,
 )
+from evidenta.operations.payroll.services.payments import (
+    bank_list_csv,
+    create_payment,
+    payment_in_context,
+    payments_of_run,
+    post_payment,
+    update_payment,
+)
 from evidenta.operations.payroll.services.payslip import payslip, render_text
+from evidenta.operations.payroll.services.payslip_pdf import payslip_printable
 from evidenta.operations.payroll.services.people import (
     create_employee,
     employee_in_context,
     employees_of,
+    set_bank_iban,
 )
 from evidenta.operations.payroll.services.runs import (
     approve,
@@ -66,6 +83,8 @@ from evidenta.operations.payroll.services.timesheets import (
     set_days,
 )
 from evidenta.platform.api.errors import ApiError
+from evidenta.platform.api.idempotency import read_key
+from evidenta.platform.documents.printing import pdf_response
 from evidenta.platform.rls.context import MissingTenantContextError, current_context
 
 
@@ -81,6 +100,11 @@ class EmployeeSerializer(serializers.Serializer[dict[str, Any]]):
         required=False, allow_null=True, allow_blank=True
     )
     social_insurance_code = serializers.CharField(required=False, allow_null=True, allow_blank=True)
+    bank_iban = serializers.CharField(required=False, allow_null=True, allow_blank=True)
+
+
+class BankAccountSerializer(serializers.Serializer[dict[str, Any]]):
+    bank_iban = serializers.CharField(allow_null=True, allow_blank=True)
 
 
 class ContractSerializer(serializers.Serializer[dict[str, Any]]):
@@ -100,6 +124,7 @@ class ContractSerializer(serializers.Serializer[dict[str, Any]]):
     #: private. Required, with no default: a boolean defaulting to `false` would
     #: quietly charge every budget-funded employer the private rate.
     budget_funded_employer = serializers.BooleanField()
+    cost_destination = serializers.ChoiceField(choices=list(CostDestination.values))
 
 
 class AmendmentSerializer(serializers.Serializer[dict[str, Any]]):
@@ -202,6 +227,7 @@ class EmployeeListView(APIView):
             identity_document_type=data.get("identity_document_type"),
             identity_document_number=data.get("identity_document_number"),
             social_insurance_code=data.get("social_insurance_code"),
+            bank_iban=data.get("bank_iban"),
         )
         return Response(employee_in_context(employee.id), status=201)
 
@@ -209,6 +235,17 @@ class EmployeeListView(APIView):
 class EmployeeDetailView(APIView):
     def get(self, request: Request, employee_id: uuid.UUID) -> Response:
         return Response(employee_in_context(employee_id))
+
+
+class EmployeeBankAccountView(APIView):
+    """Where the net goes, set on an existing person -- the payment list reads it."""
+
+    def put(self, request: Request, employee_id: uuid.UUID) -> Response:
+        payload = BankAccountSerializer(data=request.data)
+        payload.is_valid(raise_exception=True)
+        return Response(
+            set_bank_iban(employee_id=employee_id, bank_iban=payload.validated_data["bank_iban"])
+        )
 
 
 class ContractListView(APIView):
@@ -242,9 +279,28 @@ class ContractListView(APIView):
             base_salary=data["base_salary"],
             weekly_hours=data["weekly_hours"],
             cas_payer_point=data["cas_payer_point"],
+            cost_destination=data["cost_destination"],
             budget_funded_employer=data["budget_funded_employer"],
         )
         return Response(as_dict(contract), status=201)
+
+
+class ContractCostDestinationSerializer(serializers.Serializer[dict[str, Any]]):
+    cost_destination = serializers.ChoiceField(choices=list(CostDestination.values))
+
+
+class ContractCostDestinationView(APIView):
+    """Where the person's cost goes, stated on an existing contract (ADR-065 section 7.1)."""
+
+    def put(self, request: Request, contract_id: uuid.UUID) -> Response:
+        payload = ContractCostDestinationSerializer(data=request.data)
+        payload.is_valid(raise_exception=True)
+        return Response(
+            set_cost_destination(
+                contract_id=contract_id,
+                cost_destination=payload.validated_data["cost_destination"],
+            )
+        )
 
 
 class ContractDetailView(APIView):
@@ -520,7 +576,9 @@ class PayrollRunApprovalView(APIView):
 
     def post(self, request: Request, run_id: uuid.UUID) -> Response:
         context = _context()
-        return Response(approve(run_id=run_id, approver_user_id=context.user_id))
+        return Response(
+            approve(run_id=run_id, approver_user_id=context.user_id, request_id=context.request_id)
+        )
 
 
 class PayslipView(APIView):
@@ -535,6 +593,105 @@ class PayslipView(APIView):
         if request.query_params.get("format") == "text":
             return Response(render_text(slip), content_type="text/plain; charset=utf-8")
         return Response(slip)
+
+
+class SalaryPaymentSerializer(serializers.Serializer[dict[str, Any]]):
+    paid_on = serializers.DateField()
+    #: No default: the money left the till or the bank account, and nothing on
+    #: the run knows which (ADR-073 section 5).
+    treasury_account = serializers.ChoiceField(choices=list(SalaryTreasuryAccount.values))
+
+
+class SalaryPaymentLineSerializer(serializers.Serializer[dict[str, Any]]):
+    employee_id = serializers.UUIDField()
+    amount = serializers.DecimalField(max_digits=18, decimal_places=2)
+
+
+class SalaryPaymentUpdateSerializer(serializers.Serializer[dict[str, Any]]):
+    paid_on = serializers.DateField(required=False)
+    treasury_account = serializers.ChoiceField(
+        choices=list(SalaryTreasuryAccount.values), required=False
+    )
+    lines = SalaryPaymentLineSerializer(many=True, required=False)
+
+
+class SalaryPaymentListView(APIView):
+    """The payments of one run; opening one drafts everyone the run still owes."""
+
+    def get(self, request: Request, run_id: uuid.UUID) -> Response:
+        return Response(payments_of_run(run_id))
+
+    def post(self, request: Request, run_id: uuid.UUID) -> Response:
+        payload = SalaryPaymentSerializer(data=request.data)
+        payload.is_valid(raise_exception=True)
+        data = dict(payload.validated_data)
+        payment = create_payment(
+            run_id=run_id, paid_on=data["paid_on"], treasury_account=data["treasury_account"]
+        )
+        return Response(payment_in_context(payment.id), status=201)
+
+
+class SalaryPaymentDetailView(APIView):
+    def get(self, request: Request, payment_id: uuid.UUID) -> Response:
+        return Response(payment_in_context(payment_id))
+
+    def put(self, request: Request, payment_id: uuid.UUID) -> Response:
+        payload = SalaryPaymentUpdateSerializer(data=request.data)
+        payload.is_valid(raise_exception=True)
+        data = dict(payload.validated_data)
+        return Response(
+            update_payment(
+                payment_id=payment_id,
+                paid_on=data.get("paid_on"),
+                treasury_account=data.get("treasury_account"),
+                lines=[dict(line) for line in data["lines"]] if "lines" in data else None,
+            )
+        )
+
+
+class SalaryPaymentPostingView(APIView):
+    """Freeze and post, in one call. `Idempotency-Key` is required (`C9`).
+
+    The key on the accounting event is the document's identity (`R19`, ADR-073
+    section 8); the header is read so a client that retries without one is told
+    at integration time, not at month end.
+    """
+
+    def post(self, request: Request, payment_id: uuid.UUID) -> Response:
+        context = _context()
+        read_key(request._request)
+        return Response(
+            post_payment(
+                payment_id=payment_id,
+                actor_user_id=context.user_id,
+                request_id=context.request_id,
+            )
+        )
+
+
+class BankListView(APIView):
+    """The bank's payment list as a file, from the same rows as the screen (`C20`).
+
+    `payment` narrows it to one document's lines; without it, the list is what
+    the run left every person. Built in the Romanian document context whatever
+    language the request carries (`C38`).
+    """
+
+    def get(self, request: Request, run_id: uuid.UUID) -> HttpResponse:
+        raw = request.query_params.get("payment")
+        payment_id = uuid.UUID(raw) if raw else None
+        filename, body = bank_list_csv(run_id, payment_id=payment_id)
+        response = HttpResponse(body, content_type="text/csv; charset=utf-8")
+        response["Content-Disposition"] = f'attachment; filename="{filename}"'
+        return response
+
+
+class PayslipPdfView(APIView):
+    """The payslip as PDF -- `C22`, ADR-095 -- from the same values as the JSON
+    and the text, so the three cannot disagree (`C20`)."""
+
+    def get(self, request: Request, run_id: uuid.UUID, employee_id: uuid.UUID) -> HttpResponse:
+        return pdf_response(payslip_printable(run_id=run_id, employee_id=employee_id))
 
 
 class RelationshipTypeListView(APIView):

@@ -67,6 +67,22 @@ class RateTerm(models.TextChoices):
     FIXED = "fixed"
 
 
+class ContractDenomination(models.TextChoices):
+    """What a contract not in lei is denominated in -- the discriminator of
+    ADR-057 section 2.2, carried on the document since ADR-097 (`OD-127`).
+
+    Two values and no third: SNC "Diferenţe de curs valutar şi de sumă" names
+    operations *in foreign currency* (pct. 4) and contracts between residents in
+    foreign currency or *conventional units* (pct. 17). Neither means "in lei",
+    which is why the column is null on a document in the functional currency
+    and required on every other -- a denomination is a property of a contract
+    that is not in lei, and a default would be the silent choice ADR-057 refuses.
+    """
+
+    FOREIGN_CURRENCY = "foreign_currency"
+    CONVENTIONAL_UNITS = "conventional_units"
+
+
 class DocumentState(models.TextChoices):
     """The generic lifecycle. Domain variants extend it, never replace it.
 
@@ -184,6 +200,15 @@ class Document(models.Model):
     #: confirmed: the trigger compares the whole row.
     rate_term = models.TextField(choices=RateTerm.choices, default=RateTerm.PAYMENT_DATE)
 
+    #: Foreign currency or conventional units -- null exactly when the document
+    #: is in the functional currency (see `ContractDenomination`). Required, not
+    #: defaulted, on a document in another currency: it chooses between two pairs
+    #: of accounts at settlement and decides whether the balance is revalued at
+    #: the reporting date (pct. 11 against pct. 22). Frozen with the header.
+    contract_denomination = models.TextField(
+        choices=ContractDenomination.choices, null=True, blank=True
+    )
+
     # The counterparty, without a foreign key: partners live in masterdata, and a
     # key from every document to them is a cost paid on every write for an
     # integrity the service already asserts.
@@ -294,6 +319,11 @@ class Document(models.Model):
             models.CheckConstraint(
                 condition=models.Q(rate_term__in=RateTerm.values),
                 name="document_rate_term_valid",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(contract_denomination__isnull=True)
+                | models.Q(contract_denomination__in=ContractDenomination.values),
+                name="document_contract_denomination_valid",
             ),
             # ADR-022: uniqueness in the database. A service that checks and then
             # inserts produces duplicates on the first concurrent write.

@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import UTC, datetime
+from decimal import Decimal
 
 from django.db import transaction
 from django.db.models import QuerySet
@@ -36,6 +37,7 @@ from evidenta.accounting.periods.errors import (
 )
 from evidenta.accounting.periods.models import FiscalYear, FiscalYearStatus, Period, PeriodStatus
 from evidenta.platform.audit.services.recording import record
+from evidenta.platform.notifications.services import dispatch
 from evidenta.platform.rls.context import MissingTenantContextError, current_context
 
 #: The class of the management accounts, by the chart's own structure: the first
@@ -45,9 +47,34 @@ from evidenta.platform.rls.context import MissingTenantContextError, current_con
 MANAGEMENT_CLASS = "8"
 
 
-def _period(period_id: uuid.UUID) -> Period:
-    """The period, or a refusal that does not say whose it is (IZ-04)."""
+def period_in_context(period_id: uuid.UUID) -> Period:
+    """The period, or a refusal that does not say whose it is (IZ-04).
+
+    Public since the closing door: the checks and the views need the row the
+    transitions read, and a second reader in `views` would be a second place
+    for the not-found answer to drift from this one.
+    """
     period = Period.objects.filter(id=period_id).select_related("fiscal_year").first()
+    if period is None:
+        raise PeriodNotFoundError(f"period {period_id} is not visible in this context")
+    return period
+
+
+def _period_for_update(period_id: uuid.UUID) -> Period:
+    """The period row, locked for the transition about to be written.
+
+    Two requests closing (or reopening) the same month could both pass the
+    status check on a plain read and both write; the ledger would not suffer --
+    the event's key arbitrates -- but the audit would show two closings and the
+    closing timestamp would belong to whichever committed last. The lock makes
+    the second reader see the first writer's state and refuse.
+    """
+    period = (
+        Period.objects.filter(id=period_id)
+        .select_related("fiscal_year")
+        .select_for_update(of=("self",))
+        .first()
+    )
     if period is None:
         raise PeriodNotFoundError(f"period {period_id} is not visible in this context")
     return period
@@ -65,21 +92,31 @@ def _actor() -> uuid.UUID:
     return context.user_id
 
 
+def unsettled_management_accounts(period: Period) -> list[tuple[str, Decimal]]:
+    """The class-8 accounts that still carry a balance at the period's last day.
+
+    Read through the ledger's public service (D6): the balance is a sum over the
+    lines up to the period's last day, never a stored figure. One reading for
+    the refusal below and for the closing checks that show it beforehand, so the
+    screen cannot say "settled" about a month the primitive then refuses.
+    """
+    balance = trial_balance(period.company_id, period.start_date, period.end_date)
+    return [
+        (row.account_code, row.closing)
+        for row in balance.rows
+        if row.account_code.startswith(MANAGEMENT_CLASS) and row.closing != 0
+    ]
+
+
 def assert_management_accounts_settled(period: Period) -> None:
     """The class-8 invariant of ADR-039 section 10.1, at the end of the period.
 
     Checked **here**, on the primitive, so that no path closes a month around it:
     the engine's `posting.services.closing.close_month` is the door that also
     records the event, but a caller reaching this service directly is refused
-    just the same. Read through the ledger's public service (D6): the balance is
-    a sum over the lines up to the period's last day, never a stored figure.
+    just the same.
     """
-    balance = trial_balance(period.company_id, period.start_date, period.end_date)
-    unsettled = [
-        (row.account_code, row.closing)
-        for row in balance.rows
-        if row.account_code.startswith(MANAGEMENT_CLASS) and row.closing != 0
-    ]
+    unsettled = unsettled_management_accounts(period)
     if unsettled:
         listed = ", ".join(f"{code} ({closing})" for code, closing in unsettled)
         raise ManagementAccountsNotSettledError(
@@ -96,7 +133,7 @@ def close_period(period_id: uuid.UUID) -> Period:
     Refuses, too, a month whose management accounts are not settled -- the
     class-8 invariant is validated at closing, not posted (ADR-039 section 10).
     """
-    period = _period(period_id)
+    period = _period_for_update(period_id)
     if period.status == PeriodStatus.LOCKED:
         raise PeriodLockedError(f"period {period.start_date:%Y-%m} is locked; it does not reopen")
     if period.status != PeriodStatus.OPEN:
@@ -137,7 +174,7 @@ def reopen_period(period_id: uuid.UUID, reason: str) -> Period:
             "is the one an inspection asks about first"
         )
 
-    period = _period(period_id)
+    period = _period_for_update(period_id)
     if period.status == PeriodStatus.LOCKED:
         raise PeriodLockedError(
             f"period {period.start_date:%Y-%m} is locked; correct it with a reversal "
@@ -176,6 +213,15 @@ def reopen_period(period_id: uuid.UUID, reason: str) -> Period:
             "reason": reason,
             "reopened_count": period.reopened_count,
         },
+    )
+    # Spec B section 6.2 names two obligations for this transition, the audit
+    # event and a notification; the second was missing. Every active member of
+    # the workspace learns that a closed month moved, in the same transaction.
+    dispatch.notify_tenant(
+        tenant_id=period.tenant_id,
+        type_key="period.reopened",
+        params={"period": f"{period.start_date:%m.%Y}", "reason": reason.strip()},
+        company_id=period.company_id,
     )
     return period
 

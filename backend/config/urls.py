@@ -16,8 +16,10 @@ urlpatterns: list[URLPattern | URLResolver] = [
     path("api/v1/auth/", include("evidenta.platform.identity.urls")),
     path("api/v1/accounting/coa/", include("evidenta.accounting.coa.urls")),
     path("api/v1/accounting/periods/", include("evidenta.accounting.periods.urls")),
+    path("api/v1/accounting/slots/", include("evidenta.accounting.slots.urls")),
     path("api/v1/accounting/entries/", include("evidenta.accounting.posting.urls")),
     path("api/v1/accounting/ledger/", include("evidenta.accounting.ledger.urls")),
+    path("api/v1/accounting/currency/", include("evidenta.accounting.currency.urls")),
     path(
         "api/v1/accounting/opening-balances/",
         include("evidenta.accounting.opening.urls"),

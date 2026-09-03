@@ -80,6 +80,18 @@ CATALOGUE: dict[str, Message] = {
         body="Accesul echipei Evidenta pentru solicitarea #{request_ref} a fost retras.",
         required_params=("request_ref",),
     ),
+    # Spec B section 6.2: `closed -> open` carries a mandatory audit event *and* a
+    # notification. The month and the reason are the whole message; no amounts,
+    # no names (C37, F0.6.5).
+    "period.reopened": Message(
+        subject="O lună închisă a fost redeschisă",
+        body=(
+            "Luna {period} a fost redeschisă pentru corecții. Motivul consemnat: "
+            "{reason}. Înregistrările din această lună pot fi modificate din nou până "
+            "la o nouă închidere."
+        ),
+        required_params=("period", "reason"),
+    ),
     "engagement.revoked": Message(
         subject="Accesul contabilului a fost retras",
         body=(

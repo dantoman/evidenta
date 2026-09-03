@@ -326,21 +326,26 @@ def test_a_parameter_without_a_margin_cannot_be_activated(tmp_path: Path) -> Non
     assert row.status == ParameterStatus.DRAFT
 
 
-def test_the_shipped_vat_file_is_refused_the_same_way(tmp_path: Path) -> None:
-    """Not a fictitious file: the one the repository ships. Loading it works,
-    activating it refuses on its first parameter by name -- the exact run the owner
-    would make, met here first instead of in the terminal."""
+def test_the_shipped_vat_file_activates_on_the_delegated_margin(tmp_path: Path) -> None:
+    """Not a fictitious file: the one the repository ships. Until 2026-09-03 it
+    carried no margin and this test proved the activation refused it by name. The
+    owner then delegated the margin -- the observation date, said so on every row
+    -- so the exact run the owner would make now activates every VAT row, and the
+    row says what its margin rests on rather than pretending an article was read."""
+    del tmp_path
     load_parameters(Path("tva.toml"))
-    with pytest.raises(CommandError, match=r"'vat\.regimes' has no margin"):
-        call_command(
-            "activate_fiscal_parameters",
-            "tva.toml",
-            approver=str(uuid.uuid4()),
-            actor="test:loader",
-            stdout=io.StringIO(),
-        )
-    assert not (
-        FiscalParameter.objects.using(REFDATA_ALIAS)
-        .filter(parameter_key__startswith="vat.", status=ParameterStatus.ACTIVE)
-        .exists()
+    call_command(
+        "activate_fiscal_parameters",
+        "tva.toml",
+        approver=str(uuid.uuid4()),
+        actor="test:loader",
+        stdout=io.StringIO(),
     )
+    rows = list(
+        FiscalParameter.objects.using(REFDATA_ALIAS).filter(parameter_key__startswith="vat.")
+    )
+    assert rows and all(row.status == ParameterStatus.ACTIVE for row in rows)
+    assert all(row.margin_basis == "act" and row.valid_from is not None for row in rows)
+    delegated = "decizia proprietarului din 2026-09-03"
+    assert all(delegated in (row.margin_reference or "") for row in rows)
+    assert all(row.source_confidence == "provisional" for row in rows)

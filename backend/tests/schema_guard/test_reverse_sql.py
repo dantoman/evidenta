@@ -97,6 +97,8 @@ ALREADY_CORRECT = [
         # ADR-087: a policy and a grant, nothing else -- the reverse withdraws
         # exactly what the forward granted.
         "0074_settlements",
+        "0079_revaluation",
+        "0080_currency_privileges",
     )
 ]
 

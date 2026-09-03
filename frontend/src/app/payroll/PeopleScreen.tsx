@@ -18,7 +18,12 @@ import { useState, type FormEvent } from 'react'
 import { Link, useParams } from 'react-router'
 
 import { t } from '@/locales'
-import { createEmployee, listEmployees, type Employee } from '@/shared/api/payroll'
+import {
+  createEmployee,
+  listEmployees,
+  setEmployeeBankAccount,
+  type Employee,
+} from '@/shared/api/payroll'
 import { DataGrid, type Column } from '@/shared/DataGrid'
 import { Failure } from '@/shared/Failure'
 import { Button, Card, Field, Input, Select } from '@/shared/ui'
@@ -29,6 +34,7 @@ export function PeopleScreen() {
   const [search, setSearch] = useState('')
   const [query, setQuery] = useState('')
   const [adding, setAdding] = useState(false)
+  const [ibanFor, setIbanFor] = useState<Employee | null>(null)
 
   const people = useQuery({
     queryKey: ['payroll-people', companyId, query],
@@ -67,6 +73,24 @@ export function PeopleScreen() {
       header: t.payroll.insuranceCode,
       cell: (person) => <span className="font-mono">{person.social_insurance_code ?? ''}</span>,
       width: '12rem',
+    },
+    {
+      // Where the net goes; the bank's payment list reads it. The cell is the
+      // door to setting it, because the account is the one thing on the record
+      // that changes during employment.
+      key: 'iban',
+      header: t.payroll.iban,
+      cell: (person) => (
+        <button
+          type="button"
+          className="font-mono text-accent"
+          title={t.payroll.ibanHint}
+          onClick={() => setIbanFor(ibanFor?.id === person.id ? null : person)}
+        >
+          {person.bank_iban ?? '—'}
+        </button>
+      ),
+      width: '16rem',
     },
     {
       // A door, not only a route. An endpoint reachable by typing its address is
@@ -133,6 +157,17 @@ export function PeopleScreen() {
         />
       )}
 
+      {ibanFor && (
+        <BankAccountForm
+          key={ibanFor.id}
+          person={ibanFor}
+          onSaved={async () => {
+            setIbanFor(null)
+            await refresh()
+          }}
+        />
+      )}
+
       {people.isError && <Failure error={people.error} />}
       {people.data && (
         <Card padding="none">
@@ -162,6 +197,7 @@ function NewPersonForm({
   const [documentType, setDocumentType] = useState('')
   const [documentNumber, setDocumentNumber] = useState('')
   const [insuranceCode, setInsuranceCode] = useState('')
+  const [iban, setIban] = useState('')
 
   // Which identity the form sends follows the residency, because that is the
   // question a person can answer -- not "which column am I filling in".
@@ -177,6 +213,7 @@ function NewPersonForm({
         identity_document_type: byIdnp ? null : documentType.trim() || null,
         identity_document_number: byIdnp ? null : documentNumber.trim() || null,
         social_insurance_code: insuranceCode.trim() || null,
+        bank_iban: iban.trim() || null,
       }),
     onSuccess: onCreated,
   })
@@ -258,11 +295,61 @@ function NewPersonForm({
           className="w-40 font-mono"
         />
       </Field>
+      <Field label={t.payroll.iban}>
+        <Input
+          value={iban}
+          onChange={(event) => setIban(event.target.value)}
+          title={t.payroll.ibanHint}
+          className="w-64 font-mono"
+        />
+      </Field>
 
       <Button variant="primary" type="submit" disabled={!complete || create.isPending}>
         {t.payroll.createPerson}
       </Button>
       {create.isError && <Failure error={create.error} />}
+    </form>
+  )
+}
+
+/** The account of one person, set or cleared. The server verifies the check digits. */
+function BankAccountForm({
+  person,
+  onSaved,
+}: {
+  person: Employee
+  onSaved: () => Promise<void> | void
+}) {
+  const [iban, setIban] = useState(person.bank_iban ?? '')
+
+  const save = useMutation({
+    mutationFn: () => setEmployeeBankAccount(person.id, iban.trim() || null),
+    onSuccess: onSaved,
+  })
+
+  return (
+    <form
+      className="flex flex-wrap items-end gap-4 rounded border border-border bg-surface p-4"
+      onSubmit={(event: FormEvent) => {
+        event.preventDefault()
+        save.mutate()
+      }}
+    >
+      <p className="text-sm">
+        {person.last_name} {person.first_name}
+      </p>
+      <Field label={t.payroll.iban}>
+        <Input
+          value={iban}
+          onChange={(event) => setIban(event.target.value)}
+          title={t.payroll.ibanHint}
+          className="w-64 font-mono"
+        />
+      </Field>
+      <Button variant="primary" type="submit" disabled={save.isPending}>
+        {t.payroll.saveIban}
+      </Button>
+      {save.isError && <Failure error={save.error} />}
     </form>
   )
 }

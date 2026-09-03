@@ -67,7 +67,7 @@ def probe_handler(**_: object) -> list[object]:
 
 
 @pytest.mark.parametrize(
-    "name", ["fixture.sample_event", "purchases.invoice_received", "payroll.run_approved"]
+    "name", ["fixture.sample_event", "purchases.invoice_received", "payroll.run_reversed"]
 )
 def test_the_spec_b_form_is_accepted(name: str) -> None:
     register(EventType(name=name, payload_fields=("amount",)))

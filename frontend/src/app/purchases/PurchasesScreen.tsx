@@ -29,6 +29,7 @@ import { useState, type FormEvent } from 'react'
 import { Link, useParams } from 'react-router'
 
 import { t } from '@/locales'
+import { CURRENCIES, rateOn, type ContractDenomination } from '@/shared/api/currency'
 import { vatRegimes } from '@/shared/api/fiscal'
 import { listPartners } from '@/shared/api/partners'
 import {
@@ -214,7 +215,18 @@ function NewPurchaseForm({
   const [supplierDate, setSupplierDate] = useState('')
   const [destination, setDestination] = useState<CostDestination>('administrative')
   const [resident, setResident] = useState(true)
+  const [currency, setCurrency] = useState('MDL')
+  const [denomination, setDenomination] = useState<ContractDenomination>('foreign_currency')
   const [lines, setLines] = useState<PurchaseLineInput[]>([emptyLine()])
+
+  // The rate of the document's date, as the server will use it (ADR-097); a day
+  // with no published rate is a refusal the form shows rather than a guess.
+  const inCurrency = currency !== 'MDL'
+  const rate = useQuery({
+    queryKey: ['exchange-rate', currency, documentDate],
+    queryFn: () => rateOn(currency, documentDate),
+    enabled: inCurrency && documentDate !== '',
+  })
 
   // The vocabulary of the document's date, plus the one code that is not in
   // it: a supplier who is not a VAT payer invoices without VAT.
@@ -233,6 +245,8 @@ function NewPurchaseForm({
         supplier_document_date: supplierDate,
         cost_destination: destination,
         partner_resident: resident,
+        currency,
+        contract_denomination: inCurrency ? denomination : null,
         lines,
       }),
     onSuccess: onCreated,
@@ -328,7 +342,50 @@ function NewPurchaseForm({
             />
             <span className="text-ink-muted">{t.purchases.resident}</span>
           </label>
+
+          <Field label={t.purchases.currency}>
+            <Select
+              value={currency}
+              onChange={(event) => setCurrency(event.target.value)}
+              title={t.purchases.currencyHint}
+              className="w-28"
+            >
+              {CURRENCIES.map((code) => (
+                <option key={code} value={code}>
+                  {code}
+                </option>
+              ))}
+            </Select>
+          </Field>
+
+          {inCurrency && (
+            <Field label={t.purchases.denomination}>
+              <Select
+                value={denomination}
+                onChange={(event) =>
+                  setDenomination(event.target.value as ContractDenomination)
+                }
+                title={t.purchases.denominationHint}
+                className="w-52"
+              >
+                <option value="foreign_currency">{t.purchases.foreignCurrency}</option>
+                <option value="conventional_units">{t.purchases.conventionalUnits}</option>
+              </Select>
+            </Field>
+          )}
         </div>
+
+        {inCurrency && (
+          <p className="text-sm text-ink-muted">
+            {documentDate === ''
+              ? t.purchases.rateNeedsDate
+              : rate.data !== undefined
+                ? `${t.purchases.rateOfTheDay} ${rate.data.rate} MDL / ${currency}`
+                : rate.isError
+                  ? t.purchases.rateMissing
+                  : t.app.loading}
+          </p>
+        )}
 
         <p className="text-sm text-ink-muted">
           {documentDate === '' ? t.purchases.regimesNeedDate : t.purchases.vatRegimeHint}

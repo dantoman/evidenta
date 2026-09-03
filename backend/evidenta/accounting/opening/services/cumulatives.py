@@ -24,6 +24,17 @@ from django.db.models import Sum
 
 from evidenta.accounting.opening.models import BatchStatus, OpeningBalancePayrollCumulative
 
+#: The three keys of the cumulative method -- ADR-061 section 5, transcribed
+#: from what HG 697/2014 point 38 consumes, not invented. Closed here rather
+#: than by a CHECK on the column (the model says why: growth is additive and
+#: arrives with the adopted IALS21), so the door that refuses a `code` nothing
+#: reads is the serializer, and this is the list it refuses against.
+CUMULATIVE_CODES: tuple[str, ...] = (
+    "income_tax.taxable_income",
+    "income_tax.exemptions_granted",
+    "income_tax.withheld",
+)
+
 
 def opening_cumulative(
     *, company_id: uuid.UUID, employee_id: uuid.UUID, code: str, year: int

@@ -31,7 +31,7 @@ margin equals its turnover: balanced, plausible, false.
 from __future__ import annotations
 
 import uuid
-from collections.abc import Iterable, Sequence
+from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass
 from datetime import UTC, date, datetime
 from decimal import Decimal
@@ -39,6 +39,7 @@ from typing import Any
 
 from django.db import transaction
 
+from evidenta.accounting.currency.money import rounding_for
 from evidenta.accounting.events.registry import (
     HANDLERS,
     EventType,
@@ -47,11 +48,13 @@ from evidenta.accounting.events.registry import (
 )
 from evidenta.accounting.events.services.emission import emit
 from evidenta.accounting.events.services.lifecycle import mark_failed, mark_posted
-from evidenta.accounting.ledger.services.writing import entry_id_of_event
+from evidenta.accounting.ledger.services.writing import ParameterStamp, entry_id_of_event
 from evidenta.accounting.posting.formula import RoleFormula, bind_roles
 from evidenta.accounting.posting.invariants import Origin
 from evidenta.accounting.posting.resolution import selected_treatment
 from evidenta.accounting.posting.services.formulas import post_formulas
+from evidenta.fiscal.parameters.services.resolution import resolve_parameter
+from evidenta.fiscal.parameters.services.scales import AMOUNT_SCALE_KEY, amount_scale
 from evidenta.platform.api.errors import ApiError
 from evidenta.platform.documents.services.lines import VatSlice
 from evidenta.platform.numbering.services.allocation import NumberingError
@@ -114,6 +117,8 @@ PAYLOAD_FIELDS = (
     "vat",
     "vat_by_rate",
     "currency",
+    "exchange_rate",
+    "rate_date",
     "revenue_kind",
     "partner_resident",
     "partner_id",
@@ -219,6 +224,12 @@ class SalesInvoiceFact:
     partner_resident: bool
     description: str
     vat_by_rate: tuple[VatShare, ...] = ()
+    #: The header's rate and the day it was taken for (ADR-039 section 3.2,
+    #: ADR-097): exactly 1 and unused in the functional currency; on a document
+    #: in another currency the amounts above are in that currency and the
+    #: handler derives the lei from them, once, at the scale in force.
+    exchange_rate: Decimal = Decimal(1)
+    rate_date: date | None = None
 
     def as_payload(self) -> dict[str, Any]:
         return {
@@ -229,6 +240,8 @@ class SalesInvoiceFact:
             "vat": str(self.vat),
             "vat_by_rate": [share.as_payload() for share in self.vat_by_rate],
             "currency": self.currency,
+            "exchange_rate": str(self.exchange_rate),
+            "rate_date": str(self.rate_date or self.document_date),
             "revenue_kind": self.revenue_kind,
             "partner_resident": self.partner_resident,
             "document_date": str(self.document_date),
@@ -284,12 +297,7 @@ def recognise_sale(
     if net <= 0:
         raise SalesPostingError("a sale is posted for a positive net; a return is its own document")
 
-    currency = payload.get("currency")
-    if currency != functional_currency:
-        raise SalesPostingError(
-            f"a sale in {currency!r} needs the exchange treatment; only "
-            f"{functional_currency} is posted here so far"
-        )
+    money = _conversion(payload, functional_currency, accounting_date, SalesPostingError)
 
     receivable = ROLE_CREANTE_TARA if resident else ROLE_CREANTE_STRAINATATE
     document_date = date.fromisoformat(str(payload["document_date"]))
@@ -297,18 +305,20 @@ def recognise_sale(
         RoleFormula(
             debit_role=receivable,
             credit_role=REVENUE_ROLES[kind],
-            amount=net,
-            currency=functional_currency,
+            amount=money.functional(net),
+            currency=money.currency,
             amount_currency=net,
-            exchange_rate=Decimal(1),
-            rate_date=accounting_date,
+            exchange_rate=money.rate,
+            rate_date=money.rate_date,
             document_date=document_date,
             description="Venit din prestarea serviciilor",
         )
     ]
     # One formula per rate, the receivable growing by each: the customer owes
     # the total, the revenue is the net, and the difference is owed onward to
-    # the budget through 5344. The rate rides on the formula (ADR-048).
+    # the budget through 5344. The rate rides on the formula (ADR-048). On a
+    # document in another currency the VAT is the document's share in that
+    # currency, turned into lei at the header's rate like the net (ADR-097).
     for share in shares:
         if share.vat == 0:
             continue
@@ -316,11 +326,11 @@ def recognise_sale(
             RoleFormula(
                 debit_role=receivable,
                 credit_role=ROLE_TVA_COLECTATA,
-                amount=share.vat,
-                currency=functional_currency,
+                amount=money.functional(share.vat),
+                currency=money.currency,
                 amount_currency=share.vat,
-                exchange_rate=Decimal(1),
-                rate_date=accounting_date,
+                exchange_rate=money.rate,
+                rate_date=money.rate_date,
                 document_date=document_date,
                 vat_rate=share.rate,
                 vat_rate_key=share.rate_key,
@@ -378,12 +388,7 @@ def recognise_return(
             "document's nature, never the sign"
         )
 
-    currency = payload.get("currency")
-    if currency != functional_currency:
-        raise SalesPostingError(
-            f"a return in {currency!r} needs the exchange treatment; only "
-            f"{functional_currency} is posted here so far"
-        )
+    money = _conversion(payload, functional_currency, accounting_date, SalesPostingError)
 
     receivable = ROLE_CREANTE_TARA if resident else ROLE_CREANTE_STRAINATATE
     document_date = date.fromisoformat(str(payload["document_date"]))
@@ -391,11 +396,11 @@ def recognise_return(
         RoleFormula(
             debit_role=ROLE_RETUR_REDUCERI,
             credit_role=receivable,
-            amount=net,
-            currency=functional_currency,
+            amount=money.functional(net),
+            currency=money.currency,
             amount_currency=net,
-            exchange_rate=Decimal(1),
-            rate_date=accounting_date,
+            exchange_rate=money.rate,
+            rate_date=money.rate_date,
             document_date=document_date,
             description="Retur de la client",
         )
@@ -409,11 +414,11 @@ def recognise_return(
             RoleFormula(
                 debit_role=ROLE_TVA_COLECTATA,
                 credit_role=receivable,
-                amount=share.vat,
-                currency=functional_currency,
+                amount=money.functional(share.vat),
+                currency=money.currency,
                 amount_currency=share.vat,
-                exchange_rate=Decimal(1),
-                rate_date=accounting_date,
+                exchange_rate=money.rate,
+                rate_date=money.rate_date,
                 document_date=document_date,
                 vat_rate=share.rate,
                 vat_rate_key=share.rate_key,
@@ -421,6 +426,71 @@ def recognise_return(
             )
         )
     return tuple(formulas)
+
+
+@dataclass(frozen=True, slots=True)
+class _Conversion:
+    """How the amounts of one document become lei -- Spec B section 7.1.
+
+    In the functional currency the rate is exactly 1 and ``functional`` is the
+    identity, so a lei document is not a special case. In another currency the
+    header's rate multiplies each amount and the product is reduced **once** to
+    the scale in force on the accounting date, with the rounding rule of that
+    date (`R17`, `R18`, ADR-037) -- the derivation `currency.money.convert`
+    states, done here per formula because each formula is its own line.
+    """
+
+    currency: str
+    rate: Decimal
+    rate_date: date
+    quantize: Callable[[Decimal], Decimal] | None
+
+    def functional(self, amount_currency: Decimal) -> Decimal:
+        if self.quantize is None:
+            return amount_currency
+        return self.quantize(amount_currency * self.rate)
+
+
+def _conversion(
+    payload: dict[str, Any], functional_currency: str, accounting_date: date, error: type[ApiError]
+) -> _Conversion:
+    """Read the header's currency and rate off the fact, refusing a rate that is
+    not one. ``rate_date`` is the day the rate was taken for (ADR-039 section
+    3.2); on a lei document it is the accounting date, as it always was."""
+    currency = str(payload.get("currency"))
+    if currency == functional_currency:
+        return _Conversion(currency, Decimal(1), accounting_date, None)
+    rate = _decimal(payload.get("exchange_rate"), "exchange_rate", error)
+    if rate <= 0:
+        raise error(f"exchange_rate {rate} erases or inverts the amount")
+    raw_date = payload.get("rate_date") or payload.get("document_date")
+    try:
+        rate_date = date.fromisoformat(str(raw_date))
+    except ValueError:
+        raise error(f"rate_date {raw_date!r} is not a date") from None
+    rule = rounding_for(accounting_date)
+    scale = amount_scale(accounting_date)
+    return _Conversion(currency, rate, rate_date, lambda value: rule.quantize(value, scale))
+
+
+def _scale_stamps(
+    fact_currency: str, functional_currency: str, on: date
+) -> tuple[ParameterStamp, ...]:
+    """The stamp a converted document carries (ADR-047): the lei amounts are
+    derived, and the scale they were reduced to is what they stood on. A lei
+    document derives nothing and stamps nothing, as before."""
+    if fact_currency == functional_currency:
+        return ()
+    row = resolve_parameter(AMOUNT_SCALE_KEY, on)
+    return (
+        ParameterStamp(
+            parameter_id=uuid.UUID(str(row.pk)),
+            parameter_key=AMOUNT_SCALE_KEY,
+            effective_date=on,
+            confidence=row.source_confidence,
+            resolved_at=datetime.now(UTC),
+        ),
+    )
 
 
 def _decimal(value: Any, field: str, error: type[ApiError] = SalesPostingError) -> Decimal:
@@ -548,6 +618,8 @@ PURCHASE_PAYLOAD_FIELDS = (
     "vat_by_rate",
     "vat_deductible",
     "currency",
+    "exchange_rate",
+    "rate_date",
     "cost_destination",
     "partner_resident",
     "partner_id",
@@ -607,6 +679,9 @@ class PurchaseInvoiceFact:
     vat_deductible: bool
     description: str
     vat_by_rate: tuple[VatShare, ...] = ()
+    #: As on the sale: the header's rate and its day, 1 and unused in lei.
+    exchange_rate: Decimal = Decimal(1)
+    rate_date: date | None = None
 
     def as_payload(self) -> dict[str, Any]:
         return {
@@ -618,6 +693,8 @@ class PurchaseInvoiceFact:
             "vat_by_rate": [share.as_payload() for share in self.vat_by_rate],
             "vat_deductible": self.vat_deductible,
             "currency": self.currency,
+            "exchange_rate": str(self.exchange_rate),
+            "rate_date": str(self.rate_date or self.document_date),
             "cost_destination": self.cost_destination,
             "partner_resident": self.partner_resident,
             "document_date": str(self.document_date),
@@ -678,12 +755,7 @@ def recognise_purchase(
             "a purchase is posted for a positive net; a credit note is its own document"
         )
 
-    currency = payload.get("currency")
-    if currency != functional_currency:
-        raise PurchasePostingError(
-            f"a purchase in {currency!r} needs the exchange treatment; only "
-            f"{functional_currency} is posted here so far"
-        )
+    money = _conversion(payload, functional_currency, accounting_date, PurchasePostingError)
 
     payable = ROLE_DATORII_TARA if resident else ROLE_DATORII_STRAINATATE
     document_date = date.fromisoformat(str(payload["document_date"]))
@@ -700,11 +772,11 @@ def recognise_purchase(
             RoleFormula(
                 debit_role=COST_ROLES[destination],
                 credit_role=payable,
-                amount=total,
-                currency=functional_currency,
+                amount=money.functional(total),
+                currency=money.currency,
                 amount_currency=total,
-                exchange_rate=Decimal(1),
-                rate_date=accounting_date,
+                exchange_rate=money.rate,
+                rate_date=money.rate_date,
                 document_date=document_date,
                 description=description,
             ),
@@ -714,11 +786,11 @@ def recognise_purchase(
         RoleFormula(
             debit_role=COST_ROLES[destination],
             credit_role=payable,
-            amount=net,
-            currency=functional_currency,
+            amount=money.functional(net),
+            currency=money.currency,
             amount_currency=net,
-            exchange_rate=Decimal(1),
-            rate_date=accounting_date,
+            exchange_rate=money.rate,
+            rate_date=money.rate_date,
             document_date=document_date,
             description=description,
         )
@@ -730,11 +802,11 @@ def recognise_purchase(
             RoleFormula(
                 debit_role=ROLE_TVA_DEDUCTIBILA,
                 credit_role=payable,
-                amount=share.vat,
-                currency=functional_currency,
+                amount=money.functional(share.vat),
+                currency=money.currency,
                 amount_currency=share.vat,
-                exchange_rate=Decimal(1),
-                rate_date=accounting_date,
+                exchange_rate=money.rate,
+                rate_date=money.rate_date,
                 document_date=document_date,
                 vat_rate=share.rate,
                 vat_rate_key=share.rate_key,
@@ -1148,6 +1220,9 @@ def post_sales_invoice(
                 request_id=request_id,
                 actor_user_id=actor_user_id,
                 formulas=bound,
+                parameter_stamps=_scale_stamps(
+                    fact.currency, functional_currency, fact.accounting_date
+                ),
             )
     except (ApiError, NumberingError) as refusal:
         mark_failed(event.id, code=refusal.code, detail={"event_type": event_type})
@@ -1251,6 +1326,9 @@ def post_purchase_invoice(
                 request_id=request_id,
                 actor_user_id=actor_user_id,
                 formulas=bound,
+                parameter_stamps=_scale_stamps(
+                    fact.currency, functional_currency, fact.accounting_date
+                ),
             )
     except (ApiError, NumberingError) as refusal:
         mark_failed(event.id, code=refusal.code, detail={"event_type": EVENT_PURCHASE})

@@ -68,6 +68,8 @@ def _emit(world: dict[str, Any], *, on: date, key: str) -> AccountingEvent:
             "partner_id": str(uuid.uuid4()),
             "total": "100.00",
             "net": "100.00",
+            "exchange_rate": "1",
+            "rate_date": on.isoformat(),
             "vat": "0",
             "vat_by_rate": [],
             "currency": "MDL",

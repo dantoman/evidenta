@@ -216,6 +216,75 @@ sunt bifate în `08`** — închiderea F1 e declarația proprietarului, ca la F0
 
 ## Ultima sesiune
 
+**2026-09-03, seara — valul paralel: cinci agenți, șase pași livrați (5a plata, 5b, 5d, 5e, G2, G3),
+apoi lanțul de revizie și reparațiile lui (`evidenta-7f`).**
+
+**De unde a pornit:** *„why you stopped... continue until finish"*, apoi *„start more agents in parallel
+to finish faster"*. Cinci agenți pe zone disjuncte, fiecare cu baza lui de test și cu regula „fișierele
+partajate se editează prin ancoră, niciodată rescrise"; două sesiuni vecine au fost anunțate cu harta
+zonelor. Niciun commit.
+
+**Livrat, pe pași din `14-planul-golurilor.md`:**
+- **5d — ușa de închidere (G1):** `GET .../fiscal-years/<id>/periods`, `GET periods/<id>/closing-checks`
+  (cinci verificări calculate pe server, doar clasa 8 blochează — ADR-039 §10), `POST periods/<id>/closing`,
+  `.../reopening` cu motiv obligatoriu, `POST fiscal-years/<id>/closing`; ecranul `inchidere`. După revizie:
+  rândul perioadei se blochează la tranziție (`select_for_update`), exercițiul refuză lunile care nu-l acoperă
+  (`periods.periods_missing`), redeschiderea **notifică** membrii (Spec B §6.2 cerea și notificarea —
+  `period.reopened` în catalogul de mesaje).
+- **5a, a doua jumătate — plata salariilor:** `SalaryPayment` + linii (`payroll/0005`, `infra/0078`),
+  `payroll.salaries_paid` (Dr 5311 cu dimensiunea angajatului / Cr 2411|2421), `bank_iban` pe persoană cu
+  mod-97, lista de plată CSV, ecranele. Măsurat pe Alpha SRL: `2026-000141`, 5311 per angajat **0,0000**.
+  După revizie: rularea se blochează la postarea plății (cursa supraplății), exportul listei și citirea
+  plății sunt **auditate**, replay-ul ordonează liniile pe cheie stabilă, **perechile de storno**
+  `payroll.run_approved_reversed` / `payroll.salaries_paid_reversed` sunt înregistrate (R14 nu avea drum
+  pentru salarii) și au test.
+- **G2 + G3:** `slots` are ușă (`GET/PUT companies/<id>/role-bindings`, `rebind_role` cu istoric, clasa
+  verificată, audit) și ecranul `conturi-de-sistem`; soldurile inițiale trec toate șase seturile prin
+  HTTP, cu formulare. După revizie: **al doilea lot la aceeași dată refuză** cât timp prima înregistrare
+  stă (`opening.already_posted` — două înregistrări de deschidere dublau soldurile și contrapartida tăcea),
+  perechea `opening.balance_posted_reversed` există ca drumul de corecție din Spec B §8.3 să fie real,
+  cantitatea mai fină decât unitatea e refuzată (`opening.quantity_too_fine`, ADR-055).
+- **5b — tipărirea:** [ADR-095](decisions/095-pipeline-ul-de-tipar-si-biblioteca-pdf.md) — ReportLab
+  pinuit, DejaVu inclus, bytes identici la fiecare randare, `platform/documents/printing` ca seam;
+  factura fiscală pe coloanele 10.1–10.8 ale OMF 118/2017, fluturașul pe cele trei rubrici ale art. 142
+  alin. (3); rute `.../pdf`, legături pe ecrane. După revizie: coloanele de bani se rotunjesc la
+  `accounting.amount_scale` **la data documentului** (revizorul fiscal: un `2` scris în cod era R15
+  încălcat), fluturașul se tipărește doar dintr-o lună **aprobată** (`payroll.run_not_approved`).
+- **5e — valuta:** [ADR-097](decisions/097-valuta-cursul-decontarea-reevaluarea.md) — cursurile ca date
+  de referință (`load_exchange_rates`, sub `evidenta_refdata`, cu rând în jurnal), facturi în EUR/USD cu
+  suma în lei la cursul zilei documentului, `contract_denomination` pe document, decontarea în lei a unei
+  facturi în valută cu diferențele realizate prin handlerul existent, **reevaluarea la data raportării**
+  (`accounting.revaluation_calculated`, de la 01.01.2020 — redacția OMF 48/2019, avansurile nemonetare),
+  ecranul `reevaluare`. După revizie: `REVOKE UPDATE, DELETE` pe `revaluation`, `revaluation_item` **și
+  `settlement`** printr-o migrare nouă (`infra/0080`, `currency/0003`) — privilegiile implicite din
+  bootstrap dau tot, iar un `GRANT SELECT, INSERT` nu îngustează nimic; măsurat înainte și după;
+  `settlement.currency` cu `COLLATE "C"`; cursul fără sursă e refuzat; **corpusul are reevaluarea**
+  (`tests/corpus/test_revaluation.py`, Exemplul 3 al standardului, pct. 11, 13–15 transcrise); ADR-097
+  spune acum că art. 97/98/108 sunt **necitite**, nu „corect pentru TVA".
+  Din revizia contabilă a valutei: **alocarea n-avea idempotență** — fiecare reluare a aceleiași
+  cereri crea o decontare nouă și, peste valute, posta diferența a doua oară; acum `Settlement` poartă
+  cheia cererii (`settlements/0003`, unică per companie), ruta o cere (`C9`), iar a doua sosire răspunde
+  cu prima (test). Nerezolvat, semnalat HIGH: un rest sub scara sumei pe un document în valută n-are
+  drum de închidere (nici toleranță, nici „închide restul ca diferență") — de construit înainte ca
+  `accounting.amount_scale` să primească o a doua versiune; `contract_denomination` se validează, dar
+  perechea o alege rezidența (ADR-097 §2.3 de reconciliat cu codul).
+
+**Lanțul de revizie, ca metodă:** fiecare livrare a trecut prin `tenancy-guard`, `accounting-reviewer`,
+`schema-reviewer` (unde a fost migrare) și `fiscal-reviewer` (unde a fost act). Zero CRITICAL rămase.
+Ce au prins și nu prindea suita: privilegiile implicite (de două ori, în două migrări), al doilea lot de
+deschidere, scara scrisă în cod, lipsa perechilor de storno, cursa supraplății, citirile de date personale
+neauditate.
+
+**Reguli învățate azi, plătite o dată:** `seed()` de superuser nu vede rândurile create de tranzacția
+testului; `stubFetch` potrivește pe prefix, deci sub-ruta stă înaintea cheii părinte; un `GRANT` nu
+retrage privilegii implicite; un handler nou fără perechea `_reversed` lasă R14 pe hârtie.
+
+**Rămân:** ordinul de plată și dispozițiile de casă (5c, instrumentele), conectorul BNM și pagina de
+cursuri din consolă (zona sesiunii de consolă), `OD-84`, teste HTTP cross-tenant pe rutele de mutare ale
+plății și pe loturile de deschidere (semnalate LOW), fluturașul pre-formatează sumele înainte de pipeline
+(avertisment, nu defect), coloanele 10.9–10.12 și rândul 11 pe pagină ale facturii (netipărite, spuse),
+plata salariilor și decontul în valută. Nimic comis.
+
 **2026-09-03 — Salariile ajung în registru: aprobarea rulării postează (pasul 5a, prima jumătate). Și
 parametrii fiscali sunt activi, prin delegare.**
 
@@ -401,6 +470,56 @@ un job) și grantul pe o singură companie cerut din consolă; scrierile de plat
 (creare de spații prin `P-9`+`P-11`, atribuire de ringuri, suprascrieri de flaguri), fiecare cu calea
 ei; declanșatorul din ADR-091 §6 (credențiale separate web / worker). Nerezolvat din sesiunea
 precedentă: ADR-085 §4 vs. cod (derivarea companiei titularului), fără răspuns de la proprietar.
+
+**2026-09-02 — Factura în lucru se modifică și se șterge din registru, prin instrucțiunea proprietarului.**
+
+**Măsurat înainte:** pe Alpha SRL stăteau două ciorne goale („–", 0,00), datate 12.01, create la 21:55 și
+21:59 — câte una la fiecare rulare a lui `seed_documents`: situația „vânzare cu TVA" deschide ciorna,
+linia e refuzată pe nume (compania nu e înregistrată), refuzul e prins ca să continue celelalte situații,
+ciorna rămâne. Nimeni nu ceruse ciorne editabile: proprietarul numise cele patru stări
+(`_input/evidenta-implementation-spec.md`) și imutabilitatea „la nivel de model"; „ciorna e editabilă" era
+dedus (Spec A §4.3, docstringul din `documents/models.py`), iar ecranul făcea crearea și emiterea într-un
+pas, deci o ciornă trăia cât o cerere. Întrebat, proprietarul a decis: **factura poate sta în lucru, se
+modifică și se validează mai târziu.** Fără ADR: ciclul de viață nu se schimbă, se folosește ce permitea.
+
+**Livrat:**
+- `sales.services.documents.replace_sale` / `delete_sale`: antetul rescris integral (nucleul prin
+  `update_draft`, rândul de tip direct), ștergerea prin `delete_draft`; ce nu e vânzare vizibilă aici e
+  404 (IZ-04). Editarea nu numerotează nimic. `_assert_discriminators` scos din `open_sale`, folosit de
+  amândouă.
+- `PUT /api/v1/sales/invoices/<id>` cu corpul de la creare — antet + poziții — și `DELETE` pe același
+  URL (204). Detaliul poartă `lines`: cantitatea și prețul la scara tastată (`3`, nu `3.000000`), sumele
+  la scara stocată; detaliul inexistent răspunde `documents.not_found`, nu `MissingTenantContextError`.
+  Pozițiile se citesc prin `platform.documents.services.lines.lines_of` (`PositionView`) — prima
+  variantă citea modelul din view și gardianul de dependențe a spus-o (`D6`), prin sesiunea paralelă
+  `evidenta-5f`, care rula suita pe arborele viu.
+- Ecranul: pe rândul *În lucru* — *Modifică* (același formular, umplut din detaliu, salvează pe același
+  document), *Șterge* cu confirmare pe rând, *Validează și contabilizează*; pe *Validată* doar
+  validarea; pe *Contabilizată* nimic.
+- 5 teste de izolare sub rolul de aplicație (rescriere integrală + registrul de acord; linie refuzată →
+  ciorna neschimbată; validată și contabilizată → `documents.not_editable` la PUT și DELETE, nimic
+  mișcat; ștergere → 404 și registrul fără ea; ciorna altui tenant → 404, nu 403, rândul intact) + 2 de
+  ecran (modificarea pleacă cu `PUT` pe document, corpul întreg; ștergerea cere a doua apăsare, iar
+  rândul contabilizat nu oferă niciuna).
+
+**Ce a prins rularea, nu citirea — și rămâne deschis pentru platformă:** un refuz (`ApiError`) ridicat
+din serviciu **nu derulează tranzacția cererii**. DRF îl transformă în răspuns în interiorul ei (la fel
+`ApiErrorMiddleware.process_exception` pentru view-urile simple), cererea se încheie normal și
+`tenant_context` comite ce s-a scris înainte de refuz — măsurat: rescrierea cu a doua linie refuzată
+păstra antetul nou peste pozițiile vechi. Docstringul middleware-ului afirmă contrariul. Precis: DRF cheamă `set_rollback()` pentru propriile
+`APIException` (validarea serializerului derulează), dar ramura `ApiError` din `platform.api.errors.
+exception_handler` întoarce răspunsul fără el — deci golul e exact la refuzurile noastre. Rezolvat local,
+cu `transaction.atomic()` în jurul antet-apoi-linii la POST și PUT (deci nici crearea nu mai lasă ciornă
+goală la o linie refuzată); sesiunea paralelă `evidenta-5f` a pus același savepoint la
+`PurchaseListView.post` (0031e26), unde un regim refuzat lăsa la fel antetul fără poziții. Global — `set_rollback(True)` în handler — ar schimba toate ușile și cere
+verificat cine scrie înainte să refuze (jurnalul de acces privilegiat, auditul, contoarele de
+autentificare); nu s-a decis aici.
+
+**Rămân:** seed-ul lasă în continuare o ciornă goală la fiecare rulare — acum se șterge din ecran;
+corectarea seed-ului nu s-a cerut. Facturile primite n-au primit editarea ciornei — nu s-a cerut.
+Modificările sunt necomise: proprietarul n-a cerut commit.
+
+## Sesiuni mai vechi
 
 **2026-09-02 — Pasul 6, a doua felie: registrele TVA pe perioada fiscală, egale cu registrul contabil
 ([ADR-090](decisions/090-registrele-tva-pe-perioada-fiscala.md)).**

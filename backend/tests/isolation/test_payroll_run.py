@@ -60,6 +60,7 @@ from evidenta.operations.payroll.services.runs import (
 )
 from evidenta.operations.payroll.services.timesheets import open_month, set_days
 from evidenta.platform.rls.context import TenantContext, tenant_context
+from tests.isolation.payroll_ledger import seed_ledger_for_payroll
 
 pytestmark = pytest.mark.django_db(databases=["default", "migration", "refdata"])
 
@@ -85,9 +86,14 @@ def alpha(
     world: dict[str, uuid.UUID],
     company_of: Callable[..., uuid.UUID],
     grant_company: Callable[..., uuid.UUID],
+    seed: Callable[..., None],
 ) -> dict[str, uuid.UUID]:
     company = company_of(world["tenant_a"], "1000000000021", "Alpha SRL")
     grant_company(world["tenant_a"], company, world["user_a"], world["user_a"])
+    # Approval posts (ADR-065 section 8), so the month, the numbering and the
+    # bound roles have to exist for the approval tests; the chain itself is
+    # `test_payroll_posting.py`'s claim.
+    seed_ledger_for_payroll(seed, tenant=world["tenant_a"], company=company, user=world["user_a"])
     return {"tenant": world["tenant_a"], "user": world["user_a"], "company": company}
 
 
@@ -172,6 +178,7 @@ def a_contract(
     relationship_type: str = "employment_contract",
     salary: str = "10000.0000",
     budget_funded: bool = False,
+    cost_destination: str = "administrative",
 ) -> uuid.UUID:
     employee = create_employee(
         tenant_id=world["tenant"],
@@ -196,6 +203,7 @@ def a_contract(
         weekly_hours=Decimal("40.00"),
         cas_payer_point="1.1",
         budget_funded_employer=budget_funded,
+        cost_destination=cost_destination,
     )
     return contract.id
 

@@ -206,6 +206,7 @@ class Command(BaseCommand):
                     position_title=position,
                     base_salary=Decimal(salary),
                     weekly_hours=Decimal("40"),
+                    cost_destination="administrative",
                     cas_payer_point="1.1",
                     budget_funded_employer=False,
                 )

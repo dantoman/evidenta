@@ -25,6 +25,7 @@ export interface Employee {
   identity_document_number: string | null
   tax_residency: 'resident' | 'non_resident'
   social_insurance_code: string | null
+  bank_iban: string | null
 }
 
 export interface NewEmployee {
@@ -35,6 +36,7 @@ export interface NewEmployee {
   identity_document_type?: string | null
   identity_document_number?: string | null
   social_insurance_code?: string | null
+  bank_iban?: string | null
 }
 
 export interface RelationshipType {
@@ -75,6 +77,7 @@ export interface Contract {
   weekly_hours: string
   cas_payer_point: string
   budget_funded_employer: boolean
+  cost_destination: string | null
   amendments?: Amendment[]
 }
 
@@ -92,6 +95,7 @@ export interface NewContract {
   weekly_hours: string
   cas_payer_point: string
   budget_funded_employer: boolean
+  cost_destination: string
 }
 
 export interface NewAmendment {
@@ -153,6 +157,16 @@ export function createEmployee(companyId: string, body: NewEmployee): Promise<Em
   return request<Employee>(`${base(companyId)}/employees`, { method: 'POST', body })
 }
 
+export function setEmployeeBankAccount(
+  employeeId: string,
+  bankIban: string | null,
+): Promise<Employee> {
+  return request<Employee>(`/api/v1/payroll/employees/${employeeId}/bank-account`, {
+    method: 'PUT',
+    body: { bank_iban: bankIban },
+  })
+}
+
 export function listRelationshipTypes(): Promise<RelationshipType[]> {
   return request<RelationshipType[]>('/api/v1/payroll/relationship-types')
 }
@@ -160,6 +174,16 @@ export function listRelationshipTypes(): Promise<RelationshipType[]> {
 export function listContracts(companyId: string, includeEnded = false): Promise<Contract[]> {
   const query = includeEnded ? '?include_ended=true' : ''
   return request<Contract[]>(`${base(companyId)}/contracts${query}`)
+}
+
+export function setContractCostDestination(
+  contractId: string,
+  cost_destination: string,
+): Promise<Contract> {
+  return request<Contract>(`/api/v1/payroll/contracts/${contractId}/cost-destination`, {
+    method: 'PUT',
+    body: { cost_destination },
+  })
 }
 
 export function createContract(companyId: string, body: NewContract): Promise<Contract> {
@@ -368,6 +392,7 @@ export interface PayrollRun {
   totals?: { gross: string; withheld: string; employer_charges: string; net: string }
   unresolved?: number
   complete?: boolean
+  posting?: { accounting_event_id: string; status: string; posted_at: string | null } | null
 }
 
 export interface PayslipComponent {
@@ -421,8 +446,98 @@ export function approveRun(runId: string): Promise<PayrollRun> {
   return request<PayrollRun>(`/api/v1/payroll/runs/${runId}/approval`, { method: 'POST' })
 }
 
+/** Where the printed payslip is (`C22`, ADR-095): a URL the browser opens, not a fetch. */
+export function payslipPdfUrl(runId: string, employeeId: string): string {
+  return `/api/v1/payroll/runs/${runId}/payslips/${employeeId}/pdf`
+}
+
 export function getPayslip(runId: string, employeeId: string): Promise<Payslip> {
   return request<Payslip>(`/api/v1/payroll/runs/${runId}/payslips/${employeeId}`)
+}
+
+/**
+ * Paying the net -- what the accrual left on the salary payable, per person,
+ * leaving through the till or the bank account.
+ *
+ * **The amount on a line may be less than the net, never more.** Reduced or
+ * removed while the document is a draft; above what the run left the person the
+ * server refuses by name (`payroll.overpayment`). `net` and `already_paid` come
+ * from the server beside each line so the screen can show what is left without
+ * computing it (`C19`).
+ *
+ * **The bank's list is a file the server builds** from the same rows (`C20`):
+ * the link points at the endpoint, and the browser downloads it.
+ */
+
+export interface SalaryPaymentLine {
+  employee_id: string
+  employee_name: string
+  idnp: string | null
+  bank_iban: string | null
+  net: string | null
+  already_paid: string | null
+  amount: string
+}
+
+export interface SalaryPayment {
+  id: string
+  run_id: string
+  paid_on: string
+  treasury_account: 'cash' | 'bank'
+  status: 'draft' | 'posted'
+  posted_at: string | null
+  total: string
+  lines_count: number
+  posting: { accounting_event_id: string; status: string; posted_at: string | null } | null
+  year?: number
+  month?: number
+  lines?: SalaryPaymentLine[]
+  totals?: { amount: string }
+}
+
+export function listPayments(runId: string): Promise<SalaryPayment[]> {
+  return request<SalaryPayment[]>(`/api/v1/payroll/runs/${runId}/payments`)
+}
+
+export function createPayment(
+  runId: string,
+  body: { paid_on: string; treasury_account: 'cash' | 'bank' },
+): Promise<SalaryPayment> {
+  return request<SalaryPayment>(`/api/v1/payroll/runs/${runId}/payments`, {
+    method: 'POST',
+    body,
+  })
+}
+
+export function getPayment(paymentId: string): Promise<SalaryPayment> {
+  return request<SalaryPayment>(`/api/v1/payroll/payments/${paymentId}`)
+}
+
+export function updatePayment(
+  paymentId: string,
+  body: {
+    paid_on?: string
+    treasury_account?: 'cash' | 'bank'
+    lines?: { employee_id: string; amount: string }[]
+  },
+): Promise<SalaryPayment> {
+  return request<SalaryPayment>(`/api/v1/payroll/payments/${paymentId}`, {
+    method: 'PUT',
+    body,
+  })
+}
+
+/** Posting has a financial effect: the key is required (C9) and is the document's. */
+export function postPayment(paymentId: string, idempotencyKey: string): Promise<SalaryPayment> {
+  return request<SalaryPayment>(`/api/v1/payroll/payments/${paymentId}/posting`, {
+    method: 'POST',
+    idempotencyKey,
+  })
+}
+
+export function bankListUrl(runId: string, paymentId?: string): string {
+  const path = `/api/v1/payroll/runs/${runId}/bank-list.csv`
+  return paymentId ? `${path}?payment=${paymentId}` : path
 }
 
 /**

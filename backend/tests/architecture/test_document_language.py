@@ -114,3 +114,62 @@ def test_a_register_export_is_romanian_whatever_language_is_active() -> None:
     text = romanian.decode("utf-8-sig")
     assert "1234,57" in text and "0,01" in text and "ăîșț" in text
     assert "1234.57" not in text
+
+
+def test_a_printed_document_is_romanian_and_identical_whatever_language_is_active() -> None:
+    """The printed-document pipeline of ADR-095 (`C22`), the second consumer of
+    the ground above. No database: the value is built here, rendered under three
+    languages, and read back through `pypdf` -- the font is embedded as a subset,
+    so the content stream holds glyph ids and a byte search would prove nothing.
+    """
+    import io
+    from datetime import date
+    from decimal import Decimal
+
+    from django.utils import translation
+    from pypdf import PdfReader
+
+    from evidenta.platform.documents.printing import (
+        Column,
+        Field,
+        Fields,
+        PrintableDocument,
+        Table,
+        Totals,
+        render,
+    )
+
+    document = PrintableDocument(
+        title="Document de probă",
+        subtitle="Nr. P-1 din 07.03.2026",
+        sections=(
+            Fields("Parte", (Field("Denumirea", "Fixture SRL cu diacritice: ăîșț"),)),
+            Table(
+                (
+                    Column("Descriere", weight=4),
+                    Column("Cantitate", "right", 1, None),
+                    Column("Suma", "right", 1),
+                ),
+                (("Servicii", Decimal("1.500000"), Decimal("1234.5678")),),
+                footer=(("Total", "", Decimal("1234.5678")),),
+            ),
+            Totals((Field("Data", date(2026, 3, 7)), Field("De plată", Decimal("0.005")))),
+        ),
+        file_name="proba",
+    )
+
+    with translation.override("ro"):
+        romanian = render(document)
+    with translation.override("ru"):
+        under_russian = render(document)
+    with translation.override("en"):
+        under_english = render(document)
+
+    assert romanian == under_russian == under_english
+    text = "\n".join(page.extract_text() for page in PdfReader(io.BytesIO(romanian)).pages)
+    assert "ăîșț" in text
+    # Money at two places with the comma; the quantity trimmed of its storage
+    # scale; the date the Moldovan way; ties away from zero, as the CSV does.
+    assert "1234,57" in text and "1,5" in text and "07.03.2026" in text and "0,01" in text
+    assert "1234.57" not in text and "1.500000" not in text
+    assert "Pagina 1" in text

@@ -12,8 +12,9 @@ Here, in the document core, since ADR-090: the ledger's exports wrote it first
 (`accounting/ledger/services/export.py`), and the VAT register in
 `operations/tax` may not import that module (`D3`). Two writers that agree until
 one is edited is the class of defect `C20` names, so the writer moved down to the
-layer both may use. What is deliberately absent is unchanged: Excel and PDF need
-a library or a rendering pipeline nobody has chosen (`OD-74`).
+layer both may use. What is deliberately absent is unchanged for Excel, which
+still needs a library nobody has chosen; PDF has its pipeline next door
+(`platform/documents/printing`, ADR-095).
 """
 
 from __future__ import annotations

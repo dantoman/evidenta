@@ -100,6 +100,12 @@ class Employee(models.Model):
     #: recorded before it comes back.
     social_insurance_code = models.TextField(null=True, blank=True)
 
+    #: Where the net goes when it is paid through the bank -- the column the
+    #: bank's payment list reads. Nullable: a person paid in cash has none, and
+    #: one recorded before the account was opened has none yet. A code (`C34`):
+    #: the migration's SQL gives it `COLLATE "C"`.
+    bank_iban = models.TextField(null=True, blank=True)
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -140,6 +146,21 @@ class Employee(models.Model):
 
     def __str__(self) -> str:
         return f"{self.last_name} {self.first_name}"
+
+
+class CostDestination(models.TextChoices):
+    """Where a person's pay goes as a cost -- ADR-065 section 7.1.
+
+    The value selects the expense *role* the posting asks for, so it is the form
+    of the posting and its vocabulary is code (`R28`); which account the role
+    means is the company's binding, data. Four values because the plan has four
+    homes for personnel cost: 7131, 7121, 811 and 821.
+    """
+
+    ADMINISTRATIVE = "administrative"
+    COMMERCIAL = "commercial"
+    PRODUCTION_DIRECT = "production_direct"
+    PRODUCTION_INDIRECT = "production_indirect"
 
 
 class EmploymentContract(models.Model):
@@ -224,6 +245,13 @@ class EmploymentContract(models.Model):
     #: company cannot answer the question the declaration asks.
     cas_payer_point = models.TextField()
 
+    #: Where the person's pay goes as a cost (`CostDestination`, ADR-065 section
+    #: 7.1). Nullable only for rows written before the column existed: a new
+    #: contract states it, and a run whose contract does not is refused at
+    #: posting by name -- never defaulted, because a default here balances and
+    #: is wrong.
+    cost_destination = models.TextField(null=True, blank=True)
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -248,6 +276,11 @@ class EmploymentContract(models.Model):
             ),
             models.CheckConstraint(
                 condition=models.Q(weekly_hours__gt=0), name="employment_contract_hours_positive"
+            ),
+            models.CheckConstraint(
+                condition=models.Q(cost_destination__isnull=True)
+                | models.Q(cost_destination__in=CostDestination.values),
+                name="employment_contract_cost_destination_valid",
             ),
             models.CheckConstraint(
                 condition=models.Q(cas_payer_point__in=EMPLOYER_CAS_POINTS),
@@ -901,3 +934,135 @@ class PayrollLine(models.Model):
 
     def __str__(self) -> str:
         return f"{self.employee_id} {self.component_key}"
+
+
+class SalaryPaymentStatus(models.TextChoices):
+    DRAFT = "draft"
+    POSTED = "posted"
+
+
+class SalaryTreasuryAccount(models.TextChoices):
+    """Where the money left from -- the closed vocabulary of ADR-073 section 5.
+
+    Spelled here rather than imported from `treasury` (`D6`): the value selects
+    which treasury role the handler asks for, which is posting form (`R28`), and
+    a module reaching into another's model for a two-word vocabulary would bind
+    their lifetimes for nothing. The currency accounts are absent for the reason
+    the treasury document gives: a payment in another currency opens the
+    exchange differences, which have their own handler and their own step.
+    """
+
+    CASH = "cash"
+    BANK = "bank"
+
+
+class SalaryPayment(models.Model):
+    """The document that pays what an approved run left on the salary payable.
+
+    **A document of the payroll module, not a treasury movement with a partner.**
+    The treasury document settles a payable *of a partner*; what is paid here is
+    the balance of 5311 *per employee* (ADR-065 section 8), and the person rides
+    on the line as a dimension, not as a counterparty. One header -- when, and
+    from where -- and one line per person, because the net is per person and the
+    bank's list is per person.
+
+    **The amount is on the line, and it may be less than the net.** An advance
+    already handed over in cash, a garnishment paid elsewhere, a person paid
+    later: each is a line reduced or removed while the document is a draft. What
+    the line may never be is *more* than what the run left for that person --
+    refused at posting, by name (`payroll.overpayment`), because a debit on 5311
+    past its balance is a receivable from the employee that nobody decided on.
+
+    **Frozen at `posted`**, by the trigger in the migration's SQL: what the
+    register shows is what was paid.
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    tenant = models.ForeignKey(Tenant, on_delete=models.PROTECT, db_column="tenant_id")
+    company = models.ForeignKey(Company, on_delete=models.PROTECT, db_column="company_id")
+    run = models.ForeignKey(
+        PayrollRun, on_delete=models.PROTECT, db_column="run_id", related_name="payments"
+    )
+
+    #: The accounting date of the payment: when the money left. Not the run's
+    #: accrual date -- the salary is calculated one day and paid another, and
+    #: the ledger records the second on this document.
+    paid_on = models.DateField()
+    treasury_account = models.TextField(choices=SalaryTreasuryAccount.choices)
+
+    status = models.TextField(
+        choices=SalaryPaymentStatus.choices, default=SalaryPaymentStatus.DRAFT
+    )
+    posted_by_user_id = models.UUIDField(null=True, blank=True)
+    posted_at = models.DateTimeField(null=True, blank=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "salary_payment"
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(status__in=SalaryPaymentStatus.values),
+                name="salary_payment_status_valid",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(treasury_account__in=SalaryTreasuryAccount.values),
+                name="salary_payment_account_valid",
+            ),
+            models.CheckConstraint(
+                condition=~models.Q(status=SalaryPaymentStatus.POSTED)
+                | models.Q(posted_by_user_id__isnull=False),
+                name="salary_payment_posted_has_a_poster",
+            ),
+        ]
+        indexes = [
+            models.Index(fields=["tenant", "company", "paid_on"], name="salary_payment_idx"),
+            models.Index(fields=["run", "status"], name="salary_payment_run_idx"),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.paid_on} {self.treasury_account}"
+
+
+class SalaryPaymentLine(models.Model):
+    """One person, one amount leaving the till or the bank account.
+
+    Strictly positive: a person who receives nothing on this payment has no line,
+    not a line of zero. Unique per person and document: the same person paid
+    twice on one day is two documents, each with its own date and its own entry.
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    tenant = models.ForeignKey(Tenant, on_delete=models.PROTECT, db_column="tenant_id")
+    company = models.ForeignKey(Company, on_delete=models.PROTECT, db_column="company_id")
+    payment = models.ForeignKey(
+        SalaryPayment, on_delete=models.CASCADE, db_column="payment_id", related_name="lines"
+    )
+    employee = models.ForeignKey(
+        Employee,
+        on_delete=models.PROTECT,
+        db_column="employee_id",
+        related_name="salary_payment_lines",
+    )
+
+    amount = models.DecimalField(max_digits=18, decimal_places=2)
+
+    class Meta:
+        db_table = "salary_payment_line"
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(amount__gt=0), name="salary_payment_line_amount_positive"
+            ),
+            models.UniqueConstraint(
+                fields=["payment", "employee"], name="salary_payment_line_unique"
+            ),
+        ]
+        indexes = [
+            models.Index(
+                fields=["tenant", "company", "employee"], name="salary_payment_line_emp_idx"
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.employee_id} {self.amount}"

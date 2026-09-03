@@ -18,9 +18,11 @@ labels are Romanian and live here: they are part of the document, not interface
 strings (`C32` is about the client; ADR-033 puts "registrele" in the layer that
 is exclusively Romanian).
 
-What is deliberately absent: Excel and PDF. Both need a library or a rendering
-pipeline nobody has chosen, and choosing one in passing is what `OD-74` exists
-to prevent. CSV needs neither.
+What is deliberately absent: Excel and PDF. PDF has its pipeline since ADR-095
+(`platform/documents/printing`), and the reports may join it -- each report is a
+`PrintableDocument` to build, which nobody has asked for yet. Excel still needs a
+library nobody has chosen; `OD-74` closed on the PDF half and left that to the
+first client who asks.
 """
 
 from __future__ import annotations

@@ -20,6 +20,7 @@ supplier document being entered twice as two documents.
 from __future__ import annotations
 
 import uuid
+from decimal import Decimal
 from typing import Any
 
 from django.db import transaction
@@ -107,6 +108,8 @@ def record_and_post(
             vat_by_rate=vat_shares(vat_breakdown(document_id)),
             vat_deductible=deductible,
             currency=document.currency,
+            exchange_rate=Decimal(document.exchange_rate),
+            rate_date=document.document_date,
             cost_destination=extension.cost_destination,
             partner_resident=extension.partner_resident,
             # Romanian, and the supplier's own number rather than ours: in the

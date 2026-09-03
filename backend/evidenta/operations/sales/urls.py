@@ -27,4 +27,10 @@ urlpatterns = [
         views.SalesIssuanceView.as_view(),
         name="invoice-issuance",
     ),
+    # The printed form (`C22`, ADR-095): the same document, as the browser opens it.
+    path(
+        "invoices/<uuid:document_id>/pdf",
+        views.SalesInvoicePdfView.as_view(),
+        name="invoice-pdf",
+    ),
 ]

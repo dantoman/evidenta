@@ -26,6 +26,7 @@ from django.db import IntegrityError, transaction
 from evidenta.fiscal.registry.services.relationships import relationship_types
 from evidenta.operations.payroll.models import (
     EMPLOYER_CAS_POINTS,
+    CostDestination,
     Employee,
     EmploymentContract,
     EmploymentContractAmendment,
@@ -84,6 +85,7 @@ def create_contract(
     weekly_hours: Decimal,
     cas_payer_point: str,
     budget_funded_employer: bool,
+    cost_destination: str,
     effective_to: date | None = None,
 ) -> EmploymentContract:
     """Open a work relationship. Every clause the calculation reads is required.
@@ -112,6 +114,12 @@ def create_contract(
             f"Annex 1 to Law 489/1999 names the employer at points "
             f"{', '.join(EMPLOYER_CAS_POINTS)}; the rest are categories individuals "
             f"pay for themselves"
+        )
+    if cost_destination not in CostDestination.values:
+        raise ContractMalformedError(
+            f"{cost_destination!r} is not a cost destination. A person's pay is one of "
+            f"{', '.join(CostDestination.values)} (ADR-065 section 7.1), and the choice "
+            f"names the expense account, so it is stated rather than assumed"
         )
     if base_salary is None or base_salary < 0:
         raise ContractMalformedError("a salary is not negative")
@@ -145,6 +153,7 @@ def create_contract(
                 weekly_hours=weekly_hours,
                 cas_payer_point=cas_payer_point,
                 budget_funded_employer=budget_funded_employer,
+                cost_destination=cost_destination,
             )
     except IntegrityError as exc:
         raise ContractDuplicateError(f"contract {number} already exists in this company") from exc
@@ -369,8 +378,38 @@ def as_dict(contract: EmploymentContract) -> dict[str, Any]:
         "weekly_hours": _amount(contract.weekly_hours),
         "cas_payer_point": contract.cas_payer_point,
         "budget_funded_employer": contract.budget_funded_employer,
+        "cost_destination": contract.cost_destination,
     }
 
 
 def _amount(value: Decimal | None) -> str | None:
     return None if value is None else str(value)
+
+
+def set_cost_destination(*, contract_id: uuid.UUID, cost_destination: str) -> dict[str, Any]:
+    """State where an existing contract's cost goes -- ADR-065 section 7.1.
+
+    For the contracts written before the column existed, and for a person who
+    moves between administration and production. Nothing already posted moves: a
+    run reads the destination when it is approved, and the entry keeps what it
+    read (`R10`); the next run reads the new one.
+    """
+    if cost_destination not in CostDestination.values:
+        raise ContractMalformedError(
+            f"{cost_destination!r} is not a cost destination; one of "
+            f"{', '.join(CostDestination.values)} is"
+        )
+    contract = EmploymentContract.objects.filter(id=contract_id).first()
+    if contract is None:
+        raise ContractNotFoundError("no such contract in this context")
+    previous = contract.cost_destination
+    contract.cost_destination = cost_destination
+    contract.save(update_fields=["cost_destination", "updated_at"])
+    record(
+        action="payroll.contract_cost_destination_set",
+        entity_type="employment_contract",
+        entity_id=contract.id,
+        company_id=contract.company_id,
+        new_value={"from": previous, "to": cost_destination},
+    )
+    return contract_in_context(contract.id)

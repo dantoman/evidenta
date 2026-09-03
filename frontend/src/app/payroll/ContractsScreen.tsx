@@ -27,6 +27,7 @@ import {
   addAmendment,
   clausesOn,
   createContract,
+  setContractCostDestination,
   endContract,
   getContract,
   listContracts,
@@ -73,6 +74,11 @@ export function ContractsScreen() {
       width: '18rem',
     },
     { key: 'position', header: t.payroll.position, cell: (row) => row.position_title },
+    {
+      key: 'costDestination',
+      header: t.payroll.costDestination,
+      cell: (row) => <CostDestinationCell contract={row} onChanged={refresh} />,
+    },
     {
       key: 'from',
       header: t.payroll.effectiveFrom,
@@ -180,6 +186,9 @@ function NewContractForm({
   // No default that could be wrong silently: 29% budgetary against 24% private
   // is chosen by this box, and the server refuses the payload without it.
   const [budgetFunded, setBudgetFunded] = useState(false)
+  // Same rule: the destination names the expense account, so the form asks for
+  // it and sends nothing until it is chosen.
+  const [costDestination, setCostDestination] = useState('')
 
   const create = useMutation({
     mutationFn: () =>
@@ -196,6 +205,7 @@ function NewContractForm({
         weekly_hours: hours,
         cas_payer_point: casPoint,
         budget_funded_employer: budgetFunded,
+        cost_destination: costDestination,
       }),
     onSuccess: onCreated,
   })
@@ -208,7 +218,8 @@ function NewContractForm({
     orderNumber.trim() !== '' &&
     orderDate !== '' &&
     position.trim() !== '' &&
-    salary !== ''
+    salary !== '' &&
+    costDestination !== ''
 
   return (
     <form
@@ -326,6 +337,22 @@ function NewContractForm({
           {CAS_POINTS.map((point) => (
             <option key={point} value={point}>
               {point}
+            </option>
+          ))}
+        </Select>
+      </Field>
+
+      <Field label={t.payroll.costDestination}>
+        <Select
+          value={costDestination}
+          onChange={(event) => setCostDestination(event.target.value)}
+          className="w-64"
+          title={t.payroll.costDestinationHint}
+        >
+          <option value="">{t.common.none}</option>
+          {Object.entries(t.payroll.costDestinations).map(([code, label]) => (
+            <option key={code} value={code}>
+              {label}
             </option>
           ))}
         </Select>
@@ -701,5 +728,40 @@ function TerminationForm({
       </Button>
       {end.isError && <Failure error={end.error} />}
     </form>
+  )
+}
+
+function CostDestinationCell({
+  contract,
+  onChanged,
+}: {
+  contract: Contract
+  onChanged: () => Promise<void> | void
+}) {
+  // Editable in place: a contract written before the destination existed has
+  // none, and a person can move from administration to production. The server
+  // keeps what every posted run read.
+  const set = useMutation({
+    mutationFn: (value: string) => setContractCostDestination(contract.id, value),
+    onSuccess: onChanged,
+  })
+  const labels = t.payroll.costDestinations as Record<string, string>
+  return (
+    <Select
+      value={contract.cost_destination ?? ''}
+      onChange={(event) => set.mutate(event.target.value)}
+      disabled={set.isPending}
+      className="w-56"
+      aria-label={t.payroll.costDestination}
+    >
+      <option value="" disabled>
+        {t.common.none}
+      </option>
+      {Object.entries(labels).map(([code, label]) => (
+        <option key={code} value={code}>
+          {label}
+        </option>
+      ))}
+    </Select>
   )
 }

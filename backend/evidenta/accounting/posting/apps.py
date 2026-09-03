@@ -32,7 +32,9 @@ class PostingConfig(AppConfig):
             closing,  # noqa: F401
             commercial,  # noqa: F401
             manual,  # noqa: F401
+            payroll,  # noqa: F401
             production,  # noqa: F401
+            revaluation,  # noqa: F401
             reversal,  # noqa: F401
             settlement,  # noqa: F401
         )

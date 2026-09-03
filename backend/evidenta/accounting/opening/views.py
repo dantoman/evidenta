@@ -11,12 +11,24 @@ the general-ledger set, the agreement between analytical detail and its control
 account, the currency. An HTTP layer that re-checked any of them would be a
 second opinion, and the two would drift.
 
-**Three of the six row kinds are exposed, deliberately.** ``add_rows`` accepts
-general-ledger, receivable, payable, inventory, asset and payroll rows. The last
-three name ``item_id``, ``asset_id`` and ``employee_id`` -- entities of F4 and F2,
-which do not exist yet. An endpoint accepting an id with no table behind it is one
-nobody can call correctly while looking like delivered function. The service is
-untouched; this surface grows when the modules do.
+**All six row kinds are exposed.** Three of them arrived later than the others,
+and the reason they waited is worth keeping: ``item_id``, ``asset_id`` and
+``employee_id`` named entities that did not exist, and an endpoint accepting an
+id with no table behind it looked like delivered function. Employees exist now
+(`payroll`), and the cumulative set is what lets a company activate payroll in
+the middle of a year without granting the year's exemptions twice (ADR-061). The
+item and the asset are still identities of the *source* system -- there is no
+asset registry yet and no HTTP surface for items -- so the screen says so and
+the identifier is the one the company will attach the object to later. Refusing
+the set until then would refuse the stock and the fixed assets of every company
+that arrives from 1C, which is every company that arrives.
+
+**The payroll set carries a closed vocabulary and a sign.** ``code`` is one of
+the three keys of ADR-061 -- refused here, by the serializer, because the model
+deliberately holds no CHECK on it -- and ``amount`` is never negative, which the
+database also refuses (``opening_balance_payroll_amount_not_negative``). The
+serializer says it first so the answer is a 400 with a code rather than an
+integrity error.
 
 **Posting is the only step that takes an ``Idempotency-Key``** (`C9`), and it is
 the engine's key rather than the endpoint's (`R19`): the same key posts one entry,
@@ -38,8 +50,11 @@ from rest_framework.views import APIView
 
 from evidenta.accounting.opening.models import BatchSource
 from evidenta.accounting.opening.services.batches import (
+    AssetRow,
     GlRow,
+    InventoryRow,
     PartnerRow,
+    PayrollRow,
     add_rows,
     batch_in_context,
     batches_of,
@@ -48,6 +63,7 @@ from evidenta.accounting.opening.services.batches import (
     load_contents,
     validate_batch,
 )
+from evidenta.accounting.opening.services.cumulatives import CUMULATIVE_CODES
 from evidenta.accounting.opening.services.posting import post_batch
 from evidenta.platform.api.idempotency import read_key
 from evidenta.platform.capabilities.services.profile import active_profile
@@ -118,10 +134,90 @@ class PartnerRowSerializer(GlRowSerializer):
     due_date = serializers.DateField(required=False, allow_null=True)
 
 
+class InventoryRowSerializer(serializers.Serializer[dict[str, Any]]):
+    """One stock balance: what, where, how much, and what it cost.
+
+    ``total_cost`` is the debit and the only side there is -- a negative stock
+    balance is a defect of the source, and the service refuses it. Quantity and
+    unit are both required, because a journal line may carry a quantity only
+    with a unit; the unit cost travels but nothing recomputes the total from it
+    (ADR-038 section 7.3, and the rounding that would take is `DNB-08`).
+    """
+
+    account_id = serializers.UUIDField()
+    item_id = serializers.UUIDField()
+    uom_id = serializers.UUIDField()
+    quantity = serializers.DecimalField(max_digits=20, decimal_places=6)
+    total_cost = serializers.DecimalField(max_digits=20, decimal_places=4)
+    warehouse_id = serializers.UUIDField(required=False, allow_null=True)
+    lot = serializers.CharField(required=False, allow_null=True)
+    unit_cost = serializers.DecimalField(
+        max_digits=20, decimal_places=6, required=False, allow_null=True
+    )
+    currency = serializers.CharField(max_length=3, required=False, allow_null=True)
+    amount_currency = serializers.DecimalField(
+        max_digits=20, decimal_places=4, required=False, allow_null=True
+    )
+
+
+class AssetRowSerializer(serializers.Serializer[dict[str, Any]]):
+    """One fixed asset: two accounts, two amounts, and the schedule it arrives with.
+
+    ``accumulated_depreciation`` defaults to zero because an asset bought last
+    month has none, and a zero leg posts no line. ``in_service_date`` and
+    ``remaining_months`` do not post; they ride with the batch so the asset
+    module has a schedule rather than a balance to guess one from.
+    """
+
+    asset_id = serializers.UUIDField()
+    cost_account_id = serializers.UUIDField()
+    depreciation_account_id = serializers.UUIDField()
+    entry_cost = serializers.DecimalField(max_digits=20, decimal_places=4)
+    accumulated_depreciation = serializers.DecimalField(
+        max_digits=20, decimal_places=4, default=Decimal(0)
+    )
+    in_service_date = serializers.DateField()
+    remaining_months = serializers.IntegerField(required=False, allow_null=True, min_value=0)
+
+    def validate(self, attrs: dict[str, Any]) -> dict[str, Any]:
+        # `opening_balance_asset_two_accounts` refuses this in the database, and
+        # that is the barrier that holds against the importer. Saying it here
+        # turns an integrity error with no code into a 400 with one (C10).
+        if attrs["cost_account_id"] == attrs["depreciation_account_id"]:
+            raise serializers.ValidationError(
+                {
+                    "depreciation_account_id": (
+                        "cost and accumulated depreciation sit on two accounts; on one "
+                        "they would net to a book value and lose both numbers"
+                    )
+                }
+            )
+        return attrs
+
+
+class PayrollCumulativeRowSerializer(serializers.Serializer[dict[str, Any]]):
+    """One year-to-date amount of one employee -- ADR-061.
+
+    ``code`` is closed to the three keys of the cumulative method, and
+    ``amount`` is a magnitude: the meaning is the code's, never the sign's. The
+    window starts at ``from_date`` -- 1 January, or the hiring date for somebody
+    who joined during the year (HG 697/2014 point 38) -- and it is stated, not
+    assumed, because an exercise need not start in January either.
+    """
+
+    employee_id = serializers.UUIDField()
+    code = serializers.ChoiceField(choices=list(CUMULATIVE_CODES))
+    amount = serializers.DecimalField(max_digits=20, decimal_places=4, min_value=Decimal(0))
+    from_date = serializers.DateField()
+
+
 class AddRowsSerializer(serializers.Serializer[dict[str, Any]]):
     gl = GlRowSerializer(many=True, required=False)
     receivables = PartnerRowSerializer(many=True, required=False)
     payables = PartnerRowSerializer(many=True, required=False)
+    inventory = InventoryRowSerializer(many=True, required=False)
+    assets = AssetRowSerializer(many=True, required=False)
+    payroll_cumulatives = PayrollCumulativeRowSerializer(many=True, required=False)
 
 
 class BatchListView(APIView):
@@ -184,6 +280,9 @@ class BatchDetailView(APIView):
                 ],
                 "receivables": [_partner(row) for row in contents.receivables],
                 "payables": [_partner(row) for row in contents.payables],
+                "inventory": [_inventory(row) for row in contents.inventory],
+                "assets": [_asset(row) for row in contents.assets],
+                "payroll_cumulatives": [_payroll(row) for row in contents.payroll],
                 "decomposition": {
                     str(account_id): str(amount)
                     for account_id, amount in decomposition(contents).items()
@@ -203,6 +302,9 @@ class BatchRowsView(APIView):
             gl=[GlRow(**row) for row in data.get("gl", [])],
             receivables=[PartnerRow(**row) for row in data.get("receivables", [])],
             payables=[PartnerRow(**row) for row in data.get("payables", [])],
+            inventory=[InventoryRow(**row) for row in data.get("inventory", [])],
+            assets=[AssetRow(**row) for row in data.get("assets", [])],
+            payroll=[PayrollRow(**row) for row in data.get("payroll_cumulatives", [])],
         )
         return Response(_summary(batch_in_context(batch_id)), status=200)
 
@@ -266,4 +368,40 @@ def _partner(row: Any) -> dict[str, Any]:
         "document_number": row.document_number,
         "document_date": row.document_date.isoformat() if row.document_date else None,
         "due_date": row.due_date.isoformat() if row.due_date else None,
+    }
+
+
+def _inventory(row: Any) -> dict[str, Any]:
+    return {
+        "account_id": str(row.account_id),
+        "item_id": str(row.item_id),
+        "warehouse_id": str(row.warehouse_id) if row.warehouse_id else None,
+        "lot": row.lot,
+        "quantity": str(row.quantity),
+        "uom_id": str(row.uom_id),
+        "unit_cost": str(row.unit_cost) if row.unit_cost is not None else None,
+        # The debit, under the name the caller gave it: the set has one side.
+        "total_cost": str(row.debit),
+        "currency": row.currency,
+    }
+
+
+def _asset(row: Any) -> dict[str, Any]:
+    return {
+        "asset_id": str(row.asset_id),
+        "cost_account_id": str(row.cost_account_id),
+        "depreciation_account_id": str(row.depreciation_account_id),
+        "entry_cost": str(row.entry_cost),
+        "accumulated_depreciation": str(row.accumulated_depreciation),
+        "in_service_date": row.in_service_date.isoformat(),
+        "remaining_months": row.remaining_months,
+    }
+
+
+def _payroll(row: Any) -> dict[str, Any]:
+    return {
+        "employee_id": str(row.employee_id),
+        "code": row.code,
+        "amount": str(row.amount),
+        "from_date": row.from_date.isoformat(),
     }

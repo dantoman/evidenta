@@ -147,3 +147,30 @@ def event_ids_of_request(request_id: str) -> list[uuid.UUID]:
         .order_by("created_at")
         .values_list("id", flat=True)
     )
+
+
+@dataclass(frozen=True, slots=True)
+class EventSummary:
+    """What a source module may know about its own event without reading the ledger."""
+
+    id: uuid.UUID
+    event_type: str
+    status: str
+    posted_at: datetime | None
+
+
+def events_of_document(document_type: str, document_id: uuid.UUID) -> list[EventSummary]:
+    """The events a document produced, oldest first, with their outcome.
+
+    The reverse hop of `R13` for a module that owns the document and may import
+    `accounting.events` but not `accounting.ledger` (`D3`): a payroll run asks
+    "was I posted" and gets the event's state, which the engine keeps current.
+    """
+    return [
+        EventSummary(
+            id=row.id, event_type=row.event_type, status=row.status, posted_at=row.posted_at
+        )
+        for row in AccountingEvent.objects.filter(
+            source_document_type=document_type, source_document_id=document_id
+        ).order_by("occurred_at", "created_at")
+    ]

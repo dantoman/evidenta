@@ -25,8 +25,11 @@ import { ChartSetupScreen } from './accounting/ChartSetupScreen'
 import { JournalScreen } from './accounting/JournalScreen'
 import { ManualEntryScreen } from './accounting/ManualEntryScreen'
 import { OpeningBalancesScreen } from './accounting/OpeningBalancesScreen'
+import { RevaluationScreen } from './accounting/RevaluationScreen'
 import { OperationTemplatesScreen } from './accounting/OperationTemplatesScreen'
+import { RoleBindingsScreen } from './accounting/RoleBindingsScreen'
 import { RegisterScreen } from './accounting/RegisterScreen'
+import { ClosingScreen } from './accounting/ClosingScreen'
 import { TrialBalanceScreen } from './accounting/TrialBalanceScreen'
 import { CompaniesScreen } from './companies/CompaniesScreen'
 import { DashboardScreen } from './dashboard/DashboardScreen'
@@ -175,6 +178,14 @@ export function App() {
           <Route path="companii/:companyId/jurnale" element={<JournalScreen />} />
           <Route path="companii/:companyId/note" element={<ManualEntryScreen />} />
           <Route path="companii/:companyId/balanta" element={<TrialBalanceScreen />} />
+          {/* Conturile de sistem: ce cont înseamnă fiecare rol al motorului
+              pentru companie, și de când -- o relegare datată, nu o editare. */}
+          <Route
+            path="companii/:companyId/conturi-de-sistem"
+            element={<RoleBindingsScreen />}
+          />
+          {/* Închiderea lunii și a exercițiului: verificările și refuzurile sunt ale serverului. */}
+          <Route path="companii/:companyId/inchidere" element={<ClosingScreen />} />
           <Route path="companii/:companyId/registru" element={<RegisterScreen />} />
           {/* Facturi emise: documentul și contarea lui, într-un singur pas. */}
           <Route path="companii/:companyId/facturi" element={<SalesScreen />} />
@@ -189,6 +200,7 @@ export function App() {
           />
           <Route path="companii/:companyId/registre-tva" element={<VatRegisterScreen />} />
           <Route path="companii/:companyId/sabloane" element={<OperationTemplatesScreen />} />
+          <Route path="companii/:companyId/reevaluare" element={<RevaluationScreen />} />
           {/* With and without a batch: the batch id is in the path so a draft
               survives a reload -- the server has no way to list a company's
               batches yet, so an address is the only way back to one. */}

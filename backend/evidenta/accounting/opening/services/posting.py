@@ -65,7 +65,7 @@ from evidenta.accounting.events.registry import (
 )
 from evidenta.accounting.events.services.emission import emit
 from evidenta.accounting.events.services.lifecycle import mark_failed, mark_posted
-from evidenta.accounting.ledger.services.lineage import event_id_of_entry
+from evidenta.accounting.ledger.services.lineage import event_id_of_entry, reversal_of_entry
 from evidenta.accounting.ledger.services.writing import (
     LineToWrite,
     entry_id_of_event,
@@ -74,6 +74,7 @@ from evidenta.accounting.ledger.services.writing import (
 from evidenta.accounting.opening.errors import (
     BatchAlreadyPostedError,
     EntryMissingForPostedEventError,
+    OpeningAlreadyPostedError,
     OpeningBalanceError,
     StartPeriodFixedError,
 )
@@ -96,6 +97,12 @@ from evidenta.accounting.posting.invariants import (
     verify,
 )
 from evidenta.accounting.posting.resolution import selected_treatment
+from evidenta.accounting.posting.services.reversal import (
+    HANDLER_REF as REVERSAL_HANDLER_REF,
+)
+from evidenta.accounting.posting.services.reversal import (
+    REVERSAL_SUFFIX,
+)
 from evidenta.platform.api.errors import ApiError
 from evidenta.platform.numbering.services.allocation import NumberingError, allocate
 
@@ -490,18 +497,35 @@ def _assert_start_period_free(batch: OpeningBalanceBatch) -> None:
     What is added here is the code (C10) and the timing: refused before an event
     exists, so nothing lands in the retry queue that could never post.
     """
-    fixed = (
+    posted = list(
         OpeningBalanceBatch.objects.filter(company_id=batch.company_id, status=BatchStatus.POSTED)
         .exclude(id=batch.id)
-        .values_list("as_of_date", flat=True)
-        .first()
+        .order_by("posted_at")
     )
+    fixed = posted[0].as_of_date if posted else None
     if fixed is not None and fixed != batch.as_of_date:
         raise StartPeriodFixedError(
             f"company {batch.company_id} posted its opening balances as of {fixed}; "
             f"batch {batch.id} is dated {batch.as_of_date}. The start period of a "
             f"company is chosen once and does not move (ADR-039 section 11) -- a "
             f"correction is a reversal and a new batch at {fixed}"
+        )
+    # Same date, but is the earlier entry still standing? Two live opening
+    # entries double every balance, and the counterpart nets to zero on each,
+    # so nothing else would ever say so (accounting-reviewer, 2026-09-03). The
+    # correction path stays exactly as Spec B section 8.3 keeps it: reverse,
+    # then post again.
+    standing = [
+        prior
+        for prior in posted
+        if prior.journal_entry_id is not None and reversal_of_entry(prior.journal_entry_id) is None
+    ]
+    if standing:
+        raise OpeningAlreadyPostedError(
+            f"company {batch.company_id} already has opening balances posted as of "
+            f"{batch.as_of_date} (batch {standing[0].id}, entry "
+            f"{standing[0].journal_entry_id}) and that entry has not been reversed; a "
+            f"second one would double every balance. Reverse it first, then post this batch"
         )
 
 
@@ -659,3 +683,25 @@ def _with_counterpart(
             )
         )
     return tuple(mirrored)
+
+
+# --- the storno pair ------------------------------------------------------------------
+#
+# Spec B section 8.3 keeps the correction path open: reverse the posted opening
+# entry, then post a new batch at the same date. The reversal service selects
+# the pair by suffix and refuses a type nobody registered, and until now nobody
+# had -- so the path existed on paper only. The mirror handler names no roles:
+# it uses the accounts already posted.
+register(
+    EventType(
+        name=EVENT_TYPE + REVERSAL_SUFFIX,
+        payload_fields=("reverses_entry_id", "reason"),
+        account_roles=(),
+        handlers=(HandlerVersion(implementation_ref=REVERSAL_HANDLER_REF, valid_from=date.min),),
+        description=(
+            "The cancellation of an opening-balance entry: the original's lines with "
+            "debit and credit swapped, linked to the batch and to the entry it cancels "
+            "(R14), so a corrected batch can be posted at the same date."
+        ),
+    )
+)

@@ -481,6 +481,39 @@ redacţia în vigoare — vezi `backend/tests/corpus/README.md`.
 > financiare conform cursului oficial al leului moldovenesc la data recunoaşterii iniţiale a acestora.
 > [Pct.12 în redacţia Ordinului Min.Fin. nr.48 din 12.03.2019, în vigoare 01.01.2020]
 
+### SNC Diferenţe de curs pct. 13
+
+> 13. Entitatea poate recalcula elementele monetare atît la data raportării, cît şi cu o altă
+> periodicitate prevăzută în politicile contabile (lunar, trimestrial etc.).
+> [p. 197; transcris în `f2-x2-snc-situatii-financiare-si-diferente-de-curs.md` §8]
+
+### SNC Diferenţe de curs pct. 14
+
+> 14. Diferenţele de curs valutar favorabile şi nefavorabile care apar ca rezultat al recalculării
+> la data raportării a elementelor monetare precum şi a acţiunilor evaluate la valoarea justă, se
+> recunosc ca venituri şi cheltuieli curente şi se contabilizează în conformitate cu prevederile
+> pct.9 şi 10 din prezentul standard. Modul de contabilizare a diferenţelor de curs valutar este
+> prezentat în anexa 1.
+> [p. 197; transcris în `f2-x2-snc-situatii-financiare-si-diferente-de-curs.md` §8]
+
+### SNC Diferenţe de curs pct. 15
+
+> 15. În cazul în care operaţiunea în valută străină a fost înregistrată într-o perioadă de
+> gestiune, iar achitarea se efectuează în altă perioadă de gestiune, diferenţele de curs valutar se
+> recunosc în fiecare perioadă de gestiune pînă la data achitării.
+> [p. 198; transcris în `f2-x2-snc-situatii-financiare-si-diferente-de-curs.md` §8]
+
+### SNC Diferenţe de curs Exemplul 3
+
+> Exemplul 3 (p. 198): servicii prestate de 13 000 euro la 22.12, cursul 15,0540; la data raportării
+> 31.12 cursul 15,3825 — diferenţă de curs favorabilă 4 270 lei, „ca majorare concomitentă a
+> creanţelor şi veniturilor curente"; încasare la 03.01 la cursul 15,3158 — diferenţă nefavorabilă
+> 867 lei faţă de cursul de la 31.12. Deci după reevaluare baza următoarei diferenţe e cursul
+> reevaluării, nu cel iniţial. Sumele din act sunt rotunjite la leu; motorul le ţine la scara
+> parametrului (`accounting.amount_scale`), deci 4 270,50 şi 867,10 — diferenţă explicată, nu
+> divergenţă (README, „Explicate, nu divergențe").
+> [rezumat din `f2-x2-snc-situatii-financiare-si-diferente-de-curs.md` §8, care citează p. 198]
+
 ### SNC Diferenţe de curs pct. 17
 
 > 17. Diferenţele de sumă apar în cazul încheierii între rezidenţii Republicii Moldova a

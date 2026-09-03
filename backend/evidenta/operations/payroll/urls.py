@@ -23,6 +23,11 @@ urlpatterns = [
     ),
     path("employees/<uuid:employee_id>", views.EmployeeDetailView.as_view(), name="employee"),
     path(
+        "employees/<uuid:employee_id>/bank-account",
+        views.EmployeeBankAccountView.as_view(),
+        name="employee-bank-account",
+    ),
+    path(
         "companies/<uuid:company_id>/contracts",
         views.ContractListView.as_view(),
         name="contracts",
@@ -37,6 +42,11 @@ urlpatterns = [
         "contracts/<uuid:contract_id>/termination",
         views.ContractTerminationView.as_view(),
         name="contract-termination",
+    ),
+    path(
+        "contracts/<uuid:contract_id>/cost-destination",
+        views.ContractCostDestinationView.as_view(),
+        name="contract-cost-destination",
     ),
     # "What was in force on date D" is a read of the series, and the date is a
     # query because it is a question the reader asks each time, not a property of
@@ -84,6 +94,33 @@ urlpatterns = [
         "runs/<uuid:run_id>/payslips/<uuid:employee_id>",
         views.PayslipView.as_view(),
         name="payslip",
+    ),
+    path(
+        "runs/<uuid:run_id>/payslips/<uuid:employee_id>/pdf",
+        views.PayslipPdfView.as_view(),
+        name="payslip-pdf",
+    ),
+    # The payment is of a run -- it pays what the accrual left -- and once it
+    # exists its own id addresses it. The bank's list is a file of the run.
+    path(
+        "runs/<uuid:run_id>/payments",
+        views.SalaryPaymentListView.as_view(),
+        name="salary-payments",
+    ),
+    path(
+        "runs/<uuid:run_id>/bank-list.csv",
+        views.BankListView.as_view(),
+        name="bank-list",
+    ),
+    path(
+        "payments/<uuid:payment_id>",
+        views.SalaryPaymentDetailView.as_view(),
+        name="salary-payment",
+    ),
+    path(
+        "payments/<uuid:payment_id>/posting",
+        views.SalaryPaymentPostingView.as_view(),
+        name="salary-payment-posting",
     ),
     # Exemptions hang off the person, not off a company: the application is
     # theirs, and point 18 dates it. `on` is a query because "what was in force

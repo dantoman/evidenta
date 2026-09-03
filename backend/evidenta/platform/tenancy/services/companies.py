@@ -73,6 +73,27 @@ def statutory_identity(company_id: uuid.UUID) -> StatutoryIdentity:
     )
 
 
+@dataclass(frozen=True, slots=True)
+class CompanyHeading:
+    """What a printed document names the company by -- ADR-095.
+
+    The legal name and the IDNO, and nothing the interface may call the company
+    (`C39`): a document carries the name the registry knows.
+    """
+
+    legal_name: str
+    idno: str
+
+
+def company_heading(company_id: uuid.UUID) -> CompanyHeading:
+    """The company as a printed document names it. Absent and not-visible are
+    one answer, like every reader here."""
+    row = Company.objects.filter(id=company_id).values("legal_name", "idno").first()
+    if row is None:
+        raise CompanyNotVisibleError(f"company {company_id} is not visible in this context")
+    return CompanyHeading(legal_name=str(row["legal_name"]), idno=str(row["idno"]))
+
+
 def accounting_start_date(company_id: uuid.UUID) -> date:
     """The day this company's books start.
 

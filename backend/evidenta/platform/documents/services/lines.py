@@ -251,6 +251,40 @@ def totals_of(document_id: uuid.UUID) -> DocumentTotals:
 
 
 @dataclass(frozen=True, slots=True)
+class PositionView:
+    """One position as another module may read it: what was entered on it and
+    what it came to. A view rather than the row, so a typed module can show or
+    re-edit a document's positions without holding the core's model (`D6`)."""
+
+    line_no: int
+    description: str
+    quantity: Decimal
+    unit_price: Decimal
+    vat_regime_code: str
+    net_amount: Decimal
+    vat_amount: Decimal
+    total_amount: Decimal
+
+
+def lines_of(document_id: uuid.UUID) -> list[PositionView]:
+    """The document's positions, in order. Empty for a document that has none,
+    and empty for one not visible in this context -- RLS answers, not this."""
+    return [
+        PositionView(
+            line_no=line.line_no,
+            description=line.description,
+            quantity=line.quantity,
+            unit_price=line.unit_price,
+            vat_regime_code=line.vat_regime_code,
+            net_amount=line.net_amount,
+            vat_amount=line.vat_amount,
+            total_amount=line.total_amount,
+        )
+        for line in DocumentLine.objects.filter(document_id=document_id).order_by("line_no")
+    ]
+
+
+@dataclass(frozen=True, slots=True)
 class VatSlice:
     """The document's positions that share one VAT treatment, added exactly.
 

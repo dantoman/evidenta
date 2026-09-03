@@ -48,6 +48,7 @@ from evidenta.accounting.opening.errors import (
     GlOutOfBalanceError,
     IllegalBatchTransitionError,
     OpeningBalanceError,
+    OpeningQuantityTooFineError,
     StartPeriodFixedError,
 )
 from evidenta.accounting.opening.models import (
@@ -65,6 +66,7 @@ from evidenta.accounting.posting.dimensions import (
     LineDimensions,
     assert_dimensions_present,
 )
+from evidenta.masterdata.uom.services.precision import UnitNotFoundError, quantity_scale_of
 from evidenta.platform.audit.services.recording import record
 from evidenta.platform.rls.context import MissingTenantContextError, current_context
 from evidenta.platform.tenancy.services.access import company_visible_in_context
@@ -374,6 +376,22 @@ def add_rows(
         _partner_instances(OpeningBalancePayable, scope, payables)
     )
 
+    # ADR-055: the quantity is as fine as its unit allows and no finer. Refused
+    # at entry rather than rounded, the same rule the document line applies in
+    # `line_amounts`; once posted the unit's precision freezes with the line.
+    for row in inventory:
+        try:
+            allowed = quantity_scale_of(row.uom_id)
+        except UnitNotFoundError:
+            # The unit is a reference the company has not defined yet (there is
+            # no nomenclator screen before F4); nothing carries a precision to
+            # check against, and ADR-055's freeze binds from the day it exists.
+            continue
+        if _decimals(row.quantity) > allowed:
+            raise OpeningQuantityTooFineError(
+                f"inventory row on account {row.account_id}: quantity {row.quantity} "
+                f"carries more than the {allowed} decimals its unit of measure allows"
+            )
     OpeningBalanceInventory.objects.bulk_create(
         [
             OpeningBalanceInventory(
@@ -773,6 +791,11 @@ def batches_of(company_id: uuid.UUID) -> list[dict[str, Any]]:
             "gl_rows": OpeningBalanceGl.objects.filter(batch_id=batch.id).count(),
             "receivable_rows": OpeningBalanceReceivable.objects.filter(batch_id=batch.id).count(),
             "payable_rows": OpeningBalancePayable.objects.filter(batch_id=batch.id).count(),
+            "inventory_rows": OpeningBalanceInventory.objects.filter(batch_id=batch.id).count(),
+            "asset_rows": OpeningBalanceAsset.objects.filter(batch_id=batch.id).count(),
+            "payroll_rows": OpeningBalancePayrollCumulative.objects.filter(
+                batch_id=batch.id
+            ).count(),
             #: Free text in Romanian, written by whoever abandoned it. A list that
             #: showed `rejected` without it makes the reader open the batch to
             #: learn what a sentence would have told them.
@@ -780,3 +803,9 @@ def batches_of(company_id: uuid.UUID) -> list[dict[str, Any]]:
         }
         for batch in rows
     ]
+
+
+def _decimals(value: Decimal) -> int:
+    """How many decimals a quantity actually carries (trailing zeros do not count)."""
+    exponent = value.normalize().as_tuple().exponent
+    return -exponent if isinstance(exponent, int) and exponent < 0 else 0

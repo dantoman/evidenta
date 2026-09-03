@@ -54,6 +54,12 @@ class SourceModule(models.TextChoices):
     #: the source of the fact, not an app -- `manual` would say somebody typed
     #: the split, and nobody did.
     PRODUCTION = "production"
+    #: The currency module acting on its own: the monetary items in foreign
+    #: currency restated at the reporting date (`A10`, ADR-097). Not `manual` --
+    #: nobody typed the differences -- and not `periods`: the closing may ask for
+    #: it, but the fact is the revaluation, and its source document is the
+    #: revaluation row, not the period.
+    CURRENCY = "currency"
 
 
 class AccountingEvent(models.Model):

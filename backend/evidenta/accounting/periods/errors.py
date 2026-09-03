@@ -226,3 +226,14 @@ class LastPeriodNotOpenError(ApiError):
 
     code = "periods.last_period_not_open"
     status = 409
+
+
+class PeriodsMissingError(ApiError):
+    """The exercise's months do not cover it -- none at all, or a gap between them.
+
+    Its own code rather than `periods.last_period_not_open`: the remedy that one
+    names (reopen the last month) does not apply when the month does not exist.
+    """
+
+    code = "periods.periods_missing"
+    status = 409

@@ -47,6 +47,7 @@ from evidenta.operations.tax.services.ipc import (
 )
 from evidenta.operations.tax.services.reconciliation import reconcile
 from evidenta.platform.rls.context import TenantContext, tenant_context
+from tests.isolation.payroll_ledger import seed_ledger_for_payroll
 
 pytestmark = pytest.mark.django_db(databases=["default", "migration", "refdata"])
 
@@ -77,6 +78,9 @@ def alpha(
         "UPDATE company SET cuatm_code = '0101', caem_code = '62.01' WHERE id = %s",
         [company],
     )
+    # A return is generated from an approved run, and approval posts (ADR-065
+    # section 8): the engine's prerequisites come with the company.
+    seed_ledger_for_payroll(seed, tenant=world["tenant_a"], company=company, user=world["user_a"])
     return {"tenant": world["tenant_a"], "user": world["user_a"], "company": company}
 
 
@@ -151,6 +155,7 @@ def a_person(world: dict[str, uuid.UUID], *, idnp: str, number: str) -> uuid.UUI
         weekly_hours=Decimal("40.00"),
         cas_payer_point="1.1",
         budget_funded_employer=False,
+        cost_destination="administrative",
     )
     return employee.id
 
