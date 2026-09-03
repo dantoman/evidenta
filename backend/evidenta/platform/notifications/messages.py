@@ -56,6 +56,30 @@ class Message:
 
 
 CATALOGUE: dict[str, Message] = {
+    # ADR-077 §5-§6. The consent sentence from ADR-017, verbatim, with the real
+    # ticket number -- a request without one cannot be written, by constraint.
+    "support.requested": Message(
+        subject="Solicitare de acces pentru suport",
+        body=(
+            "Echipa Evidenta solicită acces temporar la datele companiei pentru rezolvarea "
+            "solicitării #{request_ref}. Aprobarea se dă din spațiul de lucru, este doar-citire "
+            "și expiră automat."
+        ),
+        required_params=("request_ref",),
+    ),
+    "support.approved": Message(
+        subject="Acces pentru suport aprobat",
+        body=(
+            "Accesul echipei Evidenta pentru solicitarea #{request_ref} a fost aprobat și expiră "
+            "la {expires_at}. Poate fi retras oricând din spațiul de lucru."
+        ),
+        required_params=("request_ref", "expires_at"),
+    ),
+    "support.revoked": Message(
+        subject="Acces pentru suport retras",
+        body="Accesul echipei Evidenta pentru solicitarea #{request_ref} a fost retras.",
+        required_params=("request_ref",),
+    ),
     "engagement.revoked": Message(
         subject="Accesul contabilului a fost retras",
         body=(

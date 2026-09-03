@@ -175,6 +175,13 @@ def whoami(request: HttpRequest) -> HttpResponse:
                 if getattr(request, "authenticated_actor_firm_id", None)
                 else None
             ),
+            # The support grant the session runs on (ADR-077 §6), so the client
+            # can say so in its context bar. Null for everyone else.
+            "support_grant_id": (
+                str(request.authenticated_support_grant_id)  # type: ignore[attr-defined]
+                if getattr(request, "authenticated_support_grant_id", None)
+                else None
+            ),
             "request_id": str(getattr(request, "request_id", "")),
         }
     )

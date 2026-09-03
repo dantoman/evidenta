@@ -529,6 +529,10 @@ class UserSession(models.Model):
 
     tenant_id = models.UUIDField(null=True, blank=True)
     actor_firm_id = models.UUIDField(null=True, blank=True)
+    #: The support grant the session runs on (ADR-077 §6) -- set at issue, never
+    #: later. A bare id: the grant is `support`'s, and `rls.resolve_session`
+    #: refuses to resolve a session whose grant has been revoked or has expired.
+    support_grant_id = models.UUIDField(null=True, blank=True)
 
     created_at = models.DateTimeField(auto_now_add=True)
     last_seen_at = models.DateTimeField(null=True, blank=True)

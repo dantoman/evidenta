@@ -104,6 +104,9 @@ export const ro = {
     notYet: 'Nu este disponibil încă.',
     sfs: 'SFS',
     sfsNotConfigured: 'Integrarea cu SFS nu este configurată.',
+    // Bara sesiunii de suport (ADR-077 §6): nu există „modul discret". Spune pe
+    // ce solicitare rulează sesiunea, până când, și că e doar-citire.
+    supportSession: 'Sesiune de suport pe solicitarea #{ref}, doar citire, până la {until}.',
   },
   // Panoul de control. Jumătate din textele de aici spun ce NU se poate afișa:
   // termenul de depunere, TVA de plată, creanța scadentă. Fiecare numește ce
@@ -243,6 +246,28 @@ export const ro = {
     validFrom: 'Din',
     validTo: 'Până la',
     allCompanies: 'Toate companiile',
+    // Granturile de suport (ADR-077): singura cale a platformei către datele
+    // acestui spațiu, cerută de echipa Evidenta, aprobată aici, doar-citire, cu
+    // expirare. Propoziția de consimțământ e cea din ADR-017, verbatim, cu
+    // numărul real al solicitării.
+    support: 'Solicitări de suport',
+    supportLead:
+      'Echipa Evidenta poate vedea datele acestui spațiu doar cu aprobarea dumneavoastră, doar în citire și doar pentru o fereastră de cel mult 72 de ore. Fiecare acces are numărul solicitării lui.',
+    supportConsent: 'Echipa Evidenta solicită acces temporar la datele companiei pentru rezolvarea solicitării #{ref}.',
+    supportJustification: 'Motivul invocat',
+    supportRequestedAt: 'Cerută la',
+    supportExpiresAt: 'Expiră la',
+    supportHours: 'Fereastra (ore)',
+    supportApprove: 'Aprobă accesul',
+    supportRevoke: 'Retrage accesul',
+    supportConfirmRevoke: 'Retragi accesul echipei Evidenta? Sesiunea ei se închide imediat.',
+    supportStatusPending: 'În așteptare',
+    supportStatusActive: 'Activ',
+    supportStatusExpired: 'Expirat',
+    supportStatusRevoked: 'Retras',
+    supportNone: 'Nicio solicitare de suport.',
+    supportNoRight:
+      'Aprobarea și retragerea cer dreptul „Aprobă accesul pentru suport", pe care îl are rolul de administrare al spațiului.',
     // Limita e a politicii, nu a ecranului: `membership` se vede rând propriu
     // (migrarea 0011), deci o listă de persoane ar întoarce doar cititorul și ar
     // arăta ca un răspuns. Se spune, nu se ascunde.
@@ -261,6 +286,7 @@ export const ro = {
   // română, lângă restul șirurilor (C32), nu într-o coloană care s-ar traduce
   // printr-o migrare.
   permissions: {
+    'tenant.approve_support_access': 'Aprobă accesul pentru suport',
     'tenant.manage_roles': 'Administrează rolurile',
     'engagement.invite': 'Invită o firmă de contabilitate',
     'engagement.accept': 'Acceptă un mandat',
@@ -1202,47 +1228,6 @@ export const ro = {
         ],
         trigger: 'Când se construiește modulul de facturare, cu P-1 și ecranul de alegere a planului din spațiul clientului.',
       },
-      support: {
-        title: 'Granturi de suport',
-        lead: 'Singura cale a platformei către datele unui client: cerută de suport, aprobată de client, doar citire, cu expirare. ADR-077 e acceptat și neconstruit.',
-        will: [
-          'Cererile de suport deschise: cine a cerut, pentru care spațiu, cu ce referință de solicitare și ce justificare.',
-          'Aprobările date de clienți, cine le-a dat și până când sunt valabile.',
-          'Granturile expirate și cele retrase, ca istoric: fiecare acces la datele unui client trebuie să fie explicabil ulterior.',
-        ],
-        missing: [
-          'Tabela grantului de suport nu există; calea privilegiată P-7 nu are cod.',
-          'Ramura mărginită din predicatul de acces, care ar deschide citirea până la expirare, nu e scrisă.',
-          'Ecranul de consimțământ din spațiul clientului, cu dreptul tenant.approve_support_access, nu există.',
-          'Clauza contractuală care descrie mecanismul clientului (OD-115) nu e scrisă.',
-        ],
-        decisions: [
-          'ADR-077 — cererea e privilegiată, aprobarea e obișnuită, expirarea e în predicat; doar citire.',
-          'ADR-076 §2 — consola administrează platforma, nu datele; grantul e excepția consimțită.',
-          'Spec A §6.2, P-7 — suportul platformei.',
-        ],
-        trigger: 'La primul incident care nu se poate diagnostica din jurnale și metrici, sau la închiderea OD-115, oricare vine prima.',
-      },
-      incidents: {
-        title: 'Incidente',
-        lead: 'Starea joburilor, cozile și erorile de integrare. Nu există încă un job cu stare persistată, deci nu există nimic de citit.',
-        will: [
-          'Rulările joburilor de platformă: cursul BNM (P-3), interogarea SFS pentru e-Factura (P-2), construirea read models (P-6), cu ultima rulare și rezultatul ei.',
-          'Cozile: câte sarcini așteaptă, de cât timp, câte au eșuat.',
-          'Erorile de integrare pe spații, ca metadată: ce integrare, când, ce cod de eroare. Niciodată conținutul documentului.',
-        ],
-        missing: [
-          'Nu rulează niciun worker în dezvoltare și niciun job nu își persistă starea.',
-          'Integrarea SFS și cursul BNM nu au cod; P-2 și P-3 nu lasă rânduri în jurnal.',
-          'Decoratorul care impune contextul de tenant pe fiecare sarcină (R6) precede orice job care atinge date.',
-        ],
-        decisions: [
-          'ADR-076 §4.3 — pagina „Incidente": starea joburilor, cozile, erorile de integrare.',
-          'Spec A §6.2 — P-2 și P-3, procese ale platformei, nu ale unui spațiu.',
-          'CLAUDE.md R6 — fiecare sarcină primește spațiul explicit și setează contextul înainte de orice interogare.',
-        ],
-        trigger: 'La primul job programat cu stare persistată: cursul BNM este candidatul, fiindcă nu atinge datele niciunui client.',
-      },
     },
     notStaff: 'Contul dumneavoastră nu mai are rol pe platformă.',
     navPlatform: 'Platformă',
@@ -1357,6 +1342,57 @@ export const ro = {
       emptyOverrides: 'Nicio suprascriere.',
       readOnly:
         'Doar citire: nimic din produs nu scrie încă o atribuire, iar un buton aici ar inventa o cale. Când apare, trece prin jurnalul căilor privilegiate.',
+    },
+    support: {
+      title: 'Granturi de suport',
+      eyebrow: 'Consola platformei · Suport',
+      lead: 'Singura cale a platformei către datele unui client: cerută de aici, aprobată de client în spațiul lui, doar citire, cu expirare. Cererea nu dă acces; aprobarea o dă.',
+      space: 'Spațiu',
+      requestedBy: 'Cerută de',
+      requestRef: 'Solicitarea',
+      justification: 'Justificare',
+      requestedAt: 'Cerută la',
+      expiresAt: 'Expiră la',
+      status: 'Stare',
+      statusPending: 'În așteptare',
+      statusActive: 'Activ',
+      statusExpired: 'Expirat',
+      statusRevoked: 'Retras',
+      request: 'Cere acces',
+      requestLead:
+        'Se cere pentru întregul spațiu, cu numărul solicitării de suport și motivul. Clientul primește notificare și aprobă sau nu; până atunci nu se vede nimic.',
+      spaceHint: 'Subdomeniul spațiului, așa cum apare în lista de spații.',
+      save: 'Trimite cererea',
+      cancel: 'Renunță',
+      requested: 'Cerere trimisă. Se așteaptă aprobarea clientului.',
+      empty: 'Nicio cerere de suport.',
+      readOnly: 'Doar rolul de suport cere un grant; ceilalți văd lista.',
+      howToUse:
+        'După aprobare, angajatul de suport intră pe subdomeniul clientului cu contul lui obișnuit. Sesiunea e doar citire și se închide la retragere sau la expirare.',
+    },
+    incidents: {
+      title: 'Incidente',
+      eyebrow: 'Consola platformei · Operare',
+      lead: 'Starea platformei, măsurată acum, din procesul care servește cererea: baza de date, brokerul și cozile lui, workerii, și ultima rulare a fiecărei căi privilegiate.',
+      database: 'Baza de date',
+      broker: 'Brokerul (Redis)',
+      workers: 'Workeri',
+      queues: 'Cozi',
+      ok: 'răspunde',
+      down: 'nu răspunde',
+      noWorkers: 'niciun worker activ',
+      latency: 'ms',
+      depth: 'sarcini în așteptare',
+      unknown: 'necunoscut',
+      paths: 'Ultima rulare a căilor privilegiate',
+      path: 'Cale',
+      lastRun: 'Ultima rulare',
+      lastActor: 'Cine',
+      never: 'niciodată',
+      // Ce nu există încă, spus lângă ce există.
+      noJobs:
+        'Niciun job nu își persistă încă starea; până atunci, jurnalul căilor privilegiate e singura urmă durabilă a lucrului platformei.',
+      refresh: 'Măsoară din nou',
     },
     chart: {
       title: 'Planuri de conturi',
@@ -1482,6 +1518,18 @@ export const ro = {
     'staff.role_invalid': 'Rolul nu există.',
     'staff.invalid': 'Cererea nu este validă.',
     'audit.filter_invalid': 'Filtrul jurnalului nu este valid.',
+    // Granturile de suport (ADR-077), din `platform/support`.
+    'support.read_only': 'Sesiunea de suport este doar citire.',
+    'support.grant_not_found': 'Solicitarea nu există în acest spațiu.',
+    'support.not_pending': 'Solicitarea nu mai este în așteptare.',
+    'support.not_live': 'Accesul nu mai este activ.',
+    'support.window_invalid': 'Fereastra de acces este între 1 și 72 de ore.',
+    'support.self_approval': 'Nimeni nu își aprobă propria solicitare.',
+    'support.invalid': 'Cererea nu este validă.',
+    'support.request_refused': 'Cererea de suport a fost refuzată.',
+    'support.request_invalid': 'Cererea de suport cere numărul solicitării și motivul.',
+    'support.request_exists': 'Există deja o cerere sau un acces activ pentru acest spațiu.',
+    'support.space_not_found': 'Spațiul nu există.',
     'api.not_found': 'Nu s-a găsit.',
     // The tenant comes from the subdomain (C8), so this is what a host with no
     // workspace behind it answers -- not an error in the usual sense.

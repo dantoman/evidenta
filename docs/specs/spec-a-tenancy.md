@@ -982,7 +982,9 @@ declarat necondiționat), și se revine la ea când producția dă serverului we
 credențiale diferite (ADR-091 §6).*
 
 **`DN-18` — DECISĂ 2026-08-31, varianta (B)**, prin
-[ADR-077](../decisions/077-grantul-de-suport.md). `P-7` nu e o ocolire, e un **grant**: cererea trece
+[ADR-077](../decisions/077-grantul-de-suport.md); **construită 2026-09-03**
+([ADR-094](../decisions/094-sesiunea-de-suport-e-doar-citire-la-nivel-de-tranzactie.md):
+`infra/migrations/0077`, ramura a treia în `infra/bootstrap/0003`, `platform/support`). `P-7` nu e o ocolire, e un **grant**: cererea trece
 prin calea privilegiată (angajat cu rol `support` în `platform_staff`,
 [ADR-076](../decisions/076-planul-de-control-al-platformei.md)), **aprobarea trece prin politica
 obișnuită a tenantului** — un membru cu `tenant.approve_support_access` — iar accesul trăiește ca o
@@ -1938,12 +1940,23 @@ Capabilități (doar citire), Ringuri și flaguri (doar citire; nimic din produs
 atribuire), Angajații platformei (citire pentru toți, acordare și retragere prin `P-12` pentru
 `admin`), Parametri fiscali (versiune nouă datată și activare prin `P-4`, ADR-091), Planuri de
 conturi (doar citire; încărcarea e `P-10` din fișier), Jurnalul căilor privilegiate (filtrabil pe cale
-și pe spațiu). **Neconstruite, cu motivul:** Abonamente și planuri (modulul de facturare nu există),
-Granturi de suport (ADR-077 acceptat, neconstruit), Incidente (nu există stare de joburi de citit).
-Desenate ca pagini „de implementat" ([ADR-093](../decisions/093-paginile-fara-server-se-deseneaza.md)):
-fiecare spune ce va face, ce lipsește, de ce decizie depinde și când se construiește, cu marcajul și
-în bara laterală. Ce nu apare niciodată: registre, documente, solduri, salarii, declarații, atașamente,
-denumiri de parteneri, sume.
+și pe spațiu), Granturi de suport (listă pentru toți, cerere prin `P-7` pentru `support` —
+[ADR-077](../decisions/077-grantul-de-suport.md),
+[ADR-094](../decisions/094-sesiunea-de-suport-e-doar-citire-la-nivel-de-tranzactie.md)), Incidente
+(starea măsurată acum: baza, brokerul și cozile lui, workerii, ultima rulare a fiecărei căi
+privilegiate; fără istoric de joburi, fiindcă niciun job nu își persistă starea). **Neconstruită, cu
+motivul:** Abonamente și planuri — modulul de facturare nu există; desenată ca pagină „de implementat"
+([ADR-093](../decisions/093-paginile-fara-server-se-deseneaza.md)). Ce nu apare niciodată: registre,
+documente, solduri, salarii, declarații, atașamente, denumiri de parteneri, sume.
+
+**Sesiunea de suport** ([ADR-077](../decisions/077-grantul-de-suport.md) §6,
+[ADR-094](../decisions/094-sesiunea-de-suport-e-doar-citire-la-nivel-de-tranzactie.md)). Suportul
+intră pe **gazda clientului**, cu contul lui obișnuit, abia după ce politicile clientului nu-l admit
+altfel; sesiunea poartă `support_grant_id`, contextul îl setează în `app.support_grant_id`, predicatele
+îl citesc pe ramura a treia, iar tranzacția e `READ ONLY` — scrierea e refuzată de bază, și înainte de
+ea de middleware (`403 support.read_only`), cu excepția lui `logout`. `rls.resolve_session` refuză o
+sesiune al cărei grant a fost revocat sau a expirat. Cheia de aprobare e `tenant.approve_support_access`,
+în rolul de administrare.
 
 ## 15. Ce urmează după această specificație
 

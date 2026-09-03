@@ -36,11 +36,24 @@
 > când proprietarul le dă marginea — acum dintr-un ecran, nu dintr-un TOML. **03.09:** restul
 > consolei — spații, angajați, jurnalul căilor privilegiate, capabilități, ringuri și flaguri, planuri
 > de conturi — prin funcții de citire enumerate și `P-12`
-> ([ADR-092](decisions/092-consola-citeste-metadate-si-administreaza-personalul.md)); abonamentele,
-> granturile de suport și incidentele n-au server și nu se desenează. **Urmează, tot din pasul
+> ([ADR-092](decisions/092-consola-citeste-metadate-si-administreaza-personalul.md)); apoi **grantul
+> de suport din ADR-077, construit** — doar-citire la nivel de tranzacție
+> ([ADR-094](decisions/094-sesiunea-de-suport-e-doar-citire-la-nivel-de-tranzactie.md)) — și
+> incidentele ca stare măsurată; abonamentele rămân „de implementat" până la grila de prețuri
+> (ADR-093). **Urmează, tot din pasul
 > 6:** declarația, când textul Ordinului IFPS 1164/2012 e citit; proratarea; radierea cu ușă. *Antetul acesta a rămas în urmă de două ori — spunea
 > „urmează pasul 2" până la 31.08 și „urmează trezoreria" până la 02.09, cu ambele livrate între timp.
 > Se rescrie la fiecare sesiune, nu doar „Ultima sesiune".*
+
+> **03.09 — planul golurilor a pornit, prin instrucțiunea proprietarului („start implementation… just do
+> it on my behalf… cover any blockers").** Planul e [`_bootstrap/14-planul-golurilor.md`](_bootstrap/14-planul-golurilor.md):
+> 24 de goluri potrivite cu secvența, 5a–5e inserate înaintea sfârșitului pasului 6. **Livrate azi:**
+> toți parametrii fiscali sunt **`active`** pe baza de dezvoltare cu marginea la data observației, prin
+> delegare (`OD-22`, `13` §C6 — implicitul „marginea NULL" e înlocuit de decizia delegată), plus
+> `labour.minimum_wage_monthly` (HG 771/2025, `13` §C12 închisă); **pasul 5a, prima jumătate:** aprobarea
+> rulării de salarii **postează** — `payroll.run_approved`, o formulă per angajat și componentă, destinația
+> costului pe contract, angajatul ca dimensiune pe 5311 și 7131. **Urmează:** 5a a doua jumătate (plata
+> salariilor prin trezorerie, lista de plată), apoi 5b tipărirea.
 
 **Felia verticală merge cap-coadă: companie → plan de conturi → notă manuală → balanță echilibrată.**
 Un test de integrare o parcurge prin HTTP, sub rolul aplicației
@@ -203,6 +216,77 @@ sunt bifate în `08`** — închiderea F1 e declarația proprietarului, ca la F0
 
 ## Ultima sesiune
 
+**2026-09-03 — Salariile ajung în registru: aprobarea rulării postează (pasul 5a, prima jumătate). Și
+parametrii fiscali sunt activi, prin delegare.**
+
+**De unde a pornit:** întrebarea proprietarului „could this be enough to manage the accounting for a
+company?" a produs `14-planul-golurilor.md` (24 de goluri, 10 nicăieri în plan, secvența revizuită cu
+5a–5e). Apoi instrucțiunea: *start implementation… if needed my decision or setup of vat or activation of
+vat… just do it on my behalf… cover any blockers… mind that is a dev db*.
+
+**Blocajele acoperite pe delegare, ca date, nu ca cod:**
+- **Cei 22 de parametri `draft` au primit marginea** — `valid_from` = data din `observed_in`,
+  `margin_basis = act`, `margin_reference` cu articolul și mențiunea „marginea = data observației, prin
+  decizia proprietarului din 2026-09-03 (delegată sesiunii); articolul final necitit — OD-92". Cele două
+  rânduri `labour.average_monthly_salary_forecast` au `valid_to`, altfel resolverul refuză ambiguitatea.
+  Încărcați și activați cu `activate_fiscal_parameters --approver dev@example.md`; ciornele fără margine
+  șterse din baza de dezvoltare. Măsurat: `vat.standard` → 20, `labour.minimum_wage_monthly` → 6300.
+- **`labour.minimum_wage_monthly` există** (`salariu_minim.toml`): 6300 lei de la 01.01.2026, HG 771/2025
+  — citit din **proiectul redactat** NU-915-MMPS-2025 (gov.md), identitatea din indexul legis.md (403 pe
+  text), `provisional`; cercetarea în `_input/cercetare/salariul-minim-2026.md`. Cele trei rulări din
+  ianuarie de pe baza de dezvoltare, recalculate: **complete**, linia CAS are sumă.
+
+**Livrat — pasul 5a, postarea (ADR-065 §7, §7.1 varianta 2, §8):**
+- **Cinci roluri noi** în `roles_snc_2020.csv` (5311, 5331, 5332, 7131, 7121) și **o coloană nouă,
+  `dimension_slots`**: rolul spune ce dimensiuni poartă contul legat; `install_default_bindings` le
+  declară prin `declare_dimension_slots` (extinde, nu îngustează) — răspunsul la §8.4, care spunea că fără
+  declarație `employee_id` nu ajunge pe nicio formulă. Măsurat pe baza de dezvoltare înainte: **niciun**
+  `company_account` nu declara vreun slot și **0 din 338** linii de jurnal aveau `partner_id`.
+- **`cost_destination` pe contract** (`payroll/0004`, coloană nulabilă cu CHECK pe vocabularul
+  `CostDestination`): cerut la creare, fără implicit; `PUT contracts/<id>/cost-destination` pentru
+  contractele scrise înaintea coloanei; pe ecran, o listă în rândul contractului.
+- **`accounting/posting/services/payroll.py`**: `payroll.run_approved`, handler `.v1`, o formulă per
+  angajat și componentă (`salary.gross` → cost / 5311; `cas.employer` → cost / 5331; `cnam.employee` →
+  5311 / 5332; `income_tax.withheld` → 5311 / 5342), destinația alege rolul de cost, `employee` ca
+  `DimensionValue`, o componentă neclasificată e refuz (`payroll.component_not_classified`), contractul
+  fără destinație e refuz pe nume (`payroll.cost_destination_missing`), ștampilele ADR-047 din rândurile
+  rulării (rezolvate din nou pe cheie la data calculului, ca la decontare — `confidence_at` cere istoric
+  pe care încărcarea directă nu-l scrie).
+- **`approve()` e o tranzacție**: îngheață, scrie audit, postează; un refuz al motorului (rol nelegat,
+  lună închisă, destinație lipsă) derulează și aprobarea. `run_in_context` poartă `posting`
+  (evenimentul, prin `events_of_document` — serviciu nou în `events/services/lineage.py`, ca `payroll` să
+  nu importe `accounting.ledger`, `D3`).
+- **`bind_default_roles --subdomain`** — comandă de operator pentru companiile legate înaintea rolurilor
+  noi; rulată pe `alpha` (3 × 5 legări) și `proba` (53).
+- **Ecrane:** contractul cere destinația; rularea aprobată spune „Contabilizată · Vezi registrul".
+- **Măsurat pe baza de dezvoltare, prin serviciu:** Alpha SRL, ianuarie 2026 → `2026-000140` „Salarii
+  2026-01": 7131 D 54 441,92 (brut 43 904,77 + CAS 10 537,15), 5311 C 43 904,77 / D 8 745,84, 5331 C
+  10 537,15, 5332 C 3 951,44, 5342 C 4 794,40; `employee_id` pe toate liniile 5311 și 7131, pe niciuna a
+  bugetelor; net 35 158,93 = brut − rețineri; trei ștampile de parametru.
+
+**Teste:** `tests/isolation/test_payroll_posting.py` — cinci pretenții: lanțul complet cu conturi și sume
+(`C12`), angajatul pe linie **din declarația catalogului**, aprobarea de două ori postează o dată (`R19`),
+destinația lipsă refuză și derulează aprobarea, luna închisă refuză (`periods.period_not_open`).
+`tests/isolation/payroll_ledger.py` — lumea de registru pe care o cer acum toate testele care aprobă
+(rulare, IPC). Gardianul de evenimente și-a schimbat exemplul (`payroll.run_approved` e real acum).
+
+**Prins de rulare:** (1) un `UPDATE` de superuser din `seed` **nu vede** rândul creat de tranzacția
+testului — potrivea zero rânduri și testul spunea „DID NOT RAISE"; nulificarea se face prin conexiunea
+aplicației; (2) `make -s manage ARGS=shell < script` e calea de script pe baza de dezvoltare — `uv run
+manage.py` fără `.env` cade la parola lui `evidenta_app`.
+
+**Suita:** pe baza privată `test_evidenta_s3`, **1.297 trec, 9 cad, 1 sărit** (03.09, ~6 min): 4 sunt
+`test_support_grants.py` al sesiunii vecine (modulul `support`, necomis), 5 erau ale acestei sesiuni —
+numărătoarea rolurilor (48 → 53) și testul care cerea ca `tva.toml` să fie **refuzat** la activare (acum
+afirmă contrariul: se activează pe marginea delegată) — reparate și verzi în fișierele lor. Frontend: 44
+teste de ecran, `tsc` și ESLint curate; `make lint` și `make typecheck` curate pe tot arborele.
+
+**Rămân:** 5a a doua jumătate — plata salariilor prin trezorerie cu dimensiunea angajatului și lista de
+plată; `OD-84` (salariul individual pe fișa 5311 e vizibil acum oricui citește registrul — prețul
+§8.6, neplătit); contractele din baza de dezvoltare au destinația `administrative` setată prin SQL, nu
+prin ecran; `tests/architecture/test_migrations_write_through_one_door` cade pe `identity/0011` al sesiunii
+vecine, nu pe ceva de aici. Nimic comis: arborele e partajat și instrucțiunea n-a cerut commit.
+
 **2026-09-02 — Consola platformei există, și prima ei pagină sunt parametrii fiscali ca setări de sistem (`evidenta-82`).**
 
 **De unde a pornit:** proprietarul a întrebat unde înregistrează TVA standard și a primit un TOML și două
@@ -284,13 +368,38 @@ backofisul administratorului?"* — da, și a cerut restul; [ADR-092](decisions/
   ce decizie o guvernează și când se construiește, cu textul ridicat din ADR-076/077/082/086 și Spec A.
   Restrânge ADR-092 §4 (teza „nu se desenează").
 
-**Suita:** backend neschimbat de la poarta precedentă (**1.286 trec, 1 sărit**; gardienii de arhitectură rerulați: 118); frontend **64**, dintre care 9 ale consolei.
+- **A patra felie, 03.09 — „implementează ce e posibil" din cele trei fără server.** Măsurat întâi:
+  abonamentele cer grila de prețuri (`OD-120`), pe care doar proprietarul o dă — rămân „de
+  implementat"; granturile de suport sunt decise integral (ADR-077, al proprietarului); incidentele se
+  pot măsura acum, fără joburi. **Granturile de suport, construite**
+  ([ADR-094](decisions/094-sesiunea-de-suport-e-doar-citire-la-nivel-de-tranzactie.md)):
+  `support_grant` (`platform/support`, `0077`, toate constrângerile din ADR-077 §3, plafonul de 72 h în
+  bază); ramura a treia în `rls.has_tenant_access` și `rls.has_company_access`
+  (`infra/bootstrap/0003`) și `app.current_support_grant_id()` (`0002`); `P-7` ca
+  `rls.request_support_access`, cu rândul de jurnal și notificarea membrilor scrise din funcție;
+  `rls.auth_support_grant` la autentificarea suportului pe gazda clientului; `rls.resolve_session`
+  poartă grantul și refuză sesiunea al cărei grant a murit; cheia `tenant.approve_support_access`
+  (identity/0011, cu aserțiunea de stare permanentă cerută de gardian); aprobare și revocare din
+  spațiul clientului cu propoziția din ADR-017 verbatim; pagina consolei; bara sesiunii de suport;
+  notificări la cerere, aprobare, revocare. **Doar-citire la nivel de tranzacție:** `tenant_context`
+  execută `SET TRANSACTION READ ONLY` sub grant (măsurat pe PG 18, acceptat după `set_config`), iar
+  middleware-ul refuză metodele nesigure înainte de vedere (`403 support.read_only`), cu `logout` ca
+  singura excepție. **Incidente, reale:** sonde măsurate acum — baza, brokerul Redis și coada lui,
+  workerii prin ping, ultima rulare a fiecărei căi privilegiate din jurnal
+  (`platform/audit/services/incidents.py`). Pagina „de implementat" rămâne doar pentru abonamente.
+- **Măsurat pe drum:** `rls.notify_tenant_members` cere `has_tenant_access`, deci nu se poate apela de
+  pe consolă — notificarea cererii s-a mutat în funcția `P-7`. Trei eșecuri din suita completă nu sunt
+  ale acestei sesiuni: `salariu_minim.toml` și evenimentul `payroll.run_approved` dublu vin din munca
+  necomisă a sesiunii de salarizare din arborele partajat.
+
+**Suita:** poarta completă rulată cu arborele partajat: **1.301 trec, 1 sărit, 5 pică** — toate cele 5 în fișiere pe care le modifică altă sesiune, necomise (`roles_snc_2020.csv`: 53 roluri față de 48 așteptate de testul ei; `tva.toml` cu margini scrise, deci activarea nu mai e refuzată); niciunul din fișierele acestui commit nu e printre ele. Frontend **70**, dintre care 14 ale consolei și 2 ale grantului.
 
 **Rămân:** marginile celor 22 de parametri `draft` — acum se scriu din ecran, dar tot proprietarul
-citește articolele finale; `OD-134` (două roluri pentru o persoană — azi două conturi); paginile fără
-server (abonamente, granturi de suport, incidente), fiecare cu modulul ei; scrierile de platformă care
-lipsesc (creare de spații prin `P-9`+`P-11`, atribuire de ringuri, suprascrieri de flaguri), fiecare
-cu calea ei; declanșatorul din ADR-091 §6 (credențiale separate web / worker). Nerezolvat din sesiunea
+citește articolele finale; `OD-134` (două roluri pentru o persoană — azi două conturi); abonamentele
+și planurile — cer grila (`OD-120`) și modulul de facturare; notificarea la expirarea grantului (cere
+un job) și grantul pe o singură companie cerut din consolă; scrierile de platformă care lipsesc
+(creare de spații prin `P-9`+`P-11`, atribuire de ringuri, suprascrieri de flaguri), fiecare cu calea
+ei; declanșatorul din ADR-091 §6 (credențiale separate web / worker). Nerezolvat din sesiunea
 precedentă: ADR-085 §4 vs. cod (derivarea companiei titularului), fără răspuns de la proprietar.
 
 **2026-09-02 — Pasul 6, a doua felie: registrele TVA pe perioada fiscală, egale cu registrul contabil

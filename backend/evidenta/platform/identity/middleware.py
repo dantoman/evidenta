@@ -42,4 +42,5 @@ class SessionAuthenticationMiddleware:
                 request.authenticated_user_id = resolved.user_id  # type: ignore[attr-defined]
                 request.authenticated_tenant_id = resolved.tenant_id  # type: ignore[attr-defined]
                 request.authenticated_actor_firm_id = resolved.actor_firm_id  # type: ignore[attr-defined]
+                request.authenticated_support_grant_id = resolved.support_grant_id  # type: ignore[attr-defined]
         return self.get_response(request)

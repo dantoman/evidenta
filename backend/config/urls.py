@@ -31,6 +31,8 @@ urlpatterns: list[URLPattern | URLResolver] = [
     path("api/v1/payroll/", include("evidenta.operations.payroll.urls")),
     path("api/v1/tax/", include("evidenta.operations.tax.urls")),
     path("api/v1/strict-forms/", include("evidenta.platform.strictforms.urls")),
+    # The client's side of a support grant (ADR-077): list, approve, revoke.
+    path("api/v1/support/", include("evidenta.platform.support.urls")),
     path("api/v1/", include("evidenta.platform.tenancy.urls")),
     # The platform's console (ADR-076). Served only on the `admin.` host: the
     # tenant resolver refuses `/api/v1/platform/` on every other host, and
@@ -44,6 +46,8 @@ urlpatterns: list[URLPattern | URLResolver] = [
     path("api/v1/platform/capabilities/", include("evidenta.platform.capabilities.console_urls")),
     path("api/v1/platform/flags/", include("evidenta.platform.flags.console_urls")),
     path("api/v1/platform/coa-templates/", include("evidenta.accounting.coa.console_urls")),
+    path("api/v1/platform/support-grants/", include("evidenta.platform.support.console_urls")),
+    path("api/v1/platform/incidents/", include("evidenta.platform.audit.incidents_urls")),
     path(
         "api/v1/platform/fiscal-parameters/",
         include("evidenta.fiscal.parameters.console_urls"),

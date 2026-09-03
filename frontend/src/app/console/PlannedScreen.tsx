@@ -1,8 +1,8 @@
 /**
  * A page that exists to say it does not yet -- ADR-093, at the owner's word.
  *
- * ADR-076 §4.3 lists nine objects the console administers; three have no server
- * behind them. The first version drew nothing for them and explained in a footer.
+ * ADR-076 §4.3 lists nine objects the console administers; one has no server
+ * behind it. The first version drew nothing for such pages and explained in a footer.
  * The owner asked for the opposite: a page per object, so that what remains to be
  * built is visible where it will live, with what it will do, what is missing and
  * which decision governs it. That is a roadmap entry, not a control pretending to
@@ -15,7 +15,7 @@
 import { t } from '@/locales'
 import { Badge, Card, PageHeader } from '@/shared/ui'
 
-export type PlannedPage = 'subscriptions' | 'support' | 'incidents'
+export type PlannedPage = 'subscriptions'
 
 export function PlannedScreen({ page }: { page: PlannedPage }) {
   const copy = t.console.planned[page]

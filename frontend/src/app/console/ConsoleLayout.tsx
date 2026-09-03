@@ -70,12 +70,7 @@ export function ConsoleLayout() {
             <Entry to="/capabilitati" icon="layout-dashboard" label={t.console.capabilities.title} />
             <Entry to="/ringuri-si-flaguri" icon="copy" label={t.console.flags.title} />
             <Entry to="/angajati" icon="users" label={t.console.staff.title} />
-            <Entry
-              to="/granturi-de-suport"
-              icon="circle-help"
-              label={t.console.planned.support.title}
-              planned
-            />
+            <Entry to="/granturi-de-suport" icon="circle-help" label={t.console.support.title} />
           </Group>
           <Group label={t.console.navReference}>
             <Entry to="/parametri-fiscali" icon="scale" label={t.console.fiscal.title} />
@@ -83,7 +78,7 @@ export function ConsoleLayout() {
           </Group>
           <Group label={t.console.navAudit}>
             <Entry to="/jurnal-privilegiat" icon="book-open" label={t.console.log.title} />
-            <Entry to="/incidente" icon="bell" label={t.console.planned.incidents.title} planned />
+            <Entry to="/incidente" icon="bell" label={t.console.incidents.title} />
           </Group>
         </nav>
 

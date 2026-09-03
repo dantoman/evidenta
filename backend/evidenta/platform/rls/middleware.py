@@ -56,7 +56,18 @@ REFUSAL_STATUS: dict[str, int] = {
     # (ADR-076 §4.2). A tenant route asked for there is not forbidden, it does
     # not exist: there is no tenant it could be about.
     "console.not_found": 404,
+    # A support session (ADR-077) reads. A request that would write is refused
+    # before the view runs, with a code the client can say in words; the
+    # read-only transaction underneath is what makes the refusal true even for a
+    # view nobody thought about (ADR-094).
+    "support.read_only": 403,
 }
+
+#: What a support session may still POST: ending itself. Exact paths, like the
+#: exemptions -- a prefix would widen the writable surface the day somebody adds
+#: a route under it.
+SUPPORT_WRITABLE_PATHS: tuple[str, ...] = ("/api/v1/auth/logout",)
+_SAFE_METHODS = frozenset({"GET", "HEAD", "OPTIONS"})
 
 
 def refuse_all(request: HttpRequest) -> TenantContext:
@@ -114,7 +125,14 @@ class TenantContextMiddleware:
                 raise
             return JsonResponse({"code": refusal.code}, status=status)
 
-        with tenant_context(context):
+        on_grant = bool(getattr(context, "support_grant_id", None))
+        writable = request.path in SUPPORT_WRITABLE_PATHS
+        if on_grant and not writable and request.method not in _SAFE_METHODS:
+            return JsonResponse(
+                {"code": "support.read_only"}, status=REFUSAL_STATUS["support.read_only"]
+            )
+
+        with tenant_context(context, read_only=on_grant and not writable):
             response = self.get_response(request)
             # Deliberate: the response is produced inside the transaction. A
             # streaming response that yields rows after this block would run its

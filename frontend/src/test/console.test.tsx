@@ -11,7 +11,9 @@ import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { FiscalParametersScreen } from '@/app/console/FiscalParametersScreen'
+import { IncidentsScreen } from '@/app/console/IncidentsScreen'
 import { PlannedScreen } from '@/app/console/PlannedScreen'
+import { SupportGrantsScreen } from '@/app/console/SupportGrantsScreen'
 import { PrivilegedLogScreen } from '@/app/console/PrivilegedLogScreen'
 import { SpacesScreen } from '@/app/console/SpacesScreen'
 import { StaffScreen } from '@/app/console/StaffScreen'
@@ -374,5 +376,94 @@ describe('consola platformei', () => {
     expect(screen.getByText('de implementat')).toBeInTheDocument()
     expect(screen.getByText('Ce lipsește')).toBeInTheDocument()
     expect(screen.getByText(/ADR-086/)).toBeInTheDocument()
+  })
+
+  it('granturile de suport: suportul cere pentru un spațiu, cu numărul solicitării și motivul', async () => {
+    const fetcher = stubFetch({
+      '/api/v1/platform/support-grants/': { grants: [] },
+      '/api/v1/platform/staff/me': { ...ME, staff_role: 'support' },
+    })
+    renderScreen(<SupportGrantsScreen />)
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Cere acces' }))
+    fireEvent.change(screen.getByLabelText(/^Spațiu/), { target: { value: 'alpha' } })
+    fireEvent.change(screen.getByLabelText('Solicitarea'), { target: { value: '4711' } })
+    fireEvent.change(screen.getByLabelText('Justificare'), {
+      target: { value: 'balanța nu se închide' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Trimite cererea' }))
+
+    await waitFor(() => {
+      const post = fetcher.mock.calls.find(
+        ([input, init]) =>
+          String(input) === '/api/v1/platform/support-grants/' && init?.method === 'POST',
+      )
+      expect(post).toBeDefined()
+      expect(JSON.parse(String(post![1]?.body))).toEqual({
+        space: 'alpha',
+        request_ref: '4711',
+        justification: 'balanța nu se închide',
+      })
+    })
+  })
+
+  it('granturile de suport: un operator vede lista fără formular', async () => {
+    stubFetch({
+      '/api/v1/platform/support-grants/': {
+        grants: [
+          {
+            id: 'g1',
+            subdomain: 'alpha',
+            legal_name: 'Alpha SRL',
+            company_id: null,
+            requested_by_email: 'support@platform.md',
+            request_ref: '4711',
+            justification: 'test',
+            requested_at: '2026-09-03T08:00:00+00:00',
+            approved_at: null,
+            expires_at: null,
+            revoked_at: null,
+            status: 'pending',
+          },
+        ],
+      },
+      '/api/v1/platform/staff/me': ME,
+    })
+    renderScreen(<SupportGrantsScreen />)
+
+    // The note appears once the role is known; the rows settle with it.
+    expect(await screen.findByText(/Doar rolul de suport cere un grant/)).toBeInTheDocument()
+    await waitFor(() => {
+      expect(screen.getByText('#4711')).toBeInTheDocument()
+      expect(screen.getByText('În așteptare')).toBeInTheDocument()
+    })
+    expect(screen.queryByRole('button', { name: 'Cere acces' })).not.toBeInTheDocument()
+  })
+
+  it('incidentele: sondele și ultima rulare a căilor', async () => {
+    stubFetch({
+      '/api/v1/platform/incidents/': {
+        database: { name: 'database', ok: true, detail: null, latency_ms: 3 },
+        broker: { name: 'broker', ok: false, detail: 'ConnectionError', latency_ms: null },
+        workers: { name: 'workers', ok: false, detail: null, latency_ms: null },
+        queues: [{ name: 'celery', depth: null, detail: 'ConnectionError' }],
+        paths: [
+          {
+            code: 'P-4',
+            label: 'P4 Fiscal Rules',
+            last_run_at: '2026-09-03T08:00:00+00:00',
+            last_actor: 'operator@platform.md',
+          },
+          { code: 'P-3', label: 'P3 Bnm Rates', last_run_at: null, last_actor: null },
+        ],
+      },
+    })
+    renderScreen(<IncidentsScreen />)
+
+    expect(await screen.findByText('Baza de date')).toBeInTheDocument()
+    expect(screen.getAllByText('răspunde')).toHaveLength(1)
+    expect(screen.getAllByText('nu răspunde')).toHaveLength(2)
+    expect(screen.getByText('operator@platform.md')).toBeInTheDocument()
+    expect(screen.getByText('niciodată')).toBeInTheDocument()
   })
 })

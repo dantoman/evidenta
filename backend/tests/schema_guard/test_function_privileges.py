@@ -78,6 +78,10 @@ GRANTED_TO_APP = frozenset(
         "console_capabilities",
         "console_release_rings",
         "console_flag_overrides",
+        # ADR-077: the request (`P-7`), the login lookup, and the console's list.
+        "request_support_access",
+        "auth_support_grant",
+        "console_support_grants",
     }
 )
 

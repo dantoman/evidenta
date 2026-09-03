@@ -149,6 +149,12 @@ class SubdomainTenantResolver:
             # (spec-a 3.1). Never from the request: a client that could name its
             # own acting firm could name someone else's.
             actor_firm_id=_optional_uuid(getattr(request, "authenticated_actor_firm_id", None)),
+            # Likewise the support grant (ADR-077 §6): set when the session was
+            # issued, read back by `rls.resolve_session`, which also refuses a
+            # session whose grant has since been revoked or has expired.
+            support_grant_id=_optional_uuid(
+                getattr(request, "authenticated_support_grant_id", None)
+            ),
         )
 
     @staticmethod

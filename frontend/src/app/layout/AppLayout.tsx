@@ -19,10 +19,12 @@ import { NavLink, Outlet, useNavigate } from 'react-router'
 
 import { t } from '@/locales'
 import { logout } from '@/shared/api/auth'
+import { supportSession } from '@/shared/api/support'
 import { workspace } from '@/shared/api/workspace'
+import { dateTime } from '@/shared/format'
 import { Icon, IconButton } from '@/shared/ui'
 import { workspaceName } from '@/shared/workspace'
-import { IDENTITY_KEY } from '../auth/useIdentity'
+import { IDENTITY_KEY, useIdentity } from '../auth/useIdentity'
 import { CompanyNav, navItem } from './CompanyNav'
 import { HeaderSearch } from './HeaderSearch'
 import { useSelectedCompany, type Selection } from './useSelectedCompany'
@@ -141,6 +143,8 @@ export function AppLayout({ tenantId }: { tenantId: string }) {
             disabled={signOut.isPending}
           />
         </header>
+
+        <SupportBar />
 
         <main className="flex-1 p-8">
           <div className="mx-auto max-w-page">
@@ -277,5 +281,36 @@ function SignedInAs() {
         )}
       </span>
     </span>
+  )
+}
+
+
+/**
+ * The bar that says a session runs on a support grant -- ADR-077 §6: "nu există
+ * «modul discret»". Drawn only when `whoami` carries a grant; it then asks the
+ * grant itself for the ticket and the expiry, through the same policy that lets
+ * the session see anything at all.
+ */
+function SupportBar() {
+  const identity = useIdentity()
+  const onGrant = Boolean(identity.data?.support_grant_id)
+  const session = useQuery({
+    queryKey: ['support-session'],
+    queryFn: supportSession,
+    enabled: onGrant,
+    retry: false,
+  })
+  if (!onGrant || !session.data?.grant) return null
+  const grant = session.data.grant
+  return (
+    <div
+      role="status"
+      className="flex items-center gap-3 border-b border-gold bg-[var(--parchment-100)] px-7 py-2 type-label text-heading"
+    >
+      <Icon name="circle-help" size={16} className="text-gold-strong" />
+      {t.nav.supportSession
+        .replace('{ref}', grant.request_ref)
+        .replace('{until}', grant.expires_at ? dateTime(grant.expires_at) : '')}
+    </div>
   )
 }

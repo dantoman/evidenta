@@ -17,6 +17,8 @@ export interface Identity {
   /** Null on the console host: a session bound to no workspace (ADR-076). */
   tenant_id: string | null
   actor_firm_id: string | null
+  /** Set on a support session (ADR-077): read-only, on a client's approval. */
+  support_grant_id: string | null
   request_id: string
 }
 

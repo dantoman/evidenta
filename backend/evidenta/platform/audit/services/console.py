@@ -10,6 +10,7 @@ what the run wrote; the log never held that either.
 
 from __future__ import annotations
 
+import json
 import uuid
 from dataclasses import dataclass
 from datetime import datetime
@@ -69,7 +70,16 @@ def privileged_log(
             tenant_count=row[8],
             request_id=row[9],
             justification=row[10],
-            payload=row[11],
+            payload=_json(row[11]),
         )
         for row in rows
     ]
+
+
+def _json(value: Any) -> dict[str, Any] | None:
+    """The function returns `jsonb`; through a raw cursor it can arrive as text
+    (measured), and the page wants the object either way."""
+    if value is None or isinstance(value, dict):
+        return value
+    loaded = json.loads(value)
+    return loaded if isinstance(loaded, dict) else {"value": loaded}

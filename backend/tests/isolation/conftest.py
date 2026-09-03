@@ -102,6 +102,9 @@ SEEDED_TABLES = (
     "tenant_release_ring",
     "feature_flag",
     "capability_activation",
+    # ADR-077. Points at tenant, company and user; `user_session` points at it
+    # by bare id only, so the order between the two does not matter.
+    "support_grant",
     "user_session",
     # ADR-076. Points at `user` twice (the employee and who granted them), so it
     # goes before it; nothing points at it.

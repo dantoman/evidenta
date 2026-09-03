@@ -50,6 +50,8 @@ INSTALLED_APPS: list[str] = [
     "evidenta.platform.tenancy.apps.TenancyConfig",
     "evidenta.platform.identity.apps.IdentityConfig",
     "evidenta.platform.engagement.apps.EngagementConfig",
+    # ADR-077: the one door from the platform to a client's data, consented.
+    "evidenta.platform.support.apps.SupportConfig",
     "evidenta.platform.audit.apps.AuditConfig",
     "evidenta.platform.legislation.apps.LegislationConfig",
     "evidenta.platform.capabilities.apps.CapabilitiesConfig",

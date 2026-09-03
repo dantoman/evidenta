@@ -71,6 +71,7 @@ class ResolvedSession:
     user_id: uuid.UUID
     tenant_id: uuid.UUID | None
     actor_firm_id: uuid.UUID | None
+    support_grant_id: uuid.UUID | None = None
 
 
 @contextmanager
@@ -138,12 +139,32 @@ def resolve_session(token_hash: str) -> ResolvedSession | None:
     """
     with _privileged_cursor() as cursor:
         cursor.execute(
-            "SELECT session_id, user_id, tenant_id, actor_firm_id FROM rls.resolve_session(%s)",
+            "SELECT session_id, user_id, tenant_id, actor_firm_id, support_grant_id "
+            "FROM rls.resolve_session(%s)",
             [token_hash],
         )
         row = cursor.fetchone()
     if row is None:
         return None
     return ResolvedSession(
-        session_id=row[0], user_id=row[1], tenant_id=row[2], actor_firm_id=row[3]
+        session_id=row[0],
+        user_id=row[1],
+        tenant_id=row[2],
+        actor_firm_id=row[3],
+        support_grant_id=row[4],
     )
+
+
+def support_grant_for(user_id: uuid.UUID, tenant_id: uuid.UUID) -> uuid.UUID | None:
+    """The approved, live support grant of this person on this tenant -- or None.
+
+    Asked at login, after both factors and after the ordinary access check has
+    failed (ADR-077 §6): a member signs in as a member; only somebody the
+    tenant's policies do not admit is tried as support. The function also wants
+    a live `support` row in `platform_staff`, so an employee who has left does
+    not get in on a grant that outlived them.
+    """
+    with _privileged_cursor() as cursor:
+        cursor.execute("SELECT rls.auth_support_grant(%s, %s)", [user_id, tenant_id])
+        row = cursor.fetchone()
+    return None if row is None or row[0] is None else uuid.UUID(str(row[0]))

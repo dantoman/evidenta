@@ -42,12 +42,18 @@ GRANT  USAGE ON SCHEMA rls TO evidenta_app, evidenta_owner;
 -- --- cele două căi de acces din V2 §4.2 -------------------------------------
 -- calea 1: membru activ al tenantului
 -- calea 2: engagement activ al firmei în numele căreia acționează utilizatorul
+-- calea 3 (ADR-077 §4): grantul de suport aprobat de client, mărginit de now().
+-- Poarta ieftină prima: într-o sesiune obișnuită `app.current_support_grant_id()` e
+-- nul și ramura se stinge înainte de orice EXISTS — costul pe calea fierbinte
+-- (spec-a §2.8) rămâne cel de azi. Variabila nu acordă nimic singură: rândul trebuie
+-- să existe, să fie aprobat, nerevocat, neexpirat și AL TENANTULUI CERUT.
 CREATE OR REPLACE FUNCTION rls.has_tenant_access(p_tenant_id uuid) RETURNS boolean
 LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public, app, rls, pg_temp AS $fn$
 DECLARE
-    v_user_id uuid := app.current_user_id();
-    v_firm_id uuid := app.current_actor_firm_id();
-    v_ok      boolean;
+    v_user_id  uuid := app.current_user_id();
+    v_firm_id  uuid := app.current_actor_firm_id();
+    v_grant_id uuid := app.current_support_grant_id();
+    v_ok       boolean;
 BEGIN
     SELECT EXISTS (
         SELECT 1 FROM membership m
@@ -56,27 +62,48 @@ BEGIN
           AND m.status    = 'active'
     ) INTO v_ok;
 
-    IF v_ok OR v_firm_id IS NULL THEN
+    IF v_ok THEN
+        RETURN true;
+    END IF;
+
+    IF v_firm_id IS NOT NULL THEN
+        -- Apartenența la firmă se verifică, nu se presupune: altfel oricine poate
+        -- pretinde că acționează pentru orice firmă doar setând o variabilă de sesiune.
+        SELECT EXISTS (
+            SELECT 1
+            FROM engagement e
+            JOIN firm f        ON f.id = e.firm_id
+            JOIN membership fm ON fm.tenant_id = f.tenant_id
+                              AND fm.user_id  = v_user_id
+                              AND fm.status   = 'active'
+            WHERE e.client_tenant_id = p_tenant_id
+              AND e.firm_id          = v_firm_id
+              AND e.status           = 'active'
+              AND e.valid_from      <= current_date
+              AND (e.valid_to IS NULL OR e.valid_to >= current_date)
+        ) INTO v_ok;
+
+        IF v_ok THEN
+            RETURN true;
+        END IF;
+    END IF;
+
+    IF v_grant_id IS NOT NULL THEN
+        -- `now()`, nu `current_date`: o fereastră de suport se măsoară în ore (ADR-077
+        -- §4, ADR-041 §1). Expirarea nu depinde de niciun job.
+        SELECT EXISTS (
+            SELECT 1 FROM support_grant sg
+            WHERE sg.id          = v_grant_id
+              AND sg.tenant_id   = p_tenant_id
+              AND sg.approved_at IS NOT NULL
+              AND sg.revoked_at  IS NULL
+              AND sg.expires_at  > now()
+        ) INTO v_ok;
+
         RETURN v_ok;
     END IF;
 
-    -- Apartenența la firmă se verifică, nu se presupune: altfel oricine poate
-    -- pretinde că acționează pentru orice firmă doar setând o variabilă de sesiune.
-    SELECT EXISTS (
-        SELECT 1
-        FROM engagement e
-        JOIN firm f        ON f.id = e.firm_id
-        JOIN membership fm ON fm.tenant_id = f.tenant_id
-                          AND fm.user_id  = v_user_id
-                          AND fm.status   = 'active'
-        WHERE e.client_tenant_id = p_tenant_id
-          AND e.firm_id          = v_firm_id
-          AND e.status           = 'active'
-          AND e.valid_from      <= current_date
-          AND (e.valid_to IS NULL OR e.valid_to >= current_date)
-    ) INTO v_ok;
-
-    RETURN v_ok;
+    RETURN false;
 END
 $fn$;
 
@@ -86,7 +113,9 @@ $fn$;
 
 CREATE OR REPLACE FUNCTION rls.has_company_access(p_company_id uuid) RETURNS boolean
 LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public, app, rls, pg_temp AS $fn$
-DECLARE v_ok boolean;
+DECLARE
+    v_grant_id uuid := app.current_support_grant_id();
+    v_ok       boolean;
 BEGIN
     SELECT EXISTS (
         SELECT 1 FROM company_access ca
@@ -96,6 +125,25 @@ BEGIN
           AND ca.valid_from <= current_date
           AND (ca.valid_to IS NULL OR ca.valid_to >= current_date)
     ) INTO v_ok;
+
+    IF v_ok OR v_grant_id IS NULL THEN
+        RETURN v_ok;
+    END IF;
+
+    -- Ramura simetrică din ADR-077 §4: grantul e al tenantului companiei și fie
+    -- acoperă tot tenantul (company_id nul), fie numește exact această companie.
+    SELECT EXISTS (
+        SELECT 1
+        FROM support_grant sg
+        JOIN company c ON c.id = p_company_id
+        WHERE sg.id          = v_grant_id
+          AND sg.tenant_id   = c.tenant_id
+          AND (sg.company_id IS NULL OR sg.company_id = p_company_id)
+          AND sg.approved_at IS NOT NULL
+          AND sg.revoked_at  IS NULL
+          AND sg.expires_at  > now()
+    ) INTO v_ok;
+
     RETURN v_ok;
 END
 $fn$;

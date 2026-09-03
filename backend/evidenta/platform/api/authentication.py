@@ -40,6 +40,8 @@ class Principal:
     user_id: UUID
     tenant_id: UUID
     actor_firm_id: UUID | None = None
+    #: Present on a support session (ADR-077): the request is read-only.
+    support_grant_id: UUID | None = None
 
     @property
     def is_authenticated(self) -> bool:
@@ -90,6 +92,7 @@ class SessionIdentityAuthentication(BaseAuthentication):
                 user_id=user_id,
                 tenant_id=tenant_id,
                 actor_firm_id=getattr(request, "authenticated_actor_firm_id", None),
+                support_grant_id=getattr(request, "authenticated_support_grant_id", None),
             ),
             None,
         )

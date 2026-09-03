@@ -262,12 +262,29 @@ def _open_session(
             actor_firm_id=actor_firm_id,
         )
 
+    support_grant_id: uuid.UUID | None = None
     with tenant_context(context):
         if tenant_id is None:
             if staff_role_in_context(user_id) is None:
                 raise AuthenticationError("auth.no_access_to_console")
         elif not tenant_visible_in_context(tenant_id):
-            raise AuthenticationError("auth.no_access_to_tenant")
+            # Not a member and not acting for a firm. The one remaining door is
+            # a support grant the client approved (ADR-077 §6): the tenant is
+            # visible only under the grant, so the check is repeated inside a
+            # context that carries it -- opened read-write on purpose, because
+            # the session row about to be written is the exception ADR-094 names.
+            support_grant_id = privileged.support_grant_for(user_id, tenant_id)
+            if support_grant_id is None:
+                raise AuthenticationError("auth.no_access_to_tenant")
+            on_grant = TenantContext(
+                tenant_id=tenant_id,
+                user_id=user_id,
+                request_id=request_id,
+                support_grant_id=support_grant_id,
+            )
+            with tenant_context(on_grant, read_only=False):
+                if not tenant_visible_in_context(tenant_id):
+                    raise AuthenticationError("auth.no_access_to_tenant")
 
         User.objects.filter(pk=user_id).update(last_login_at=now, updated_at=now)
         session = UserSession.objects.create(
@@ -275,6 +292,7 @@ def _open_session(
             token_hash=sessions.fingerprint(token),
             tenant_id=tenant_id,
             actor_firm_id=actor_firm_id,
+            support_grant_id=support_grant_id,
             expires_at=expires_at,
             last_seen_at=now,
             ip_address=ip_address,

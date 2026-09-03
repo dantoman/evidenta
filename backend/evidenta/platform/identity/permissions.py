@@ -66,6 +66,13 @@ PERMISSIONS: Final[tuple[PermissionDef, ...]] = (
     # handing them the others.
     PermissionDef("company.edit", PermissionScope.COMPANY, "tenancy.services.companies"),
     PermissionDef("company.close", PermissionScope.COMPANY, "tenancy.services.companies"),
+    # ADR-077 §5. The client's half of a support grant: approving and revoking the
+    # platform's read-only access to their own data. Tenant scope, because the
+    # grant is the space's -- held implicitly by the administration role created
+    # with the space.
+    PermissionDef(
+        "tenant.approve_support_access", PermissionScope.TENANT, "support.services.grants"
+    ),
 )
 
 PERMISSION_KEYS: Final[tuple[str, ...]] = tuple(p.key for p in PERMISSIONS)

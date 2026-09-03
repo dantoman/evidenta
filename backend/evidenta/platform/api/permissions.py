@@ -61,3 +61,9 @@ class IsPlatformAdmin(PlatformStaffPermission):
     """Administers `platform_staff` itself, and nothing else (ADR-076 §4.1)."""
 
     roles = frozenset({"admin"})
+
+
+class IsPlatformSupport(PlatformStaffPermission):
+    """May *request* a support grant (ADR-077 §5) -- and touches nothing else."""
+
+    roles = frozenset({"support"})

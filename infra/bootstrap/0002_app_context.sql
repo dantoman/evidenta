@@ -69,6 +69,15 @@ LANGUAGE sql STABLE AS $fn$
     SELECT NULLIF(current_setting('app.actor_firm_id', true), '')::uuid;
 $fn$;
 
+-- ADR-077 §4: grantul de suport pe care rulează sesiunea. NULL este starea normală —
+-- orice sesiune obișnuită — și stinge ramura a treia a predicatelor înainte de orice
+-- EXISTS. Variabila nu acordă nimic singură: rândul trebuie să existe, să fie aprobat,
+-- neexpirat și al tenantului cerut.
+CREATE OR REPLACE FUNCTION app.current_support_grant_id() RETURNS uuid
+LANGUAGE sql STABLE AS $fn$
+    SELECT NULLIF(current_setting('app.support_grant_id', true), '')::uuid;
+$fn$;
+
 -- ADR-004: app.company_id ÎNGUSTEAZĂ, nu acordă. NULL înseamnă „toate companiile
 -- la care utilizatorul are drept", nu „toate companiile". Nu este mecanism de
 -- securitate: izolarea între companiile aceluiași tenant se face prin
@@ -88,14 +97,16 @@ GRANT USAGE ON SCHEMA app TO evidenta_app, evidenta_rls;
 
 REVOKE ALL ON FUNCTION app.current_tenant_id(), app.current_user_id(),
                        app.current_request_id(), app.current_actor_firm_id(),
-                       app.current_company_id()
+                       app.current_company_id(), app.current_support_grant_id()
     FROM PUBLIC;
 
 GRANT EXECUTE ON FUNCTION app.current_tenant_id(), app.current_user_id(),
                           app.current_request_id(), app.current_actor_firm_id(),
-                          app.current_company_id()
+                          app.current_company_id(), app.current_support_grant_id()
     TO evidenta_app;
 
--- Predicatele din 0003 au nevoie de identitatea utilizatorului.
-GRANT EXECUTE ON FUNCTION app.current_user_id(), app.current_actor_firm_id()
+-- Predicatele din 0003 au nevoie de identitatea utilizatorului — și, din ADR-077, de
+-- grantul de suport al sesiunii.
+GRANT EXECUTE ON FUNCTION app.current_user_id(), app.current_actor_firm_id(),
+                          app.current_support_grant_id()
     TO evidenta_rls;

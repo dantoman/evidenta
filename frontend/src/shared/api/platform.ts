@@ -264,3 +264,55 @@ export interface ChartTemplate {
 export function listChartTemplates(): Promise<{ templates: ChartTemplate[] }> {
   return request<{ templates: ChartTemplate[] }>('/api/v1/platform/coa-templates/')
 }
+
+// --- support grants and incidents (ADR-077, ADR-076 §4.3) ---------------------
+
+export interface ConsoleGrant {
+  id: string
+  subdomain: string
+  legal_name: string
+  company_id: string | null
+  requested_by_email: string
+  request_ref: string
+  justification: string
+  requested_at: string
+  approved_at: string | null
+  expires_at: string | null
+  revoked_at: string | null
+  status: 'pending' | 'active' | 'expired' | 'revoked'
+}
+
+export function listConsoleGrants(): Promise<{ grants: ConsoleGrant[] }> {
+  return request<{ grants: ConsoleGrant[] }>('/api/v1/platform/support-grants/')
+}
+
+/** `P-7`: the request, by a `support` employee. Gives no access by itself. */
+export function requestSupportGrant(input: {
+  space: string
+  request_ref: string
+  justification: string
+}): Promise<{ grant_id: string }> {
+  return request<{ grant_id: string }>('/api/v1/platform/support-grants/', {
+    method: 'POST',
+    body: input,
+  })
+}
+
+export interface Probe {
+  name: string
+  ok: boolean
+  detail: string | null
+  latency_ms: number | null
+}
+
+export interface Incidents {
+  database: Probe
+  broker: Probe
+  workers: Probe
+  queues: { name: string; depth: number | null; detail: string | null }[]
+  paths: { code: string; label: string; last_run_at: string | null; last_actor: string | null }[]
+}
+
+export function incidents(): Promise<Incidents> {
+  return request<Incidents>('/api/v1/platform/incidents/')
+}

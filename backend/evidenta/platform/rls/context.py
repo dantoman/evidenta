@@ -69,6 +69,10 @@ class TenantContext:
     request_id: str
     actor_firm_id: UUID | None = None
     company_id: UUID | None = None
+    #: The support grant the session runs on (ADR-077). Set at session issue and
+    #: never later; the predicates' third branch reads it, and `tenant_context`
+    #: makes the transaction read-only when it is present (ADR-094).
+    support_grant_id: UUID | None = None
 
     def as_settings(self) -> dict[str, str | None]:
         return {
@@ -77,7 +81,12 @@ class TenantContext:
             "app.request_id": self.request_id,
             "app.actor_firm_id": str(self.actor_firm_id) if self.actor_firm_id else None,
             "app.company_id": str(self.company_id) if self.company_id else None,
+            "app.support_grant_id": str(self.support_grant_id) if self.support_grant_id else None,
         }
+
+    @property
+    def is_support(self) -> bool:
+        return self.support_grant_id is not None
 
 
 @dataclass(frozen=True, slots=True)
@@ -110,6 +119,7 @@ class PlatformContext:
             "app.request_id": self.request_id,
             "app.actor_firm_id": None,
             "app.company_id": None,
+            "app.support_grant_id": None,
         }
 
 
@@ -145,7 +155,7 @@ def is_unguarded() -> bool:
     return getattr(_state, "unguarded", 0) > 0
 
 
-def _apply(context: Context, using: str) -> None:
+def _apply(context: Context, using: str, *, read_only: bool = False) -> None:
     connection = connections[using]
     if not connection.in_atomic_block:
         raise OutsideTransactionError(
@@ -162,19 +172,34 @@ def _apply(context: Context, using: str) -> None:
             # `app.current_tenant_id()` still answered the member's tenant.
             # The empty string is what the `app.*` functions read as absent.
             cursor.execute("SELECT set_config(%s, %s, true)", [name, value or ""])
+        if read_only:
+            # ADR-094: a support session cannot write, and the database is what
+            # says so. `SET TRANSACTION READ ONLY` is accepted after the
+            # `set_config` selects above (measured on PostgreSQL 18) and refuses
+            # every later INSERT, UPDATE and DELETE in the transaction -- through
+            # any policy, any service, any oversight in either.
+            cursor.execute("SET TRANSACTION READ ONLY")
 
 
 @contextmanager
-def tenant_context(context: Context, using: str = DEFAULT_DB_ALIAS) -> Iterator[None]:
+def tenant_context(
+    context: Context, using: str = DEFAULT_DB_ALIAS, *, read_only: bool | None = None
+) -> Iterator[None]:
     """Open a transaction, set the context, and hold it for the block.
 
     The transaction is opened here rather than assumed: a caller that already has
     one gets a savepoint, and ``SET LOCAL`` applied in the outer transaction stays
     in effect for both.
+
+    ``read_only`` defaults to "whenever the context runs on a support grant"
+    (ADR-077 §3.1, ADR-094). The two callers that pass ``False`` explicitly are
+    the ones that must write *about* such a session -- issuing it, and ending it.
     """
     previous = getattr(_state, "context", None)
+    if read_only is None:
+        read_only = bool(getattr(context, "support_grant_id", None))
     with transaction.atomic(using=using):
-        _apply(context, using)
+        _apply(context, using, read_only=read_only)
         _state.context = context
         try:
             yield

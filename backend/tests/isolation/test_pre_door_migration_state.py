@@ -133,3 +133,32 @@ def test_fiscal_parameters_0007_kept_the_observation_it_promised_to_keep() -> No
         f"{without_margin} rows lost their margin but only {moved} kept an observation; "
         "the migration promised to move the dates rather than discard them"
     )
+
+
+def test_identity_0011_added_the_support_approval_key_on_both_paths() -> None:
+    """`identity/0011_support_session` writes one row into the table `0003` feeds.
+
+    The same two-path argument as `0008`: on a fresh database `0003` iterates the
+    live ``PERMISSIONS`` tuple and the key is already there; on a database that
+    ran `0003` before ADR-077 the row arrives here. One state either way, so the
+    state is asserted -- key present, at **tenant** scope, because a support grant
+    is the space's to approve (ADR-077 §5) and a key recorded at company scope
+    would be unholdable by the administration role that is meant to hold it.
+    """
+    assert any(d.key == "tenant.approve_support_access" for d in PERMISSIONS), (
+        "ADR-077's key has left the catalogue in code; this assertion is about the "
+        "table agreeing with it, and there is nothing left to agree with"
+    )
+
+    with connections["migration"].cursor() as cursor:
+        cursor.execute(
+            "SELECT key, scope FROM permission WHERE key = 'tenant.approve_support_access'"
+        )
+        rows = dict(cursor.fetchall())
+
+    assert set(rows) == {"tenant.approve_support_access"}, (
+        f"the upgrade path did not add the key; found {sorted(rows)}"
+    )
+    assert rows["tenant.approve_support_access"] == "tenant", (
+        f"the support approval key is recorded at the wrong scope: {rows}"
+    )

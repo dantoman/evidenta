@@ -24,10 +24,17 @@ import { Link } from 'react-router'
 import { t } from '@/locales'
 import { listCompanies } from '@/shared/api/companies'
 import { workspace, type WorkspaceRole } from '@/shared/api/workspace'
+import {
+  approveSupportGrant,
+  listSupportGrants,
+  revokeSupportGrant,
+  type SupportGrant,
+} from '@/shared/api/support'
+import { dateTime } from '@/shared/format'
 import { DataGrid, type Column } from '@/shared/DataGrid'
 import { Failure } from '@/shared/Failure'
 import { updateProfile } from '@/shared/api/auth'
-import { Badge, Button, Card, Field, Icon, Input, PageHeader } from '@/shared/ui'
+import { Badge, Button, Card, Field, Icon, Input, PageHeader, Select } from '@/shared/ui'
 
 const MEMBERSHIP_LABEL: Record<string, string> = {
   active: t.workspace.membershipActive,
@@ -191,6 +198,8 @@ export function WorkspaceScreen() {
         </div>
       </Card>
 
+      <SupportGrants canDecide={(me.role?.permissions ?? []).includes('tenant.approve_support_access')} />
+
       <Card eyebrow={t.workspace.delegated} title={t.workspace.delegated}>
         <p className="mt-3 mb-0 type-body-sm text-ink-muted">{t.workspace.delegatedLead}</p>
         {delegated.length === 0 ? (
@@ -284,4 +293,135 @@ function RenameForm({ current, onDone }: { current: string; onDone: () => void }
       <p className="mt-3 mb-0 type-body-sm text-ink-faint">{t.workspace.profileNote}</p>
     </>
   )
+}
+
+
+/**
+ * The client's side of a support grant -- ADR-077 §5–§6, on the workspace screen.
+ *
+ * The consent sentence is the one ADR-017 fixes, verbatim, with the real ticket
+ * number: a request that cannot name its ticket cannot be written, by
+ * constraint, so the sentence can always be completed. Approving and revoking
+ * need `tenant.approve_support_access`; without it the list is read-only and the
+ * note says which right is missing and who holds it. The window defaults to 24
+ * hours and cannot exceed 72 -- the ceiling is in the database, and the select
+ * simply does not offer more.
+ */
+function SupportGrants({ canDecide }: { canDecide: boolean }) {
+  const queryClient = useQueryClient()
+  const [hours, setHours] = useState<Record<string, number>>({})
+  const grants = useQuery({ queryKey: ['support-grants'], queryFn: listSupportGrants })
+  const refresh = () => queryClient.invalidateQueries({ queryKey: ['support-grants'] })
+  const approval = useMutation({
+    mutationFn: ({ id, window }: { id: string; window: number }) => approveSupportGrant(id, window),
+    onSuccess: refresh,
+  })
+  const revocation = useMutation({ mutationFn: revokeSupportGrant, onSuccess: refresh })
+
+  const rows = grants.data?.grants ?? []
+  const shown = rows.filter((g) => g.status === 'pending' || g.status === 'active')
+  const history = rows.filter((g) => g.status === 'expired' || g.status === 'revoked')
+
+  return (
+    <Card eyebrow={t.workspace.support} title={t.workspace.support}>
+      <p className="mt-3 mb-0 type-body-sm text-ink-muted">{t.workspace.supportLead}</p>
+      {!canDecide && (
+        <p className="mt-2 mb-0 type-body-sm text-ink-faint">{t.workspace.supportNoRight}</p>
+      )}
+      {grants.isError && <Failure error={grants.error} />}
+      {approval.isError && <Failure error={approval.error} />}
+      {revocation.isError && <Failure error={revocation.error} />}
+      {rows.length === 0 && !grants.isPending && (
+        <p className="mt-3 mb-0 type-body-md">{t.workspace.supportNone}</p>
+      )}
+      <ul className="mt-3 mb-0 flex list-none flex-col gap-3 p-0">
+        {shown.map((grant) => (
+          <li key={grant.id} className="flex flex-col gap-2 border-t border-border pt-3 first:border-0 first:pt-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge tone={grant.status === 'active' ? 'gold' : 'caution'}>
+                {statusLabel(grant.status)}
+              </Badge>
+              <span className="type-body-md text-heading">
+                {t.workspace.supportConsent.replace('{ref}', grant.request_ref)}
+              </span>
+            </div>
+            <p className="m-0 type-body-sm text-ink-muted">
+              {t.workspace.supportJustification}: {grant.justification} ·{' '}
+              {t.workspace.supportRequestedAt} {dateTime(grant.requested_at)}
+              {grant.expires_at && (
+                <>
+                  {' '}
+                  · {t.workspace.supportExpiresAt} {dateTime(grant.expires_at)}
+                </>
+              )}
+            </p>
+            {canDecide && (
+              <div className="flex flex-wrap items-end gap-3">
+                {grant.status === 'pending' && (
+                  <>
+                    <Field label={t.workspace.supportHours}>
+                      <Select
+                        value={String(hours[grant.id] ?? 24)}
+                        onChange={(event) =>
+                          setHours((current) => ({
+                            ...current,
+                            [grant.id]: Number(event.target.value),
+                          }))
+                        }
+                      >
+                        {[4, 8, 24, 48, 72].map((value) => (
+                          <option key={value} value={value}>
+                            {value}
+                          </option>
+                        ))}
+                      </Select>
+                    </Field>
+                    <Button
+                      onClick={() => approval.mutate({ id: grant.id, window: hours[grant.id] ?? 24 })}
+                      disabled={approval.isPending}
+                    >
+                      {t.workspace.supportApprove}
+                    </Button>
+                  </>
+                )}
+                <Button
+                  variant="danger"
+                  onClick={() => {
+                    if (window.confirm(t.workspace.supportConfirmRevoke)) revocation.mutate(grant.id)
+                  }}
+                  disabled={revocation.isPending}
+                >
+                  {t.workspace.supportRevoke}
+                </Button>
+              </div>
+            )}
+          </li>
+        ))}
+      </ul>
+      {history.length > 0 && (
+        <ul className="mt-3 mb-0 flex list-none flex-col gap-1 border-t border-border p-0 pt-3">
+          {history.map((grant) => (
+            <li key={grant.id} className="flex flex-wrap items-center gap-2 type-body-sm text-ink-muted">
+              <Badge tone="neutral">{statusLabel(grant.status)}</Badge>
+              <span>#{grant.request_ref}</span>
+              <span>· {dateTime(grant.requested_at)}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </Card>
+  )
+}
+
+function statusLabel(status: SupportGrant['status']): string {
+  switch (status) {
+    case 'pending':
+      return t.workspace.supportStatusPending
+    case 'active':
+      return t.workspace.supportStatusActive
+    case 'expired':
+      return t.workspace.supportStatusExpired
+    case 'revoked':
+      return t.workspace.supportStatusRevoked
+  }
 }
