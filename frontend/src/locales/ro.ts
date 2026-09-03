@@ -136,7 +136,9 @@ export const ro = {
       title: 'Registrul jurnal',
       number: 'Nr. notă',
       date: 'Data',
-      partner: 'Contragent',
+      // Coloana registrului, nu „Contragent": o notă între două conturi n-are
+      // contraparte, și sub un antet care promitea una descrierea se citea greșit.
+      content: 'Conținutul operațiunii',
       amount: 'Suma',
       state: 'Stare',
       total: 'Rulajul lunii',
@@ -186,7 +188,6 @@ export const ro = {
       openingMissing: 'Se citește din lotul de solduri inițiale, la care panoul nu ajunge încă.',
     },
     series: {
-      eyebrow: 'Șase luni',
       title: 'Rulaj lunar',
       debit: 'Debit',
       credit: 'Credit',

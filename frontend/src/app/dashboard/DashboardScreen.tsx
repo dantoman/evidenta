@@ -158,9 +158,14 @@ export function DashboardScreen() {
       </div>
 
       <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,420px),1fr))] items-start gap-4">
+        {/* The extract is the last five postings whenever they were, and the
+            footer is this month's turnover: two windows on one card. Each says
+            which -- on a company whose last posting was in March, five March
+            rows over "Rulajul lunii 0,00" read as a contradiction until they
+            did. */}
         <Card
           padding="none"
-          eyebrow={t.dashboard.register.eyebrow}
+          eyebrow={extractWindow(data.latest_entries)}
           title={t.dashboard.register.title}
         >
           <div className="mt-4">
@@ -175,7 +180,7 @@ export function DashboardScreen() {
               // above it -- those are the last five, and a footer that added
               // them up would be a total of an arbitrary window.
               serverTotals={{
-                entry_number: t.dashboard.register.total,
+                entry_number: `${t.dashboard.register.total} · ${month(data.month.start_date)}`,
                 amount: amount(data.month.debit),
               }}
             />
@@ -227,7 +232,7 @@ export function DashboardScreen() {
           <OpenWork
             documents={data.open_work.documents}
             draftEntries={data.open_work.draft_entries}
-            onRegister={() => void navigate(`/companii/${companyId}/registru`)}
+            open={(section) => void navigate(`/companii/${companyId}/${section}`)}
           />
         </Card>
 
@@ -240,7 +245,7 @@ export function DashboardScreen() {
       </div>
 
       <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,420px),1fr))] items-start gap-4">
-        <Card eyebrow={t.dashboard.series.eyebrow} title={t.dashboard.series.title}>
+        <Card eyebrow={seriesWindow(data.series)} title={t.dashboard.series.title}>
           <Series series={data.series} />
         </Card>
 
@@ -252,6 +257,27 @@ export function DashboardScreen() {
       </div>
     </section>
   )
+}
+
+/**
+ * Which postings the extract holds: from the oldest listed to the newest.
+ *
+ * Dates, not amounts -- the one kind of arithmetic the screen may do on the
+ * server's rows. The list arrives newest first, so the ends are the two ends.
+ */
+function extractWindow(entries: PanelEntry[]): string {
+  const newest = entries[0]
+  const oldest = entries[entries.length - 1]
+  if (!newest || !oldest) return t.dashboard.register.eyebrow
+  return `${t.dashboard.register.eyebrow} · ${date(oldest.accounting_date)} – ${date(newest.accounting_date)}`
+}
+
+/** The months the series spans, oldest first, as the design's eyebrow reads. */
+function seriesWindow(series: Turnover[]): string {
+  const first = series[0]
+  const last = series[series.length - 1]
+  if (!first || !last) return t.dashboard.series.title
+  return `${month(first.start_date)} — ${month(last.start_date)}`
 }
 
 /**
@@ -293,12 +319,20 @@ const ENTRY_COLUMNS: Column<PanelEntry>[] = [
     width: '7rem',
   },
   {
-    key: 'partner_name',
-    header: t.dashboard.register.partner,
-    // The counterparty when a line names one; otherwise what the entry says it
-    // is. A note between two accounts has no counterparty, and an empty column
-    // would read as missing data rather than as the shape of a manual note.
-    cell: (entry) => entry.partner_name || entry.description,
+    key: 'content',
+    header: t.dashboard.register.content,
+    // The counterparty first when a line names one, the description under it;
+    // the description alone otherwise. A note between two accounts has no
+    // counterparty, and that is the shape of a manual note, not missing data.
+    cell: (entry) =>
+      entry.partner_name ? (
+        <span className="flex flex-col">
+          <span className="type-label text-heading">{entry.partner_name}</span>
+          <span className="type-caption text-ink-muted">{entry.description}</span>
+        </span>
+      ) : (
+        entry.description
+      ),
   },
   {
     key: 'amount',
@@ -349,15 +383,22 @@ const WORK_ICON: Record<DocumentWork['owner'], IconName> = {
   treasury: 'coins',
 }
 
-/** What has not reached the ledger yet, and how much of it. */
+/** Where each family's documents are worked on -- the section under the company. */
+const WORK_SECTION: Record<DocumentWork['owner'], string> = {
+  purchases: 'facturi-primite',
+  sales: 'facturi',
+  treasury: 'trezorerie',
+}
+
+/** What has not reached the ledger yet, how much of it, and where to finish it. */
 function OpenWork({
   documents,
   draftEntries,
-  onRegister,
+  open,
 }: {
   documents: DocumentWork[]
   draftEntries: number
-  onRegister: () => void
+  open: (section: string) => void
 }) {
   if (documents.length === 0 && draftEntries === 0) {
     return <p className="mt-4 type-body-sm text-ink-muted">{t.dashboard.work.empty}</p>
@@ -374,6 +415,7 @@ function OpenWork({
           // opposite things done to them.
           hint={`${work.draft} ${t.dashboard.work.draft} · ${work.confirmed} ${t.dashboard.work.confirmed}`}
           count={work.draft + work.confirmed}
+          onClick={() => open(WORK_SECTION[work.owner])}
         />
       ))}
       {draftEntries > 0 && (
@@ -382,7 +424,7 @@ function OpenWork({
           name={t.dashboard.work.entries}
           hint={t.dashboard.work.entriesHint}
           count={draftEntries}
-          onClick={onRegister}
+          onClick={() => open('registru')}
         />
       )}
     </div>

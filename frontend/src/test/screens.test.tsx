@@ -663,6 +663,12 @@ describe('ecranele', () => {
     expect(screen.getByLabelText('Situația la')).toHaveValue('2026-06-18')
     expect(screen.getByText('Echilibrată')).toBeInTheDocument()
 
+    // Fiecare listă spune ce perioadă acoperă, fiindcă nu acoperă aceeași:
+    // extrasul e „ultimele cinci, oricând", totalul e al lunii, seria e a ei.
+    expect(screen.getByText('Ultimele înregistrări · 17.06.2026 – 18.06.2026')).toBeInTheDocument()
+    expect(screen.getByText('Rulajul lunii · iunie 2026')).toBeInTheDocument()
+    expect(screen.getByText('ianuarie 2026 — iunie 2026')).toBeInTheDocument()
+
     // R14 în ambele sensuri, ca pe registru: una stornează, cealaltă e stornată.
     expect(screen.getByText('Stornare')).toBeInTheDocument()
     expect(screen.getByText('Stornată')).toBeInTheDocument()

@@ -422,6 +422,11 @@ nepostate vin prin serviciu public, nu prin citirea tabelei altcuiva (`D6`).
   arăta corect „0,00" lângă o listă de note din martie — corect și necitibil. Câmpul „Situația la"
   pune ziua în adresă (`?la=YYYY-MM-DD`), deci panoul pentru martie se poate trimite ca link;
   absent, e azi.
+- **Lista spune ce perioadă acoperă** (2026-09-03). „Ultimele înregistrări" nu e mărginită de
+  lună, iar totalul de sub ea era; alături, se citeau ca o contradicție. Acum supratitlul poartă
+  intervalul celor cinci note, totalul poartă numele lunii, seria poartă lunile ei, iar coloana
+  „Contragent" a devenit „Conținutul operațiunii" — o notă între două conturi n-are contraparte.
+  Rândurile din *Lucrări deschise* duc la ecranul familiei lor.
 - **6 teste de izolare** (5 pe panou, 1 pe numărătoarea documentelor) + 1 de frontend. Cel de
   frontier verifică ce contează: același `company_id`, citit din celălalt tenant, dă zerouri și
   nicio înregistrare.
