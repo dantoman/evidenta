@@ -277,7 +277,14 @@ backofisul administratorului?"* — da, și a cerut restul; [ADR-092](decisions/
   pentru ne-angajați, numărătorile fără conținut, `P-12` cu rândul lui de jurnal, un rol per persoană,
   auto-retragerea refuzată, 403 pe gazda unui tenant; patru teste de ecran în `console.test.tsx`.
 
-**Suita:** **1.286 trec, 1 sărit** (2026-09-03, poarta completă `GATE: PASS`); frontend 63, dintre care 8 ale consolei.
+- **A treia felie, tot 03.09 — paginile fără server se desenează** ([ADR-093](decisions/093-paginile-fara-server-se-deseneaza.md),
+  decizia proprietarului: *„creează paginile să se știe că trebuie implementat"*): trei rute noi pe
+  consolă — Abonamente și planuri, Granturi de suport, Incidente — servite de `PlannedScreen`, fără
+  server, marcate „de implementat" în bara laterală și în antet; fiecare spune ce va face, ce lipsește,
+  ce decizie o guvernează și când se construiește, cu textul ridicat din ADR-076/077/082/086 și Spec A.
+  Restrânge ADR-092 §4 (teza „nu se desenează").
+
+**Suita:** backend neschimbat de la poarta precedentă (**1.286 trec, 1 sărit**; gardienii de arhitectură rerulați: 118); frontend **64**, dintre care 9 ale consolei.
 
 **Rămân:** marginile celor 22 de parametri `draft` — acum se scriu din ecran, dar tot proprietarul
 citește articolele finale; `OD-134` (două roluri pentru o persoană — azi două conturi); paginile fără

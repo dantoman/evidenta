@@ -1168,11 +1168,82 @@ export const ro = {
       operator: 'Operator',
       admin: 'Administrator',
     } as Record<string, string>,
-    // Paginile din ADR-076 §4.3 care nu au server nu se desenează: o intrare
-    // care duce nicăieri învață oamenii să nu creadă bara laterală. Se spune în
-    // schimb ce lipsește și de ce.
+    // Paginile din ADR-076 §4.3 care nu au server se desenează totuși, prin
+    // instrucțiunea proprietarului (ADR-093), ca pagini „de implementat": spun ce
+    // vor face, ce lipsește și de ce decizie depind. Marcajul stă și în bara
+    // laterală, ca nimeni să nu ia o intrare drept funcționalitate.
     notBuilt:
-      'Fără server încă: abonamentele și planurile (modulul de facturare nu există), granturile de suport (ADR-077, neconstruit), incidentele (nu rulează niciun worker).',
+      'Paginile marcate „de implementat" descriu ce urmează și ce le lipsește. Nu au încă server.',
+    plannedMarker: 'de implementat',
+    planned: {
+      eyebrow: 'Consola platformei · De implementat',
+      will: 'Ce va face pagina',
+      missing: 'Ce lipsește',
+      decisions: 'Deciziile care o guvernează',
+      trigger: 'Când se construiește',
+      subscriptions: {
+        title: 'Abonamente și planuri',
+        lead: 'Cine plătește ce, pe fiecare companie, și ce plan are fiecare spațiu. Pagina descrisă în ADR-076 §4.3; modulul de facturare nu există încă.',
+        will: [
+          'Lista abonamentelor pe companie: planul, starea, data efectivă, canalul de plată (direct sau prin firma de contabilitate).',
+          'Catalogul de planuri, versionat ca date: ce componente cuprinde fiecare și de când.',
+          'Facturile emise de platformă, câte una pe companie; firma de contabilitate primește una singură pentru companiile pe care le plătește.',
+          'Conturile de facturare și schimbările lor de plan, cu data de la care se aplică.',
+        ],
+        missing: [
+          'Tabelele plan, subscription și billing_account nu există în modele. „plan" e declarat în contractul RLS, dar nicio migrare nu l-a creat.',
+          'Calea privilegiată P-1 (facturarea abonamentelor) nu are cod și nu lasă rânduri în jurnal.',
+          'Alegerea planului din spațiul clientului, pe fiecare companie, nu are ecran.',
+        ],
+        decisions: [
+          'ADR-082 — unitatea facturabilă e compania, nu spațiul; grila e date versionate.',
+          'ADR-086 — câte o factură pe companie; firma de contabilitate, una pentru companiile pe care le plătește.',
+          'Spec A §10.2 — modelul billing_account, subscription, plan.',
+        ],
+        trigger: 'Când se construiește modulul de facturare, cu P-1 și ecranul de alegere a planului din spațiul clientului.',
+      },
+      support: {
+        title: 'Granturi de suport',
+        lead: 'Singura cale a platformei către datele unui client: cerută de suport, aprobată de client, doar citire, cu expirare. ADR-077 e acceptat și neconstruit.',
+        will: [
+          'Cererile de suport deschise: cine a cerut, pentru care spațiu, cu ce referință de solicitare și ce justificare.',
+          'Aprobările date de clienți, cine le-a dat și până când sunt valabile.',
+          'Granturile expirate și cele retrase, ca istoric: fiecare acces la datele unui client trebuie să fie explicabil ulterior.',
+        ],
+        missing: [
+          'Tabela grantului de suport nu există; calea privilegiată P-7 nu are cod.',
+          'Ramura mărginită din predicatul de acces, care ar deschide citirea până la expirare, nu e scrisă.',
+          'Ecranul de consimțământ din spațiul clientului, cu dreptul tenant.approve_support_access, nu există.',
+          'Clauza contractuală care descrie mecanismul clientului (OD-115) nu e scrisă.',
+        ],
+        decisions: [
+          'ADR-077 — cererea e privilegiată, aprobarea e obișnuită, expirarea e în predicat; doar citire.',
+          'ADR-076 §2 — consola administrează platforma, nu datele; grantul e excepția consimțită.',
+          'Spec A §6.2, P-7 — suportul platformei.',
+        ],
+        trigger: 'La primul incident care nu se poate diagnostica din jurnale și metrici, sau la închiderea OD-115, oricare vine prima.',
+      },
+      incidents: {
+        title: 'Incidente',
+        lead: 'Starea joburilor, cozile și erorile de integrare. Nu există încă un job cu stare persistată, deci nu există nimic de citit.',
+        will: [
+          'Rulările joburilor de platformă: cursul BNM (P-3), interogarea SFS pentru e-Factura (P-2), construirea read models (P-6), cu ultima rulare și rezultatul ei.',
+          'Cozile: câte sarcini așteaptă, de cât timp, câte au eșuat.',
+          'Erorile de integrare pe spații, ca metadată: ce integrare, când, ce cod de eroare. Niciodată conținutul documentului.',
+        ],
+        missing: [
+          'Nu rulează niciun worker în dezvoltare și niciun job nu își persistă starea.',
+          'Integrarea SFS și cursul BNM nu au cod; P-2 și P-3 nu lasă rânduri în jurnal.',
+          'Decoratorul care impune contextul de tenant pe fiecare sarcină (R6) precede orice job care atinge date.',
+        ],
+        decisions: [
+          'ADR-076 §4.3 — pagina „Incidente": starea joburilor, cozile, erorile de integrare.',
+          'Spec A §6.2 — P-2 și P-3, procese ale platformei, nu ale unui spațiu.',
+          'CLAUDE.md R6 — fiecare sarcină primește spațiul explicit și setează contextul înainte de orice interogare.',
+        ],
+        trigger: 'La primul job programat cu stare persistată: cursul BNM este candidatul, fiindcă nu atinge datele niciunui client.',
+      },
+    },
     notStaff: 'Contul dumneavoastră nu mai are rol pe platformă.',
     navPlatform: 'Platformă',
     navReference: 'Date de referință',

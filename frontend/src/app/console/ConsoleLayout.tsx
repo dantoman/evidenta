@@ -61,9 +61,21 @@ export function ConsoleLayout() {
               Pages with no server behind them are not drawn -- see the footer. */}
           <Group label={t.console.navPlatform}>
             <Entry to="/spatii" icon="building-2" label={t.console.spaces.title} />
+            <Entry
+              to="/abonamente"
+              icon="coins"
+              label={t.console.planned.subscriptions.title}
+              planned
+            />
             <Entry to="/capabilitati" icon="layout-dashboard" label={t.console.capabilities.title} />
             <Entry to="/ringuri-si-flaguri" icon="copy" label={t.console.flags.title} />
             <Entry to="/angajati" icon="users" label={t.console.staff.title} />
+            <Entry
+              to="/granturi-de-suport"
+              icon="circle-help"
+              label={t.console.planned.support.title}
+              planned
+            />
           </Group>
           <Group label={t.console.navReference}>
             <Entry to="/parametri-fiscali" icon="scale" label={t.console.fiscal.title} />
@@ -71,6 +83,7 @@ export function ConsoleLayout() {
           </Group>
           <Group label={t.console.navAudit}>
             <Entry to="/jurnal-privilegiat" icon="book-open" label={t.console.log.title} />
+            <Entry to="/incidente" icon="bell" label={t.console.planned.incidents.title} planned />
           </Group>
         </nav>
 
@@ -149,11 +162,28 @@ function Group({ label, children }: { label: string; children: ReactNode }) {
   )
 }
 
-function Entry({ to, icon, label }: { to: string; icon: IconName; label: string }) {
+/**
+ * `planned` marks an entry whose page describes what is not built yet (ADR-093):
+ * the marker travels with the label so nobody reads the entry as a feature.
+ */
+function Entry({
+  to,
+  icon,
+  label,
+  planned = false,
+}: {
+  to: string
+  icon: IconName
+  label: string
+  planned?: boolean
+}) {
   return (
     <NavLink to={to} className={({ isActive }) => navItem(isActive)}>
       <Icon name={icon} size={20} />
-      <span>{label}</span>
+      <span className="min-w-0 flex-1 truncate">{label}</span>
+      {planned && (
+        <span className="shrink-0 type-caption text-gold-400">{t.console.plannedMarker}</span>
+      )}
     </NavLink>
   )
 }

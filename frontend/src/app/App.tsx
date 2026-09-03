@@ -8,6 +8,7 @@ import { ChartTemplatesScreen } from './console/ChartTemplatesScreen'
 import { ConsoleLayout } from './console/ConsoleLayout'
 import { FiscalParametersScreen } from './console/FiscalParametersScreen'
 import { FlagsScreen } from './console/FlagsScreen'
+import { PlannedScreen } from './console/PlannedScreen'
 import { PrivilegedLogScreen } from './console/PrivilegedLogScreen'
 import { SpacesScreen } from './console/SpacesScreen'
 import { StaffScreen } from './console/StaffScreen'
@@ -117,6 +118,12 @@ export function App() {
             <Route path="parametri-fiscali" element={<FiscalParametersScreen />} />
             <Route path="planuri-de-conturi" element={<ChartTemplatesScreen />} />
             <Route path="jurnal-privilegiat" element={<PrivilegedLogScreen />} />
+            {/* The three objects with no server yet, drawn as what remains to be
+                built (ADR-093): what the page will do, what is missing, which
+                decision governs it. */}
+            <Route path="abonamente" element={<PlannedScreen page="subscriptions" />} />
+            <Route path="granturi-de-suport" element={<PlannedScreen page="support" />} />
+            <Route path="incidente" element={<PlannedScreen page="incidents" />} />
           </Route>
         </Routes>
       </BrowserRouter>

@@ -1940,8 +1940,10 @@ atribuire), Angajații platformei (citire pentru toți, acordare și retragere p
 conturi (doar citire; încărcarea e `P-10` din fișier), Jurnalul căilor privilegiate (filtrabil pe cale
 și pe spațiu). **Neconstruite, cu motivul:** Abonamente și planuri (modulul de facturare nu există),
 Granturi de suport (ADR-077 acceptat, neconstruit), Incidente (nu există stare de joburi de citit).
-Nedesenate în interfață până când au server; interfața spune de ce. Ce nu apare niciodată: registre,
-documente, solduri, salarii, declarații, atașamente, denumiri de parteneri, sume.
+Desenate ca pagini „de implementat" ([ADR-093](../decisions/093-paginile-fara-server-se-deseneaza.md)):
+fiecare spune ce va face, ce lipsește, de ce decizie depinde și când se construiește, cu marcajul și
+în bara laterală. Ce nu apare niciodată: registre, documente, solduri, salarii, declarații, atașamente,
+denumiri de parteneri, sume.
 
 ## 15. Ce urmează după această specificație
 

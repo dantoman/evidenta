@@ -164,6 +164,7 @@ Acte normative, secțiuni din documentele de intrare, benchmark-uri, discuții.
 | [090](090-registrele-tva-pe-perioada-fiscala.md) | Registrele TVA se citesc pe perioada fiscală și sunt egale cu registrul contabil; perioada cere înregistrare; scriitorul CSV coboară în nucleul documentelor | Acceptat — tehnic, varianta reversibilă | 2026-09-02 | partea structurală a registrelor din `F2.A6` *(deschide `OD-132`)* |
 | [091](091-consola-scrie-referinta-din-procesul-web.md) | Consola scrie datele de referință din procesul web, pe conexiunea rolului de referință, cu apelantul verificat în `platform_staff` | Acceptat — tehnic | 2026-09-02 | — *(deschide `OD-133`)* |
 | [092](092-consola-citeste-metadate-si-administreaza-personalul.md) | Consola citește metadatele platformei prin funcții enumerate (`rls.console_*`) și își administrează personalul prin `P-12` | Acceptat — tehnic | 2026-09-03 | OD-133 *(deschide `OD-134`)* |
+| [093](093-paginile-fara-server-se-deseneaza.md) | Paginile consolei fără server se desenează, ca pagini „de implementat": ce vor face, ce lipsește, de ce decizie depind | Acceptat — produs, proprietar | 2026-09-03 | — *(restrânge ADR-092 §4)* |
 
 *Indexul se actualizează la fiecare ADR nou. Un ADR care nu apare aici este invizibil.*
 

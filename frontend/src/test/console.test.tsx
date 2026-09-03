@@ -11,6 +11,7 @@ import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { FiscalParametersScreen } from '@/app/console/FiscalParametersScreen'
+import { PlannedScreen } from '@/app/console/PlannedScreen'
 import { PrivilegedLogScreen } from '@/app/console/PrivilegedLogScreen'
 import { SpacesScreen } from '@/app/console/SpacesScreen'
 import { StaffScreen } from '@/app/console/StaffScreen'
@@ -363,5 +364,15 @@ describe('consola platformei', () => {
       const urls = fetcher.mock.calls.map(([input]) => String(input))
       expect(urls).toContain('/api/v1/platform/privileged-log/?path=P-12&limit=100')
     })
+  })
+
+  it('paginile de implementat spun ce vor face, ce lipsește și de ce decizie depind', () => {
+    stubFetch({})
+    renderScreen(<PlannedScreen page="subscriptions" />)
+
+    expect(screen.getByText('Abonamente și planuri')).toBeInTheDocument()
+    expect(screen.getByText('de implementat')).toBeInTheDocument()
+    expect(screen.getByText('Ce lipsește')).toBeInTheDocument()
+    expect(screen.getByText(/ADR-086/)).toBeInTheDocument()
   })
 })
